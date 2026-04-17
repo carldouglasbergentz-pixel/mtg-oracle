@@ -15,11 +15,19 @@ This project compiles a comprehensive Magic: The Gathering knowledge base — ca
 
 ### cards
 - `name` (PK) — canonical Oracle name
-- `oracle_text` — official rules text
+- `oracle_id` — Scryfall stable id (shared across prints of the same card)
+- `oracle_text` — official rules text (both faces joined with `// ` for DFC/split/flip)
 - `type_line` — full type line (e.g., "Legendary Creature — Elf Noble")
+- `layout` — e.g., `normal`, `transform`, `modal_dfc`, `split`, `flip`
+- `card_faces` — raw Scryfall per-face JSON (NULL for single-face cards)
 
 ### rulings
-- `id`, `card_name` (FK), `date` (YYYY-MM-DD), `text`
+- `id`, `card_name` (FK), `oracle_id`, `date` (YYYY-MM-DD), `text`
+
+### sync_state
+- `source` (PK) — e.g., `scryfall_oracle_cards`, `wizards_cr`, `spellbook_variants`
+- `updated_at` — upstream version marker (timestamp, ETag, or release date)
+- `last_sync`, `row_count`
 
 ### rules
 - `rule_number` (PK) — e.g., "100.1a"
@@ -43,14 +51,13 @@ This project compiles a comprehensive Magic: The Gathering knowledge base — ca
 ```bash
 pip install -r requirements.txt
 python scripts/init_db.py
-python scripts/ingest_cards.py data/source/mtg_judge_db.json
-python scripts/ingest_rules.py data/source/MagicCompRules.docx
-python scripts/ingest_combos.py
+python scripts/sync.py      # pulls cards, rulings, rules, combos from upstream
 ```
 
 ### Refreshing
-- Combos change weekly → `/sync` or `python scripts/ingest_combos.py`
-- Cards/rules only change when source files are replaced
+- `/sync` or `python scripts/sync.py` — skips sources whose upstream is unchanged.
+- `--force` re-ingests everything; `--only cards|rules|combos` scopes the run.
+- Sources of truth: Scryfall (cards + rulings), Wizards `magic.wizards.com/en/rules` (CR `.txt`), Commander Spellbook (combos).
 
 ## Query patterns
 
@@ -93,7 +100,7 @@ WHERE text LIKE '%layer%' AND rule_number LIKE '613%';
 
 ## Don't
 
-- Don't fetch from Scryfall live unless a card is genuinely missing from `cards`.
-- Don't modify files in `data/source/` — those are immutable inputs.
+- Don't fetch from Scryfall live unless a card is genuinely missing from `cards`. Running `/sync` is the supported refresh path.
+- Don't modify files in `data/raw/` or `data/source/` — those are cached upstream payloads / legacy inputs, overwritten on sync.
 - Don't assume Spellbook combos are exhaustive — many homebrew combos exist outside their database. State this caveat when relevant.
 - Don't run `init_db.py` against an existing populated database without confirming with the user — it doesn't drop data, but the user should know.

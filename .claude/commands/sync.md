@@ -1,15 +1,24 @@
-Refresh the MTG Oracle database from external sources.
+Refresh the MTG Oracle database from all upstream sources.
 
 Steps:
 
-1. Re-fetch combos from Commander Spellbook (updated weekly):
+1. Run the orchestrator (idempotent — unchanged sources are skipped):
    ```bash
-   python scripts/ingest_combos.py
+   python scripts/sync.py
    ```
 
-2. Report back:
-   - Total combo count now in the database
-   - File size of `data/mtg.db`
-   - Date of the cached `data/raw/spellbook_variants.json` (last sync)
+   Flags:
+   - `--force` re-ingests all three sources regardless of upstream state.
+   - `--only cards|rules|combos` limits the run to one source.
 
-Do NOT re-ingest cards or rules unless the user explicitly asks — those come from local source files and only change when the user replaces them.
+2. Report back:
+   - The `sync_state` summary printed at the end (upstream `updated_at` + row counts per source).
+   - Current file size of `data/mtg.db`.
+   - Which sources were actually refreshed vs. skipped, based on the script output.
+
+Sources:
+- **cards** — Scryfall `oracle_cards` + `rulings` bulk files (daily cadence upstream).
+- **rules** — Wizards Comprehensive Rules `.txt`, discovered by scraping `magic.wizards.com/en/rules` (updated ~6x/year with set releases).
+- **combos** — Commander Spellbook `variants.json` (weekly).
+
+Do NOT manually call the individual `sync_cards.py` / `sync_rules.py` / `sync_combos.py` scripts unless the user explicitly asks — prefer the orchestrator so `sync_state` stays consistent and the user sees a single summary.

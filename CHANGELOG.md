@@ -21,7 +21,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Double-faced, modal-DFC, split, and flip cards now preserve **all** face texts (previously the back face was silently dropped because `ingest_cards.py` read `card_info[0]` only). Combined text uses a `// ` separator between faces.
 - `init_db.py` schema updated to match the new columns/tables so fresh installs match migrated ones.
 
+### Added (rules automation + orchestrator)
+- `scripts/sync_rules.py` — scrapes `magic.wizards.com/en/rules`, resolves the current `MagicCompRules YYYYMMDD.txt`, parses it, and upserts the `rules` table. Release date is stored as `sync_state.updated_at` so re-runs skip unchanged releases.
+- `scripts/sync.py` — orchestrator that runs cards + rules + combos in one go, with `--force` and `--only` flags. Safe to schedule daily via cron / Task Scheduler; each source no-ops when upstream is unchanged.
+- ETag-based idempotency for Commander Spellbook (`HEAD` probe → compare against `sync_state`).
+
+### Changed
+- Renamed `scripts/ingest_combos.py` → `scripts/sync_combos.py` and added `sync_state` tracking (keyed on upstream ETag).
+- Rules section-title regex now accepts commas/apostrophes/hyphens (fixes section 6 "Spells, Abilities, and Effects" being missed, which previously caused rules 600–616 to inherit "Turn Structure" as their section).
+- `/sync` slash command, `README.md`, and `CLAUDE.md` all now direct users to `python scripts/sync.py` as the single refresh entry point.
+
+### Deprecated
+- `scripts/ingest_cards.py` + `data/source/mtg_judge_db.json` — superseded by `sync_cards.py` / Scryfall bulk.
+- `scripts/ingest_rules.py` + `data/source/MagicCompRules.docx` — superseded by `sync_rules.py` / Wizards `.txt`.
+
 ### Planned
-- Deprecate `scripts/ingest_cards.py` + `data/source/mtg_judge_db.json` once sync has been in use for a few cycles.
-- Automate rules ingestion against Wizards' `MagicCompRules.txt` (currently still a manual `.docx` import).
-- Wrap card + combo + rules sync into a single `scripts/sync.py` entrypoint and schedule via cron / Task Scheduler.
+- Remove the deprecated `ingest_*.py` scripts after one stable release cycle.
+- GitHub remote + CI: schedule `sync.py` on a daily cron, commit diffs, and surface upstream change alerts.

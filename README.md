@@ -4,17 +4,15 @@ Local Magic: The Gathering knowledge base — cards, rulings, comprehensive rule
 
 ## Setup
 
-1. Drop your source files in `data/source/`:
-   - `mtg_judge_db.json` — your card + rulings file
-   - `MagicCompRules.docx` — WotC comprehensive rules
-
-2. Install dependencies and build the database:
+1. Install dependencies and create the database schema:
    ```bash
    pip install -r requirements.txt
    python scripts/init_db.py
-   python scripts/ingest_cards.py data/source/mtg_judge_db.json
-   python scripts/ingest_rules.py data/source/MagicCompRules.docx
-   python scripts/ingest_combos.py
+   ```
+
+2. Populate it from upstream sources (Scryfall, Wizards, Commander Spellbook):
+   ```bash
+   python scripts/sync.py
    ```
 
 3. Open the project in Claude Code:
@@ -23,11 +21,21 @@ Local Magic: The Gathering knowledge base — cards, rulings, comprehensive rule
    claude
    ```
 
+### Upgrading an existing database
+
+If you have a `mtg.db` built before the Scryfall migration, run the
+idempotent schema migration once, then sync:
+
+```bash
+python scripts/migrate_add_oracle_id.py
+python scripts/sync.py --force
+```
+
 ## Usage
 
 In Claude Code:
 
-- `/sync` — refresh combos from Commander Spellbook
+- `/sync` — refresh all upstream sources (cards, rulings, rules, combos)
 - `/ruling Thassa's Oracle` — look up rulings for a card
 - `/combo Thassa's Oracle, Demonic Consultation` — find combos
 - Natural language works too:
@@ -49,14 +57,18 @@ mtg-oracle/
 │   └── mtg.db               ← The database (gitignored)
 ├── scripts/
 │   ├── init_db.py
-│   ├── ingest_cards.py
-│   ├── ingest_rules.py
-│   └── ingest_combos.py
+│   ├── migrate_add_oracle_id.py   ← one-time schema migration
+│   ├── sync.py                    ← orchestrator (cards + rules + combos)
+│   ├── sync_cards.py              ← Scryfall bulk (oracle_cards + rulings)
+│   ├── sync_rules.py              ← Wizards Comprehensive Rules (.txt)
+│   ├── sync_combos.py             ← Commander Spellbook
+│   ├── ingest_cards.py            ← deprecated (MTGJSON AtomicCards)
+│   └── ingest_rules.py            ← deprecated (MagicCompRules.docx)
 └── requirements.txt
 ```
 
 ## Notes
 
-- Commander Spellbook's bulk endpoint is updated weekly. Re-run `/sync` when you want fresh combos.
-- The card and rules ingest scripts are idempotent — re-running them with the same source file is safe.
+- `sync.py` is idempotent: it skips any source whose upstream `updated_at` / ETag / release date has not changed. Use `--force` to re-ingest anyway.
+- Run cadence suggestion: cards daily, rules after set releases (~6x/year), combos weekly. A single daily `sync.py` covers all three with near-zero cost when unchanged.
 - Spellbook does not contain every possible combo. Treat it as comprehensive-for-known-combos, not exhaustive.
