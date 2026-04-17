@@ -1,0 +1,26 @@
+# Database — generated from sources
+data/mtg.db
+data/mtg.db-journal
+data/mtg.db-wal
+data/mtg.db-shm
+
+# Bulk source/raw data
+data/raw/
+data/source/*.json
+data/source/*.docx
+AtomicCards.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
