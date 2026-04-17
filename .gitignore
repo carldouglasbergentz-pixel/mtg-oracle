@@ -4,11 +4,8 @@ data/mtg.db-journal
 data/mtg.db-wal
 data/mtg.db-shm
 
-# Bulk source/raw data
+# Bulk source/raw data (fetched on demand by sync_*.py)
 data/raw/
-data/source/*.json
-data/source/*.docx
-AtomicCards.json
 
 # Python
 __pycache__/

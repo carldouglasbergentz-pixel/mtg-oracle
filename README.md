@@ -52,18 +52,15 @@ mtg-oracle/
 │   ├── settings.json        ← Tool permissions
 │   └── commands/            ← Custom slash commands
 ├── data/
-│   ├── source/              ← Your input files (gitignored)
-│   ├── raw/                 ← Cached Spellbook download (gitignored)
-│   └── mtg.db               ← The database (gitignored)
+│   ├── raw/                       ← Cached upstream payloads (gitignored)
+│   └── mtg.db                     ← The database (gitignored)
 ├── scripts/
-│   ├── init_db.py
-│   ├── migrate_add_oracle_id.py   ← one-time schema migration
+│   ├── init_db.py                 ← create schema on a fresh DB
+│   ├── migrate_add_oracle_id.py   ← one-time upgrade for pre-Scryfall DBs
 │   ├── sync.py                    ← orchestrator (cards + rules + combos)
 │   ├── sync_cards.py              ← Scryfall bulk (oracle_cards + rulings)
 │   ├── sync_rules.py              ← Wizards Comprehensive Rules (.txt)
-│   ├── sync_combos.py             ← Commander Spellbook
-│   ├── ingest_cards.py            ← deprecated (MTGJSON AtomicCards)
-│   └── ingest_rules.py            ← deprecated (MagicCompRules.docx)
+│   └── sync_combos.py             ← Commander Spellbook
 └── requirements.txt
 ```
 

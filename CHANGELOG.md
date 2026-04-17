@@ -31,10 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rules section-title regex now accepts commas/apostrophes/hyphens (fixes section 6 "Spells, Abilities, and Effects" being missed, which previously caused rules 600–616 to inherit "Turn Structure" as their section).
 - `/sync` slash command, `README.md`, and `CLAUDE.md` all now direct users to `python scripts/sync.py` as the single refresh entry point.
 
-### Deprecated
-- `scripts/ingest_cards.py` + `data/source/mtg_judge_db.json` — superseded by `sync_cards.py` / Scryfall bulk.
-- `scripts/ingest_rules.py` + `data/source/MagicCompRules.docx` — superseded by `sync_rules.py` / Wizards `.txt`.
+### Removed
+- `scripts/ingest_cards.py` — superseded by `sync_cards.py` / Scryfall bulk.
+- `scripts/ingest_rules.py` — superseded by `sync_rules.py` / Wizards `.txt`.
+- `data/source/` directory + its contents (`mtg_judge_db.json`, `MagicCompRules.docx`, ~33 MB) — no longer an input path; everything is fetched on demand by `sync.py`.
+- Root-level `AtomicCards.json` (~154 MB MTGJSON dump) — only used by the original one-off cleanup script, never part of the live pipeline.
+- `python-docx` dependency — the only consumer was `ingest_rules.py`. `sync_rules.py` parses the `.txt` release with stdlib only, so the project now has **zero** runtime dependencies.
 
 ### Planned
-- Remove the deprecated `ingest_*.py` scripts after one stable release cycle.
 - GitHub remote + CI: schedule `sync.py` on a daily cron, commit diffs, and surface upstream change alerts.
