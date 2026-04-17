@@ -8,18 +8,31 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS cards (
     name TEXT PRIMARY KEY,
+    oracle_id TEXT,
     oracle_text TEXT,
-    type_line TEXT
+    type_line TEXT,
+    layout TEXT,
+    card_faces TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_cards_oracle_id ON cards(oracle_id);
 
 CREATE TABLE IF NOT EXISTS rulings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     card_name TEXT NOT NULL,
+    oracle_id TEXT,
     date TEXT,
     text TEXT NOT NULL,
     FOREIGN KEY (card_name) REFERENCES cards(name)
 );
 CREATE INDEX IF NOT EXISTS idx_rulings_card ON rulings(card_name);
+CREATE INDEX IF NOT EXISTS idx_rulings_oracle_id ON rulings(oracle_id);
+
+CREATE TABLE IF NOT EXISTS sync_state (
+    source TEXT PRIMARY KEY,
+    updated_at TEXT NOT NULL,
+    last_sync TEXT NOT NULL,
+    row_count INTEGER
+);
 
 CREATE TABLE IF NOT EXISTS rules (
     rule_number TEXT PRIMARY KEY,
