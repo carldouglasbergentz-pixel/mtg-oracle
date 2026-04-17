@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import sync_cards
 import sync_combos
 import sync_rules
+import tag_cards
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
@@ -27,6 +28,7 @@ SOURCES = {
     "cards": ("Scryfall cards + rulings", sync_cards.sync),
     "rules": ("Wizards Comprehensive Rules", sync_rules.sync),
     "combos": ("Commander Spellbook", sync_combos.sync),
+    "tags": ("Local tagging (keywords, types, abilities)", tag_cards.sync),
 }
 
 

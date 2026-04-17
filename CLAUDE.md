@@ -24,8 +24,18 @@ This project compiles a comprehensive Magic: The Gathering knowledge base — ca
 ### rulings
 - `id`, `card_name` (FK), `oracle_id`, `date` (YYYY-MM-DD), `text`
 
+### card_tags
+- `card_name` (FK), `tag` (e.g., `flying`, `legendary`, `elf`), `category` (`keyword` / `supertype` / `type` / `subtype`), `source` (`regex` / `type_line`)
+- PK `(card_name, tag)`; indexed on `tag` and `category`
+
+### card_abilities
+- `id`, `card_name`, `ability_index` — one row per parsed ability on a card (per-face abilities on DFCs get distinct indices)
+- `ability_type` — `keyword` / `activated` / `triggered` / `static` / `loyalty`
+- `cost` (for activated/loyalty only), `effect`, `raw_text`
+- `has_target`, `produces_mana`, `is_mana_ability` — booleans (0/1). `is_mana_ability` follows CR 605.1a/b.
+
 ### sync_state
-- `source` (PK) — e.g., `scryfall_oracle_cards`, `wizards_cr`, `spellbook_variants`
+- `source` (PK) — e.g., `scryfall_oracle_cards`, `wizards_cr`, `spellbook_variants`, `local_tags`
 - `updated_at` — upstream version marker (timestamp, ETag, or release date)
 - `last_sync`, `row_count`
 
@@ -88,6 +98,27 @@ HAVING COUNT(DISTINCT card_name) = 2;
 ```sql
 SELECT rule_number, text FROM rules
 WHERE text LIKE '%layer%' AND rule_number LIKE '613%';
+```
+
+**Cards with a specific keyword (e.g., flying):**
+```sql
+SELECT card_name FROM card_tags
+WHERE tag = 'flying' AND category = 'keyword';
+```
+
+**Cards whose mana ability is a mana ability per CR 605.1a/b
+(i.e., excludes things like Deathrite Shaman where the cost has a target):**
+```sql
+SELECT DISTINCT card_name FROM card_abilities
+WHERE is_mana_ability = 1;
+```
+
+**Does Deathrite Shaman's Add-mana ability count as a mana ability?**
+```sql
+SELECT raw_text, has_target, produces_mana, is_mana_ability
+FROM card_abilities
+WHERE card_name = 'Deathrite Shaman' AND produces_mana = 1;
+-- → has_target=1, is_mana_ability=0 (correctly excluded per CR 605.1a)
 ```
 
 ## Conventions

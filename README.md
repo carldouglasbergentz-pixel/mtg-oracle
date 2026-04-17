@@ -57,10 +57,12 @@ mtg-oracle/
 ├── scripts/
 │   ├── init_db.py                 ← create schema on a fresh DB
 │   ├── migrate_add_oracle_id.py   ← one-time upgrade for pre-Scryfall DBs
-│   ├── sync.py                    ← orchestrator (cards + rules + combos)
+│   ├── migrate_add_tags.py        ← one-time upgrade to add tag tables
+│   ├── sync.py                    ← orchestrator (cards + rules + combos + tags)
 │   ├── sync_cards.py              ← Scryfall bulk (oracle_cards + rulings)
 │   ├── sync_rules.py              ← Wizards Comprehensive Rules (.txt)
-│   └── sync_combos.py             ← Commander Spellbook
+│   ├── sync_combos.py             ← Commander Spellbook
+│   └── tag_cards.py               ← local regex tagging (keywords + abilities)
 └── requirements.txt
 ```
 
