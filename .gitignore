@@ -21,3 +21,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Claude Code per-user local settings (project .claude/settings.json IS tracked)
+.claude/settings.local.json
