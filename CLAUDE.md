@@ -55,6 +55,39 @@ This project compiles a comprehensive Magic: The Gathering knowledge base — ca
 ### combo_results, combo_prerequisites, combo_steps
 - All have `combo_id` + `text` (steps also have `step_order`)
 
+### corrections
+- `id`, `topic`, `category` (`card_interaction` / `rules` / `combo` / `meta`)
+- `incorrect_claim`, `correct_claim`, `explanation`, `relates_to` (JSON array of card names / rule numbers)
+- `source` (`user_correction` / `self_caught` / `ruling` / `cr_XXX`), `added_at`, `added_by`
+- Indexed on `topic`, `category`, `added_at`
+
+## Feedback loop — corrections table
+
+This project has persistent memory of past factual mistakes. You are expected to use it.
+
+### Before answering any card-interaction or rules-interaction question
+
+Run a lookup against `corrections` keyed on the cards / rules / mechanics involved:
+
+```sql
+SELECT id, topic, correct_claim, explanation, source
+FROM corrections
+WHERE relates_to LIKE '%<card name>%'
+   OR topic LIKE '%<topic keyword>%'
+ORDER BY added_at DESC;
+```
+
+If a relevant row exists, honor the `correct_claim` and cite the correction in your answer (e.g., *"Note — previous correction #2 applies: Donate changes control after ETB, so the trigger still resolves on you."*). Never restate the `incorrect_claim` as fact.
+
+### When a mistake is surfaced (by user OR self-caught mid-answer)
+
+Immediately write a new row via `/correction add` (see `.claude/commands/correction.md`). Required fields: `topic`, `category`, `incorrect_claim`, `correct_claim`, `explanation`, `relates_to`, `source`. Do this in the same turn — don't defer until later, the context is freshest now. Echo the inserted row back to the user for confirmation.
+
+### What corrections are (and are not) for
+
+- Corrections are for **specific factual mistakes** about cards, rules, or combos that you stated and then had to revise. Each row is a durable answer to "why did you get this wrong, and what's actually true?"
+- Corrections are **not** for: tracking planned features (→ CHANGELOG), storing project preferences (→ memory/), or logging general session work (→ conversation context).
+
 ## Workflow
 
 ### First-time setup
@@ -135,3 +168,5 @@ WHERE card_name = 'Deathrite Shaman' AND produces_mana = 1;
 - Don't modify files in `data/raw/` or `data/source/` — those are cached upstream payloads / legacy inputs, overwritten on sync.
 - Don't assume Spellbook combos are exhaustive — many homebrew combos exist outside their database. State this caveat when relevant.
 - Don't run `init_db.py` against an existing populated database without confirming with the user — it doesn't drop data, but the user should know.
+- Don't skip the `corrections` lookup on interaction/rules questions. Skipping it is how the last session's bugs reach this session unfixed.
+- Don't mutate `corrections` rows in place when a correction turns out to be wrong — insert a new row that supersedes the earlier one, or use `/correction delete <id>` after explicit user confirmation.
