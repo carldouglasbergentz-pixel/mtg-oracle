@@ -52,13 +52,17 @@ def get_card(name: str) -> Optional[dict]:
         cur = conn.cursor()
         cur.execute(
             "SELECT name, oracle_id, oracle_text, mana_cost, type_line, layout, card_faces "
-            "FROM cards WHERE name = ?",
+            "FROM cards WHERE name = ? COLLATE NOCASE",
             (name,),
         )
         row = cur.fetchone()
         if not row:
             return None
         card: dict = dict(row)
+        # Use the canonical name from the DB for all downstream joins —
+        # the caller's input may have wrong case; we want rulings, tags,
+        # combos, corrections all keyed off the properly-cased name.
+        canonical = card["name"]
         if card.get("card_faces"):
             try:
                 card["card_faces"] = json.loads(card["card_faces"])
@@ -68,7 +72,7 @@ def get_card(name: str) -> Optional[dict]:
         cur.execute(
             "SELECT tag, category, source FROM card_tags WHERE card_name = ? "
             "ORDER BY category, tag",
-            (name,),
+            (canonical,),
         )
         tags_by_cat: dict[str, list[str]] = {}
         for tag_row in cur.fetchall():
@@ -79,13 +83,13 @@ def get_card(name: str) -> Optional[dict]:
             "SELECT ability_index, ability_type, cost, effect, "
             "has_target, produces_mana, is_mana_ability, raw_text "
             "FROM card_abilities WHERE card_name = ? ORDER BY ability_index",
-            (name,),
+            (canonical,),
         )
         card["abilities"] = _rows_to_dicts(cur.fetchall())
 
         cur.execute(
             "SELECT date, text FROM rulings WHERE card_name = ? ORDER BY date",
-            (name,),
+            (canonical,),
         )
         card["rulings"] = _rows_to_dicts(cur.fetchall())
 
@@ -96,14 +100,14 @@ def get_card(name: str) -> Optional[dict]:
             "WHERE cc.card_name = ? "
             "ORDER BY card_count ASC, c.id "
             "LIMIT 10",
-            (name,),
+            (canonical,),
         )
         card["combos"] = _rows_to_dicts(cur.fetchall())
 
         cur.execute(
             "SELECT id, topic, correct_claim, source FROM corrections "
-            "WHERE relates_to LIKE ? ORDER BY added_at DESC",
-            (f"%{name}%",),
+            "WHERE relates_to LIKE ? COLLATE NOCASE ORDER BY added_at DESC",
+            (f"%{canonical}%",),
         )
         card["corrections"] = _rows_to_dicts(cur.fetchall())
 
@@ -177,14 +181,15 @@ def search_cards(
 
 
 def get_rulings(card_name: str) -> list[dict]:
-    """All rulings for a card, chronologically."""
+    """All rulings for a card, chronologically. Case-insensitive name match."""
     if not card_name:
         return []
     conn = _connect()
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT date, text FROM rulings WHERE card_name = ? ORDER BY date",
+            "SELECT date, text FROM rulings WHERE card_name = ? COLLATE NOCASE "
+            "ORDER BY date",
             (card_name,),
         )
         return _rows_to_dicts(cur.fetchall())
@@ -195,7 +200,8 @@ def get_rulings(card_name: str) -> list[dict]:
 # --- Combos -------------------------------------------------------------
 
 def find_combos_with_card(card_name: str, limit: int = 25) -> list[dict]:
-    """Combos that include card_name. Smallest (fewest cards) first."""
+    """Combos that include card_name. Smallest (fewest cards) first.
+    Card-name match is case-insensitive."""
     if not card_name:
         return []
     if limit < 1 or limit > 500:
@@ -209,7 +215,7 @@ def find_combos_with_card(card_name: str, limit: int = 25) -> list[dict]:
             "(SELECT GROUP_CONCAT(card_name, ' + ') "
             " FROM combo_cards WHERE combo_id=c.id) AS cards "
             "FROM combos c JOIN combo_cards cc ON cc.combo_id = c.id "
-            "WHERE cc.card_name = ? "
+            "WHERE cc.card_name = ? COLLATE NOCASE "
             "ORDER BY card_count ASC, c.id LIMIT ?",
             (card_name, limit),
         )
@@ -221,7 +227,8 @@ def find_combos_with_card(card_name: str, limit: int = 25) -> list[dict]:
 def find_combos_with_all(card_names: list[str], limit: int = 25) -> list[dict]:
     """Combos that include EVERY card in card_names.
 
-    Returns combos ordered by card count (smallest first).
+    Card-name matches are case-insensitive. Combos are returned ordered
+    by card count (smallest first).
     """
     if not card_names:
         return []
@@ -231,6 +238,9 @@ def find_combos_with_all(card_names: list[str], limit: int = 25) -> list[dict]:
     conn = _connect()
     try:
         cur = conn.cursor()
+        # COLLATE NOCASE on the column makes the IN (...) comparison
+        # case-insensitive. COUNT(DISTINCT card_name) still counts unique
+        # canonical rows from combo_cards, so the HAVING check is sound.
         sql = (
             f"SELECT c.id, c.color_identity, c.name, "
             f"(SELECT COUNT(*) FROM combo_cards WHERE combo_id=c.id) AS card_count, "
@@ -239,7 +249,7 @@ def find_combos_with_all(card_names: list[str], limit: int = 25) -> list[dict]:
             f"FROM combos c "
             f"WHERE c.id IN ( "
             f"  SELECT combo_id FROM combo_cards "
-            f"  WHERE card_name IN ({placeholders}) "
+            f"  WHERE card_name COLLATE NOCASE IN ({placeholders}) "
             f"  GROUP BY combo_id "
             f"  HAVING COUNT(DISTINCT card_name) = ?) "
             f"ORDER BY card_count ASC, c.id LIMIT ?"
@@ -299,7 +309,8 @@ def get_combo(combo_id: str) -> Optional[dict]:
 # --- Rules --------------------------------------------------------------
 
 def get_rule(rule_number: str) -> Optional[dict]:
-    """Return a rule by exact rule_number, plus its immediate child rules."""
+    """Return a rule by rule_number (case-insensitive on the letter suffix),
+    plus its immediate child rules."""
     if not rule_number:
         return None
     conn = _connect()
@@ -307,18 +318,19 @@ def get_rule(rule_number: str) -> Optional[dict]:
         cur = conn.cursor()
         cur.execute(
             "SELECT rule_number, parent_rule, section_title, text "
-            "FROM rules WHERE rule_number = ?",
+            "FROM rules WHERE rule_number = ? COLLATE NOCASE",
             (rule_number,),
         )
         row = cur.fetchone()
         if not row:
             return None
         rule: dict = dict(row)
+        canonical = rule["rule_number"]
 
         cur.execute(
             "SELECT rule_number, text FROM rules WHERE parent_rule = ? "
             "ORDER BY rule_number",
-            (rule_number,),
+            (canonical,),
         )
         rule["children"] = _rows_to_dicts(cur.fetchall())
 
