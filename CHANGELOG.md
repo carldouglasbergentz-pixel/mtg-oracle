@@ -50,6 +50,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Birds of Paradise, Llanowar Elves, Gaea's Cradle, Sol Ring, Mox Amber all correctly flagged as having a mana ability.
 - Delver of Secrets / Valki DFCs produce clean per-face tags (no leaked face names or separators).
 
+### Added (Phase 2 — desktop TUI app)
+- Pivot: desktop-first over Android-first. Android deferred to Phase 5. Desktop chosen for instant iteration loop and because Textual natively delivers the terminal / monochrome aesthetic the project targets.
+- `mtg_oracle/app.py` — Textual TUI app. Imports `mtg_oracle.queries` directly (no HTTP / no IPC).
+- `mtg_oracle/renderer.py` — plain-text render functions extracted from the CLI so CLI and app share all card/combo/rule formatting.
+- `scripts/mtg_app.py` — launcher; reports a clear "install textual" message if the dep is missing.
+- Commands (typed in bottom input box): `card`, `ruling`, `combo`, `combos` (intersection via `;`), `combo-info`, `rule`, `search-rules`, `search`, `correction`, `help`, `clear`, `quit`.
+- Keybindings: `:` focus command, `Esc` unfocus, `Ctrl+L` clear output, `Ctrl+Q` quit.
+- Card lookup shows attached corrections inline — Phage surface both feedback-loop rows.
+- `requirements.txt` now lists `textual>=0.80` (only needed for the app; core sync/query remain stdlib-only).
+- Verified via headless Textual pilot: card lookup, combo intersection, rule lookup, search with flags, correction listing, unknown-command handling all pass.
+
 ### Added (Phase 1a — shared query library + CLI)
 - `mtg_oracle/` Python package with pure query functions over `data/mtg.db`:
   - `get_card(name)` — card + tags + abilities + rulings + top combos + applicable corrections

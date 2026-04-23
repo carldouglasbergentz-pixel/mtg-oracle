@@ -1,3 +1,5 @@
-# No runtime dependencies. sync_*.py scripts use only the Python stdlib
-# (urllib, json, sqlite3, re, argparse). File kept so `pip install -r
-# requirements.txt` remains a no-op step in the documented setup flow.
+# Core sync pipeline + query library: Python stdlib only.
+#
+# Desktop TUI app (phase 2): requires Textual. If you only run sync or
+# the CLI, textual is unused and safely missing.
+textual>=0.80
