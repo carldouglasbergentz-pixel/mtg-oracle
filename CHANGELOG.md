@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Birds of Paradise, Llanowar Elves, Gaea's Cradle, Sol Ring, Mox Amber all correctly flagged as having a mana ability.
 - Delver of Secrets / Valki DFCs produce clean per-face tags (no leaked face names or separators).
 
+### Added (mana_cost on cards)
+- `cards.mana_cost` column populated from Scryfall bulk (`{2}{W}{W}`, `{U}{U}`, `{0}` for Black Lotus, etc.). Empty string for lands. DFC / split / flip cards combine per-face costs with ` // ` (e.g., `{1}{R} // {1}{U}` for Fire//Ice; `{U} // ` for Delver of Secrets because the back face has no cost).
+- `scripts/migrate_add_mana_cost.py` — idempotent migration adds the column.
+- `sync_cards.py` now extracts `mana_cost` via a new `_face_mana_cost` helper; matches existing `_face_text` / `_face_type_line` pattern.
+- `get_card()` returns `mana_cost`; renderer shows it right-aligned on the card header line (stacks to a second line when name+cost overflow the 70-column box). TUI verified via headless pilot.
+
 ### Added (Phase 2 — desktop TUI app)
 - Pivot: desktop-first over Android-first. Android deferred to Phase 5. Desktop chosen for instant iteration loop and because Textual natively delivers the terminal / monochrome aesthetic the project targets.
 - `mtg_oracle/app.py` — Textual TUI app. Imports `mtg_oracle.queries` directly (no HTTP / no IPC).

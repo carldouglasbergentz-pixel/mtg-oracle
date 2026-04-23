@@ -17,6 +17,7 @@ This project compiles a comprehensive Magic: The Gathering knowledge base — ca
 - `name` (PK) — canonical Oracle name
 - `oracle_id` — Scryfall stable id (shared across prints of the same card)
 - `oracle_text` — official rules text (both faces joined with `// ` for DFC/split/flip)
+- `mana_cost` — Scryfall mana-cost string (e.g. `{2}{W}{W}`); empty string for lands; DFC/split faces joined with ` // `
 - `type_line` — full type line (e.g., "Legendary Creature — Elf Noble")
 - `layout` — e.g., `normal`, `transform`, `modal_dfc`, `split`, `flip`
 - `card_faces` — raw Scryfall per-face JSON (NULL for single-face cards)

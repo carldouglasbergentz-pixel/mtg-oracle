@@ -51,7 +51,7 @@ def get_card(name: str) -> Optional[dict]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT name, oracle_id, oracle_text, type_line, layout, card_faces "
+            "SELECT name, oracle_id, oracle_text, mana_cost, type_line, layout, card_faces "
             "FROM cards WHERE name = ?",
             (name,),
         )

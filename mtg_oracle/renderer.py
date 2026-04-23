@@ -32,10 +32,29 @@ def hr(width: int = WRAP_COLS) -> str:
     return CORNER + BOX_H * (width - 2) + CORNER
 
 
+def _header_line(name: str, mana_cost: str) -> str:
+    """Render name + mana cost on one line, Scryfall-style.
+
+    Falls back to stacking cost on its own line when name is too long
+    to fit both within the box width. Empty mana_cost (lands) just
+    renders the name alone.
+    """
+    mc = (mana_cost or "").strip()
+    if not mc:
+        return f"{BOX_V} {name}"
+    # content width after "| ": WRAP_COLS - 2
+    content_w = WRAP_COLS - 2
+    available = content_w - len(mc) - 1  # keep >=1 space between
+    if len(name) <= available:
+        pad = " " * max(1, available - len(name))
+        return f"{BOX_V} {name}{pad} {mc}"
+    return f"{BOX_V} {name}\n{BOX_V} {mc}"
+
+
 def render_card(card: dict) -> str:
     lines = []
     lines.append(hr())
-    lines.append(f"{BOX_V} {card['name']}")
+    lines.append(_header_line(card["name"], card.get("mana_cost") or ""))
     if card.get("type_line"):
         lines.append(f"{BOX_V} {card['type_line']}")
     lines.append(hr())

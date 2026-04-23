@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS cards (
     name TEXT PRIMARY KEY,
     oracle_id TEXT,
     oracle_text TEXT,
+    mana_cost TEXT,
     type_line TEXT,
     layout TEXT,
     card_faces TEXT

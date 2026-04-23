@@ -96,6 +96,25 @@ def _face_type_line(card: dict) -> str:
     return " // ".join(f.get("type_line", "") for f in faces if f.get("type_line"))
 
 
+def _face_mana_cost(card: dict) -> str:
+    """Return the card's mana cost, joining per-face costs with ' // '.
+
+    Scryfall populates top-level mana_cost for single-faced cards, and
+    leaves it empty for DFC/modal cards where each face in card_faces
+    carries its own mana_cost. Lands have an empty mana_cost — we keep
+    that as empty string, not NULL, so the column is consistently a
+    string.
+    """
+    top = card.get("mana_cost") or ""
+    faces = card.get("card_faces") or []
+    if top or not faces:
+        return top
+    parts = [f.get("mana_cost", "") or "" for f in faces]
+    # Preserve layout even when one face is costless (e.g. back side of a
+    # transform card): `"{U} // "` is more informative than `"{U}"`.
+    return " // ".join(parts)
+
+
 def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
     print(f"-> Parsing {path.name}")
     with open(path, encoding="utf-8") as f:
@@ -119,11 +138,12 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
 
         cur.execute(
             """
-            INSERT INTO cards (name, oracle_id, oracle_text, type_line, layout, card_faces)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO cards (name, oracle_id, oracle_text, mana_cost, type_line, layout, card_faces)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 oracle_id = excluded.oracle_id,
                 oracle_text = excluded.oracle_text,
+                mana_cost = excluded.mana_cost,
                 type_line = excluded.type_line,
                 layout = excluded.layout,
                 card_faces = excluded.card_faces
@@ -132,6 +152,7 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
                 name,
                 card.get("oracle_id"),
                 _face_text(card),
+                _face_mana_cost(card),
                 _face_type_line(card),
                 layout,
                 faces_json,
