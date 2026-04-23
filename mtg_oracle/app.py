@@ -55,6 +55,7 @@ Keys:
   Esc          unfocus
   Ctrl+L       clear
   Ctrl+Q       quit
+  Shift+drag   bypass mouse capture to select text (then Ctrl+Shift+C to copy)
 """
 
 
@@ -194,7 +195,10 @@ class MtgOracleApp(App):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         yield RichLog(id="output", wrap=False, markup=False, highlight=False, auto_scroll=True)
-        yield Static("Press : to enter a command, Ctrl+Q to quit, Ctrl+L to clear.", id="cmd-label")
+        yield Static(
+            "Press : to enter a command  |  Ctrl+L clear  |  Ctrl+Q quit  |  Shift+drag to select/copy",
+            id="cmd-label",
+        )
         yield Input(placeholder="type a command (try 'help' or 'card Deathrite Shaman')", id="cmd")
         yield Footer()
 
