@@ -67,6 +67,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `requirements.txt` now lists `textual>=0.80` (only needed for the app; core sync/query remain stdlib-only).
 - Verified via headless Textual pilot: card lookup, combo intersection, rule lookup, search with flags, correction listing, unknown-command handling all pass.
 
+### Added (Phase 2 polish)
+Collected post-initial fixes and usability improvements to the desktop app, all committed separately on master. Documented here so the full Phase 2 delta is readable in one place.
+
+- **Mana cost rendering.** `cards.mana_cost` column populated from Scryfall bulk; `get_card()` returns it; renderer shows it right-aligned on the card header line (e.g., `| Wrath of God                                               {2}{W}{W}`). DFC/split/flip cards show both faces joined with ` // ` (`{1}{R} // {1}{U}` for Fire // Ice, `{U} // ` for Delver because the back face has no cost). Lands render with no cost trailer.
+- **Case-insensitive lookups.** `get_card`, `get_rulings`, `find_combos_with_card`, `find_combos_with_all`, `get_rule` now use `COLLATE NOCASE` on exact-match comparisons. `get_card` specifically re-resolves the canonical card name from the DB before running downstream joins (tags/abilities/rulings/combos/corrections) so lowercase input still produces a complete, properly-cased profile.
+- **Autofill.** `MtgSuggester` preloads 34k card names + 3.3k rule numbers at app startup; Textual `Input.suggester` shows grayed-out ghost-text completions as the user types. Routes by command prefix: `card|ruling|combo|correction` → card names, `rule` → rule numbers, `combos X;` → card names for the last segment after `;`, empty → command names. Tab / right-arrow accepts.
+- **Numbered combo selection.** `combo <card>` and `combos A; B` render results with `[  1] [  2] …` indices and a `(type combo-info <N> to expand)` footer. `combo-info <integer>` looks up the N-th result from the most recent search (stored on the app) so users never need to type opaque Spellbook IDs like `742-1295` manually. Raw IDs still work if preferred.
+- **Auto-expand on single match.** `combo` or `combos` returning exactly 1 result skips the list and renders the full combo detail directly.
+- **Wrap long combo rows at `+` boundaries.** Replaced the hard `[:60]` truncation in combo-list renderers with `renderer.wrap_combo_row()`; long card lists wrap onto continuation lines (indented with `    +`) so no card name is cut mid-word. Used consistently by card-view "Top combos", CLI's `combo` output, and the app's numbered list.
+- **`cards` column in Top combos.** `get_card()`'s combo subquery now GROUP_CONCATs the combo card list instead of relying on `combos.name` (which is almost always empty). Card-view Top combos now show e.g. `Nexus of Fate + Spellbinder` instead of `(unnamed)`.
+- **Shift+drag copy hint.** Status line at the bottom of the app now reads `Press : to enter a command  |  Ctrl+L clear  |  Ctrl+Q quit  |  Shift+drag to select/copy`. Textual captures mouse events for navigation; holding Shift in Windows Terminal / modern terminals bypasses the capture and re-enables normal text selection.
+- **Oracle-combo sequencing correction (#3).** Added to the corrections table: Spellbook's canonical order for Thassa's Oracle + Demonic Consultation (and Tainted Pact) casts the instant first, but safer play is Oracle-first with the ETB trigger held on the stack, then cast the library-emptier as instant-speed interaction. Now auto-surfaces on any Oracle-related card or combo query.
+
 ### Added (Phase 1a — shared query library + CLI)
 - `mtg_oracle/` Python package with pure query functions over `data/mtg.db`:
   - `get_card(name)` — card + tags + abilities + rulings + top combos + applicable corrections
