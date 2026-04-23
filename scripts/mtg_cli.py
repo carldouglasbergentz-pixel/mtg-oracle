@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from mtg_oracle import queries as q
+from mtg_oracle import scryfall_search as ss
 from mtg_oracle.renderer import (
     render_card as _render_card,
     render_rulings as _render_rulings,
@@ -33,6 +34,41 @@ from mtg_oracle.renderer import (
     render_search as _render_search,
     render_corrections as _render_corrections,
 )
+
+
+SEARCH_HELP = """\
+Scryfall-style card search. Supports AND (implicit via space), OR, NOT,
+parentheses, negation with `-`, and numeric range operators.
+
+Operators:
+  o:TEXT      oracle text contains TEXT (quoted for spaces)
+  t:TEXT      type line contains TEXT
+  n:TEXT      name contains TEXT
+  kw:KW       card has keyword ability (flying, trample, prowess, ...)
+  c:COLORS    colors subset-contains (c:u = any card including blue)
+  c=COLORS    colors equal exactly (c=wu = exactly W+U)
+  mv:N        mana value comparisons (:, =, <, >, <=, >=, !=)
+  pow:S       power (string match with :/=, numeric with <, >, etc.)
+  tou:S       toughness (same shape as pow)
+  r:RARITY    rarity (common|uncommon|rare|mythic|bonus|special)
+  layout:X    layout (normal|transform|modal_dfc|split|flip|meld|...)
+
+Boolean:
+  A B         both (implicit AND)
+  A or B      either
+  -A  /  not A  negation
+  (A or B) C  grouping
+
+Colors can be letters (u, uw), words (blue, white), or brace form ({W}{U}).
+Bare words and quoted strings default to oracle-text search.
+
+Examples:
+  o:"enters the battlefield" t:creature c:u mv<=3
+  kw:flying (c:w or c:u) -t:artifact
+  "counter target spell" c:u mv:2
+  c=wu t:instant
+  pow>=4 t:creature r:mythic
+"""
 
 
 # --- CLI dispatch ------------------------------------------------------
@@ -114,13 +150,15 @@ def _cmd_search_rules(args) -> int:
 
 
 def _cmd_search(args) -> int:
-    cards = q.search_cards(
-        name_like=args.name,
-        tag=args.tag,
-        card_type=args.type,
-        is_mana_ability=args.mana_ability or None,
-        limit=args.limit,
-    )
+    query = " ".join(args.query).strip()
+    if not query or query.lower() in ("help", "?"):
+        print(SEARCH_HELP)
+        return 0
+    try:
+        cards = ss.run_query(query, limit=args.limit)
+    except ss.SearchError as e:
+        print(f"search error: {e}\n\nType `search help` for syntax.")
+        return 2
     if args.json:
         print(json.dumps(cards, indent=2, default=str))
     else:
@@ -173,12 +211,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--limit", type=int, default=25)
     sp.set_defaults(func=_cmd_search_rules)
 
-    sp = sub.add_parser("search", help="Filter the cards table.")
-    sp.add_argument("--name", help="Substring of the card name.")
-    sp.add_argument("--tag", help="Exact tag (keyword or type).")
-    sp.add_argument("--type", help="Exact type / subtype / supertype.")
-    sp.add_argument("--mana-ability", action="store_true",
-                    help="Only cards with >=1 parsed mana ability.")
+    sp = sub.add_parser(
+        "search",
+        help="Scryfall-style card search. `search help` prints the syntax guide.",
+    )
+    sp.add_argument("query", nargs="*", help="Query string, e.g. `t:creature c:u mv<=3`")
     sp.add_argument("--limit", type=int, default=50)
     sp.set_defaults(func=_cmd_search)
 

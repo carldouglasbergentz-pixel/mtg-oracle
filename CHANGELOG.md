@@ -67,6 +67,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `requirements.txt` now lists `textual>=0.80` (only needed for the app; core sync/query remain stdlib-only).
 - Verified via headless Textual pilot: card lookup, combo intersection, rule lookup, search with flags, correction listing, unknown-command handling all pass.
 
+### Added (Scryfall-style search — Level 2)
+- New columns in `cards` populated from Scryfall bulk: `colors` (comma-separated sorted letters, e.g., `B,G`), `mana_value` (integer), `power` / `toughness` (TEXT — preserves `*`, `1+*`, `X`, etc.), `rarity`.
+- `scripts/migrate_add_scryfall_fields.py` — idempotent migration.
+- `mtg_oracle/scryfall_search.py` — self-contained tokenizer + recursive-descent parser + SQL compiler (~340 lines). Supports:
+  - Operators: `o:` / `oracle:`, `t:` / `type:`, `n:` / `name:`, `kw:` / `keyword:`, `c:` / `color:` (subset-contains) and `c=` (exact), `mv:` / `cmc:`, `pow:` / `power:`, `tou:` / `toughness:`, `r:` / `rarity:`, `layout:`
+  - Comparison operators for numerics: `:` (equality), `=`, `>`, `<`, `>=`, `<=`, `!=`
+  - Boolean: AND (implicit via whitespace), `or`, `not`, `-` prefix, parentheses for grouping
+  - Bare words and quoted strings default to oracle-text match
+  - Color tokens accept letters (`u`), words (`blue`), or braces (`{U}`)
+- Power/toughness comparisons guard against non-numeric values (`*`, `1+*`) via `GLOB '[0-9]*'` so they are excluded from numeric ranges instead of being silently cast to 0.
+- All SQL is parameterized; read-only DB connection.
+- `search` command in both CLI and TUI replaces the old flag-based interface:
+  - Before: `search --name X --tag Y --type Z --mana-ability`
+  - After: `search o:"enters" t:creature c:u mv<=3`
+- `search help` (or `search ?`) prints an in-app syntax guide with examples.
+- Verified against 15+ queries including complex booleans, colorless-creature filters, rarity, power comparisons, and error paths (unknown fields, non-integer numerics, unterminated strings, unbalanced parens).
+
 ### Added (Phase 2 polish)
 Collected post-initial fixes and usability improvements to the desktop app, all committed separately on master. Documented here so the full Phase 2 delta is readable in one place.
 

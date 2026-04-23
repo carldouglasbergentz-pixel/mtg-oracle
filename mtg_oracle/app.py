@@ -8,7 +8,6 @@ Launch:
 """
 from __future__ import annotations
 
-import shlex
 import sqlite3
 from typing import Callable, Optional
 
@@ -19,6 +18,7 @@ from textual.widgets import Footer, Header, Input, RichLog, Static
 
 from mtg_oracle import queries as q
 from mtg_oracle import renderer as r
+from mtg_oracle import scryfall_search as ss
 
 
 COMMANDS = [
@@ -26,6 +26,38 @@ COMMANDS = [
     "rule", "search-rules", "search",
     "correction", "help", "clear", "quit",
 ]
+
+
+SEARCH_HELP = """\
+Scryfall-style search. AND is implicit (space-separated). OR, NOT, and
+parentheses are supported. `-` is a shortcut for NOT.
+
+Operators:
+  o:TEXT      oracle text contains TEXT  (quote for spaces: o:"draw a card")
+  t:TEXT      type line contains TEXT    (t:creature, t:planeswalker)
+  n:TEXT      name contains TEXT
+  kw:KW       card has keyword ability   (flying, trample, prowess, ward, ...)
+  c:COLORS    colors subset-contains     (c:u any-blue; c:wu contains W and U)
+  c=COLORS    colors equal exactly       (c=wu exactly W+U, not tri-colored)
+  mv:N        mana value comparisons     (also mv=, mv<, mv>, mv<=, mv>=, mv!=)
+  pow:S       power                      (string match on :/=, numeric for <, >, etc.)
+  tou:S       toughness                  (same shape as pow)
+  r:RARITY    rarity                     (common | uncommon | rare | mythic | bonus | special)
+  layout:X    card layout                (normal | transform | modal_dfc | split | flip | ...)
+
+Colors can be letters (`u`, `uw`), words (`blue`, `white`), or braced (`{W}{U}`).
+Bare words and quoted strings default to oracle-text search, so:
+    "enters the battlefield"     <=>  o:"enters the battlefield"
+
+Examples:
+    o:"enters the battlefield" t:creature c:u mv<=3
+    kw:flying (c:w or c:u) -t:artifact
+    "counter target spell" c:u mv:2
+    c=wu t:instant
+    pow>=4 t:creature r:mythic
+    not kw:flying t:creature
+    (kw:flying or kw:trample) c:g mv<=3
+"""
 
 
 HELP_TEXT = """\
@@ -39,7 +71,7 @@ Commands:
   combo-info <id-or-number>           full combo detail; accepts list index from last combo search
   rule <number>                       rule text + children (e.g. '605.1a')
   search-rules <text>                 search rule bodies
-  search [--name X] [--tag Y] [--type Z] [--mana-ability] [--limit N]
+  search <query>                      Scryfall-style card search (type `search help` for syntax)
   correction [<card-or-topic>]        list relevant feedback-loop corrections
   help                                this screen
   clear                               clear the output pane
@@ -390,37 +422,15 @@ class MtgOracleApp(App):
         self._write(r.render_rules_search(arg, rules))
 
     def _cmd_search(self, arg: str) -> None:
-        try:
-            tokens = shlex.split(arg)
-        except ValueError as e:
-            self._write(f"parse error: {e}")
+        arg = arg.strip()
+        if not arg or arg.lower() in ("help", "?"):
+            self._write(SEARCH_HELP)
             return
-        name = tag = typ = None
-        mana_ability = False
-        limit = 50
-        i = 0
-        while i < len(tokens):
-            t = tokens[i]
-            if t == "--name" and i + 1 < len(tokens):
-                name = tokens[i + 1]; i += 2
-            elif t == "--tag" and i + 1 < len(tokens):
-                tag = tokens[i + 1]; i += 2
-            elif t == "--type" and i + 1 < len(tokens):
-                typ = tokens[i + 1]; i += 2
-            elif t == "--mana-ability":
-                mana_ability = True; i += 1
-            elif t == "--limit" and i + 1 < len(tokens):
-                try:
-                    limit = int(tokens[i + 1]); i += 2
-                except ValueError:
-                    self._write("--limit needs an integer"); return
-            else:
-                self._write(f"unknown search token: {t!r}")
-                return
-        cards = q.search_cards(
-            name_like=name, tag=tag, card_type=typ,
-            is_mana_ability=mana_ability or None, limit=limit,
-        )
+        try:
+            cards = ss.run_query(arg, limit=100)
+        except ss.SearchError as e:
+            self._write(f"search error: {e}\n(type `search help` for syntax)")
+            return
         self._write(r.render_search(cards))
 
     def _cmd_correction(self, arg: str) -> None:

@@ -11,10 +11,17 @@ CREATE TABLE IF NOT EXISTS cards (
     oracle_id TEXT,
     oracle_text TEXT,
     mana_cost TEXT,
+    mana_value INTEGER,
+    colors TEXT,
+    power TEXT,
+    toughness TEXT,
+    rarity TEXT,
     type_line TEXT,
     layout TEXT,
     card_faces TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_cards_mana_value ON cards(mana_value);
+CREATE INDEX IF NOT EXISTS idx_cards_rarity ON cards(rarity);
 CREATE INDEX IF NOT EXISTS idx_cards_oracle_id ON cards(oracle_id);
 
 CREATE TABLE IF NOT EXISTS rulings (

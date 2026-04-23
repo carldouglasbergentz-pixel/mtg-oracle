@@ -115,6 +115,54 @@ def _face_mana_cost(card: dict) -> str:
     return " // ".join(parts)
 
 
+def _colors(card: dict) -> str:
+    """Comma-separated sorted color letters from Scryfall's `colors` array.
+
+    For multi-face cards Scryfall puts colors on each face; we union.
+    Returns '' for colorless.
+    """
+    colors: set[str] = set()
+    top = card.get("colors")
+    if isinstance(top, list):
+        colors.update(top)
+    for f in (card.get("card_faces") or []):
+        fc = f.get("colors")
+        if isinstance(fc, list):
+            colors.update(fc)
+    return ",".join(sorted(colors))
+
+
+def _mana_value(card: dict) -> int:
+    """Scryfall's `cmc` is typically float (0.5 for Who/What/When/Where/Why).
+    Round down to int; None -> 0."""
+    v = card.get("cmc")
+    try:
+        return int(v or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _power(card: dict):
+    """Pull power from top level or first face with one."""
+    v = card.get("power")
+    if v is not None:
+        return v
+    for f in (card.get("card_faces") or []):
+        if f.get("power") is not None:
+            return f.get("power")
+    return None
+
+
+def _toughness(card: dict):
+    v = card.get("toughness")
+    if v is not None:
+        return v
+    for f in (card.get("card_faces") or []):
+        if f.get("toughness") is not None:
+            return f.get("toughness")
+    return None
+
+
 def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
     print(f"-> Parsing {path.name}")
     with open(path, encoding="utf-8") as f:
@@ -138,21 +186,35 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
 
         cur.execute(
             """
-            INSERT INTO cards (name, oracle_id, oracle_text, mana_cost, type_line, layout, card_faces)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO cards (
+                name, oracle_id, oracle_text, mana_cost, mana_value,
+                colors, power, toughness, rarity,
+                type_line, layout, card_faces
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
-                oracle_id = excluded.oracle_id,
+                oracle_id   = excluded.oracle_id,
                 oracle_text = excluded.oracle_text,
-                mana_cost = excluded.mana_cost,
-                type_line = excluded.type_line,
-                layout = excluded.layout,
-                card_faces = excluded.card_faces
+                mana_cost   = excluded.mana_cost,
+                mana_value  = excluded.mana_value,
+                colors      = excluded.colors,
+                power       = excluded.power,
+                toughness   = excluded.toughness,
+                rarity      = excluded.rarity,
+                type_line   = excluded.type_line,
+                layout      = excluded.layout,
+                card_faces  = excluded.card_faces
             """,
             (
                 name,
                 card.get("oracle_id"),
                 _face_text(card),
                 _face_mana_cost(card),
+                _mana_value(card),
+                _colors(card),
+                _power(card),
+                _toughness(card),
+                card.get("rarity"),
                 _face_type_line(card),
                 layout,
                 faces_json,
