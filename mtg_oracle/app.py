@@ -433,9 +433,8 @@ class MtgOracleApp(App):
         for i, c in enumerate(combos, 1):
             cards_str = c.get("cards") or c.get("combo_name") or ""
             ci = c.get("color_identity") or "-"
-            lines.append(
-                f"  [{i:>3}] {ci:<5} ({c['card_count']} cards) {cards_str[:60]}"
-            )
+            row_header = f"  [{i:>3}] {ci:<5} ({c['card_count']} cards) "
+            lines.append(r.wrap_combo_row(row_header, cards_str))
         lines.append("  (type `combo-info <N>` to expand any row)")
         return "\n".join(lines)
 

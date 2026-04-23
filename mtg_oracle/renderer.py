@@ -32,6 +32,43 @@ def hr(width: int = WRAP_COLS) -> str:
     return CORNER + BOX_H * (width - 2) + CORNER
 
 
+def wrap_combo_row(
+    header: str,
+    cards_str: str,
+    row_width: int = WRAP_COLS,
+    continuation_prefix: str = "    + ",
+) -> str:
+    """Render a combo-list row that may wrap at ' + ' boundaries.
+
+    `header` is the leading metadata (e.g. `  [  1] UB    (2 cards) `).
+    `cards_str` is the ' + '-joined card list. Continuation lines start
+    with `continuation_prefix` (default indented '+ ' marker) so a long
+    card name is never cut mid-word and wrapped lines read like a list.
+    """
+    if not cards_str:
+        return header + "(unnamed)"
+    if len(header) + len(cards_str) <= row_width:
+        return header + cards_str
+
+    parts = cards_str.split(" + ")
+    lines: list[str] = []
+    current = header
+    first_on_line = True
+    for p in parts:
+        sep = "" if first_on_line else " + "
+        if len(current) + len(sep) + len(p) <= row_width:
+            current = current + sep + p
+            first_on_line = False
+        else:
+            # Flush current line; start continuation with the prefix marker.
+            lines.append(current)
+            current = continuation_prefix + p
+            first_on_line = False
+    if current:
+        lines.append(current)
+    return "\n".join(lines)
+
+
 def _header_line(name: str, mana_cost: str) -> str:
     """Render name + mana cost on one line, Scryfall-style.
 
@@ -98,11 +135,10 @@ def render_card(card: dict) -> str:
         lines.append("")
         lines.append(f"Top combos featuring this card ({len(combos)}):")
         for c in combos:
-            name = c.get("combo_name") or "(unnamed)"
+            cards_str = c.get("cards") or c.get("combo_name") or ""
             ci = c.get("color_identity") or "-"
-            lines.append(
-                f"{INDENT}[{c['id']:>14}] {ci:<5} ({c['card_count']} cards) {name[:45]}"
-            )
+            header = f"{INDENT}[{c['id']:>14}] {ci:<5} ({c['card_count']} cards) "
+            lines.append(wrap_combo_row(header, cards_str))
 
     corrections = card.get("corrections") or []
     if corrections:
@@ -132,9 +168,8 @@ def render_combo_list(combos: list[dict], header: str) -> str:
     for c in combos:
         cards_str = c.get("cards") or c.get("combo_name") or ""
         ci = c.get("color_identity") or "-"
-        lines.append(
-            f"{INDENT}[{c['id']:>14}] {ci:<5} ({c['card_count']} cards) {cards_str[:60]}"
-        )
+        row_header = f"{INDENT}[{c['id']:>14}] {ci:<5} ({c['card_count']} cards) "
+        lines.append(wrap_combo_row(row_header, cards_str))
     return "\n".join(lines)
 
 

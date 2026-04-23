@@ -95,7 +95,9 @@ def get_card(name: str) -> Optional[dict]:
 
         cur.execute(
             "SELECT c.id, c.color_identity, c.name AS combo_name, "
-            "(SELECT COUNT(*) FROM combo_cards WHERE combo_id=c.id) AS card_count "
+            "(SELECT COUNT(*) FROM combo_cards WHERE combo_id=c.id) AS card_count, "
+            "(SELECT GROUP_CONCAT(card_name, ' + ') "
+            " FROM combo_cards WHERE combo_id=c.id) AS cards "
             "FROM combos c JOIN combo_cards cc ON cc.combo_id = c.id "
             "WHERE cc.card_name = ? "
             "ORDER BY card_count ASC, c.id "
