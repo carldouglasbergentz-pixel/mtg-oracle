@@ -50,6 +50,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Birds of Paradise, Llanowar Elves, Gaea's Cradle, Sol Ring, Mox Amber all correctly flagged as having a mana ability.
 - Delver of Secrets / Valki DFCs produce clean per-face tags (no leaked face names or separators).
 
+### Added (Phase 1a — shared query library + CLI)
+- `mtg_oracle/` Python package with pure query functions over `data/mtg.db`:
+  - `get_card(name)` — card + tags + abilities + rulings + top combos + applicable corrections
+  - `search_cards(name_like, tag, card_type, is_mana_ability, limit)`
+  - `get_rulings(card_name)`, `find_combos_with_card(name)`, `find_combos_with_all(cards)`, `get_combo(id)`
+  - `get_rule(rule_number)` (with children), `search_rules(pattern)`
+  - `get_corrections(card, topic)`
+- All SQL parameterized. DB opened read-only via `file:...?mode=ro`.
+- `scripts/mtg_cli.py` — CLI wrapping the same queries with subcommands `card`, `ruling`, `combo`, `combos` (intersection), `combo-info`, `rule`, `search-rules`, `search`, `correction`. Supports `--json` for machine-readable output.
+- CLI renders in ASCII (no unicode borders) so it works on Windows consoles.
+- Card output auto-attaches any applicable corrections: looking up `Phage the Untouchable` now shows both seeded corrections inline.
+- Self-review completed per CLAUDE.md rule: correctness / failure modes / SQL-injection safety / maintainability / exercised happy path + edge cases.
+
 ### Added (sync changelog — per-run diff)
 - `sync.py` now snapshots keyed state before and after the run (oracle_ids + oracle_text hashes for cards, rule_numbers + text hashes for rules, combo ids) and prints a `=== changelog ===` table at the end with `added / removed / modified / total` per source.
 - For wipe-and-rebuild tables without a stable business key (rulings, card_tags, card_abilities) the changelog reports net delta only; combos show added/removed on id but not modified (Spellbook wipes + rebuilds without content tracking).
