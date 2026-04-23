@@ -67,6 +67,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `requirements.txt` now lists `textual>=0.80` (only needed for the app; core sync/query remain stdlib-only).
 - Verified via headless Textual pilot: card lookup, combo intersection, rule lookup, search with flags, correction listing, unknown-command handling all pass.
 
+### Added (search pagination + row expand)
+- `scryfall_search.run_query` gains an `offset` parameter; new `count_query()` returns the total number of matches without fetching rows.
+- `render_search` now shows a `N card(s) — showing A-B (page P of L)` header, adds mana cost as a column (name | mana_cost | type_line), and accepts an optional `nav_hint` footer.
+- CLI `search` gains `--page N` flag (1-based). Default page size remains 50 (`--limit`).
+- TUI gains three new commands: `next`, `prev`, `page <N>`. App stores the last search query + total count + current rows on the instance so navigation works without re-typing.
+- TUI `card <N>` now expands the N-th row of the most recent search into the full card profile (same pattern `combo-info <N>` uses for combo lists). Raw `card <name>` still works; integer argument shortcuts into the search result, non-integer goes to `get_card`.
+- Status bar and `help` text updated with the new navigation commands.
+- Verified against "flying blue creatures" (~1,431 matches across 29 pages): header correct, next/prev/jump all work, edge cases (first/last page, out-of-range row, no prior search) all produce friendly messages.
+
 ### Added (Scryfall-style search — Level 2)
 - New columns in `cards` populated from Scryfall bulk: `colors` (comma-separated sorted letters, e.g., `B,G`), `mana_value` (integer), `power` / `toughness` (TEXT — preserves `*`, `1+*`, `X`, etc.), `rarity`.
 - `scripts/migrate_add_scryfall_fields.py` — idempotent migration.

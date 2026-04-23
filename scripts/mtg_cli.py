@@ -155,14 +155,19 @@ def _cmd_search(args) -> int:
         print(SEARCH_HELP)
         return 0
     try:
-        cards = ss.run_query(query, limit=args.limit)
+        total = ss.count_query(query)
+        offset = (max(1, args.page) - 1) * args.limit
+        cards = ss.run_query(query, limit=args.limit, offset=offset)
     except ss.SearchError as e:
         print(f"search error: {e}\n\nType `search help` for syntax.")
         return 2
     if args.json:
-        print(json.dumps(cards, indent=2, default=str))
+        print(json.dumps({"total": total, "page": args.page,
+                          "page_size": args.limit, "rows": cards},
+                         indent=2, default=str))
     else:
-        print(_render_search(cards))
+        print(_render_search(cards, page=args.page, total=total,
+                             page_size=args.limit))
     return 0 if cards else 1
 
 
@@ -216,7 +221,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Scryfall-style card search. `search help` prints the syntax guide.",
     )
     sp.add_argument("query", nargs="*", help="Query string, e.g. `t:creature c:u mv<=3`")
-    sp.add_argument("--limit", type=int, default=50)
+    sp.add_argument("--limit", type=int, default=50, help="Page size (default 50).")
+    sp.add_argument("--page", type=int, default=1, help="1-based page number (default 1).")
     sp.set_defaults(func=_cmd_search)
 
     sp = sub.add_parser("correction", help="List corrections (feedback loop).")

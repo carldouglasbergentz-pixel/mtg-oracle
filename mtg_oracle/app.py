@@ -24,6 +24,7 @@ from mtg_oracle import scryfall_search as ss
 COMMANDS = [
     "card", "ruling", "combo", "combos", "combo-info",
     "rule", "search-rules", "search",
+    "next", "prev", "page",
     "correction", "help", "clear", "quit",
 ]
 
@@ -72,6 +73,8 @@ Commands:
   rule <number>                       rule text + children (e.g. '605.1a')
   search-rules <text>                 search rule bodies
   search <query>                      Scryfall-style card search (type `search help` for syntax)
+  next / prev / page <N>              navigate search results
+  card <N>                            expand the N-th row of the last search
   correction [<card-or-topic>]        list relevant feedback-loop corrections
   help                                this screen
   clear                               clear the output pane
@@ -217,12 +220,21 @@ class MtgOracleApp(App):
 
     TITLE = "MTG Oracle"
 
+    SEARCH_PAGE_SIZE = 50
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # The most recent list-of-combos response. Used by `combo-info <N>`
         # so the user can refer to a result by list index instead of the
         # opaque Spellbook id.
         self._last_combos: list[dict] = []
+
+        # Most recent search state — powers pagination (next/prev/page) and
+        # the `card <N>` expand shortcut.
+        self._search_query: Optional[str] = None
+        self._search_page: int = 1
+        self._search_total: int = 0
+        self._search_rows: list[dict] = []
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -311,6 +323,9 @@ class MtgOracleApp(App):
             "rule": self._cmd_rule,
             "search-rules": self._cmd_search_rules,
             "search": self._cmd_search,
+            "next": self._cmd_search_next,
+            "prev": self._cmd_search_prev,
+            "page": self._cmd_search_page,
             "correction": self._cmd_correction,
             "corrections": self._cmd_correction,
             "help": self._cmd_help,
@@ -333,8 +348,20 @@ class MtgOracleApp(App):
 
     def _cmd_card(self, arg: str) -> None:
         if not arg:
-            self._write("usage: card <name>")
+            self._write("usage: card <name>  |  or `card <N>` for the N-th row of last search")
             return
+        # `card <N>` expands a result from the most recent search, the same
+        # pattern combo-info uses for the last combo list. Small integers
+        # only; no card is actually named '1'/'2'/...
+        if arg.isdigit() and self._search_rows:
+            idx = int(arg) - 1
+            if 0 <= idx < len(self._search_rows):
+                arg = self._search_rows[idx]["name"]
+            else:
+                self._write(
+                    f"(no row #{arg} in last search; valid range is 1..{len(self._search_rows)})"
+                )
+                return
         card = q.get_card(arg)
         if not card:
             self._write(f"(card not found: {arg})")
@@ -427,11 +454,80 @@ class MtgOracleApp(App):
             self._write(SEARCH_HELP)
             return
         try:
-            cards = ss.run_query(arg, limit=100)
+            total = ss.count_query(arg)
+            rows = ss.run_query(arg, limit=self.SEARCH_PAGE_SIZE, offset=0)
         except ss.SearchError as e:
             self._write(f"search error: {e}\n(type `search help` for syntax)")
             return
-        self._write(r.render_search(cards))
+        self._search_query = arg
+        self._search_page = 1
+        self._search_total = total
+        self._search_rows = rows
+        self._render_current_page()
+
+    def _cmd_search_next(self, _: str) -> None:
+        if not self._search_query:
+            self._write("(no prior search — run `search <query>` first)")
+            return
+        last_page = max(1, (self._search_total + self.SEARCH_PAGE_SIZE - 1) // self.SEARCH_PAGE_SIZE)
+        if self._search_page >= last_page:
+            self._write(f"(already on last page {last_page})")
+            return
+        self._load_search_page(self._search_page + 1)
+
+    def _cmd_search_prev(self, _: str) -> None:
+        if not self._search_query:
+            self._write("(no prior search — run `search <query>` first)")
+            return
+        if self._search_page <= 1:
+            self._write("(already on first page)")
+            return
+        self._load_search_page(self._search_page - 1)
+
+    def _cmd_search_page(self, arg: str) -> None:
+        if not self._search_query:
+            self._write("(no prior search — run `search <query>` first)")
+            return
+        arg = arg.strip()
+        if not arg.isdigit():
+            self._write("usage: page <N>")
+            return
+        n = int(arg)
+        last_page = max(1, (self._search_total + self.SEARCH_PAGE_SIZE - 1) // self.SEARCH_PAGE_SIZE)
+        if not (1 <= n <= last_page):
+            self._write(f"(valid pages are 1..{last_page})")
+            return
+        self._load_search_page(n)
+
+    def _load_search_page(self, page: int) -> None:
+        offset = (page - 1) * self.SEARCH_PAGE_SIZE
+        try:
+            rows = ss.run_query(
+                self._search_query, limit=self.SEARCH_PAGE_SIZE, offset=offset,
+            )
+        except ss.SearchError as e:
+            self._write(f"search error: {e}")
+            return
+        self._search_page = page
+        self._search_rows = rows
+        self._render_current_page()
+
+    def _render_current_page(self) -> None:
+        last_page = max(1, (self._search_total + self.SEARCH_PAGE_SIZE - 1) // self.SEARCH_PAGE_SIZE)
+        hint_parts = []
+        if self._search_page < last_page:
+            hint_parts.append("`next`")
+        if self._search_page > 1:
+            hint_parts.append("`prev`")
+        hint_parts.append("`card <N>` to expand row")
+        nav_hint = "| " + "  |  ".join(hint_parts)
+        self._write(r.render_search(
+            self._search_rows,
+            page=self._search_page,
+            total=self._search_total,
+            page_size=self.SEARCH_PAGE_SIZE,
+            nav_hint=nav_hint,
+        ))
 
     def _cmd_correction(self, arg: str) -> None:
         rows = q.get_corrections(card=arg or None, topic=arg or None, limit=50)

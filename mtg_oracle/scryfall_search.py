@@ -398,23 +398,23 @@ def compile_ast(node) -> tuple[str, list]:
 
 # --- Top-level query entry point --------------------------------------
 
-def run_query(query: str, limit: int = 50) -> list[dict]:
+def _compile_where(query: str) -> tuple[str, list]:
+    return compile_ast(parse(query))
+
+
+def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
     if limit < 1 or limit > 1000:
         limit = 50
-    ast = parse(query)
-    where_sql, params = compile_ast(ast)
+    if offset < 0:
+        offset = 0
+    where_sql, params = _compile_where(query)
     sql = (
         "SELECT c.name, c.type_line, c.mana_cost, c.mana_value "
         "FROM cards c WHERE " + where_sql +
-        " ORDER BY c.name COLLATE NOCASE LIMIT ?"
+        " ORDER BY c.name COLLATE NOCASE LIMIT ? OFFSET ?"
     )
-    params_all = list(params) + [limit]
-
-    if not DB_PATH.exists():
-        raise FileNotFoundError(
-            f"MTG Oracle database not found at {DB_PATH}. "
-            "Run `python scripts/init_db.py` then `python scripts/sync.py`."
-        )
+    params_all = list(params) + [limit, offset]
+    _ensure_db()
     conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     try:
         conn.row_factory = sqlite3.Row
@@ -423,3 +423,25 @@ def run_query(query: str, limit: int = 50) -> list[dict]:
         return [dict(r) for r in cur.fetchall()]
     finally:
         conn.close()
+
+
+def count_query(query: str) -> int:
+    """Return the total number of matches for a query (no LIMIT / OFFSET)."""
+    where_sql, params = _compile_where(query)
+    sql = f"SELECT COUNT(*) FROM cards c WHERE {where_sql}"
+    _ensure_db()
+    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, list(params))
+        return cur.fetchone()[0]
+    finally:
+        conn.close()
+
+
+def _ensure_db() -> None:
+    if not DB_PATH.exists():
+        raise FileNotFoundError(
+            f"MTG Oracle database not found at {DB_PATH}. "
+            "Run `python scripts/init_db.py` then `python scripts/sync.py`."
+        )

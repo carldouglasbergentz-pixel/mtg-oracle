@@ -237,12 +237,56 @@ def render_rules_search(pattern: str, rules: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def render_search(cards: list[dict]) -> str:
+def render_search(
+    cards: list[dict],
+    *,
+    page: int = 1,
+    total: int | None = None,
+    page_size: int = 50,
+    nav_hint: str | None = None,
+) -> str:
+    """Render a paginated search result list.
+
+    Rows are numbered 1..N within the current page (not absolute across all
+    results). Each row shows mana cost + truncated type line after the name.
+    If `total` and `page` are provided, a 'Page X of Y' header is shown.
+    `nav_hint` is an optional trailing line (e.g., 'type next / prev / card <N>').
+    """
     if not cards:
         return "(no cards matching filters)"
-    lines = [f"{len(cards)} card(s):"]
-    for c in cards:
-        lines.append(f"{INDENT}{c['name']}  ({c.get('type_line') or ''})")
+
+    lines: list[str] = []
+    if total is not None:
+        last_page = max(1, (total + page_size - 1) // page_size)
+        offset = (page - 1) * page_size
+        first = offset + 1
+        last = min(offset + len(cards), total)
+        header = (
+            f"{total} card(s) — showing {first}-{last} (page {page} of {last_page})"
+        )
+    else:
+        header = f"{len(cards)} card(s):"
+    lines.append(header)
+
+    # Column widths for a reasonably tidy monospace render. Fall back to raw
+    # values if a name overflows; the indent keeps continuation visually
+    # attached to the row.
+    NAME_W = 42
+    COST_W = 14
+    for i, c in enumerate(cards, 1):
+        name = c["name"]
+        type_line = c.get("type_line") or ""
+        mana_cost = c.get("mana_cost") or ""
+        # Truncate type line so the row fits inside WRAP_COLS (~70).
+        type_trunc = type_line if len(type_line) <= 30 else type_line[:28] + ".."
+        name_trunc = name if len(name) <= NAME_W else name[:NAME_W - 2] + ".."
+        lines.append(
+            f"{INDENT}[{i:>3}] {name_trunc:<{NAME_W}} {mana_cost:<{COST_W}} {type_trunc}"
+        )
+
+    if nav_hint:
+        lines.append(f"{INDENT}{nav_hint}")
+
     return "\n".join(lines)
 
 
