@@ -45,7 +45,7 @@ COMMANDS = [
     # Maintenance
     "sync",
     # Misc
-    "help", "clear", "quit",
+    "copy", "help", "clear", "quit",
 ]
 
 
@@ -189,6 +189,9 @@ Commands:
     paste / combos / move / rename /
     delete / rmdir
   sync [force]                        refresh data from Scryfall / Wizards / Spellbook
+  copy [last|all|nav]                 copy pane content to clipboard via OSC 52
+                                      (last = output since last command; all = full
+                                      right pane; nav = left pane)
   help                                this screen
   clear                               clear the output pane
   quit                                exit
@@ -531,6 +534,7 @@ class MtgOracleApp(App):
             "import": self._cmd_import,
             "paste": self._cmd_paste,
             "sync": self._cmd_sync,
+            "copy": self._cmd_copy,
             "help": self._cmd_help,
             "?": self._cmd_help,
             "clear": lambda _: self.action_clear_output(),
@@ -747,6 +751,63 @@ class MtgOracleApp(App):
     def _cmd_correction(self, arg: str) -> None:
         rows = q.get_corrections(card=arg or None, topic=arg or None, limit=50)
         self._write(r.render_corrections(rows))
+
+    # --- copy to clipboard ----------------------------------------
+
+    def _cmd_copy(self, arg: str) -> None:
+        """Copy pane content to the system clipboard via OSC 52.
+
+        Modes:
+          copy            -> last command's output (everything after the
+                             most recent `> ...` echo in the right pane)
+          copy all        -> entire right pane (output)
+          copy nav        -> left pane (folder tree or live deck view)
+        """
+        mode = arg.strip().lower() or "last"
+        try:
+            if mode == "nav":
+                pane = self.query_one("#nav", RichLog)
+                text = "\n".join(getattr(l, "text", "") for l in pane.lines)
+                source = "left pane"
+            elif mode == "all":
+                pane = self.query_one("#output", RichLog)
+                text = "\n".join(getattr(l, "text", "") for l in pane.lines)
+                source = "right pane (full)"
+            elif mode == "last":
+                pane = self.query_one("#output", RichLog)
+                all_lines = [getattr(l, "text", "") for l in pane.lines]
+                # Find all `> command` echoes. The last one is `> copy`
+                # itself (just inserted by `on_input_submitted`); we want
+                # the output that lives between the previous echo and this
+                # one — i.e. the result of the user's actual prior command.
+                echoes = [
+                    i for i, line in enumerate(all_lines)
+                    if line.startswith("> ")
+                ]
+                if len(echoes) < 2:
+                    text = ""
+                else:
+                    text = "\n".join(all_lines[echoes[-2] + 1 : echoes[-1]])
+                source = "last command output"
+            else:
+                self._write("usage: copy            (last command output)")
+                self._write("       copy all        (entire right pane)")
+                self._write("       copy nav        (left pane)")
+                return
+        except Exception as e:
+            self._write(f"copy: could not read pane: {e}")
+            return
+
+        if not text.strip():
+            self._write("(nothing to copy)")
+            return
+
+        try:
+            self.copy_to_clipboard(text)
+        except Exception as e:
+            self._write(f"copy: clipboard write failed: {e}")
+            return
+        self._write(f"copied {source} to clipboard ({len(text)} chars)")
 
     # --- maintenance: sync ----------------------------------------
 
