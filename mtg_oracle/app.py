@@ -120,7 +120,10 @@ INSIDE A FOLDER (`/<folder>/`)
   show <deck>               render a deck without entering
 
 INSIDE A DECK (`/<folder>/<deck>/`)
-  show / ls                 render the deck
+  ls                        one-line summary (full contents are in the
+                            left panel, live-updated as you edit)
+  show                      render the full deck to the right pane
+                            (useful if you want to scroll / copy it out)
   add <card> [<qty>]        add card (qty defaults to 1)
   remove <card>             remove a card
   combos                    list Spellbook combos fully contained here
@@ -1000,8 +1003,27 @@ class MtgOracleApp(App):
             self._write("\n".join(lines))
             return
 
+        # In a deck the full contents already render in the left pane —
+        # `ls` here only echoes a one-line summary instead of dumping the
+        # whole deck to the right pane. Use `show` if you want the full
+        # render in the scrollable output (e.g. to copy out).
         if self._cwd_deck:
-            self._show_current_deck()
+            try:
+                deck = d.get_deck(self._cwd_deck, folder=self._cwd_folder)
+            except Exception as e:
+                self._write(f"ls: {e}")
+                return
+            if not deck:
+                self._write(f"(deck not found: {self._cwd_deck!r})")
+                return
+            total = deck.get("total_main", 0)
+            side = deck.get("total_side", 0)
+            extras = f" +{side} sb" if side else ""
+            fmt = f" [{deck['format']}]" if deck.get("format") else ""
+            self._write(
+                f"{deck['name']}: {total} cards{extras}{fmt} "
+                f"-- full contents in left panel (use `show` to dump here)"
+            )
             return
         if self._cwd_folder:
             decks_list = d.list_decks(folder=self._cwd_folder)
