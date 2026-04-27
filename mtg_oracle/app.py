@@ -187,10 +187,12 @@ Commands:
 Typing:
   Autofill suggestions appear as gray text after your command (prefix match).
   Tab or Right Arrow accepts the suggestion.
+  Up / Down  cycle through previously submitted commands (shell-style).
 
 Keys:
   :            focus the command input
   Enter        run the command
+  Up / Down    previous / next command in history
   Esc          unfocus
   Ctrl+L       clear
   Ctrl+Q       quit
@@ -320,6 +322,9 @@ class MtgOracleApp(App):
         Binding(":", "focus_cmd", "Command", show=True),
         Binding("escape", "unfocus_cmd", "Unfocus", show=False),
         Binding("ctrl+l", "clear_output", "Clear", show=True),
+        # Shell-style history navigation while focused on the input.
+        Binding("up", "history_prev", show=False),
+        Binding("down", "history_next", show=False),
     ]
 
     TITLE = "MTG Oracle"
@@ -346,6 +351,15 @@ class MtgOracleApp(App):
         # unsorted decks).
         self._cwd_folder: Optional[str] = None
         self._cwd_deck: Optional[str] = None
+
+        # Shell-style history. Most-recent at the end. `_history_idx` is
+        # -1 when the user is editing fresh input (not browsing history);
+        # 0 = most recent, 1 = second-most-recent, etc. `_history_pending`
+        # preserves whatever was typed before history browsing started so
+        # `Down` past the newest entry restores it.
+        self._history: list[str] = []
+        self._history_idx: int = -1
+        self._history_pending: str = ""
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -408,11 +422,44 @@ class MtgOracleApp(App):
         event.input.value = ""
         if not raw:
             return
+        # Push to history (skip duplicates of the immediately previous entry).
+        if not self._history or self._history[-1] != raw:
+            self._history.append(raw)
+        self._history_idx = -1
+        self._history_pending = ""
         self._write(f"> {raw}")
         try:
             self._dispatch(raw)
         except Exception as e:
             self._write(f"ERR {type(e).__name__}: {e}")
+
+    # --- history navigation ---------------------------------------
+
+    def action_history_prev(self) -> None:
+        if not self._history:
+            return
+        inp = self.query_one("#cmd", Input)
+        if self._history_idx == -1:
+            # Save what's currently being typed so Down can restore it.
+            self._history_pending = inp.value
+            self._history_idx = 0
+        elif self._history_idx + 1 < len(self._history):
+            self._history_idx += 1
+        inp.value = self._history[-(self._history_idx + 1)]
+        inp.cursor_position = len(inp.value)
+
+    def action_history_next(self) -> None:
+        if self._history_idx == -1:
+            return
+        inp = self.query_one("#cmd", Input)
+        if self._history_idx == 0:
+            self._history_idx = -1
+            inp.value = self._history_pending
+            inp.cursor_position = len(inp.value)
+            return
+        self._history_idx -= 1
+        inp.value = self._history[-(self._history_idx + 1)]
+        inp.cursor_position = len(inp.value)
 
     def _write(self, text: str) -> None:
         log = self.query_one("#output", RichLog)
