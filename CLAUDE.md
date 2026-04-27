@@ -1,199 +1,114 @@
 # MTG Oracle — Project Context
 
-This project compiles a comprehensive Magic: The Gathering knowledge base — cards, rulings, comprehensive rules, and combos — into a queryable SQLite database. Claude Code is the primary interface.
+A queryable SQLite knowledge base of Magic: The Gathering cards, rulings,
+the Comprehensive Rules, Commander Spellbook combos, and the user's
+own decks. The Textual TUI in `mtg_oracle.app` is the primary interface;
+`scripts/mtg_cli.py` mirrors it for shell use.
 
-## Quick reference
+## Where things live
 
-**Database:** `data/mtg.db` (SQLite, ~50–100 MB once populated)
+- **Status / phase progress / parked items** → [`docs/project-plan.md`](docs/project-plan.md). Read this first when starting a fresh chat to see where we are without reloading the conversation.
+- **Per-feature history** → [`CHANGELOG.md`](CHANGELOG.md). Append-only.
+- **Bootstrapping a new contributor** → [`README.md`](README.md).
+- **App aesthetic intent** → [`docs/app-design.md`](docs/app-design.md).
+- **Stable user preferences** → `memory/` (loaded selectively).
+- **This file** → durable rules: schema, conventions, don'ts, self-review checklist. Loaded every turn — keep it lean.
 
-**Most common queries to handle:**
-- Card rulings lookup → `rulings` table joined with `cards`
-- Rules interactions → `rules` table (rule_number or text search)
-- Combo discovery → `combos` table joined with `combo_cards`
+## Schema (data/mtg.db)
 
-## Schema
-
-### cards
-- `name` (PK) — canonical Oracle name
-- `oracle_id` — Scryfall stable id (shared across prints of the same card)
-- `oracle_text` — official rules text (both faces joined with `// ` for DFC/split/flip)
-- `mana_cost` — Scryfall mana-cost string (e.g. `{2}{W}{W}`); empty string for lands; DFC/split faces joined with ` // `
-- `type_line` — full type line (e.g., "Legendary Creature — Elf Noble")
-- `layout` — e.g., `normal`, `transform`, `modal_dfc`, `split`, `flip`
-- `card_faces` — raw Scryfall per-face JSON (NULL for single-face cards)
-
-### rulings
-- `id`, `card_name` (FK), `oracle_id`, `date` (YYYY-MM-DD), `text`
-
-### card_tags
-- `card_name` (FK), `tag` (e.g., `flying`, `legendary`, `elf`), `category` (`keyword` / `supertype` / `type` / `subtype`), `source` (`regex` / `type_line`)
-- PK `(card_name, tag)`; indexed on `tag` and `category`
-
-### card_abilities
-- `id`, `card_name`, `ability_index` — one row per parsed ability on a card (per-face abilities on DFCs get distinct indices)
-- `ability_type` — `keyword` / `activated` / `triggered` / `static` / `loyalty`
-- `cost` (for activated/loyalty only), `effect`, `raw_text`
-- `has_target`, `produces_mana`, `is_mana_ability` — booleans (0/1). `is_mana_ability` follows CR 605.1a/b.
-
-### sync_state
-- `source` (PK) — e.g., `scryfall_oracle_cards`, `wizards_cr`, `spellbook_variants`, `local_tags`
-- `updated_at` — upstream version marker (timestamp, ETag, or release date)
-- `last_sync`, `row_count`
-
-### rules
-- `rule_number` (PK) — e.g., "100.1a"
-- `parent_rule` — e.g., "100.1" (NULL for top-level)
-- `section_title` — e.g., "Game Concepts"
-- `text`
-
-### combos
-- `id` (PK, Spellbook ID)
-- `name`, `color_identity`, `description`
-
-### combo_cards
-- `combo_id`, `card_name`, `quantity`
-
-### combo_results, combo_prerequisites, combo_steps
-- All have `combo_id` + `text` (steps also have `step_order`)
-
-### deck_folders
-- `id`, `name` (UNIQUE COLLATE NOCASE), `created_at`. Flat list — no nesting.
-
-### decks
-- `id`, `folder_id` (FK, NULL = unsorted), `name`, `format` (informational), `description`, `created_at`, `updated_at`
-- UNIQUE on `(folder_id, name)` so the same deck name can appear in different folders.
-
-### deck_cards
-- `id`, `deck_id` (FK), `card_name` (FK to cards.name, COLLATE NOCASE join), `quantity` (>0), `category` (user label), `is_commander` (0/1), `is_sideboard` (0/1), `added_at`
-- ON DELETE CASCADE: deleting a deck removes its cards.
-
-### corrections
-- `id`, `topic`, `category` (`card_interaction` / `rules` / `combo` / `meta`)
-- `incorrect_claim`, `correct_claim`, `explanation`, `relates_to` (JSON array of card names / rule numbers)
-- `source` (`user_correction` / `self_caught` / `ruling` / `cr_XXX`), `added_at`, `added_by`
-- Indexed on `topic`, `category`, `added_at`
+- **`cards`** (`name` PK, `oracle_id`, `oracle_text`, `mana_cost`, `mana_value`, `colors` (CSV), `power`, `toughness`, `rarity`, `type_line`, `layout`, `card_faces` JSON). DFC/split/flip cards combine faces with ` // `.
+- **`rulings`** — `id`, `card_name` (FK), `oracle_id`, `date`, `text`.
+- **`rules`** — `rule_number` PK (`100.1a`), `parent_rule`, `section_title`, `text`.
+- **`combos`** + `combo_cards` / `combo_results` / `combo_prerequisites` / `combo_steps` — Spellbook IDs as PK, sub-tables share `combo_id` + `text`.
+- **`card_tags`** — flat `(card_name, tag)` PK with `category` (`keyword` / `supertype` / `type` / `subtype`) and `source`.
+- **`card_abilities`** — one row per parsed ability with `ability_type` (`keyword`/`activated`/`triggered`/`static`/`loyalty`), `cost`, `effect`, `has_target`, `produces_mana`, `is_mana_ability` (CR 605.1a/b).
+- **`deck_folders`** (flat) + **`decks`** (`folder_id` FK, NULL = unsorted; UNIQUE on `(folder_id, name)`) + **`deck_cards`** (`is_commander`, `is_sideboard` flags; ON DELETE CASCADE).
+- **`corrections`** — `topic`, `category`, `incorrect_claim`, `correct_claim`, `explanation`, `relates_to` JSON, `source`, `added_at`, `added_by`.
+- **`sync_state`** — `source` PK with `updated_at` upstream marker.
 
 ## Feedback loop — corrections table
 
-This project has persistent memory of past factual mistakes. You are expected to use it.
+Persistent memory of past factual mistakes. Use it.
 
-### Before answering any card-interaction or rules-interaction question
-
-Run a lookup against `corrections` keyed on the cards / rules / mechanics involved:
-
+**Before answering any card-interaction or rules-interaction question:**
 ```sql
-SELECT id, topic, correct_claim, explanation, source
-FROM corrections
-WHERE relates_to LIKE '%<card name>%'
-   OR topic LIKE '%<topic keyword>%'
+SELECT id, topic, correct_claim, explanation, source FROM corrections
+WHERE relates_to LIKE '%<card>%' OR topic LIKE '%<topic>%'
 ORDER BY added_at DESC;
 ```
+If a relevant row exists, honor `correct_claim` and cite the correction in your answer. Never restate `incorrect_claim` as fact.
 
-If a relevant row exists, honor the `correct_claim` and cite the correction in your answer (e.g., *"Note — previous correction #2 applies: Donate changes control after ETB, so the trigger still resolves on you."*). Never restate the `incorrect_claim` as fact.
+**When a mistake is surfaced (by user or self-caught):** insert a new row immediately via `/correction add` (see `.claude/commands/correction.md`). Required: `topic`, `category`, `incorrect_claim`, `correct_claim`, `explanation`, `relates_to`, `source`. Do it in the same turn — context is freshest now.
 
-### When a mistake is surfaced (by user OR self-caught mid-answer)
-
-Immediately write a new row via `/correction add` (see `.claude/commands/correction.md`). Required fields: `topic`, `category`, `incorrect_claim`, `correct_claim`, `explanation`, `relates_to`, `source`. Do this in the same turn — don't defer until later, the context is freshest now. Echo the inserted row back to the user for confirmation.
-
-### What corrections are (and are not) for
-
-- Corrections are for **specific factual mistakes** about cards, rules, or combos that you stated and then had to revise. Each row is a durable answer to "why did you get this wrong, and what's actually true?"
-- Corrections are **not** for: tracking planned features (→ CHANGELOG), storing project preferences (→ memory/), or logging general session work (→ conversation context).
+Corrections are for **specific factual mistakes** about cards/rules/combos. They are **not** for planned features (→ CHANGELOG), preferences (→ memory/), or session work (→ conversation context).
 
 ## Workflow
 
-### First-time setup
 ```bash
 pip install -r requirements.txt
 python scripts/init_db.py
-python scripts/sync.py      # pulls cards, rulings, rules, combos from upstream
+python scripts/sync.py        # cards + rulings + rules + combos + tags
+python scripts/mtg_app.py     # launch the TUI
 ```
 
-### Refreshing
-- `/sync` or `python scripts/sync.py` — skips sources whose upstream is unchanged.
-- `--force` re-ingests everything; `--only cards|rules|combos` scopes the run.
-- Sources of truth: Scryfall (cards + rulings), Wizards `magic.wizards.com/en/rules` (CR `.txt`), Commander Spellbook (combos).
+`sync.py` is idempotent — sources skip when upstream is unchanged. `--force` re-ingests; `--only cards|rules|combos|tags` scopes the run. End of every run prints a `=== changelog ===` diff.
 
 ## Query patterns
 
+Most-used SQL shapes. Card names + rule numbers use `COLLATE NOCASE`; the `mtg_oracle.queries.resolve_card_name()` helper additionally handles diacritics, ligatures, apostrophes, and DFC front-face-only names.
+
 **Card rulings:**
 ```sql
-SELECT date, text FROM rulings
-WHERE card_name = 'Thassa''s Oracle'
-ORDER BY date;
-```
-
-**Combos containing a card:**
-```sql
-SELECT c.id, c.color_identity, c.description
-FROM combos c
-JOIN combo_cards cc ON c.id = cc.combo_id
-WHERE cc.card_name = 'Thassa''s Oracle';
+SELECT date, text FROM rulings WHERE card_name = ? ORDER BY date;
 ```
 
 **Combos requiring ALL of several cards:**
 ```sql
 SELECT combo_id FROM combo_cards
-WHERE card_name IN ('Card A', 'Card B')
-GROUP BY combo_id
-HAVING COUNT(DISTINCT card_name) = 2;
+WHERE card_name COLLATE NOCASE IN (?, ?, ?)
+GROUP BY combo_id HAVING COUNT(DISTINCT card_name) = ?;
 ```
 
-**Rules by keyword in a section:**
+**Cards with a keyword:**
 ```sql
-SELECT rule_number, text FROM rules
-WHERE text LIKE '%layer%' AND rule_number LIKE '613%';
+SELECT card_name FROM card_tags WHERE tag = ? AND category = 'keyword';
 ```
 
-**Cards with a specific keyword (e.g., flying):**
+**Mana abilities per CR 605.1a/b** (excludes Deathrite Shaman because its cost targets a graveyard card):
 ```sql
-SELECT card_name FROM card_tags
-WHERE tag = 'flying' AND category = 'keyword';
+SELECT DISTINCT card_name FROM card_abilities WHERE is_mana_ability = 1;
 ```
 
-**Cards whose mana ability is a mana ability per CR 605.1a/b
-(i.e., excludes things like Deathrite Shaman where the cost has a target):**
-```sql
-SELECT DISTINCT card_name FROM card_abilities
-WHERE is_mana_ability = 1;
-```
-
-**Does Deathrite Shaman's Add-mana ability count as a mana ability?**
-```sql
-SELECT raw_text, has_target, produces_mana, is_mana_ability
-FROM card_abilities
-WHERE card_name = 'Deathrite Shaman' AND produces_mana = 1;
--- → has_target=1, is_mana_ability=0 (correctly excluded per CR 605.1a)
-```
+For richer card lookups (search syntax, pagination, structured tags), use `mtg_oracle.queries` rather than hand-rolling SQL.
 
 ## Self-review before commit
 
-Best-practice discipline for every non-trivial code change (new file, new function, schema migration, multi-file edit, any change touching user input / network / subprocess / file I/O). Not a trust check on the assistant — a durable habit.
+Best-practice discipline for every non-trivial change (new file/function, schema migration, multi-file edit, anything touching user input / network / subprocess / file I/O). Surface the review in the same response as the change.
 
-Before proposing or making a commit, run a review pass and surface it in the same response. Cover:
+1. **Correctness.** Trace a concrete input through. Does it return what the conversation said it should?
+2. **Failure modes.** Missing DB / row, malformed input, network timeout, empty result set, NULL columns, duplicate key — loud or silent?
+3. **Security.** SQL parameterized? Shell/subprocess user-input flow? Path traversal? Secrets in output? For network/subprocess/file-I/O/auth changes, also invoke `/security-review`.
+4. **Maintainability.** Fits existing patterns (`scripts/sync_*.py` shape, idempotent migrations, etc.)? Any premature abstraction or unused flexibility to drop?
+5. **Redundancy / scope hygiene.** After a redesign: code paths, output, commands, helpers, kwargs, columns that became redundant — remove them. CHANGELOG + git preserve the trail; the live code shouldn't.
+6. **Verify.** Run it. Show the output. Don't claim it works without exercising at least one edge case.
 
-1. **Correctness.** Trace a concrete input through the code. Does it return what the conversation said it should?
-2. **Failure modes.** What happens on: missing DB, missing row, malformed input, network timeout, empty result set, NULL columns, duplicate key? Failures loud or silent?
-3. **Security.** Any SQL string-interpolation (must be parameterized)? Any shell/subprocess user-input flow? Any path traversal via user-supplied filenames? Secrets in output / logs? For changes touching network, subprocess, file I/O, or auth, additionally invoke the `/security-review` skill.
-4. **Maintainability.** Does this fit the repo's existing patterns (e.g., `scripts/sync_*.py` shape, `sync_state` usage, idempotent migrations)? Any premature abstraction or unused flexibility to drop?
-5. **Redundancy / scope hygiene.** Especially after a redesign: are there code paths, output, commands, helpers, or columns that have become redundant given the new structure? Remove what's no longer earning its keep. The CHANGELOG and git history preserve the path we took; the live codebase shouldn't carry obsolete branches "in case". Examples: a renderer dumping data that's now rendered elsewhere, a command alias that covers a removed feature, a kwarg every caller passes the same way, a helper used once and inlined, an `if`-branch handling a state that was deprecated upstream.
-6. **Verify.** Actually run it — don't claim it works without exercising the happy path and at least one edge case. Show the output.
-
-Trivial edits (typo fix, comment tweak, one-line config change) may skip the full review — call out explicitly that it's being skipped and why.
+Trivial edits (typo, comment tweak, one-line config) may skip — call out that it was skipped and why.
 
 ## Conventions
 
-- Card names are **case-sensitive** and match canonical Oracle naming. For fuzzy matches, use `LIKE '%name%'`.
-- For *rules interactions*, prefer the `rules` table over `rulings`. Rulings clarify specific cards; rules govern the system.
+- Card-name lookups go through `mtg_oracle.queries.resolve_card_name()` (or `COLLATE NOCASE` for raw SQL). It's tolerant of case, `/` vs ` // `, DFC front-face-only names, and missing diacritics / apostrophes.
+- For *rules interactions*, prefer `rules` over `rulings`. Rulings clarify specific cards; rules govern the system.
 - For "can X do Y?" questions, check **both** rules AND that card's rulings.
-- Combo answers should always include: cards involved, color identity, prerequisites, the result, and the steps.
-- When a card name in a query has an apostrophe, escape it with `''` in SQL (`'Thassa''s Oracle'`).
+- Combo answers include: cards involved, color identity, prerequisites, result, steps.
+- Apostrophes in raw SQL escape with `''` (`'Thassa''s Oracle'`).
+- Phase status changes go in [`docs/project-plan.md`](docs/project-plan.md), not here. CHANGELOG records the work; the project plan records the position.
 
 ## Don't
 
-- Don't fetch from Scryfall live unless a card is genuinely missing from `cards`. Running `/sync` is the supported refresh path.
-- Don't modify files in `data/raw/` or `data/source/` — those are cached upstream payloads / legacy inputs, overwritten on sync.
-- Don't assume Spellbook combos are exhaustive — many homebrew combos exist outside their database. State this caveat when relevant.
-- Don't run `init_db.py` against an existing populated database without confirming with the user — it doesn't drop data, but the user should know.
-- Don't skip the `corrections` lookup on interaction/rules questions. Skipping it is how the last session's bugs reach this session unfixed.
-- Don't mutate `corrections` rows in place when a correction turns out to be wrong — insert a new row that supersedes the earlier one, or use `/correction delete <id>` after explicit user confirmation.
+- Don't fetch from Scryfall / Wizards / Spellbook live unless a card is genuinely missing — running `/sync` is the supported refresh.
+- Don't modify `data/raw/` — overwritten on every sync.
+- Don't assume Spellbook combos are exhaustive. Many homebrew combos exist outside their database; flag the caveat.
+- Don't run `init_db.py` against a populated database without confirming with the user.
+- Don't skip the `corrections` lookup on interaction/rules questions — that's how last session's bugs reach this session unfixed.
+- Don't mutate `corrections` rows in place when a correction turns out to be wrong — insert a new row that supersedes it, or `/correction delete <id>` after explicit confirmation.
+- Don't add status / "phase X done" lines here. That belongs in `docs/project-plan.md`.
