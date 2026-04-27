@@ -15,6 +15,7 @@ from typing import Callable, Optional
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Horizontal
 from textual.suggester import Suggester
 from textual.widgets import Footer, Header, Input, RichLog, Static
 
@@ -297,10 +298,20 @@ class MtgOracleApp(App):
     }
     Header { dock: top; }
     Footer { dock: bottom; }
-    #output {
+    #main {
+        layout: horizontal;
+        height: 1fr;
+    }
+    #nav {
+        width: 32;
         border: solid $accent;
         padding: 0 1;
-        height: 1fr;
+        background: $background;
+    }
+    #output {
+        width: 1fr;
+        border: solid $accent;
+        padding: 0 1;
         background: $background;
     }
     #cmd {
@@ -362,7 +373,15 @@ class MtgOracleApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
-        yield RichLog(id="output", wrap=False, markup=False, highlight=False, auto_scroll=True)
+        with Horizontal(id="main"):
+            yield RichLog(
+                id="nav", wrap=False, markup=False, highlight=False,
+                auto_scroll=False,
+            )
+            yield RichLog(
+                id="output", wrap=False, markup=False, highlight=False,
+                auto_scroll=True,
+            )
         yield Static(
             "Press : to enter a command  |  Ctrl+L clear  |  Ctrl+Q quit  |  Shift+drag to select/copy",
             id="cmd-label",
@@ -375,6 +394,7 @@ class MtgOracleApp(App):
         log.write(HELP_TEXT)
         self._install_suggester()
         self._refresh_status()
+        self._refresh_nav()
 
     def _install_suggester(self) -> None:
         """Preload autofill sources and wire them into the input widget."""
@@ -772,6 +792,67 @@ class MtgOracleApp(App):
             f"{path}  |  : focus  |  Ctrl+L clear  |  Ctrl+Q quit  |  Shift+drag to copy"
         )
 
+    def _refresh_nav(self) -> None:
+        """Re-render the left navigation panel: folders + their decks.
+
+        Read-only. The user still navigates with `cd`. The panel exists
+        so the deck/folder structure stays visible while the right pane
+        is busy with searches, card details, rulings, or combos. The
+        current cwd is marked with `>` arrows.
+        """
+        try:
+            nav = self.query_one("#nav", RichLog)
+        except Exception:
+            return
+        nav.clear()
+        nav.write("folders / decks")
+        nav.write("-" * 16)
+
+        try:
+            folders = d.list_folders()
+        except Exception as e:
+            nav.write(f"(nav error: {e})")
+            return
+
+        real_folders = [f for f in folders if f["id"] is not None]
+        unsorted_count = next(
+            (f["deck_count"] for f in folders if f["id"] is None), 0
+        )
+
+        for f in real_folders:
+            name = f["name"]
+            here = name == self._cwd_folder
+            marker = ">" if (here and not self._cwd_deck) else " "
+            nav.write(f"{marker} {name}")
+            try:
+                decks_in_folder = d.list_decks(folder=name)
+            except Exception:
+                decks_in_folder = []
+            for x in decks_in_folder:
+                in_deck = (
+                    x["name"] == self._cwd_deck
+                    and self._cwd_folder == name
+                )
+                arrow = ">" if in_deck else " "
+                nav.write(f"  {arrow} {x['name']}")
+
+        if unsorted_count:
+            here_root = self._cwd_folder is None and not self._cwd_deck
+            marker = ">" if here_root else " "
+            nav.write("")
+            nav.write(f"{marker} (unsorted)")
+            unsorted = [
+                x for x in d.list_decks(folder=None)
+                if x.get("folder") is None
+            ]
+            for x in unsorted:
+                in_deck = (
+                    x["name"] == self._cwd_deck
+                    and self._cwd_folder is None
+                )
+                arrow = ">" if in_deck else " "
+                nav.write(f"  {arrow} {x['name']}")
+
     def _cmd_pwd(self, _: str) -> None:
         self._write(self._path_str())
 
@@ -781,6 +862,7 @@ class MtgOracleApp(App):
             self._cwd_folder = None
             self._cwd_deck = None
             self._refresh_status()
+            self._refresh_nav()
             self._write(self._path_str())
             return
         if target == "..":
@@ -789,6 +871,7 @@ class MtgOracleApp(App):
             elif self._cwd_folder:
                 self._cwd_folder = None
             self._refresh_status()
+            self._refresh_nav()
             self._write(self._path_str())
             return
 
@@ -820,6 +903,7 @@ class MtgOracleApp(App):
                 self._cwd_folder = fmatch
                 self._cwd_deck = deck["name"]
                 self._refresh_status()
+                self._refresh_nav()
                 self._write(self._path_str())
                 return
             else:
@@ -840,6 +924,7 @@ class MtgOracleApp(App):
             if target.lower() in folders:
                 self._cwd_folder = folders[target.lower()]
                 self._refresh_status()
+                self._refresh_nav()
                 self._write(self._path_str())
                 return
 
@@ -854,6 +939,7 @@ class MtgOracleApp(App):
             self._cwd_folder = deck.get("folder")
             self._cwd_deck = deck["name"]
             self._refresh_status()
+            self._refresh_nav()
             self._write(self._path_str())
             return
 
@@ -868,6 +954,7 @@ class MtgOracleApp(App):
                 self._cwd_folder = m.get("folder")
                 self._cwd_deck = m["name"]
                 self._refresh_status()
+                self._refresh_nav()
                 self._write(self._path_str())
                 return
             if len(matches) > 1:
@@ -939,6 +1026,7 @@ class MtgOracleApp(App):
         try:
             d.create_folder(name)
             self._write(f"OK created folder {name!r}")
+            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"mkdir: {e}")
 
@@ -950,6 +1038,7 @@ class MtgOracleApp(App):
         try:
             d.delete_folder(name)
             self._write(f"OK removed folder {name!r}")
+            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"rmdir: {e}")
 
@@ -965,6 +1054,7 @@ class MtgOracleApp(App):
             d.create_deck(name, folder=self._cwd_folder)
             scope = f"/{self._cwd_folder}" if self._cwd_folder else "(unsorted)"
             self._write(f"OK created deck {name!r} in {scope}")
+            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"new: {e}")
 
@@ -979,6 +1069,7 @@ class MtgOracleApp(App):
         try:
             d.delete_deck(name, folder=self._cwd_folder)
             self._write(f"OK deleted deck {name!r}")
+            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"delete: {e}")
 
@@ -996,6 +1087,7 @@ class MtgOracleApp(App):
             if self._cwd_deck == old:
                 self._cwd_deck = new
                 self._refresh_status()
+            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"rename: {e}")
 
@@ -1010,6 +1102,7 @@ class MtgOracleApp(App):
         try:
             d.move_deck(name, folder or None, folder=self._cwd_folder)
             self._write(f"OK moved {name!r} -> {folder or '(unsorted)'}")
+            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"move: {e}")
 
