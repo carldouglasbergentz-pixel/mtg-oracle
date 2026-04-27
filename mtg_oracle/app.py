@@ -26,16 +26,18 @@ from mtg_oracle.deck_parser import parse_deckstring
 
 
 COMMANDS = [
+    # Card / rules / combo lookup
     "card", "ruling", "combo", "combos", "combo-info",
     "rule", "search-rules", "search",
     "next", "prev", "page",
     "correction",
-    # Terminal-style navigation:
+    # Terminal-style navigation
     "cd", "pwd", "ls", "mkdir", "rmdir", "new",
     "add", "remove", "show", "rename", "move", "delete",
     "import", "paste",
-    # Legacy explicit forms (still supported):
-    "decks", "folders", "deck", "folder",
+    # Maintenance
+    "sync",
+    # Misc
     "help", "clear", "quit",
 ]
 
@@ -120,11 +122,6 @@ INSIDE A DECK (`/<folder>/<deck>/`)
   import <filepath>         load a deckstring from a text file
                             (appended to the current deck)
 
-LEGACY EXPLICIT FORMS (still work)
-  folder new <name>, folder delete <name>
-  deck show <name>, deck new <name>, deck add <name>; <card> ...
-  decks [<folder>], folders
-
 Card-name resolution is tolerant of `/` vs ` // ` and front-face-only DFC
 names: `add fire/ice` resolves to the canonical `Fire // Ice`.
 """
@@ -177,9 +174,11 @@ Commands:
   next / prev / page <N>              navigate search results
   card <N>                            expand the N-th row of the last search
   correction [<card-or-topic>]        list relevant feedback-loop corrections
-  folders / folder ...                list / create / delete folders
-  decks [<folder>]                    list decks (optionally filter by folder)
-  deck ...                            deck operations — type `deck help` for the full menu
+  cd / ls / pwd / mkdir / new /       deck and folder operations — type `deck help`
+    add / remove / show / import /    for the full menu (terminal-style)
+    paste / combos / move / rename /
+    delete / rmdir
+  sync [force]                        refresh data from Scryfall / Wizards / Spellbook
   help                                this screen
   clear                               clear the output pane
   quit                                exit
@@ -487,10 +486,6 @@ class MtgOracleApp(App):
             "page": self._cmd_search_page,
             "correction": self._cmd_correction,
             "corrections": self._cmd_correction,
-            "folders": self._cmd_folders,
-            "folder": self._cmd_folder,
-            "decks": self._cmd_decks,
-            "deck": self._cmd_deck,
             # cwd-style verbs:
             "cd": self._cmd_cd,
             "pwd": self._cmd_pwd,
@@ -506,6 +501,7 @@ class MtgOracleApp(App):
             "show": self._cmd_show,
             "import": self._cmd_import,
             "paste": self._cmd_paste,
+            "sync": self._cmd_sync,
             "help": self._cmd_help,
             "?": self._cmd_help,
             "clear": lambda _: self.action_clear_output(),
@@ -723,152 +719,35 @@ class MtgOracleApp(App):
         rows = q.get_corrections(card=arg or None, topic=arg or None, limit=50)
         self._write(r.render_corrections(rows))
 
-    # --- deck / folder commands ------------------------------------
+    # --- maintenance: sync ----------------------------------------
 
-    def _cmd_folders(self, _: str) -> None:
-        self._write(r.render_folder_list(d.list_folders()))
-
-    def _cmd_folder(self, arg: str) -> None:
-        parts = arg.split(None, 1)
-        if len(parts) < 2:
-            self._write("usage: folder (new|delete) <name>")
+    def _cmd_sync(self, arg: str) -> None:
+        """Run scripts/sync.py inside the app. Blocks the UI for the
+        duration; pass `force` to re-ingest unchanged sources."""
+        from pathlib import Path as _P
+        sync_path = _P(__file__).resolve().parent.parent / "scripts" / "sync.py"
+        cmd = [sys.executable, str(sync_path)]
+        if arg.strip().lower() == "force":
+            cmd.append("--force")
+        elif arg.strip():
+            self._write("usage: sync   (or `sync force` to re-ingest unchanged sources)")
             return
-        action, name = parts[0].lower(), parts[1].strip()
+        self._write("Running sync — this freezes the UI for up to ~30 s when upstream changed.")
         try:
-            if action == "new":
-                d.create_folder(name)
-                self._write(f"OK created folder {name!r}")
-            elif action == "delete":
-                d.delete_folder(name)
-                self._write(f"OK deleted folder {name!r}")
-            else:
-                self._write(f"unknown folder action: {action!r}")
-        except d.DeckError as e:
-            self._write(f"folder error: {e}")
-
-    def _cmd_decks(self, arg: str) -> None:
-        folder = arg.strip() or None
-        decks_list = d.list_decks(folder=folder)
-        header = f"Decks in {folder!r}:" if folder else "Decks:"
-        # When filtered by folder the caller already implies the scope,
-        # so render flat. At root, group by folder for context.
-        self._write(r.render_deck_list(
-            decks_list, header=header, flat=bool(folder),
-        ))
-
-    def _cmd_deck(self, arg: str) -> None:
-        """Dispatcher for `deck <action> ...` in-app."""
-        arg = arg.strip()
-        if not arg or arg.lower() in ("help", "?"):
-            self._write(DECK_HELP)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=600,
+            )
+        except subprocess.TimeoutExpired:
+            self._write("sync: timed out after 10 minutes")
             return
-        parts = arg.split(None, 1)
-        action = parts[0].lower()
-        rest = parts[1].strip() if len(parts) > 1 else ""
-        try:
-            if action == "show":
-                if not rest:
-                    self._write("usage: deck show <name>")
-                    return
-                deck = d.get_deck(rest)
-                if not deck:
-                    self._write(f"(deck not found: {rest})")
-                    return
-                self._write(r.render_deck(deck))
-                return
-            if action == "new":
-                if not rest:
-                    self._write("usage: deck new <name> [<folder>]")
-                    return
-                name, folder = _split_trailing_folder(rest)
-                d.create_deck(name, folder=folder)
-                tail = f" in {folder!r}" if folder else ""
-                self._write(f"OK created deck {name!r}{tail}")
-                return
-            if action == "delete":
-                if not rest:
-                    self._write("usage: deck delete <name>")
-                    return
-                d.delete_deck(rest)
-                self._write(f"OK deleted deck {rest!r}")
-                return
-            if action == "rename":
-                # `deck rename <old> <new>` — both names may have spaces so
-                # disallow ambiguity: split on the last ' to ' if present,
-                # else on double-space. Simpler: require user to quote via ';'.
-                if ";" not in rest:
-                    self._write("usage: deck rename <old>; <new>")
-                    return
-                old, new = [s.strip() for s in rest.split(";", 1)]
-                if not old or not new:
-                    self._write("usage: deck rename <old>; <new>")
-                    return
-                d.rename_deck(old, new)
-                self._write(f"OK renamed {old!r} -> {new!r}")
-                return
-            if action == "move":
-                if ";" not in rest:
-                    self._write("usage: deck move <name>; <folder>  (empty folder = unsorted)")
-                    return
-                name, folder = [s.strip() for s in rest.split(";", 1)]
-                d.move_deck(name, folder or None)
-                self._write(f"OK moved {name!r} -> {folder or '(unsorted)'}")
-                return
-            if action == "add":
-                # `deck add <deck>; <card> [qty]`
-                if ";" not in rest:
-                    self._write("usage: deck add <deck>; <card> [<qty>]")
-                    return
-                deck_part, card_part = [s.strip() for s in rest.split(";", 1)]
-                qty = 1
-                toks = card_part.rsplit(None, 1)
-                if len(toks) == 2 and toks[1].isdigit():
-                    card_part = toks[0]
-                    qty = int(toks[1])
-                canonical = d.add_card_to_deck(deck_part, card_part, quantity=qty)
-                self._write(f"OK {qty}x {canonical}")
-                return
-            if action == "remove":
-                if ";" not in rest:
-                    self._write("usage: deck remove <deck>; <card>")
-                    return
-                deck_part, card_part = [s.strip() for s in rest.split(";", 1)]
-                d.remove_card_from_deck(deck_part, card_part)
-                self._write(f"OK removed {card_part!r}")
-                return
-            if action == "import":
-                # `deck import <name> <filepath>` — filepath is last token
-                parts2 = rest.rsplit(None, 1)
-                if len(parts2) != 2:
-                    self._write("usage: deck import <name> <path-to-text-file>")
-                    return
-                name, path = parts2[0], parts2[1]
-                from pathlib import Path as _P
-                try:
-                    text = _P(path).read_text(encoding="utf-8")
-                except OSError as e:
-                    self._write(f"could not read {path!r}: {e}")
-                    return
-                parsed = parse_deckstring(text)
-                if not parsed:
-                    self._write("no cards found in the file")
-                    return
-                result = d.import_deck(name, parsed)
-                self._write(r.render_import_result(name, result))
-                return
-            if action == "combos":
-                if not rest:
-                    self._write("usage: deck combos <name>")
-                    return
-                combos = d.combos_in_deck(rest)
-                self._write(r.render_combo_list(
-                    combos,
-                    f"{len(combos)} combo(s) fully contained in {rest!r}:",
-                ))
-                return
-            self._write(f"unknown deck action: {action!r}  (try `deck help`)")
-        except d.DeckError as e:
-            self._write(f"deck error: {e}")
+        except Exception as e:
+            self._write(f"sync failed to start: {type(e).__name__}: {e}")
+            return
+        if result.stdout:
+            self._write(result.stdout.rstrip())
+        if result.stderr:
+            self._write(f"stderr:\n{result.stderr.rstrip()}")
+        self._write(f"sync exit: {result.returncode}")
 
 
     # --- cwd-style verbs --------------------------------------------
@@ -1242,18 +1121,6 @@ class MtgOracleApp(App):
         self._write(r.render_import_result(self._cwd_deck, result))
 
 
-def _split_trailing_folder(s: str) -> tuple[str, Optional[str]]:
-    """Split `<name> <folder>` where the last whitespace-separated token is
-    the folder. Both name and folder may contain spaces, so we require the
-    user to pass folder last. When no folder is present, returns (s, None)."""
-    # Heuristic: if there's no space, it's just a name.
-    if " " not in s:
-        return s, None
-    # Otherwise treat everything up to the last ' : ' or ' in ' as name,
-    # else assume no folder — safer default.
-    # For MVP we keep it simple: no auto-folder split in `deck new` in the
-    # app. Users can `deck move <name>; <folder>` afterwards.
-    return s, None
 
     # --- rendering helpers specific to the app -----------------------
 
