@@ -703,7 +703,11 @@ class MtgOracleApp(App):
         folder = arg.strip() or None
         decks_list = d.list_decks(folder=folder)
         header = f"Decks in {folder!r}:" if folder else "Decks:"
-        self._write(r.render_deck_list(decks_list, header=header))
+        # When filtered by folder the caller already implies the scope,
+        # so render flat. At root, group by folder for context.
+        self._write(r.render_deck_list(
+            decks_list, header=header, flat=bool(folder),
+        ))
 
     def _cmd_deck(self, arg: str) -> None:
         """Dispatcher for `deck <action> ...` in-app."""
@@ -979,7 +983,9 @@ class MtgOracleApp(App):
         if self._cwd_folder:
             decks_list = d.list_decks(folder=self._cwd_folder)
             self._write(r.render_deck_list(
-                decks_list, header=f"Decks in /{self._cwd_folder}:"
+                decks_list,
+                header=f"Decks in /{self._cwd_folder}:",
+                flat=True,
             ))
             return
         # Root: show folders + unsorted decks.

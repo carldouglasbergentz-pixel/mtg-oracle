@@ -331,17 +331,37 @@ _BUCKET_ORDER = [
 ]
 
 
-def render_deck_list(decks: list[dict], header: str = "Decks:") -> str:
-    """One-line-per-deck summary. Groups by folder (with a 'not in folder'
-    section for unsorted decks)."""
+def render_deck_list(
+    decks: list[dict],
+    header: str = "Decks:",
+    *,
+    flat: bool = False,
+) -> str:
+    """One-line-per-deck summary.
+
+    By default (`flat=False`) groups by folder, with an `(unsorted)`
+    section for decks that have no folder. Use `flat=True` when the
+    caller has already scoped the listing (e.g. `ls` inside a folder)
+    — repeating the folder name is just noise.
+    """
     if not decks:
         return "(no decks)"
+
+    def _row(d: dict) -> str:
+        fmt = f" [{d['format']}]" if d.get("format") else ""
+        updated = (d.get("updated_at") or "")[:10]
+        return (
+            f"{INDENT}{d['name']:<40} {d['card_count']:>4} cards{fmt}  "
+            f"updated {updated}"
+        )
+
+    if flat:
+        return "\n".join([header] + [_row(d) for d in decks])
+
     by_folder: dict[str | None, list[dict]] = {}
     for d in decks:
         by_folder.setdefault(d.get("folder"), []).append(d)
-
     lines = [header]
-    # None (unsorted) first if present; then alphabetical by folder name.
     folders = sorted(
         (f for f in by_folder.keys() if f is not None),
         key=lambda s: s.lower(),
@@ -350,15 +370,9 @@ def render_deck_list(decks: list[dict], header: str = "Decks:") -> str:
         folders.insert(0, None)
     for folder in folders:
         label = folder if folder is not None else "(unsorted)"
-        entries = by_folder[folder]
         lines.append(f"\n{label}:")
-        for d in entries:
-            fmt = f" [{d['format']}]" if d.get("format") else ""
-            updated = (d.get("updated_at") or "")[:10]  # just the date
-            lines.append(
-                f"{INDENT}{d['name']:<40} {d['card_count']:>4} cards{fmt}  "
-                f"updated {updated}"
-            )
+        for d in by_folder[folder]:
+            lines.append(_row(d))
     return "\n".join(lines)
 
 

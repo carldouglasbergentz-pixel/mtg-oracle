@@ -202,7 +202,7 @@ def _cmd_decks(args) -> int:
     if args.json:
         print(json.dumps(decks, indent=2, default=str))
     else:
-        print(_render_deck_list(decks))
+        print(_render_deck_list(decks, flat=bool(args.folder)))
     return 0
 
 
