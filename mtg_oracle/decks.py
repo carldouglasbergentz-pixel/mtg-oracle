@@ -13,6 +13,8 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
+from mtg_oracle.queries import resolve_card_name as _resolve_canonical
+
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
 
@@ -45,64 +47,9 @@ def _now() -> str:
 
 # --- Card-name resolution --------------------------------------------
 
-def resolve_card_name(raw: str) -> Optional[str]:
-    """Find the canonical card name in the DB.
-
-    Tolerant of:
-    - case differences ("sol ring" -> "Sol Ring")
-    - alternative `//` separators on DFC/split cards
-      ("Fire/Ice", "fire // ice", "fire//ice" -> "Fire // Ice")
-    - front-face-only DFC names ("Delver of Secrets" -> "Delver of
-      Secrets // Insectile Aberration", "Jace, Vryn's Prodigy" -> the
-      full melded name).
-
-    Returns the canonical name, or None if no match. Ambiguous prefix
-    matches return the shortest match (usually the intended card).
-    """
-    if not raw:
-        return None
-    name = raw.strip()
-    if not name:
-        return None
-
-    conn = _ro()
-    try:
-        cur = conn.cursor()
-        # 1) Exact match (case-insensitive)
-        cur.execute("SELECT name FROM cards WHERE name = ? COLLATE NOCASE", (name,))
-        row = cur.fetchone()
-        if row:
-            return row[0]
-
-        # 2) Normalize separators — users often type "Fire/Ice" or
-        # "Fire // Ice" without the spaces Scryfall uses. Try a few variants.
-        normalized_variants = []
-        for sep in [" // ", "//", "/"]:
-            if sep in name:
-                parts = [p.strip() for p in name.split(sep)]
-                normalized_variants.append(" // ".join(parts))
-                break
-        for v in normalized_variants:
-            cur.execute("SELECT name FROM cards WHERE name = ? COLLATE NOCASE", (v,))
-            row = cur.fetchone()
-            if row:
-                return row[0]
-
-        # 3) Front-face-only prefix for DFC/split/flip. We only accept
-        # matches where `name // something` is exactly the canonical form,
-        # not arbitrary substrings (which would be too fuzzy).
-        cur.execute(
-            "SELECT name FROM cards WHERE name LIKE ? COLLATE NOCASE "
-            "ORDER BY LENGTH(name) LIMIT 1",
-            (f"{name} // %",),
-        )
-        row = cur.fetchone()
-        if row:
-            return row[0]
-
-        return None
-    finally:
-        conn.close()
+# Re-exported from queries.resolve_card_name so deck operations and the
+# card-lookup path share the exact same matching rules.
+resolve_card_name = _resolve_canonical
 
 
 # --- Folders ---------------------------------------------------------

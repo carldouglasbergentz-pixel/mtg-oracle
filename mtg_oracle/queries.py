@@ -11,10 +11,126 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import unicodedata
 from pathlib import Path
 from typing import Optional
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
+
+
+_LIGATURE_MAP = str.maketrans({
+    # Ligatures that NFKD doesn't decompose.
+    "Æ": "AE", "æ": "ae",
+    "Œ": "OE", "œ": "oe",
+    "ß": "ss",
+    "Þ": "Th", "þ": "th",
+    "Ð": "D", "ð": "d",
+    "Ø": "O", "ø": "o",
+})
+
+
+# Apostrophes — straight, curly, backtick — get stripped so users don't have
+# to type them ("lim-duls vault" matches "Lim-Dûl's Vault").
+_APOSTROPHE_DROP = str.maketrans({"'": None, "’": None, "‘": None, "`": None})
+
+
+def _ascii_fold(s: str) -> str:
+    """Strip diacritics + map common ligatures + drop apostrophes so loosely
+    typed input matches the canonical card name.
+
+    Examples:
+        "Lórien Revealed"  -> "lorien revealed"
+        "Æther Vial"       -> "aether vial"
+        "Lim-Dûl's Vault"  -> "lim-duls vault"
+        "Kongming, Sleeping Dragon" matches "Kongming, 'Sleeping Dragon'"
+    """
+    if not s:
+        return ""
+    folded = s.translate(_LIGATURE_MAP).translate(_APOSTROPHE_DROP)
+    decomposed = unicodedata.normalize("NFKD", folded)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).lower()
+
+
+def resolve_card_name(raw: str) -> Optional[str]:
+    """Find the canonical card name in the DB. Tolerant of:
+
+    - case differences ("sol ring" -> "Sol Ring")
+    - alternative `//` separators on DFC/split cards
+      ("Fire/Ice", "fire // ice", "fire//ice" -> "Fire // Ice")
+    - front-face-only DFC names ("Delver of Secrets" -> "Delver of
+      Secrets // Insectile Aberration")
+    - ASCII fold-down: a name typed without diacritics matches a card
+      that has them ("lorien revealed" -> "Lórien Revealed",
+      "aether vial" -> "Aether Vial").
+
+    Returns the canonical name, or None if no match.
+    """
+    if not raw:
+        return None
+    name = raw.strip()
+    if not name:
+        return None
+
+    if not DB_PATH.exists():
+        return None
+    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    try:
+        cur = conn.cursor()
+        # 1) Exact match (case-insensitive). COLLATE NOCASE is ASCII-only,
+        # which is fine for the common case.
+        cur.execute("SELECT name FROM cards WHERE name = ? COLLATE NOCASE", (name,))
+        row = cur.fetchone()
+        if row:
+            return row[0]
+
+        # 2) Normalize alternate `//` separators that humans use.
+        for sep in (" // ", "//", "/"):
+            if sep in name:
+                parts = [p.strip() for p in name.split(sep)]
+                normalized = " // ".join(parts)
+                cur.execute(
+                    "SELECT name FROM cards WHERE name = ? COLLATE NOCASE",
+                    (normalized,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return row[0]
+                break
+
+        # 3) Front-face-only DFC: try `<name> // %` prefix.
+        cur.execute(
+            "SELECT name FROM cards WHERE name LIKE ? COLLATE NOCASE "
+            "ORDER BY LENGTH(name) LIMIT 1",
+            (f"{name} // %",),
+        )
+        row = cur.fetchone()
+        if row:
+            return row[0]
+
+        # 4) ASCII fold-down fallback: linear scan, ~30-50 ms over 34k names.
+        # Scoped only to cards whose first ASCII letter matches the input,
+        # which keeps it fast in practice.
+        target = _ascii_fold(name)
+        first = target[:1]
+        if first.isalpha():
+            cur.execute(
+                "SELECT name FROM cards WHERE LOWER(SUBSTR(name, 1, 1)) IN (?, ?)",
+                (first, first.upper()),
+            )
+        else:
+            cur.execute("SELECT name FROM cards")
+        for (cn,) in cur.fetchall():
+            if _ascii_fold(cn) == target:
+                return cn
+            # Front-face DFC: also fold the part before " // ".
+            if " // " in cn:
+                front = cn.split(" // ", 1)[0]
+                if _ascii_fold(front) == target:
+                    return cn
+
+        return None
+    finally:
+        conn.close()
 
 
 # --- Connection --------------------------------------------------------
@@ -47,21 +163,21 @@ def get_card(name: str) -> Optional[dict]:
     """
     if not name:
         return None
+    # resolve_card_name handles case differences, `//` variants, front-face-only
+    # DFC names, and ASCII fold-down ("lorien revealed" -> "Lórien Revealed").
+    canonical_input = resolve_card_name(name) or name
     conn = _connect()
     try:
         cur = conn.cursor()
         cur.execute(
             "SELECT name, oracle_id, oracle_text, mana_cost, type_line, layout, card_faces "
-            "FROM cards WHERE name = ? COLLATE NOCASE",
-            (name,),
+            "FROM cards WHERE name = ?",
+            (canonical_input,),
         )
         row = cur.fetchone()
         if not row:
             return None
         card: dict = dict(row)
-        # Use the canonical name from the DB for all downstream joins —
-        # the caller's input may have wrong case; we want rulings, tags,
-        # combos, corrections all keyed off the properly-cased name.
         canonical = card["name"]
         if card.get("card_faces"):
             try:
