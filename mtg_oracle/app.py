@@ -8,7 +8,9 @@ Launch:
 """
 from __future__ import annotations
 
+import subprocess
 import sqlite3
+import sys
 from typing import Callable, Optional
 
 from textual.app import App, ComposeResult
@@ -31,11 +33,48 @@ COMMANDS = [
     # Terminal-style navigation:
     "cd", "pwd", "ls", "mkdir", "rmdir", "new",
     "add", "remove", "show", "rename", "move", "delete",
-    "import",
+    "import", "paste",
     # Legacy explicit forms (still supported):
     "decks", "folders", "deck", "folder",
     "help", "clear", "quit",
 ]
+
+
+def _read_clipboard() -> str:
+    """Best-effort cross-platform clipboard read.
+
+    Returns the clipboard contents as a string. Raises RuntimeError if no
+    supported tool is available on the current platform.
+    """
+    if sys.platform.startswith("win"):
+        # Get-Clipboard is built into PowerShell on every modern Windows.
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", "Get-Clipboard"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode == 0:
+            return out.stdout
+        raise RuntimeError(out.stderr or "Get-Clipboard failed")
+    if sys.platform == "darwin":
+        out = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=5)
+        if out.returncode == 0:
+            return out.stdout
+        raise RuntimeError("pbpaste failed")
+    # Linux / BSD: try xclip then wl-paste then xsel.
+    for cmd in (
+        ["xclip", "-selection", "clipboard", "-o"],
+        ["wl-paste"],
+        ["xsel", "--clipboard", "--output"],
+    ):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        except FileNotFoundError:
+            continue
+        if out.returncode == 0:
+            return out.stdout
+    raise RuntimeError(
+        "no clipboard tool found — install xclip, wl-clipboard, or xsel"
+    )
 
 
 DECK_HELP = """\
@@ -49,7 +88,12 @@ Commands change meaning by where you are. The status line shows your path.
 NAVIGATION (works anywhere)
   pwd                       print current path
   ls                        list contents of current location
+  ls all                    flat list of every deck across all folders,
+                            each row prefixed with /folder/deck-name
   cd <name>                 enter folder or deck (auto-detects)
+  cd <deck>                 from root, jumps directly into a deck if its
+                            name is unique across all folders
+  cd <folder>/<deck>        explicit path (disambiguates ambiguous names)
   cd ..                     up one level
   cd /                      go to root
 
@@ -71,6 +115,8 @@ INSIDE A DECK (`/<folder>/<deck>/`)
   add <card> [<qty>]        add card (qty defaults to 1)
   remove <card>             remove a card
   combos                    list Spellbook combos fully contained here
+  paste                     read deckstring from system clipboard and
+                            append to current deck (Windows / macOS / Linux)
   import <filepath>         load a deckstring from a text file
                             (appended to the current deck)
 
@@ -412,6 +458,7 @@ class MtgOracleApp(App):
             "remove": self._cmd_remove,
             "show": self._cmd_show,
             "import": self._cmd_import,
+            "paste": self._cmd_paste,
             "help": self._cmd_help,
             "?": self._cmd_help,
             "clear": lambda _: self.action_clear_output(),
@@ -815,36 +862,117 @@ class MtgOracleApp(App):
             self._write(self._path_str())
             return
 
-        # Auto-detect: at root or in a folder, the target may be a folder
-        # or a deck. Inside a deck, only `..` and `/` are valid.
+        # Path-style: `cd Modern/UR Murktide` or `cd /Modern/UR Murktide`
+        # is treated as an absolute jump from root regardless of cwd.
+        if "/" in target:
+            parts = [p for p in target.split("/") if p]
+            if len(parts) == 1:
+                # `cd /SoloName` — same as a bareword, but anchored to root.
+                self._cwd_folder = None
+                self._cwd_deck = None
+                target = parts[0]  # fall through to bareword handling
+            elif len(parts) == 2:
+                folder_name, deck_name = parts
+                # Resolve folder -> deck.
+                folders = d.list_folders()
+                fmatch = next(
+                    (f["name"] for f in folders
+                     if f["id"] is not None and f["name"].lower() == folder_name.lower()),
+                    None,
+                )
+                if fmatch is None:
+                    self._write(f"cd: no folder named {folder_name!r}")
+                    return
+                deck = d.get_deck(deck_name, folder=fmatch)
+                if not deck:
+                    self._write(f"cd: no deck named {deck_name!r} in {fmatch!r}")
+                    return
+                self._cwd_folder = fmatch
+                self._cwd_deck = deck["name"]
+                self._refresh_status()
+                self._write(self._path_str())
+                return
+            else:
+                self._write("cd: paths support at most <folder>/<deck>")
+                return
+
+        # Inside a deck, only `..` and `/` are meaningful.
         if self._cwd_deck:
             self._write("(already inside a deck — use `cd ..` or `cd /`)")
             return
 
-        # Try folder first when at root.
+        # 1) At root or in a folder: try folder first if at root.
         if not self._cwd_folder:
-            folders = {f["name"].lower(): f["name"] for f in d.list_folders() if f["id"] is not None}
+            folders = {
+                f["name"].lower(): f["name"]
+                for f in d.list_folders() if f["id"] is not None
+            }
             if target.lower() in folders:
                 self._cwd_folder = folders[target.lower()]
                 self._refresh_status()
                 self._write(self._path_str())
                 return
 
-        # Otherwise look for a deck in current scope.
+        # 2) Try a deck in the current scope (folder if set, else unsorted).
         try:
             deck = d.get_deck(target, folder=self._cwd_folder)
         except d.DeckError as e:
+            # Ambiguous — let the user disambiguate via path syntax.
             self._write(f"cd: {e}")
             return
-        if not deck:
-            scope = self._cwd_folder or "(unsorted)"
-            self._write(f"cd: no folder or deck named {target!r} in {scope}")
+        if deck:
+            self._cwd_folder = deck.get("folder")
+            self._cwd_deck = deck["name"]
+            self._refresh_status()
+            self._write(self._path_str())
             return
-        self._cwd_deck = deck["name"]
-        self._refresh_status()
-        self._write(self._path_str())
 
-    def _cmd_ls(self, _: str) -> None:
+        # 3) From root only: look for the deck across ALL folders. If exactly
+        # one matches, jump there. If several, list them so the user can use
+        # `cd <folder>/<deck>` to disambiguate.
+        if not self._cwd_folder:
+            all_decks = d.list_decks()
+            matches = [x for x in all_decks if x["name"].lower() == target.lower()]
+            if len(matches) == 1:
+                m = matches[0]
+                self._cwd_folder = m.get("folder")
+                self._cwd_deck = m["name"]
+                self._refresh_status()
+                self._write(self._path_str())
+                return
+            if len(matches) > 1:
+                lines = [f"cd: {len(matches)} decks named {target!r} — use a folder path:"]
+                for m in matches:
+                    folder = m.get("folder") or "(unsorted)"
+                    lines.append(f"  cd {folder}/{m['name']}")
+                self._write("\n".join(lines))
+                return
+
+        scope = self._cwd_folder or "(any folder)"
+        self._write(f"cd: no folder or deck named {target!r} in {scope}")
+
+    def _cmd_ls(self, arg: str) -> None:
+        flag = arg.strip().lower()
+        # `ls all` / `ls -a` / `ls --all` -> flat list of every deck with
+        # its full folder/deck path, regardless of cwd.
+        if flag in ("all", "-a", "--all"):
+            all_decks = d.list_decks()
+            if not all_decks:
+                self._write("(no decks)")
+                return
+            lines = [f"All decks ({len(all_decks)}):"]
+            for x in all_decks:
+                folder = x.get("folder") or "(unsorted)"
+                cards = x.get("card_count", 0)
+                fmt = f" [{x['format']}]" if x.get("format") else ""
+                updated = (x.get("updated_at") or "")[:10]
+                path = f"/{folder}/{x['name']}"
+                lines.append(
+                    f"  {path:<55} {cards:>4} cards{fmt}  updated {updated}"
+                )
+            self._write("\n".join(lines))
+            return
+
         if self._cwd_deck:
             self._show_current_deck()
             return
@@ -1019,11 +1147,28 @@ class MtgOracleApp(App):
         except OSError as e:
             self._write(f"import: could not read {arg!r}: {e}")
             return
+        self._import_text_into_current_deck(text)
+
+    def _cmd_paste(self, _: str) -> None:
+        """Read deckstring from system clipboard and import into current deck."""
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `paste`)")
+            return
+        try:
+            text = _read_clipboard()
+        except Exception as e:
+            self._write(f"paste: could not read clipboard: {e}")
+            return
+        if not text or not text.strip():
+            self._write("(clipboard is empty)")
+            return
+        self._import_text_into_current_deck(text)
+
+    def _import_text_into_current_deck(self, text: str) -> None:
         parsed = parse_deckstring(text)
         if not parsed:
-            self._write("(no cards found in file)")
+            self._write("(no card lines recognized in input)")
             return
-        # Append to current deck.
         added = 0
         unresolved: list[str] = []
         for row in parsed:
