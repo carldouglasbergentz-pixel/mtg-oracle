@@ -56,6 +56,17 @@ This project compiles a comprehensive Magic: The Gathering knowledge base — ca
 ### combo_results, combo_prerequisites, combo_steps
 - All have `combo_id` + `text` (steps also have `step_order`)
 
+### deck_folders
+- `id`, `name` (UNIQUE COLLATE NOCASE), `created_at`. Flat list — no nesting.
+
+### decks
+- `id`, `folder_id` (FK, NULL = unsorted), `name`, `format` (informational), `description`, `created_at`, `updated_at`
+- UNIQUE on `(folder_id, name)` so the same deck name can appear in different folders.
+
+### deck_cards
+- `id`, `deck_id` (FK), `card_name` (FK to cards.name, COLLATE NOCASE join), `quantity` (>0), `category` (user label), `is_commander` (0/1), `is_sideboard` (0/1), `added_at`
+- ON DELETE CASCADE: deleting a deck removes its cards.
+
 ### corrections
 - `id`, `topic`, `category` (`card_interaction` / `rules` / `combo` / `meta`)
 - `incorrect_claim`, `correct_claim`, `explanation`, `relates_to` (JSON array of card names / rule numbers)

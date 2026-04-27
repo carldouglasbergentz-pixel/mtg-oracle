@@ -87,6 +87,40 @@ CREATE TABLE IF NOT EXISTS combo_steps (
     text TEXT NOT NULL,
     FOREIGN KEY (combo_id) REFERENCES combos(id)
 );
+
+CREATE TABLE IF NOT EXISTS deck_folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    folder_id INTEGER,
+    name TEXT NOT NULL,
+    format TEXT,
+    description TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (folder_id) REFERENCES deck_folders(id),
+    UNIQUE (folder_id, name) ON CONFLICT ABORT
+);
+CREATE INDEX IF NOT EXISTS idx_decks_folder ON decks(folder_id);
+
+CREATE TABLE IF NOT EXISTS deck_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deck_id INTEGER NOT NULL,
+    card_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1 CHECK(quantity > 0),
+    category TEXT,
+    is_commander INTEGER NOT NULL DEFAULT 0,
+    is_sideboard INTEGER NOT NULL DEFAULT 0,
+    added_at TEXT NOT NULL,
+    FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
+    FOREIGN KEY (card_name) REFERENCES cards(name)
+);
+CREATE INDEX IF NOT EXISTS idx_deck_cards_deck ON deck_cards(deck_id);
+CREATE INDEX IF NOT EXISTS idx_deck_cards_card ON deck_cards(card_name);
 """
 
 

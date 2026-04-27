@@ -24,6 +24,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from mtg_oracle import queries as q
 from mtg_oracle import scryfall_search as ss
+from mtg_oracle import decks as d
+from mtg_oracle.deck_parser import parse_deckstring
 from mtg_oracle.renderer import (
     render_card as _render_card,
     render_rulings as _render_rulings,
@@ -33,6 +35,10 @@ from mtg_oracle.renderer import (
     render_rules_search as _render_rules_search,
     render_search as _render_search,
     render_corrections as _render_corrections,
+    render_deck as _render_deck,
+    render_deck_list as _render_deck_list,
+    render_folder_list as _render_folder_list,
+    render_import_result as _render_import_result,
 )
 
 
@@ -180,6 +186,123 @@ def _cmd_correction(args) -> int:
     return 0 if rows else 1
 
 
+# --- Deck commands -----------------------------------------------------
+
+def _cmd_folders(args) -> int:
+    folders = d.list_folders()
+    if args.json:
+        print(json.dumps(folders, indent=2, default=str))
+    else:
+        print(_render_folder_list(folders))
+    return 0
+
+
+def _cmd_decks(args) -> int:
+    decks = d.list_decks(folder=args.folder)
+    if args.json:
+        print(json.dumps(decks, indent=2, default=str))
+    else:
+        print(_render_deck_list(decks))
+    return 0
+
+
+def _cmd_deck(args) -> int:
+    """Dispatch for `deck <action> ...` sub-subcommands."""
+    action = args.action
+    try:
+        if action == "show":
+            deck = d.get_deck(args.name, folder=args.folder)
+            if not deck:
+                print(f"(deck not found: {args.name})")
+                return 1
+            if args.json:
+                print(json.dumps(deck, indent=2, default=str))
+            else:
+                print(_render_deck(deck))
+            return 0
+        if action == "new":
+            d.create_deck(args.name, folder=args.folder, format=args.format)
+            print(f"OK created deck {args.name!r}"
+                  + (f" in folder {args.folder!r}" if args.folder else ""))
+            return 0
+        if action == "delete":
+            d.delete_deck(args.name, folder=args.folder)
+            print(f"OK deleted deck {args.name!r}")
+            return 0
+        if action == "rename":
+            d.rename_deck(args.name, args.new_name, folder=args.folder)
+            print(f"OK renamed to {args.new_name!r}")
+            return 0
+        if action == "move":
+            d.move_deck(args.name, args.new_folder, folder=args.folder)
+            print(f"OK moved {args.name!r} -> {args.new_folder or '(unsorted)'}")
+            return 0
+        if action == "add":
+            canonical = d.add_card_to_deck(
+                args.name, args.card, quantity=args.qty,
+                is_commander=args.commander, is_sideboard=args.sideboard,
+                folder=args.folder,
+            )
+            print(f"OK {args.qty}x {canonical}")
+            return 0
+        if action == "remove":
+            d.remove_card_from_deck(args.name, args.card, folder=args.folder)
+            print(f"OK removed {args.card!r}")
+            return 0
+        if action == "import":
+            text = _read_deck_source(args)
+            parsed = parse_deckstring(text)
+            if not parsed:
+                print("no cards found in input")
+                return 1
+            result = d.import_deck(
+                args.name, parsed, folder=args.folder, format=args.format
+            )
+            print(_render_import_result(args.name, result))
+            return 0
+        if action == "combos":
+            combos = d.combos_in_deck(args.name, folder=args.folder)
+            if args.json:
+                print(json.dumps(combos, indent=2, default=str))
+            else:
+                print(_render_combo_list(
+                    combos, f"{len(combos)} combo(s) fully contained in {args.name!r}:"
+                ))
+            return 0
+    except d.DeckError as e:
+        print(f"deck error: {e}")
+        return 2
+    print(f"unknown deck action: {action}")
+    return 2
+
+
+def _read_deck_source(args) -> str:
+    """Pick the deck source: --from-file, positional file path, or stdin."""
+    if args.from_file:
+        return Path(args.from_file).read_text(encoding="utf-8")
+    if not sys.stdin.isatty():
+        return sys.stdin.read()
+    raise d.DeckError("need --from-file PATH (or pipe text on stdin)")
+
+
+def _cmd_folder(args) -> int:
+    """Dispatch for `folder <action> ...`."""
+    try:
+        if args.action == "new":
+            d.create_folder(args.name)
+            print(f"OK created folder {args.name!r}")
+            return 0
+        if args.action == "delete":
+            d.delete_folder(args.name, force=args.force)
+            print(f"OK deleted folder {args.name!r}")
+            return 0
+    except d.DeckError as e:
+        print(f"folder error: {e}")
+        return 2
+    print(f"unknown folder action: {args.action}")
+    return 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mtg", description=__doc__)
     p.add_argument("--json", action="store_true", help="Emit JSON instead of formatted text.")
@@ -230,6 +353,40 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--topic", help="Filter by topic keyword.")
     sp.add_argument("--limit", type=int, default=25)
     sp.set_defaults(func=_cmd_correction)
+
+    # --- decks & folders ---
+    sp = sub.add_parser("folders", help="List all folders.")
+    sp.set_defaults(func=_cmd_folders)
+
+    sp = sub.add_parser("decks", help="List all decks (grouped by folder).")
+    sp.add_argument("--folder", help="Filter to one folder.")
+    sp.set_defaults(func=_cmd_decks)
+
+    sp = sub.add_parser("folder", help="Manage folders: folder new|delete <name>.")
+    sp.add_argument("action", choices=["new", "delete"])
+    sp.add_argument("name")
+    sp.add_argument("--force", action="store_true",
+                    help="(delete) move contained decks to (unsorted) instead of refusing.")
+    sp.set_defaults(func=_cmd_folder)
+
+    sp = sub.add_parser("deck", help=(
+        "Manage decks: deck (show|new|delete|rename|move|add|remove|import) <name> ..."
+    ))
+    sp.add_argument(
+        "action",
+        choices=["show", "new", "delete", "rename", "move", "add", "remove", "import", "combos"],
+    )
+    sp.add_argument("name", help="Deck name.")
+    sp.add_argument("--folder", help="Folder the deck lives in (disambiguates duplicates).")
+    sp.add_argument("--format", help="Informational format tag (commander, modern, ...).")
+    sp.add_argument("--new-name", help="(rename) the new deck name.")
+    sp.add_argument("--new-folder", help="(move) target folder; empty -> (unsorted).")
+    sp.add_argument("--card", help="(add/remove) card name.")
+    sp.add_argument("--qty", type=int, default=1, help="(add) quantity.")
+    sp.add_argument("--commander", action="store_true", help="(add) add as commander.")
+    sp.add_argument("--sideboard", action="store_true", help="(add) add to sideboard.")
+    sp.add_argument("--from-file", help="(import) read deckstring from this file.")
+    sp.set_defaults(func=_cmd_deck)
 
     return p
 

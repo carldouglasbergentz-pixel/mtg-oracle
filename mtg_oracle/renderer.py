@@ -290,6 +290,171 @@ def render_search(
     return "\n".join(lines)
 
 
+def _type_bucket(type_line: str) -> str:
+    """Auto-categorize a card by its type_line for deck view grouping."""
+    tl = (type_line or "").lower()
+    # Commander tables / emblems / tokens shouldn't appear in decks; fall through.
+    if "land" in tl:
+        return "Lands"
+    if "creature" in tl:
+        return "Creatures"
+    if "planeswalker" in tl:
+        return "Planeswalkers"
+    if "battle" in tl:
+        return "Battles"
+    if "instant" in tl:
+        return "Instants"
+    if "sorcery" in tl:
+        return "Sorceries"
+    if "artifact" in tl:
+        return "Artifacts"
+    if "enchantment" in tl:
+        return "Enchantments"
+    return "Other"
+
+
+_BUCKET_ORDER = [
+    "Commander",
+    "Creatures", "Planeswalkers", "Battles",
+    "Instants", "Sorceries",
+    "Artifacts", "Enchantments",
+    "Lands",
+    "Other",
+    "Sideboard",
+]
+
+
+def render_deck_list(decks: list[dict], header: str = "Decks:") -> str:
+    """One-line-per-deck summary. Groups by folder (with a 'not in folder'
+    section for unsorted decks)."""
+    if not decks:
+        return "(no decks)"
+    by_folder: dict[str | None, list[dict]] = {}
+    for d in decks:
+        by_folder.setdefault(d.get("folder"), []).append(d)
+
+    lines = [header]
+    # None (unsorted) first if present; then alphabetical by folder name.
+    folders = sorted(
+        (f for f in by_folder.keys() if f is not None),
+        key=lambda s: s.lower(),
+    )
+    if None in by_folder:
+        folders.insert(0, None)
+    for folder in folders:
+        label = folder if folder is not None else "(unsorted)"
+        entries = by_folder[folder]
+        lines.append(f"\n{label}:")
+        for d in entries:
+            fmt = f" [{d['format']}]" if d.get("format") else ""
+            updated = (d.get("updated_at") or "")[:10]  # just the date
+            lines.append(
+                f"{INDENT}{d['name']:<40} {d['card_count']:>4} cards{fmt}  "
+                f"updated {updated}"
+            )
+    return "\n".join(lines)
+
+
+def render_folder_list(folders: list[dict]) -> str:
+    if not folders:
+        return "(no folders yet — use `folder new <name>`)"
+    lines = ["Folders:"]
+    for f in folders:
+        created = (f.get("created_at") or "")[:10]
+        lines.append(
+            f"{INDENT}{f['name']:<30} {f['deck_count']:>3} deck(s)  "
+            f"{'created ' + created if created else ''}"
+        )
+    return "\n".join(lines)
+
+
+def render_deck(deck: dict) -> str:
+    """Full deck view, auto-grouped by type.
+
+    Handles large lists (100+ cards for Commander / Canadian Highlander)
+    by bucketing by type_line. Cards with an explicit user-set category
+    keep that category label; otherwise the bucket name is used.
+    """
+    total = deck.get("total_main", 0)
+    header_right = []
+    if deck.get("folder"):
+        header_right.append(deck["folder"])
+    if deck.get("format"):
+        header_right.append(deck["format"])
+    header_right.append(f"{total} cards")
+    side_total = deck.get("total_side", 0)
+    if side_total:
+        header_right.append(f"+{side_total} sideboard")
+    right = "  ·  ".join(header_right)
+
+    name = deck["name"]
+    # Center-ish header: name on the left, metadata on the right.
+    pad = max(1, WRAP_COLS - len(name) - len(right) - 4)
+    lines = [hr(), f"{BOX_V} {name}{' ' * pad}{right}"]
+    if deck.get("description"):
+        lines.append(f"{BOX_V} {deck['description']}")
+    lines.append(hr())
+
+    # Group cards
+    commanders: list[dict] = []
+    main_buckets: dict[str, list[dict]] = {}
+    sideboard: list[dict] = []
+    for c in deck.get("cards", []):
+        if c.get("is_sideboard"):
+            sideboard.append(c)
+            continue
+        if c.get("is_commander"):
+            commanders.append(c)
+            continue
+        bucket = c.get("category") or _type_bucket(c.get("type_line") or "")
+        main_buckets.setdefault(bucket, []).append(c)
+
+    # Keep a stable, predictable order.
+    ordered: list[tuple[str, list[dict]]] = []
+    if commanders:
+        ordered.append(("Commander", commanders))
+    for b in _BUCKET_ORDER:
+        if b in main_buckets:
+            ordered.append((b, main_buckets.pop(b)))
+    # Any remaining user-named categories, alphabetical.
+    for k in sorted(main_buckets, key=str.lower):
+        ordered.append((k, main_buckets[k]))
+    if sideboard:
+        ordered.append(("Sideboard", sideboard))
+
+    for bucket, cards in ordered:
+        subtotal = sum(c["quantity"] for c in cards)
+        lines.append("")
+        lines.append(f"{bucket} ({subtotal}):")
+        for c in cards:
+            qty = c["quantity"]
+            cost = c.get("mana_cost") or ""
+            type_line = c.get("type_line") or ""
+            # Truncate type line; whole row must stay within WRAP_COLS-ish.
+            type_trunc = type_line if len(type_line) <= 30 else type_line[:28] + ".."
+            lines.append(
+                f"{INDENT}{qty:>2}x {c['card_name']:<38} {cost:<14} {type_trunc}"
+            )
+
+    return "\n".join(lines)
+
+
+def render_import_result(deck_name: str, result: dict) -> str:
+    lines = [
+        f"Imported deck {deck_name!r}: "
+        f"{result['added']} cards added "
+        f"from {result['total_input']} input lines."
+    ]
+    unresolved = result.get("unresolved") or []
+    if unresolved:
+        lines.append(
+            f"WARNING {len(unresolved)} card(s) not found in database and skipped:"
+        )
+        for u in unresolved:
+            lines.append(f"{INDENT}- {u}")
+    return "\n".join(lines)
+
+
 def render_corrections(rows: list[dict]) -> str:
     if not rows:
         return "(no corrections)"

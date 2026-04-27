@@ -67,6 +67,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `requirements.txt` now lists `textual>=0.80` (only needed for the app; core sync/query remain stdlib-only).
 - Verified via headless Textual pilot: card lookup, combo intersection, rule lookup, search with flags, correction listing, unknown-command handling all pass.
 
+### Added (Phase 3 — Decks Lite with terminal-style navigation)
+Decks live in three new tables (`deck_folders`, `decks`, `deck_cards`) with flat folders (no nesting). Folders cover the "format / theme" organization role for now — Commander, Modern, Cube, etc.
+
+- `scripts/migrate_add_decks.py` — idempotent schema migration.
+- `mtg_oracle/decks.py` — full CRUD (folders + decks + cards) with case-insensitive name resolution that handles `/` vs ` // ` and front-face-only DFC names. `Fire/Ice` resolves to `Fire // Ice`, `Jace, Vryn's Prodigy` resolves to the canonical melded form, etc.
+- `mtg_oracle/deck_parser.py` — tolerant plain-text deckstring parser. Handles `4 Card`, `4x Card`, `Card x4`, set-code suffixes `(CLB) 146`, foil markers `*F*`, comment lines (`#` / `//`), and section headers (`Deck`, `Sideboard`, `Commander`, `Maybeboard`, plus aliases).
+- `combos_in_deck()` — intersects a deck's cards against the combos table and returns combos whose every card is in the deck. Verified: 0 matches on a Canlander Izzet Delver list (correct — no Spellbook combos), 2 matches on a Thassa+Consultation+Tainted-Pact test deck.
+- `render_deck` auto-groups by type (Lands / Creatures / Instants / Sorceries / Artifacts / Enchantments / Planeswalkers / Battles / Other) so 100-card singleton lists stay scannable. Subtotals per group; mana costs in each row; sideboard / commander as separate sections.
+- CLI: full `deck` and `folder` subcommand families (`deck show|new|delete|rename|move|add|remove|import|combos`, `folder new|delete`, top-level `decks` and `folders`). `deck import --from-file path.txt` or pipe text on stdin.
+- TUI: **terminal-style cwd navigation**.
+  - Hierarchy: `/` (root) → `/<folder>/` → `/<folder>/<deck>/`. Status bar shows current path.
+  - `cd <name>` enters folder or deck (auto-detects). `cd ..`, `cd /`. `pwd`. `ls`.
+  - `mkdir <name>` / `rmdir <name>` for folders. `new <deck>` creates in current scope. `delete <deck>`, `rename <old>; <new>`, `move <deck>; <folder>`.
+  - Inside a deck: `add <card> [<qty>]`, `remove <card>`, `combos` (combos-in-deck), `import <filepath>`, `show` / `ls`.
+  - Old explicit forms (`deck show <name>`, `deck add <name>; <card> ...`) still work as a fallback.
+- Verified end-to-end against a real 85-line / 100-card Canadian Highlander Izzet Delver list: 84 unique entries parsed, 0 unresolved (all four DFC front-face inputs auto-resolved to canonical names), grouped render produces the expected category counts (18 Creatures / 30 Instants / 13 Sorceries / 1 Planeswalker / 2 Enchantments / 36 Lands).
+- `scripts/mtg_app.py` now scales the Windows console to ~1.20× its current size before starting Textual (best-effort `mode con`; no-op on other platforms).
+
 ### Added (search pagination + row expand)
 - `scryfall_search.run_query` gains an `offset` parameter; new `count_query()` returns the total number of matches without fetching rows.
 - `render_search` now shows a `N card(s) — showing A-B (page P of L)` header, adds mana cost as a column (name | mana_cost | type_line), and accepts an optional `nav_hint` footer.

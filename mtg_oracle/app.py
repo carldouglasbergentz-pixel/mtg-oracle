@@ -19,14 +19,69 @@ from textual.widgets import Footer, Header, Input, RichLog, Static
 from mtg_oracle import queries as q
 from mtg_oracle import renderer as r
 from mtg_oracle import scryfall_search as ss
+from mtg_oracle import decks as d
+from mtg_oracle.deck_parser import parse_deckstring
 
 
 COMMANDS = [
     "card", "ruling", "combo", "combos", "combo-info",
     "rule", "search-rules", "search",
     "next", "prev", "page",
-    "correction", "help", "clear", "quit",
+    "correction",
+    # Terminal-style navigation:
+    "cd", "pwd", "ls", "mkdir", "rmdir", "new",
+    "add", "remove", "show", "rename", "move", "delete",
+    "import",
+    # Legacy explicit forms (still supported):
+    "decks", "folders", "deck", "folder",
+    "help", "clear", "quit",
 ]
+
+
+DECK_HELP = """\
+Decks work like a terminal filesystem:
+    /                       root — your folders + unsorted decks
+    /<folder>/              decks inside a folder
+    /<folder>/<deck>/       cards inside a deck
+
+Commands change meaning by where you are. The status line shows your path.
+
+NAVIGATION (works anywhere)
+  pwd                       print current path
+  ls                        list contents of current location
+  cd <name>                 enter folder or deck (auto-detects)
+  cd ..                     up one level
+  cd /                      go to root
+
+AT ROOT (`/`)
+  mkdir <name>              create folder
+  rmdir <name>              delete an empty folder
+  new <deck>                create an unsorted deck
+  show <deck>               render a deck without entering it
+
+INSIDE A FOLDER (`/<folder>/`)
+  new <deck>                create deck in this folder
+  delete <deck>             delete deck in this folder
+  rename <old>; <new>       rename deck
+  move <deck>; <folder>     move deck (empty folder = unsorted)
+  show <deck>               render a deck without entering
+
+INSIDE A DECK (`/<folder>/<deck>/`)
+  show / ls                 render the deck
+  add <card> [<qty>]        add card (qty defaults to 1)
+  remove <card>             remove a card
+  combos                    list Spellbook combos fully contained here
+  import <filepath>         load a deckstring from a text file
+                            (appended to the current deck)
+
+LEGACY EXPLICIT FORMS (still work)
+  folder new <name>, folder delete <name>
+  deck show <name>, deck new <name>, deck add <name>; <card> ...
+  decks [<folder>], folders
+
+Card-name resolution is tolerant of `/` vs ` // ` and front-face-only DFC
+names: `add fire/ice` resolves to the canonical `Fire // Ice`.
+"""
 
 
 SEARCH_HELP = """\
@@ -76,6 +131,9 @@ Commands:
   next / prev / page <N>              navigate search results
   card <N>                            expand the N-th row of the last search
   correction [<card-or-topic>]        list relevant feedback-loop corrections
+  folders / folder ...                list / create / delete folders
+  decks [<folder>]                    list decks (optionally filter by folder)
+  deck ...                            deck operations — type `deck help` for the full menu
   help                                this screen
   clear                               clear the output pane
   quit                                exit
@@ -236,6 +294,13 @@ class MtgOracleApp(App):
         self._search_total: int = 0
         self._search_rows: list[dict] = []
 
+        # Terminal-style cwd over decks and folders.
+        # Both None = root. folder set, deck None = inside a folder.
+        # folder optional, deck set = inside a deck (folder may be None for
+        # unsorted decks).
+        self._cwd_folder: Optional[str] = None
+        self._cwd_deck: Optional[str] = None
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         yield RichLog(id="output", wrap=False, markup=False, highlight=False, auto_scroll=True)
@@ -250,6 +315,7 @@ class MtgOracleApp(App):
         log = self.query_one("#output", RichLog)
         log.write(HELP_TEXT)
         self._install_suggester()
+        self._refresh_status()
 
     def _install_suggester(self) -> None:
         """Preload autofill sources and wire them into the input widget."""
@@ -328,6 +394,24 @@ class MtgOracleApp(App):
             "page": self._cmd_search_page,
             "correction": self._cmd_correction,
             "corrections": self._cmd_correction,
+            "folders": self._cmd_folders,
+            "folder": self._cmd_folder,
+            "decks": self._cmd_decks,
+            "deck": self._cmd_deck,
+            # cwd-style verbs:
+            "cd": self._cmd_cd,
+            "pwd": self._cmd_pwd,
+            "ls": self._cmd_ls,
+            "mkdir": self._cmd_mkdir,
+            "rmdir": self._cmd_rmdir,
+            "new": self._cmd_new,
+            "delete": self._cmd_delete,
+            "rename": self._cmd_rename,
+            "move": self._cmd_move,
+            "add": self._cmd_add,
+            "remove": self._cmd_remove,
+            "show": self._cmd_show,
+            "import": self._cmd_import,
             "help": self._cmd_help,
             "?": self._cmd_help,
             "clear": lambda _: self.action_clear_output(),
@@ -392,8 +476,20 @@ class MtgOracleApp(App):
         ))
 
     def _cmd_combo_intersection(self, arg: str) -> None:
+        # Inside a deck with no args, interpret as "combos in this deck".
+        if not arg and self._cwd_deck:
+            try:
+                combos = d.combos_in_deck(self._cwd_deck, folder=self._cwd_folder)
+            except d.DeckError as e:
+                self._write(f"combos: {e}")
+                return
+            self._write(r.render_combo_list(
+                combos,
+                f"{len(combos)} combo(s) fully contained in {self._cwd_deck!r}:",
+            ))
+            return
         if not arg:
-            self._write("usage: combos <card1>; <card2>[; ...]")
+            self._write("usage: combos <card1>; <card2>[; ...]  (or `cd <deck>` and run `combos`)")
             return
         cards = [c.strip() for c in arg.split(";") if c.strip()]
         if len(cards) < 2:
@@ -532,6 +628,434 @@ class MtgOracleApp(App):
     def _cmd_correction(self, arg: str) -> None:
         rows = q.get_corrections(card=arg or None, topic=arg or None, limit=50)
         self._write(r.render_corrections(rows))
+
+    # --- deck / folder commands ------------------------------------
+
+    def _cmd_folders(self, _: str) -> None:
+        self._write(r.render_folder_list(d.list_folders()))
+
+    def _cmd_folder(self, arg: str) -> None:
+        parts = arg.split(None, 1)
+        if len(parts) < 2:
+            self._write("usage: folder (new|delete) <name>")
+            return
+        action, name = parts[0].lower(), parts[1].strip()
+        try:
+            if action == "new":
+                d.create_folder(name)
+                self._write(f"OK created folder {name!r}")
+            elif action == "delete":
+                d.delete_folder(name)
+                self._write(f"OK deleted folder {name!r}")
+            else:
+                self._write(f"unknown folder action: {action!r}")
+        except d.DeckError as e:
+            self._write(f"folder error: {e}")
+
+    def _cmd_decks(self, arg: str) -> None:
+        folder = arg.strip() or None
+        decks_list = d.list_decks(folder=folder)
+        header = f"Decks in {folder!r}:" if folder else "Decks:"
+        self._write(r.render_deck_list(decks_list, header=header))
+
+    def _cmd_deck(self, arg: str) -> None:
+        """Dispatcher for `deck <action> ...` in-app."""
+        arg = arg.strip()
+        if not arg or arg.lower() in ("help", "?"):
+            self._write(DECK_HELP)
+            return
+        parts = arg.split(None, 1)
+        action = parts[0].lower()
+        rest = parts[1].strip() if len(parts) > 1 else ""
+        try:
+            if action == "show":
+                if not rest:
+                    self._write("usage: deck show <name>")
+                    return
+                deck = d.get_deck(rest)
+                if not deck:
+                    self._write(f"(deck not found: {rest})")
+                    return
+                self._write(r.render_deck(deck))
+                return
+            if action == "new":
+                if not rest:
+                    self._write("usage: deck new <name> [<folder>]")
+                    return
+                name, folder = _split_trailing_folder(rest)
+                d.create_deck(name, folder=folder)
+                tail = f" in {folder!r}" if folder else ""
+                self._write(f"OK created deck {name!r}{tail}")
+                return
+            if action == "delete":
+                if not rest:
+                    self._write("usage: deck delete <name>")
+                    return
+                d.delete_deck(rest)
+                self._write(f"OK deleted deck {rest!r}")
+                return
+            if action == "rename":
+                # `deck rename <old> <new>` — both names may have spaces so
+                # disallow ambiguity: split on the last ' to ' if present,
+                # else on double-space. Simpler: require user to quote via ';'.
+                if ";" not in rest:
+                    self._write("usage: deck rename <old>; <new>")
+                    return
+                old, new = [s.strip() for s in rest.split(";", 1)]
+                if not old or not new:
+                    self._write("usage: deck rename <old>; <new>")
+                    return
+                d.rename_deck(old, new)
+                self._write(f"OK renamed {old!r} -> {new!r}")
+                return
+            if action == "move":
+                if ";" not in rest:
+                    self._write("usage: deck move <name>; <folder>  (empty folder = unsorted)")
+                    return
+                name, folder = [s.strip() for s in rest.split(";", 1)]
+                d.move_deck(name, folder or None)
+                self._write(f"OK moved {name!r} -> {folder or '(unsorted)'}")
+                return
+            if action == "add":
+                # `deck add <deck>; <card> [qty]`
+                if ";" not in rest:
+                    self._write("usage: deck add <deck>; <card> [<qty>]")
+                    return
+                deck_part, card_part = [s.strip() for s in rest.split(";", 1)]
+                qty = 1
+                toks = card_part.rsplit(None, 1)
+                if len(toks) == 2 and toks[1].isdigit():
+                    card_part = toks[0]
+                    qty = int(toks[1])
+                canonical = d.add_card_to_deck(deck_part, card_part, quantity=qty)
+                self._write(f"OK {qty}x {canonical}")
+                return
+            if action == "remove":
+                if ";" not in rest:
+                    self._write("usage: deck remove <deck>; <card>")
+                    return
+                deck_part, card_part = [s.strip() for s in rest.split(";", 1)]
+                d.remove_card_from_deck(deck_part, card_part)
+                self._write(f"OK removed {card_part!r}")
+                return
+            if action == "import":
+                # `deck import <name> <filepath>` — filepath is last token
+                parts2 = rest.rsplit(None, 1)
+                if len(parts2) != 2:
+                    self._write("usage: deck import <name> <path-to-text-file>")
+                    return
+                name, path = parts2[0], parts2[1]
+                from pathlib import Path as _P
+                try:
+                    text = _P(path).read_text(encoding="utf-8")
+                except OSError as e:
+                    self._write(f"could not read {path!r}: {e}")
+                    return
+                parsed = parse_deckstring(text)
+                if not parsed:
+                    self._write("no cards found in the file")
+                    return
+                result = d.import_deck(name, parsed)
+                self._write(r.render_import_result(name, result))
+                return
+            if action == "combos":
+                if not rest:
+                    self._write("usage: deck combos <name>")
+                    return
+                combos = d.combos_in_deck(rest)
+                self._write(r.render_combo_list(
+                    combos,
+                    f"{len(combos)} combo(s) fully contained in {rest!r}:",
+                ))
+                return
+            self._write(f"unknown deck action: {action!r}  (try `deck help`)")
+        except d.DeckError as e:
+            self._write(f"deck error: {e}")
+
+
+    # --- cwd-style verbs --------------------------------------------
+
+    def _path_str(self) -> str:
+        """Render the current cwd as a unix-style path."""
+        if self._cwd_deck:
+            base = f"/{self._cwd_folder}" if self._cwd_folder else ""
+            return f"{base}/{self._cwd_deck}"
+        if self._cwd_folder:
+            return f"/{self._cwd_folder}"
+        return "/"
+
+    def _refresh_status(self) -> None:
+        """Update the bottom status bar with the current path."""
+        try:
+            label = self.query_one("#cmd-label", Static)
+        except Exception:
+            return
+        path = self._path_str()
+        label.update(
+            f"{path}  |  : focus  |  Ctrl+L clear  |  Ctrl+Q quit  |  Shift+drag to copy"
+        )
+
+    def _cmd_pwd(self, _: str) -> None:
+        self._write(self._path_str())
+
+    def _cmd_cd(self, arg: str) -> None:
+        target = arg.strip()
+        if not target or target == "/":
+            self._cwd_folder = None
+            self._cwd_deck = None
+            self._refresh_status()
+            self._write(self._path_str())
+            return
+        if target == "..":
+            if self._cwd_deck:
+                self._cwd_deck = None
+            elif self._cwd_folder:
+                self._cwd_folder = None
+            self._refresh_status()
+            self._write(self._path_str())
+            return
+
+        # Auto-detect: at root or in a folder, the target may be a folder
+        # or a deck. Inside a deck, only `..` and `/` are valid.
+        if self._cwd_deck:
+            self._write("(already inside a deck — use `cd ..` or `cd /`)")
+            return
+
+        # Try folder first when at root.
+        if not self._cwd_folder:
+            folders = {f["name"].lower(): f["name"] for f in d.list_folders() if f["id"] is not None}
+            if target.lower() in folders:
+                self._cwd_folder = folders[target.lower()]
+                self._refresh_status()
+                self._write(self._path_str())
+                return
+
+        # Otherwise look for a deck in current scope.
+        try:
+            deck = d.get_deck(target, folder=self._cwd_folder)
+        except d.DeckError as e:
+            self._write(f"cd: {e}")
+            return
+        if not deck:
+            scope = self._cwd_folder or "(unsorted)"
+            self._write(f"cd: no folder or deck named {target!r} in {scope}")
+            return
+        self._cwd_deck = deck["name"]
+        self._refresh_status()
+        self._write(self._path_str())
+
+    def _cmd_ls(self, _: str) -> None:
+        if self._cwd_deck:
+            self._show_current_deck()
+            return
+        if self._cwd_folder:
+            decks_list = d.list_decks(folder=self._cwd_folder)
+            self._write(r.render_deck_list(
+                decks_list, header=f"Decks in /{self._cwd_folder}:"
+            ))
+            return
+        # Root: show folders + unsorted decks.
+        folders = d.list_folders()
+        self._write(r.render_folder_list(folders))
+        unsorted = d.list_decks(folder=None)
+        unsorted = [x for x in unsorted if x.get("folder") is None]
+        if unsorted:
+            self._write(r.render_deck_list(unsorted, header="Unsorted decks:"))
+
+    def _show_current_deck(self) -> None:
+        deck = d.get_deck(self._cwd_deck, folder=self._cwd_folder)
+        if not deck:
+            self._write(f"(deck disappeared: {self._cwd_deck!r})")
+            self._cwd_deck = None
+            self._refresh_status()
+            return
+        self._write(r.render_deck(deck))
+
+    def _cmd_mkdir(self, arg: str) -> None:
+        name = arg.strip()
+        if not name:
+            self._write("usage: mkdir <folder>")
+            return
+        try:
+            d.create_folder(name)
+            self._write(f"OK created folder {name!r}")
+        except d.DeckError as e:
+            self._write(f"mkdir: {e}")
+
+    def _cmd_rmdir(self, arg: str) -> None:
+        name = arg.strip()
+        if not name:
+            self._write("usage: rmdir <folder>")
+            return
+        try:
+            d.delete_folder(name)
+            self._write(f"OK removed folder {name!r}")
+        except d.DeckError as e:
+            self._write(f"rmdir: {e}")
+
+    def _cmd_new(self, arg: str) -> None:
+        name = arg.strip()
+        if not name:
+            self._write("usage: new <deck>  (creates in current folder)")
+            return
+        if self._cwd_deck:
+            self._write("(can't create a deck inside a deck — `cd ..` first)")
+            return
+        try:
+            d.create_deck(name, folder=self._cwd_folder)
+            scope = f"/{self._cwd_folder}" if self._cwd_folder else "(unsorted)"
+            self._write(f"OK created deck {name!r} in {scope}")
+        except d.DeckError as e:
+            self._write(f"new: {e}")
+
+    def _cmd_delete(self, arg: str) -> None:
+        name = arg.strip()
+        if not name:
+            self._write("usage: delete <deck>")
+            return
+        if self._cwd_deck and name == self._cwd_deck:
+            self._write("(can't delete the deck you're inside — `cd ..` first)")
+            return
+        try:
+            d.delete_deck(name, folder=self._cwd_folder)
+            self._write(f"OK deleted deck {name!r}")
+        except d.DeckError as e:
+            self._write(f"delete: {e}")
+
+    def _cmd_rename(self, arg: str) -> None:
+        if ";" not in arg:
+            self._write("usage: rename <old>; <new>")
+            return
+        old, new = [s.strip() for s in arg.split(";", 1)]
+        if not old or not new:
+            self._write("usage: rename <old>; <new>")
+            return
+        try:
+            d.rename_deck(old, new, folder=self._cwd_folder)
+            self._write(f"OK renamed {old!r} -> {new!r}")
+            if self._cwd_deck == old:
+                self._cwd_deck = new
+                self._refresh_status()
+        except d.DeckError as e:
+            self._write(f"rename: {e}")
+
+    def _cmd_move(self, arg: str) -> None:
+        if ";" not in arg:
+            self._write("usage: move <deck>; <folder>  (empty folder = unsorted)")
+            return
+        name, folder = [s.strip() for s in arg.split(";", 1)]
+        if not name:
+            self._write("usage: move <deck>; <folder>")
+            return
+        try:
+            d.move_deck(name, folder or None, folder=self._cwd_folder)
+            self._write(f"OK moved {name!r} -> {folder or '(unsorted)'}")
+        except d.DeckError as e:
+            self._write(f"move: {e}")
+
+    def _cmd_add(self, arg: str) -> None:
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `add`)")
+            return
+        arg = arg.strip()
+        if not arg:
+            self._write("usage: add <card> [<qty>]")
+            return
+        # Trailing integer quantity, e.g. `add Sol Ring 2`.
+        qty = 1
+        toks = arg.rsplit(None, 1)
+        if len(toks) == 2 and toks[1].isdigit():
+            arg, qty = toks[0], int(toks[1])
+        try:
+            canonical = d.add_card_to_deck(
+                self._cwd_deck, arg, quantity=qty, folder=self._cwd_folder,
+            )
+            self._write(f"OK {qty}x {canonical}")
+        except d.DeckError as e:
+            self._write(f"add: {e}")
+
+    def _cmd_remove(self, arg: str) -> None:
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `remove`)")
+            return
+        arg = arg.strip()
+        if not arg:
+            self._write("usage: remove <card>")
+            return
+        try:
+            d.remove_card_from_deck(
+                self._cwd_deck, arg, folder=self._cwd_folder,
+            )
+            self._write(f"OK removed {arg!r}")
+        except d.DeckError as e:
+            self._write(f"remove: {e}")
+
+    def _cmd_show(self, arg: str) -> None:
+        target = arg.strip()
+        if target:
+            # Explicit name overrides cwd. Look up in current folder scope.
+            deck = d.get_deck(target, folder=self._cwd_folder)
+            if not deck:
+                self._write(f"(deck not found: {target})")
+                return
+            self._write(r.render_deck(deck))
+            return
+        if self._cwd_deck:
+            self._show_current_deck()
+            return
+        self._write("usage: show <deck>  (or `cd <deck>` then `show`)")
+
+    def _cmd_import(self, arg: str) -> None:
+        from pathlib import Path as _P
+        arg = arg.strip()
+        if not arg:
+            self._write("usage: import <filepath>  (current deck)")
+            return
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `import`)")
+            return
+        try:
+            text = _P(arg).read_text(encoding="utf-8")
+        except OSError as e:
+            self._write(f"import: could not read {arg!r}: {e}")
+            return
+        parsed = parse_deckstring(text)
+        if not parsed:
+            self._write("(no cards found in file)")
+            return
+        # Append to current deck.
+        added = 0
+        unresolved: list[str] = []
+        for row in parsed:
+            if row["section"] == "maybeboard":
+                continue
+            try:
+                d.add_card_to_deck(
+                    self._cwd_deck, row["name"], quantity=row["quantity"],
+                    is_commander=(row["section"] == "commander"),
+                    is_sideboard=(row["section"] == "sideboard"),
+                    folder=self._cwd_folder,
+                )
+                added += 1
+            except d.DeckError as e:
+                if "card not found" in str(e):
+                    unresolved.append(row["name"])
+        result = {"added": added, "unresolved": unresolved, "total_input": len(parsed)}
+        self._write(r.render_import_result(self._cwd_deck, result))
+
+
+def _split_trailing_folder(s: str) -> tuple[str, Optional[str]]:
+    """Split `<name> <folder>` where the last whitespace-separated token is
+    the folder. Both name and folder may contain spaces, so we require the
+    user to pass folder last. When no folder is present, returns (s, None)."""
+    # Heuristic: if there's no space, it's just a name.
+    if " " not in s:
+        return s, None
+    # Otherwise treat everything up to the last ' : ' or ' in ' as name,
+    # else assume no folder — safer default.
+    # For MVP we keep it simple: no auto-folder split in `deck new` in the
+    # app. Users can `deck move <name>; <folder>` afterwards.
+    return s, None
 
     # --- rendering helpers specific to the app -----------------------
 
