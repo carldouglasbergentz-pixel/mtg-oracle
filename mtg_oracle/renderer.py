@@ -291,24 +291,31 @@ def render_search(
 
 
 def _type_bucket(type_line: str) -> str:
-    """Auto-categorize a card by its type_line for deck view grouping."""
-    tl = (type_line or "").lower()
-    # Commander tables / emblems / tokens shouldn't appear in decks; fall through.
-    if "land" in tl:
+    """Auto-categorize a card by its type_line for deck view grouping.
+
+    For multi-face cards (DFC / split / flip / modal) we look only at
+    the FRONT face. Otherwise a card like Waterlogged Teachings (Instant
+    on the front, Land on the back) ends up in the Lands group purely
+    because 'Land' appears in the combined type_line.
+    """
+    if not type_line:
+        return "Other"
+    front = type_line.split(" // ", 1)[0].lower()
+    if "land" in front:
         return "Lands"
-    if "creature" in tl:
+    if "creature" in front:
         return "Creatures"
-    if "planeswalker" in tl:
+    if "planeswalker" in front:
         return "Planeswalkers"
-    if "battle" in tl:
+    if "battle" in front:
         return "Battles"
-    if "instant" in tl:
+    if "instant" in front:
         return "Instants"
-    if "sorcery" in tl:
+    if "sorcery" in front:
         return "Sorceries"
-    if "artifact" in tl:
+    if "artifact" in front:
         return "Artifacts"
-    if "enchantment" in tl:
+    if "enchantment" in front:
         return "Enchantments"
     return "Other"
 
