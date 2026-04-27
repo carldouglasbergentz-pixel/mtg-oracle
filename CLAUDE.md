@@ -176,7 +176,8 @@ Before proposing or making a commit, run a review pass and surface it in the sam
 2. **Failure modes.** What happens on: missing DB, missing row, malformed input, network timeout, empty result set, NULL columns, duplicate key? Failures loud or silent?
 3. **Security.** Any SQL string-interpolation (must be parameterized)? Any shell/subprocess user-input flow? Any path traversal via user-supplied filenames? Secrets in output / logs? For changes touching network, subprocess, file I/O, or auth, additionally invoke the `/security-review` skill.
 4. **Maintainability.** Does this fit the repo's existing patterns (e.g., `scripts/sync_*.py` shape, `sync_state` usage, idempotent migrations)? Any premature abstraction or unused flexibility to drop?
-5. **Verify.** Actually run it — don't claim it works without exercising the happy path and at least one edge case. Show the output.
+5. **Redundancy / scope hygiene.** Especially after a redesign: are there code paths, output, commands, helpers, or columns that have become redundant given the new structure? Remove what's no longer earning its keep. The CHANGELOG and git history preserve the path we took; the live codebase shouldn't carry obsolete branches "in case". Examples: a renderer dumping data that's now rendered elsewhere, a command alias that covers a removed feature, a kwarg every caller passes the same way, a helper used once and inlined, an `if`-branch handling a state that was deprecated upstream.
+6. **Verify.** Actually run it — don't claim it works without exercising the happy path and at least one edge case. Show the output.
 
 Trivial edits (typo fix, comment tweak, one-line config change) may skip the full review — call out explicitly that it's being skipped and why.
 
