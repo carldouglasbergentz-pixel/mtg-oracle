@@ -460,6 +460,66 @@ def render_deck(deck: dict) -> str:
     return "\n".join(lines)
 
 
+def render_deck_compact(deck: dict, width: int = 36) -> str:
+    """Narrow deck render for the left navigation pane.
+
+    Shows qty + truncated card name, type-grouped. Skips mana cost,
+    type line, rulings, combos — those belong in the right pane.
+    """
+    name_w = max(8, width - 6)  # `  NNx ` prefix takes 5–6 chars
+
+    bits: list[str] = []
+    if deck.get("folder"):
+        bits.append(deck["folder"])
+    if deck.get("format"):
+        bits.append(deck["format"])
+    bits.append(f"{deck.get('total_main', 0)} cards")
+    side = deck.get("total_side", 0)
+    if side:
+        bits.append(f"+{side} side")
+
+    name_line = deck.get("name") or "(deck)"
+    if len(name_line) > width:
+        name_line = name_line[:width - 2] + ".."
+
+    lines: list[str] = [name_line, " / ".join(bits), "=" * min(width, len(name_line))]
+
+    commanders: list[dict] = []
+    main_buckets: dict[str, list[dict]] = {}
+    sideboard: list[dict] = []
+    for c in deck.get("cards", []):
+        if c.get("is_sideboard"):
+            sideboard.append(c); continue
+        if c.get("is_commander"):
+            commanders.append(c); continue
+        bucket = c.get("category") or _type_bucket(c.get("type_line") or "")
+        main_buckets.setdefault(bucket, []).append(c)
+
+    ordered: list[tuple[str, list[dict]]] = []
+    if commanders:
+        ordered.append(("Commander", commanders))
+    for b in _BUCKET_ORDER:
+        if b in main_buckets:
+            ordered.append((b, main_buckets.pop(b)))
+    for k in sorted(main_buckets, key=str.lower):
+        ordered.append((k, main_buckets[k]))
+    if sideboard:
+        ordered.append(("Sideboard", sideboard))
+
+    for bucket, cards in ordered:
+        subtotal = sum(c["quantity"] for c in cards)
+        lines.append("")
+        lines.append(f"{bucket} ({subtotal})")
+        for c in cards:
+            qty = c["quantity"]
+            cn = c["card_name"]
+            if len(cn) > name_w:
+                cn = cn[:name_w - 2] + ".."
+            lines.append(f"  {qty:>2}x {cn}")
+
+    return "\n".join(lines)
+
+
 def render_import_result(deck_name: str, result: dict) -> str:
     lines = [
         f"Imported deck {deck_name!r}: "

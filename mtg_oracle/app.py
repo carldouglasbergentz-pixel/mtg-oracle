@@ -26,6 +26,12 @@ from mtg_oracle import decks as d
 from mtg_oracle.deck_parser import parse_deckstring
 
 
+# Width of the left navigation pane (matches the CSS rule). Slightly wider
+# than strictly needed so deck names don't get aggressively truncated when
+# the live deck view is shown.
+NAV_WIDTH = 38
+
+
 COMMANDS = [
     # Card / rules / combo lookup
     "card", "ruling", "combo", "combos", "combo-info",
@@ -303,7 +309,7 @@ class MtgOracleApp(App):
         height: 1fr;
     }
     #nav {
-        width: 32;
+        width: 38;
         border: solid $accent;
         padding: 0 1;
         background: $background;
@@ -793,21 +799,37 @@ class MtgOracleApp(App):
         )
 
     def _refresh_nav(self) -> None:
-        """Re-render the left navigation panel: folders + their decks.
+        """Re-render the left navigation panel.
 
-        Read-only. The user still navigates with `cd`. The panel exists
-        so the deck/folder structure stays visible while the right pane
-        is busy with searches, card details, rulings, or combos. The
-        current cwd is marked with `>` arrows.
+        - In a deck: show a compact, type-grouped render of that deck,
+          live-updated as cards are added / removed / imported. The
+          right pane stays free for searches, rulings, and combos.
+        - At root or in a folder: show the folder/deck tree with the
+          current cwd marked by `>`.
         """
         try:
             nav = self.query_one("#nav", RichLog)
         except Exception:
             return
         nav.clear()
+
+        # Inside a deck → live deck contents. Width matches CSS #nav width
+        # minus the 1-char padding on either side.
+        if self._cwd_deck:
+            try:
+                deck = d.get_deck(self._cwd_deck, folder=self._cwd_folder)
+            except Exception as e:
+                nav.write(f"(deck error: {e})")
+                return
+            if not deck:
+                nav.write(f"(deck disappeared: {self._cwd_deck!r})")
+                return
+            nav.write(r.render_deck_compact(deck, width=NAV_WIDTH - 2))
+            return
+
+        # Otherwise → folder/deck tree with cwd marker.
         nav.write("folders / decks")
         nav.write("-" * 16)
-
         try:
             folders = d.list_folders()
         except Exception as e:
@@ -822,36 +844,24 @@ class MtgOracleApp(App):
         for f in real_folders:
             name = f["name"]
             here = name == self._cwd_folder
-            marker = ">" if (here and not self._cwd_deck) else " "
+            marker = ">" if here else " "
             nav.write(f"{marker} {name}")
             try:
                 decks_in_folder = d.list_decks(folder=name)
             except Exception:
                 decks_in_folder = []
             for x in decks_in_folder:
-                in_deck = (
-                    x["name"] == self._cwd_deck
-                    and self._cwd_folder == name
-                )
-                arrow = ">" if in_deck else " "
-                nav.write(f"  {arrow} {x['name']}")
+                nav.write(f"    {x['name']}")
 
         if unsorted_count:
-            here_root = self._cwd_folder is None and not self._cwd_deck
-            marker = ">" if here_root else " "
             nav.write("")
-            nav.write(f"{marker} (unsorted)")
+            nav.write("  (unsorted)")
             unsorted = [
                 x for x in d.list_decks(folder=None)
                 if x.get("folder") is None
             ]
             for x in unsorted:
-                in_deck = (
-                    x["name"] == self._cwd_deck
-                    and self._cwd_folder is None
-                )
-                arrow = ">" if in_deck else " "
-                nav.write(f"  {arrow} {x['name']}")
+                nav.write(f"    {x['name']}")
 
     def _cmd_pwd(self, _: str) -> None:
         self._write(self._path_str())
@@ -1124,6 +1134,7 @@ class MtgOracleApp(App):
                 self._cwd_deck, arg, quantity=qty, folder=self._cwd_folder,
             )
             self._write(f"OK {qty}x {canonical}")
+            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"add: {e}")
 
@@ -1140,6 +1151,7 @@ class MtgOracleApp(App):
                 self._cwd_deck, arg, folder=self._cwd_folder,
             )
             self._write(f"OK removed {arg!r}")
+            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"remove: {e}")
 
@@ -1212,6 +1224,7 @@ class MtgOracleApp(App):
                     unresolved.append(row["name"])
         result = {"added": added, "unresolved": unresolved, "total_input": len(parsed)}
         self._write(r.render_import_result(self._cwd_deck, result))
+        self._refresh_nav()
 
 
 
