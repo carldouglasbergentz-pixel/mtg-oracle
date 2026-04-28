@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (format-aware deck behavior — commander + singleton)
+- `cards.color_identity TEXT` column populated from Scryfall's `color_identity` array (e.g. `B,G` for Savra). Spans both faces and includes mana-cost / color-indicator colors — i.e. the field commander legality is checked against. Index added.
+- `scripts/migrate_add_scryfall_fields.py` extended with the new column; `scripts/sync.py` now self-heals schema by invoking the migration on every run, so existing databases pick up the column without a manual step.
+- `ci:` / `coloridentity:` / `id:` search operator with Scryfall semantics: `ci:WUB` and `ci<=WUB` mean *subset* (commander-legal), `ci=WUB` exactly equal, `ci>=WUB` superset.
+- `mtg_oracle.decks.get_deck_color_identity()` — returns the sorted union of color identities across all `is_commander=1` rows. `None` when the deck has no commander set; `[]` for a colorless commander. Multiple commander rows supported (Partner / Background / Friends Forever — CI is the union).
+- TUI: searches inside a deck with at least one `is_commander=1` row are *hard-filtered* by `ci<=<deck CI>`. The filter is announced inline so it's not silent magic; `cd ..` exits the constraint.
+- TUI: pinned `-- COMMANDER --` section above the regular type-buckets in the live left-pane deck view.
+- `[CI: XY]` badge in three places: full deck view header (`show`), live deck view header, and per-deck row in `ls` listings.
+- Singleton enforcement on `add` for `format ∈ {commander, edh, duel commander, 1v1 commander, brawl, historic brawl, standard brawl, oathbreaker, highlander, canadian highlander}`. Basic lands (matched by type line containing `Basic` + `Land`) and cards whose oracle text contains `a deck can have any number of cards named` are exempt. Sideboard rows are validated independently from the main deck.
+- Commander color-identity validation on `add`: a card whose `color_identity` is not a subset of the deck's CI is rejected with a precise error naming the offending colors.
+- `add --force` flag on the TUI (and `force=True` kwarg on `add_card_to_deck`) bypasses both CI and singleton checks for one call. The commander row itself is never CI-checked (it *defines* the CI).
+- `import_deck` always passes `force=True` so that pasting an existing list verbatim never fails on row-order quirks (commander row appearing after non-commander rows).
+
+### Added (search sort)
+- `order:asc_FIELD` / `order:desc_FIELD` (alias `sort:`) for explicit result ordering. Supported fields: `mv`, `cmc`, `name`, `power`, `toughness`, `rarity` (tier order: common → mythic → bonus → special), `color`, `ci` (number of colors in color identity).
+- Direction prefix is *required* — bare `order:mv` is rejected so the result order is always unambiguous.
+- `NULL`s sort last regardless of direction. Power/toughness with non-numeric values (`*`, `1+*`) are coerced to `NULL` for sort purposes and follow the same rule.
+- A stable tiebreaker on `c.name COLLATE NOCASE` is appended to every sort, so identical primary keys produce reproducible ordering across runs.
+- `count_query` strips `order:` tokens — pagination row totals are unaffected by sort.
+
+### Changed
+- TUI left navigation pane widened from 38 → 48 chars so longer card names (`Chatterfang, Squirrel General`, `Yawgmoth, Thran Physician`) fit without truncation. Both the `NAV_WIDTH` constant and the CSS rule updated together.
+
+### Added (deck-context UX)
+- `cd <deck>` now auto-renders the combos fully contained in the deck (right pane), so you no longer have to type `combos` separately. Mirrors a behaviour that existed before the split-pane refactor.
+- `card <name>` inside a commander deck pre-filters the embedded "Top combos featuring this card" list by deck color identity. Combos whose CI isn't a subset of the deck CI are dropped at the SQL level, and the header notes the active filter (`Top combos featuring this card (3, filtered to deck CI BG)`). When zero combos remain, the renderer says so explicitly instead of silently hiding the section.
+- `_cmd_cd` collapses runs of whitespace to a single space before lookup, so a stray double-space in pasted deck names doesn't break the `COLLATE NOCASE` match.
+
+### Added (theme persistence)
+- Last-selected Textual theme persists across launches via `data/config.json` (gitignored). `App.watch_theme` writes on user-driven theme changes; `on_mount` reapplies the saved theme. Default-theme assignments during init are gated behind a `_config_ready` flag so they don't overwrite the saved value. Falls back silently when the saved theme name no longer exists (e.g. after a Textual upgrade).
+
 ### Added
 - Git repository initialized with `.gitignore` covering generated DB, bulk data sources, Python and editor artifacts.
 - `CHANGELOG.md` for traceability of schema and ingestion changes going forward.

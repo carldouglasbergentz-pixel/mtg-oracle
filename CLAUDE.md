@@ -16,7 +16,7 @@ own decks. The Textual TUI in `mtg_oracle.app` is the primary interface;
 
 ## Schema (data/mtg.db)
 
-- **`cards`** (`name` PK, `oracle_id`, `oracle_text`, `mana_cost`, `mana_value`, `colors` (CSV), `power`, `toughness`, `rarity`, `type_line`, `layout`, `card_faces` JSON). DFC/split/flip cards combine faces with ` // `.
+- **`cards`** (`name` PK, `oracle_id`, `oracle_text`, `mana_cost`, `mana_value`, `colors` (CSV), `color_identity` (CSV — Scryfall's, spans both faces, drives commander filtering), `power`, `toughness`, `rarity`, `type_line`, `layout`, `card_faces` JSON). DFC/split/flip cards combine faces with ` // `.
 - **`rulings`** — `id`, `card_name` (FK), `oracle_id`, `date`, `text`.
 - **`rules`** — `rule_number` PK (`100.1a`), `parent_rule`, `section_title`, `text`.
 - **`combos`** + `combo_cards` / `combo_results` / `combo_prerequisites` / `combo_steps` — Spellbook IDs as PK, sub-tables share `combo_id` + `text`.
@@ -80,6 +80,15 @@ SELECT DISTINCT card_name FROM card_abilities WHERE is_mana_ability = 1;
 ```
 
 For richer card lookups (search syntax, pagination, structured tags), use `mtg_oracle.queries` rather than hand-rolling SQL.
+
+## Format-aware deck behavior
+
+Two triggers decide whether a deck's `add` and `search` get extra rules:
+
+- **Commander color identity.** When a deck has any `deck_cards.is_commander = 1` row, the deck's effective CI is the sorted union of those rows' `cards.color_identity`. `mtg_oracle.decks.get_deck_color_identity()` returns it (or `None` for no commanders). `add` rejects cards whose CI isn't a subset of the deck CI; `search` inside the deck is hard-filtered with `ci<=<deck CI>`.
+- **Singleton.** When `decks.format` (case-insensitive) is in `mtg_oracle.decks.SINGLETON_FORMATS` (`commander`, `edh`, `duel commander`, `1v1 commander`, `brawl`, `historic brawl`, `standard brawl`, `oathbreaker`, `highlander`, `canadian highlander`), `add` rejects a 2nd copy of the same card. Basic lands (type line contains `Basic` + `Land`) and cards whose oracle text contains `a deck can have any number of cards named` are exempt. Sideboard rows count separately from main.
+
+Both checks accept `force=True` (kwarg) / `--force` (TUI) to bypass for one call. `import_deck` always forces — paste lists are loaded verbatim. The commander row itself is never CI-checked because it *defines* the CI.
 
 ## Self-review before commit
 

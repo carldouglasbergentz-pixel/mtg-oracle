@@ -82,11 +82,14 @@ Type `search help` in the app for the full guide. Examples:
 ```
 search o:"enters the battlefield" t:creature c:u mv<=3
 search kw:flying (c:w or c:u) -t:artifact
+search ci<=BG t:creature order:asc_mv      # Golgari color-identity, lowest mana value first
 search c=wu t:instant
-search pow>=4 t:creature r:mythic
+search pow>=4 t:creature r:mythic order:desc_rarity
 ```
 
-Operators: `o:` `t:` `n:` `kw:` `c:` `c=` `mv:` `pow:` `tou:` `r:` `layout:` plus comparisons (`<`, `>`, `<=`, `>=`, `!=`) on numeric fields. Boolean `or`, `not` (or `-` prefix), parentheses for grouping.
+Operators: `o:` `t:` `n:` `kw:` `c:` `c=` `ci:` `mv:` `pow:` `tou:` `r:` `layout:` plus comparisons (`<`, `>`, `<=`, `>=`, `!=`) on numeric fields. Boolean `or`, `not` (or `-` prefix), parentheses for grouping.
+
+Sorting: `order:asc_FIELD` / `order:desc_FIELD` (alias `sort:`). Fields: `mv`, `name`, `power`, `toughness`, `rarity` (tier order common→mythic), `color`, `ci` (number of colors). Direction prefix is required. NULLs always sort last.
 
 Pagination: `next`, `prev`, `page <N>`. `card <N>` expands the N-th row of the most recent search into a full profile. Tab / right arrow accepts the autofill suggestion that appears as gray ghost text.
 
@@ -128,6 +131,17 @@ Build / edit a deck without leaving the app:
 ```
 
 The plain-text parser tolerates every common format: `4 Card`, `4x Card`, `Card x4`, set/collector tails like `(CLB) 146`, foil markers `*F*`, `#`/`//` comments, and section headers (`Deck`, `Sideboard`, `Commander`, `Maybeboard`).
+
+#### Commander / singleton formats
+
+Set `format = commander` (or `edh`, `canadian highlander`, `brawl`, `oathbreaker`, `highlander`, ...) on a deck and `is_commander = 1` on the commander card to unlock format-aware behavior:
+
+- **Color-identity filter on search.** Inside the deck, every `search` is hard-filtered by `ci<=<commander CI>`. Multiple commander rows union (Partner / Background / Friends Forever). The filter is announced inline; `cd ..` exits it.
+- **CI validation on add.** `add` rejects cards whose color identity isn't a subset of the deck CI. `add --force <card>` overrides for one call. The commander itself is never CI-checked — it *defines* the CI.
+- **Singleton enforcement on add.** Adding a 2nd copy of any non-basic, non-"any-number-of" card is rejected. Basics and cards like *Relentless Rats* / *Dragon's Approach* are exempt automatically. Sideboard rows are validated independently from the main deck.
+- **Combos pre-filtered to the deck.** `card <name>` inside a commander deck filters the embedded "Top combos featuring this card" list to combos whose CI fits — so an artifact like *Ashnod's Altar* in a Savra (BG) deck only lists combos you can actually play.
+- **Commander pinned in the live deck pane** plus a `[CI: XY]` badge in the deck-list, full deck view, and live deck view headers.
+- **Auto combos-in-deck on `cd`.** Stepping into a deck immediately renders the combos fully contained in the deck, so you don't have to type `combos` separately.
 
 ## CLI
 
@@ -197,10 +211,11 @@ See [`docs/project-plan.md`](docs/project-plan.md) for the living plan. Roughly:
 
 - **Phase 0 — Foundation** ✓ data tables, idempotent sync, changelog diff, feedback loop
 - **Phase 1a — Query library + CLI** ✓ shared `mtg_oracle.queries` + CLI front-end
-- **Phase 2 — Desktop TUI app** ✓ Textual, terminal aesthetic, autofill, pagination, mana costs, ASCII-fold name lookup
+- **Phase 2 — Desktop TUI app** ✓ Textual, terminal aesthetic, autofill, pagination, mana costs, ASCII-fold name lookup, sortable search, persistent theme
 - **Phase 3 — Decks Lite** ✓ folders, decks, deck cards, parser, paste, type-grouped render, combos-in-deck
+- **Phase 3b — Format-aware deck behavior** ✓ commander color-identity filter on search/add, singleton enforcement, pinned commander section, CI-aware combo lookup
 - **Phase 1b — HTTP API** parked (only when a remote client needs it)
-- **Phase 3b — Format validation** parked (Scryfall covers 22 formats; custom-format fetchers for Canlander etc. are designed but not built)
+- **Phase 3c — Scryfall legalities + custom-format points** parked (per-format legality matrix + Canlander points list)
 - **Phase 4 — LLM layer** parked (Claude API + tool use over the same queries)
 - **Phase 5 — Mobile port** parked (desktop-first to maximize iteration speed)
 
@@ -217,4 +232,4 @@ Parked / idea list also lives in the project plan.
 
 ## Status today
 
-25+ commits on `master`. All features above are implemented and verified end-to-end (a 100-card Canadian Highlander Izzet Delver list parsed and renders correctly, including DFC front-face categorization). No GitHub remote yet — set one up locally with `git remote add origin <url>` when you're ready to publish.
+All phases marked ✓ above are implemented and verified end-to-end. See [`docs/project-plan.md`](docs/project-plan.md) for the live phase status and parked items, and [`CHANGELOG.md`](CHANGELOG.md) for per-feature history.
