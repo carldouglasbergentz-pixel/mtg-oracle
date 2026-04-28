@@ -643,8 +643,10 @@ def combos_in_deck(
     """Combos whose every card is in the given deck.
 
     Returns combos sorted smallest (fewest cards) first, then by id.
-    Each row matches the shape of `find_combos_with_card` so it renders
-    with the existing `render_combo_list`.
+    Includes both Spellbook combos and user-curated combos from the
+    `user_combos` table — the latter render the same way thanks to the
+    matched column shape (id is text in both, just with a `user-` prefix
+    for user combos).
     """
     if limit < 1 or limit > 500:
         limit = 50
@@ -654,14 +656,16 @@ def combos_in_deck(
         did = _deck_id(cur, deck_name, folder)
         # A combo is "in the deck" when every card it requires has a
         # corresponding row in deck_cards (case-insensitive name match).
-        # We match via the total cards per combo vs cards intersecting
-        # the deck; if they are equal, the combo is fully satisfied.
+        # The same logic runs against Spellbook (`combos` / `combo_cards`)
+        # and user-curated (`user_combos` / `user_combo_cards`) tables;
+        # the two halves are UNION ALL'd so callers see one stream.
         cur.execute(
             """
             SELECT c.id, c.color_identity, c.name,
                    (SELECT COUNT(*) FROM combo_cards WHERE combo_id=c.id) AS card_count,
                    (SELECT GROUP_CONCAT(card_name, ' + ')
-                    FROM combo_cards WHERE combo_id=c.id) AS cards
+                    FROM combo_cards WHERE combo_id=c.id) AS cards,
+                   'spellbook' AS source
             FROM combos c
             WHERE c.id IN (
                 SELECT cc.combo_id
@@ -673,10 +677,27 @@ def combos_in_deck(
                 HAVING COUNT(DISTINCT cc.card_name) =
                        (SELECT COUNT(*) FROM combo_cards WHERE combo_id = cc.combo_id)
             )
-            ORDER BY card_count ASC, c.id
+            UNION ALL
+            SELECT c.id, c.color_identity, c.name,
+                   (SELECT COUNT(*) FROM user_combo_cards WHERE combo_id=c.id) AS card_count,
+                   (SELECT GROUP_CONCAT(card_name, ' + ')
+                    FROM user_combo_cards WHERE combo_id=c.id) AS cards,
+                   'user' AS source
+            FROM user_combos c
+            WHERE c.id IN (
+                SELECT cc.combo_id
+                FROM user_combo_cards cc
+                WHERE cc.card_name COLLATE NOCASE IN (
+                    SELECT card_name FROM deck_cards WHERE deck_id = ?
+                )
+                GROUP BY cc.combo_id
+                HAVING COUNT(DISTINCT cc.card_name) =
+                       (SELECT COUNT(*) FROM user_combo_cards WHERE combo_id = cc.combo_id)
+            )
+            ORDER BY card_count ASC, id
             LIMIT ?
             """,
-            (did, limit),
+            (did, did, limit),
         )
         return [dict(r) for r in cur.fetchall()]
     finally:

@@ -344,7 +344,7 @@ def get_rulings(card_name: str) -> list[dict]:
 
 def find_combos_with_card(card_name: str, limit: int = 25) -> list[dict]:
     """Combos that include card_name. Smallest (fewest cards) first.
-    Card-name match is case-insensitive."""
+    Card-name match is case-insensitive. Includes user-curated combos."""
     if not card_name:
         return []
     if limit < 1 or limit > 500:
@@ -356,11 +356,20 @@ def find_combos_with_card(card_name: str, limit: int = 25) -> list[dict]:
             "SELECT c.id, c.color_identity, c.name, "
             "(SELECT COUNT(*) FROM combo_cards WHERE combo_id=c.id) AS card_count, "
             "(SELECT GROUP_CONCAT(card_name, ' + ') "
-            " FROM combo_cards WHERE combo_id=c.id) AS cards "
+            " FROM combo_cards WHERE combo_id=c.id) AS cards, "
+            "'spellbook' AS source "
             "FROM combos c JOIN combo_cards cc ON cc.combo_id = c.id "
             "WHERE cc.card_name = ? COLLATE NOCASE "
-            "ORDER BY card_count ASC, c.id LIMIT ?",
-            (card_name, limit),
+            "UNION ALL "
+            "SELECT c.id, c.color_identity, c.name, "
+            "(SELECT COUNT(*) FROM user_combo_cards WHERE combo_id=c.id) AS card_count, "
+            "(SELECT GROUP_CONCAT(card_name, ' + ') "
+            " FROM user_combo_cards WHERE combo_id=c.id) AS cards, "
+            "'user' AS source "
+            "FROM user_combos c JOIN user_combo_cards cc ON cc.combo_id = c.id "
+            "WHERE cc.card_name = ? COLLATE NOCASE "
+            "ORDER BY card_count ASC, id LIMIT ?",
+            (card_name, card_name, limit),
         )
         return _rows_to_dicts(cur.fetchall())
     finally:
@@ -388,23 +397,44 @@ def find_combos_with_all(card_names: list[str], limit: int = 25) -> list[dict]:
             f"SELECT c.id, c.color_identity, c.name, "
             f"(SELECT COUNT(*) FROM combo_cards WHERE combo_id=c.id) AS card_count, "
             f"(SELECT GROUP_CONCAT(card_name, ' + ') "
-            f" FROM combo_cards WHERE combo_id=c.id) AS cards "
+            f" FROM combo_cards WHERE combo_id=c.id) AS cards, "
+            f"'spellbook' AS source "
             f"FROM combos c "
             f"WHERE c.id IN ( "
             f"  SELECT combo_id FROM combo_cards "
             f"  WHERE card_name COLLATE NOCASE IN ({placeholders}) "
             f"  GROUP BY combo_id "
             f"  HAVING COUNT(DISTINCT card_name) = ?) "
-            f"ORDER BY card_count ASC, c.id LIMIT ?"
+            f"UNION ALL "
+            f"SELECT c.id, c.color_identity, c.name, "
+            f"(SELECT COUNT(*) FROM user_combo_cards WHERE combo_id=c.id) AS card_count, "
+            f"(SELECT GROUP_CONCAT(card_name, ' + ') "
+            f" FROM user_combo_cards WHERE combo_id=c.id) AS cards, "
+            f"'user' AS source "
+            f"FROM user_combos c "
+            f"WHERE c.id IN ( "
+            f"  SELECT combo_id FROM user_combo_cards "
+            f"  WHERE card_name COLLATE NOCASE IN ({placeholders}) "
+            f"  GROUP BY combo_id "
+            f"  HAVING COUNT(DISTINCT card_name) = ?) "
+            f"ORDER BY card_count ASC, id LIMIT ?"
         )
-        cur.execute(sql, (*card_names, len(card_names), limit))
+        cur.execute(
+            sql,
+            (*card_names, len(card_names), *card_names, len(card_names), limit),
+        )
         return _rows_to_dicts(cur.fetchall())
     finally:
         conn.close()
 
 
 def get_combo(combo_id: str) -> Optional[dict]:
-    """Full combo details: cards, results, prerequisites, steps."""
+    """Full combo details: cards, results, prerequisites, steps.
+
+    Looks up Spellbook combos first; falls back to `user_combos` for
+    IDs with the `user-` prefix or any ID not present in Spellbook.
+    User combos only carry cards + description (no prerequisites /
+    steps / results sub-tables today)."""
     if not combo_id:
         return None
     conn = _connect()
@@ -415,35 +445,54 @@ def get_combo(combo_id: str) -> Optional[dict]:
             (combo_id,),
         )
         row = cur.fetchone()
+        if row:
+            combo: dict = dict(row)
+            combo["source"] = "spellbook"
+            cur.execute(
+                "SELECT card_name, quantity FROM combo_cards WHERE combo_id = ?",
+                (combo_id,),
+            )
+            combo["cards"] = _rows_to_dicts(cur.fetchall())
+            cur.execute(
+                "SELECT text FROM combo_prerequisites WHERE combo_id = ? ORDER BY id",
+                (combo_id,),
+            )
+            combo["prerequisites"] = [r["text"] for r in cur.fetchall()]
+            cur.execute(
+                "SELECT step_order, text FROM combo_steps WHERE combo_id = ? "
+                "ORDER BY step_order",
+                (combo_id,),
+            )
+            combo["steps"] = [r["text"] for r in cur.fetchall()]
+            cur.execute(
+                "SELECT text FROM combo_results WHERE combo_id = ? ORDER BY id",
+                (combo_id,),
+            )
+            combo["results"] = [r["text"] for r in cur.fetchall()]
+            return combo
+
+        # Not in Spellbook — try user_combos.
+        cur.execute(
+            "SELECT id, name, color_identity, description, added_at, added_by "
+            "FROM user_combos WHERE id = ?",
+            (combo_id,),
+        )
+        row = cur.fetchone()
         if not row:
             return None
-        combo: dict = dict(row)
-
+        combo = dict(row)
+        combo["source"] = "user"
         cur.execute(
-            "SELECT card_name, quantity FROM combo_cards WHERE combo_id = ?",
+            "SELECT card_name, quantity FROM user_combo_cards WHERE combo_id = ?",
             (combo_id,),
         )
         combo["cards"] = _rows_to_dicts(cur.fetchall())
-
-        cur.execute(
-            "SELECT text FROM combo_prerequisites WHERE combo_id = ? ORDER BY id",
-            (combo_id,),
-        )
-        combo["prerequisites"] = [r["text"] for r in cur.fetchall()]
-
-        cur.execute(
-            "SELECT step_order, text FROM combo_steps WHERE combo_id = ? "
-            "ORDER BY step_order",
-            (combo_id,),
-        )
-        combo["steps"] = [r["text"] for r in cur.fetchall()]
-
-        cur.execute(
-            "SELECT text FROM combo_results WHERE combo_id = ? ORDER BY id",
-            (combo_id,),
-        )
-        combo["results"] = [r["text"] for r in cur.fetchall()]
-
+        # User combos don't have prerequisites/steps/results sub-tables —
+        # everything narrative lives in `description`. Empty lists keep the
+        # renderer's shape contract intact.
+        combo["prerequisites"] = []
+        combo["steps"] = []
+        combo["results"] = []
         return combo
     finally:
         conn.close()

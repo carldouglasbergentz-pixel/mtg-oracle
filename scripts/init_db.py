@@ -90,6 +90,24 @@ CREATE TABLE IF NOT EXISTS combo_steps (
     FOREIGN KEY (combo_id) REFERENCES combos(id)
 );
 
+CREATE TABLE IF NOT EXISTS user_combos (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    color_identity TEXT,
+    description TEXT,
+    added_at TEXT NOT NULL,
+    added_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS user_combo_cards (
+    combo_id TEXT NOT NULL,
+    card_name TEXT NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    PRIMARY KEY (combo_id, card_name),
+    FOREIGN KEY (combo_id) REFERENCES user_combos(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_user_combo_cards_card ON user_combo_cards(card_name);
+
 CREATE TABLE IF NOT EXISTS deck_folders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE COLLATE NOCASE,
