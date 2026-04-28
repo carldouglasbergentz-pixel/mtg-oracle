@@ -269,7 +269,7 @@ def get_deck(name: str, folder: Optional[str] = None) -> Optional[dict]:
             SELECT dc.card_name, dc.quantity, dc.category,
                    dc.is_commander, dc.is_sideboard,
                    c.type_line, c.mana_cost, c.mana_value, c.colors,
-                   c.color_identity, c.power, c.toughness
+                   c.color_identity, c.power, c.toughness, c.oracle_text
             FROM deck_cards dc
             LEFT JOIN cards c ON c.name = dc.card_name COLLATE NOCASE
             WHERE dc.deck_id = ?

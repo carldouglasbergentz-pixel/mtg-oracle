@@ -35,6 +35,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `card <name>` inside a commander deck pre-filters the embedded "Top combos featuring this card" list by deck color identity. Combos whose CI isn't a subset of the deck CI are dropped at the SQL level, and the header notes the active filter (`Top combos featuring this card (3, filtered to deck CI BG)`). When zero combos remain, the renderer says so explicitly instead of silently hiding the section.
 - `_cmd_cd` collapses runs of whitespace to a single space before lookup, so a stray double-space in pasted deck names doesn't break the `COLLATE NOCASE` match.
 
+### Added (deck analytics + side-pane combos)
+- New `mtg_oracle/analytics.py` module: `compute_deck_analytics(deck)` returns `mana_curve` (0..6+ buckets), `mv_avg` over non-lands, `color_pips` (WUBRG count across non-land mana costs), `mana_sources` (WUBRGC count per land), and main vs land totals. Sideboard cards are excluded; commanders are included since they're cast from the command zone. DFC/split cards count only the front-face cost for color pips so back-face symbols don't double-charge the mana base.
+- Land mana-source detection: basic lands resolve from the type-line subtype (handles snow basics + Wastes); non-basics scan `oracle_text` for `{W|U|B|R|G|C}` symbols (covers duals, shocks, fetches, pain/utility lands). `decks.get_deck()` now selects `oracle_text` per row to feed this.
+- Renderer additions: `render_analytics_compact()` and `render_combos_compact()` produce width-aware blocks for the side pane. The mana-curve histogram uses 3-char-wide columns so two-digit counts align under their headers.
+- `render_deck_compact(...)` now takes optional `analytics` and `combos` params and appends them after the type buckets, so the entire side pane refreshes atomically when a card is added / removed / promoted.
+
+### Changed (combos move from right pane to left)
+- `_refresh_nav` (the side pane) now renders `Deck → Analytics → Combos` whenever the user is inside a deck. Combos are numbered (`[  1]`, `[  2]`, ...) so `combo-info <N>` continues to expand any row to the right pane against the same `_last_combos` list.
+- `_on_entered_deck` no longer writes the combos list to the right pane on `cd`. The right pane stays free for searches, card profiles, rulings, and expanded combo detail. Old behaviour was easy to lose when the deck was big — the combos got buried above the prompt; the side-pane location keeps them always visible.
+
 ### Added (commander promotion)
 - `commander <card>` command in the TUI promotes a card to commander in the current deck. If the card is already in the deck (main or sideboard), the existing row is flipped to `is_commander = 1` with quantity forced to 1; otherwise a fresh commander row is inserted. Multiple commanders are allowed, so running it on a 2nd card produces a Partner / Background / Friends Forever pair (deck CI becomes the union — Savra + Tymna → `[B, G, W]`).
 - `commander --unset <card>` demotes a commander row back to main-deck without removing the card.

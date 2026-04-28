@@ -21,6 +21,7 @@ from textual.containers import Horizontal
 from textual.suggester import Suggester
 from textual.widgets import Footer, Header, Input, RichLog, Static
 
+from mtg_oracle import analytics as a
 from mtg_oracle import queries as q
 from mtg_oracle import renderer as r
 from mtg_oracle import scryfall_search as ss
@@ -969,8 +970,11 @@ class MtgOracleApp(App):
             return
         nav.clear()
 
-        # Inside a deck → live deck contents. Width matches CSS #nav width
-        # minus the 1-char padding on either side.
+        # Inside a deck → live deck contents + analytics + combos. Width
+        # matches CSS #nav width minus the 1-char padding on either side.
+        # Combos and analytics live in the side pane so the right pane
+        # stays free for searches, card profiles, rulings, and expanded
+        # combo detail (`combo-info <N>` against the numbered list).
         if self._cwd_deck:
             try:
                 deck = d.get_deck(self._cwd_deck, folder=self._cwd_folder)
@@ -980,7 +984,22 @@ class MtgOracleApp(App):
             if not deck:
                 nav.write(f"(deck disappeared: {self._cwd_deck!r})")
                 return
-            nav.write(r.render_deck_compact(deck, width=NAV_WIDTH - 2))
+            try:
+                analytics = a.compute_deck_analytics(deck)
+            except Exception:
+                analytics = None
+            try:
+                combos = d.combos_in_deck(self._cwd_deck, folder=self._cwd_folder)
+            except Exception:
+                combos = None
+            # Keep _last_combos in sync with what the side pane shows so
+            # `combo-info <N>` resolves the same numbered list the user sees.
+            if combos is not None:
+                self._last_combos = combos
+            nav.write(r.render_deck_compact(
+                deck, width=NAV_WIDTH - 2,
+                analytics=analytics, combos=combos,
+            ))
             return
 
         # Otherwise → folder/deck tree with cwd marker.
@@ -1209,25 +1228,12 @@ class MtgOracleApp(App):
     def _on_entered_deck(self) -> None:
         """Run after every successful `cd` into a deck.
 
-        Shows the path the user just landed on, then auto-renders the
-        combos contained in the deck — so the right pane immediately
-        answers "what can this deck do?" without a separate `combos`
-        command. Failures are non-fatal (the cd itself already succeeded).
+        Just writes the path on the right pane. The deck contents,
+        analytics, and combos are all rendered by `_refresh_nav` in the
+        side pane, so the right pane stays free for the user's next
+        command (search / card / combo-info / etc.).
         """
         self._write(self._path_str())
-        try:
-            combos = d.combos_in_deck(self._cwd_deck, folder=self._cwd_folder)
-        except Exception as e:
-            self._write(f"(combos lookup failed: {type(e).__name__}: {e})")
-            return
-        if combos:
-            self._last_combos = combos
-            self._write(self._render_numbered_combo_list(
-                combos,
-                f"{len(combos)} combo(s) fully contained in {self._cwd_deck!r}:",
-            ))
-        else:
-            self._write(f"(no Spellbook combos fully contained in {self._cwd_deck!r})")
 
     def _cmd_mkdir(self, arg: str) -> None:
         name = arg.strip()

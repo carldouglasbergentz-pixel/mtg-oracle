@@ -8,6 +8,7 @@ returned by `mtg_oracle.queries` and returns a single string of ASCII
 from __future__ import annotations
 
 import textwrap
+from typing import Optional
 
 BOX_H = "-"
 BOX_V = "|"
@@ -493,11 +494,73 @@ def render_deck(deck: dict) -> str:
     return "\n".join(lines)
 
 
-def render_deck_compact(deck: dict, width: int = 36) -> str:
+def render_analytics_compact(analytics: dict, width: int = 48) -> str:
+    """Compact analytics block for the left navigation pane.
+
+    Sections: mana-value summary, mana curve histogram (0/1/2/3/4/5/6+),
+    colored-pip count for non-lands (WUBRG), mana sources for lands
+    (WUBRG + C). Width-aware: pip / source rows collapse to one line.
+    """
+    curve = analytics["mana_curve"]
+    nonland = analytics["nonland_count"]
+    land = analytics["land_count"]
+    mv_avg = analytics["mv_avg"]
+    pips = analytics["color_pips"]
+    pip_total = analytics["pip_total"]
+    sources = analytics["mana_sources"]
+
+    lines: list[str] = []
+    lines.append("ANALYTICS")
+    lines.append("-" * min(width, 9))
+    lines.append(f"avg MV: {mv_avg:.2f}   non-lands: {nonland}   lands: {land}")
+    lines.append("")
+    buckets = ("0", "1", "2", "3", "4", "5", "6+")
+    lines.append("curve  " + "  ".join(f"{b:>2}" for b in buckets))
+    lines.append("       " + "  ".join(f"{curve[i]:>2}" for i in range(7)))
+
+    if pip_total > 0:
+        present = " ".join(f"{c}:{pips[c]}" for c in "WUBRG" if pips[c])
+        lines.append("")
+        lines.append(f"pips ({pip_total}):    {present}")
+
+    if land > 0:
+        present = " ".join(f"{c}:{sources[c]}" for c in "WUBRGC" if sources[c])
+        lines.append(f"sources ({land}): {present}")
+
+    return "\n".join(lines)
+
+
+def render_combos_compact(combos: list[dict], width: int = 48) -> str:
+    """Numbered combo list for the left navigation pane.
+
+    Shape mirrors `_render_numbered_combo_list` (so `combo-info <N>` still
+    works against `_last_combos`) but laid out narrower for the side pane.
+    Each combo gets a header line plus its card list wrapping at ' + '.
+    """
+    if not combos:
+        return "COMBOS\n" + "-" * min(width, 6) + "\n  (no Spellbook combos fully contained)"
+    lines = ["COMBOS", "-" * min(width, 6)]
+    lines.append(f"{len(combos)} combo(s) — `combo-info <N>` to expand")
+    for i, c in enumerate(combos, 1):
+        cards_str = c.get("cards") or c.get("combo_name") or ""
+        ci = c.get("color_identity") or "-"
+        header = f"  [{i:>3}] {ci:<5} ({c['card_count']} cards) "
+        lines.append(wrap_combo_row(header, cards_str, row_width=width))
+    return "\n".join(lines)
+
+
+def render_deck_compact(
+    deck: dict,
+    width: int = 36,
+    analytics: Optional[dict] = None,
+    combos: Optional[list[dict]] = None,
+) -> str:
     """Narrow deck render for the left navigation pane.
 
-    Shows qty + truncated card name, type-grouped. Skips mana cost,
-    type line, rulings, combos — those belong in the right pane.
+    Shows qty + truncated card name, type-grouped, then optional Analytics
+    and Combos sections at the bottom. The optional sections are rendered
+    inline rather than written separately so the whole side pane refreshes
+    atomically when a card is added / removed.
     """
     name_w = max(8, width - 6)  # `  NNx ` prefix takes 5–6 chars
 
@@ -566,6 +629,13 @@ def render_deck_compact(deck: dict, width: int = 36) -> str:
             if len(cn) > name_w:
                 cn = cn[:name_w - 2] + ".."
             lines.append(f"  {qty:>2}x {cn}")
+
+    if analytics is not None:
+        lines.append("")
+        lines.append(render_analytics_compact(analytics, width=width))
+    if combos is not None:
+        lines.append("")
+        lines.append(render_combos_compact(combos, width=width))
 
     return "\n".join(lines)
 
