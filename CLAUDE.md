@@ -12,19 +12,19 @@ own decks. The Textual TUI in `mtg_oracle.app` is the primary interface;
 - **Bootstrapping a new contributor** → [`README.md`](README.md).
 - **App aesthetic intent** → [`docs/app-design.md`](docs/app-design.md).
 - **Stable user preferences** → `memory/` (loaded selectively).
-- **This file** → durable rules: schema, conventions, don'ts, self-review checklist. Loaded every turn — keep it lean.
+- **This file** → durable rules: schema semantics, conventions, don'ts, plan-first gate, self-review checklist. Loaded every turn — keep it lean.
 
 ## Schema (data/mtg.db)
 
-- **`cards`** (`name` PK, `oracle_id`, `oracle_text`, `mana_cost`, `mana_value`, `colors` (CSV), `color_identity` (CSV — Scryfall's, spans both faces, drives commander filtering), `power`, `toughness`, `rarity`, `type_line`, `layout`, `card_faces` JSON). DFC/split/flip cards combine faces with ` // `.
-- **`rulings`** — `id`, `card_name` (FK), `oracle_id`, `date`, `text`.
-- **`rules`** — `rule_number` PK (`100.1a`), `parent_rule`, `section_title`, `text`.
-- **`combos`** + `combo_cards` / `combo_results` / `combo_prerequisites` / `combo_steps` — Spellbook IDs as PK, sub-tables share `combo_id` + `text`.
-- **`card_tags`** — flat `(card_name, tag)` PK with `category` (`keyword` / `supertype` / `type` / `subtype`) and `source`.
-- **`card_abilities`** — one row per parsed ability with `ability_type` (`keyword`/`activated`/`triggered`/`static`/`loyalty`), `cost`, `effect`, `has_target`, `produces_mana`, `is_mana_ability` (CR 605.1a/b).
-- **`deck_folders`** (flat) + **`decks`** (`folder_id` FK, NULL = unsorted; UNIQUE on `(folder_id, name)`) + **`deck_cards`** (`is_commander`, `is_sideboard` flags; ON DELETE CASCADE).
-- **`corrections`** — `topic`, `category`, `incorrect_claim`, `correct_claim`, `explanation`, `relates_to` JSON, `source`, `added_at`, `added_by`.
-- **`sync_state`** — `source` PK with `updated_at` upstream marker.
+Tables: `cards`, `rulings`, `rules`, `combos` + `combo_cards` / `combo_results` / `combo_prerequisites` / `combo_steps`, `card_tags`, `card_abilities`, `decks` + `deck_folders` + `deck_cards`, `corrections`, `sync_state`. Read `scripts/init_db.py` for the full column list; only the non-obvious semantics belong here:
+
+- **`cards.color_identity`** — CSV (`B,G`), spans both faces, drives commander filtering. DFC/split/flip names combine faces with ` // `; per-face data lives in `card_faces` JSON.
+- **`combos.color_identity`** — contiguous letters (`WBG`, `GU`), unlike `cards.color_identity` which is comma-separated. Match accordingly.
+- **`card_abilities.is_mana_ability`** — follows CR 605.1a/b: produces mana, has no target, is not a loyalty ability. Deathrite Shaman's mana ability is correctly *not* flagged because its cost targets a graveyard card.
+- **`deck_cards.is_commander`** — drives format-aware behavior (see below). Multiple rows allowed for Partner / Background / Friends Forever. ON DELETE CASCADE from `decks`.
+- **`sync_state`** — keyed on `source` with `updated_at` upstream marker (timestamp / ETag / release date).
+
+Card-name lookups should go through `mtg_oracle.queries.resolve_card_name()`, which handles case, `/` vs ` // `, DFC front-face-only names, and missing diacritics / apostrophes / ligatures. Raw SQL on names should also use `COLLATE NOCASE`.
 
 ## Feedback loop — corrections table
 
@@ -44,42 +44,18 @@ Corrections are for **specific factual mistakes** about cards/rules/combos. They
 
 ## Workflow
 
-```bash
-pip install -r requirements.txt
-python scripts/init_db.py
-python scripts/sync.py        # cards + rulings + rules + combos + tags
-python scripts/mtg_app.py     # launch the TUI
-```
-
-`sync.py` is idempotent — sources skip when upstream is unchanged. `--force` re-ingests; `--only cards|rules|combos|tags` scopes the run. End of every run prints a `=== changelog ===` diff.
+Setup commands live in [`README.md`](README.md). The load-bearing detail for code work is that `scripts/sync.py` is idempotent (sources skip when upstream is unchanged), takes `--force` to re-ingest, `--only cards|rules|combos|tags` to scope, and self-heals the schema by running `migrate_add_scryfall_fields.py` on every invocation. Each run prints `=== changelog ===` summarizing what changed.
 
 ## Query patterns
 
-Most-used SQL shapes. Card names + rule numbers use `COLLATE NOCASE`; the `mtg_oracle.queries.resolve_card_name()` helper additionally handles diacritics, ligatures, apostrophes, and DFC front-face-only names.
+Most card / rule / combo / deck lookups have helpers in `mtg_oracle.queries` and `mtg_oracle.decks` — prefer those over hand-rolled SQL. For ad-hoc queries, the conventions are `COLLATE NOCASE` on names, `resolve_card_name()` for tolerant input, and `''` to escape apostrophes (`'Thassa''s Oracle'`). One emblematic shape:
 
-**Card rulings:**
 ```sql
-SELECT date, text FROM rulings WHERE card_name = ? ORDER BY date;
-```
-
-**Combos requiring ALL of several cards:**
-```sql
+-- Combos requiring ALL of several cards
 SELECT combo_id FROM combo_cards
 WHERE card_name COLLATE NOCASE IN (?, ?, ?)
 GROUP BY combo_id HAVING COUNT(DISTINCT card_name) = ?;
 ```
-
-**Cards with a keyword:**
-```sql
-SELECT card_name FROM card_tags WHERE tag = ? AND category = 'keyword';
-```
-
-**Mana abilities per CR 605.1a/b** (excludes Deathrite Shaman because its cost targets a graveyard card):
-```sql
-SELECT DISTINCT card_name FROM card_abilities WHERE is_mana_ability = 1;
-```
-
-For richer card lookups (search syntax, pagination, structured tags), use `mtg_oracle.queries` rather than hand-rolling SQL.
 
 ## Format-aware deck behavior
 
@@ -89,6 +65,12 @@ Two triggers decide whether a deck's `add` and `search` get extra rules:
 - **Singleton.** When `decks.format` (case-insensitive) is in `mtg_oracle.decks.SINGLETON_FORMATS` (`commander`, `edh`, `duel commander`, `1v1 commander`, `brawl`, `historic brawl`, `standard brawl`, `oathbreaker`, `highlander`, `canadian highlander`), `add` rejects a 2nd copy of the same card. Basic lands (type line contains `Basic` + `Land`) and cards whose oracle text contains `a deck can have any number of cards named` are exempt. Sideboard rows count separately from main.
 
 Both checks accept `force=True` (kwarg) / `--force` (TUI) to bypass for one call. `import_deck` always forces — paste lists are loaded verbatim. The commander row itself is never CI-checked because it *defines* the CI.
+
+## Plan first for big changes
+
+Before writing code for a multi-file refactor, schema migration, change to the sync pipeline, or anything touching user data (decks, corrections), propose a plan and wait for approval. The plan should name the files, the new functions, and the rollback story. Trivial edits (typo, comment, one-line config) and contained additions (one helper, one new query) skip the gate.
+
+This complements the post-hoc self-review checklist below: plan-first catches *what to build*; self-review catches *whether it works*.
 
 ## Self-review before commit
 
@@ -105,11 +87,9 @@ Trivial edits (typo, comment tweak, one-line config) may skip — call out that 
 
 ## Conventions
 
-- Card-name lookups go through `mtg_oracle.queries.resolve_card_name()` (or `COLLATE NOCASE` for raw SQL). It's tolerant of case, `/` vs ` // `, DFC front-face-only names, and missing diacritics / apostrophes.
 - For *rules interactions*, prefer `rules` over `rulings`. Rulings clarify specific cards; rules govern the system.
 - For "can X do Y?" questions, check **both** rules AND that card's rulings.
 - Combo answers include: cards involved, color identity, prerequisites, result, steps.
-- Apostrophes in raw SQL escape with `''` (`'Thassa''s Oracle'`).
 - Phase status changes go in [`docs/project-plan.md`](docs/project-plan.md), not here. CHANGELOG records the work; the project plan records the position.
 
 ## Don't
