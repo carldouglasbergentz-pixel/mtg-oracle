@@ -544,6 +544,10 @@ def get_corrections(
                 try:
                     r["relates_to"] = json.loads(r["relates_to"])
                 except json.JSONDecodeError:
+                    # Legacy or hand-edited rows may carry a free-text
+                    # relates_to instead of a JSON array. Leave the raw
+                    # string in place — the renderer copes either way,
+                    # and silently dropping it would lose information.
                     pass
         return rows
     finally:

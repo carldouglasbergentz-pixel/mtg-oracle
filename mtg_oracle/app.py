@@ -18,6 +18,7 @@ from typing import Callable, Optional
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.css.query import NoMatches
 from textual.suggester import Suggester
 from textual.widgets import Footer, Header, Input, RichLog, Static
 
@@ -948,7 +949,8 @@ class MtgOracleApp(App):
         """Update the bottom status bar with the current path."""
         try:
             label = self.query_one("#cmd-label", Static)
-        except Exception:
+        except NoMatches:
+            # Called during init before compose() has run; harmless.
             return
         path = self._path_str()
         label.update(
@@ -966,7 +968,8 @@ class MtgOracleApp(App):
         """
         try:
             nav = self.query_one("#nav", RichLog)
-        except Exception:
+        except NoMatches:
+            # Called during init before compose() has run; harmless.
             return
         nav.clear()
 
@@ -986,11 +989,15 @@ class MtgOracleApp(App):
                 return
             try:
                 analytics = a.compute_deck_analytics(deck)
-            except Exception:
+            except Exception as e:
+                # Don't crash the side pane — but surface the error so the
+                # user can see why the analytics block disappeared.
+                nav.write(f"(analytics error: {type(e).__name__}: {e})")
                 analytics = None
             try:
                 combos = d.combos_in_deck(self._cwd_deck, folder=self._cwd_folder)
-            except Exception:
+            except Exception as e:
+                nav.write(f"(combos lookup error: {type(e).__name__}: {e})")
                 combos = None
             # Keep _last_combos in sync with what the side pane shows so
             # `combo-info <N>` resolves the same numbered list the user sees.
@@ -1023,8 +1030,9 @@ class MtgOracleApp(App):
             nav.write(f"{marker} {name}")
             try:
                 decks_in_folder = d.list_decks(folder=name)
-            except Exception:
-                decks_in_folder = []
+            except Exception as e:
+                nav.write(f"    (error listing decks: {type(e).__name__}: {e})")
+                continue
             for x in decks_in_folder:
                 nav.write(f"    {x['name']}")
 
