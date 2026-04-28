@@ -17,6 +17,21 @@ from mtg_oracle.queries import resolve_card_name as _resolve_canonical
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
+# Formats that enforce singleton (max 1 of each card except basic lands and
+# cards whose oracle text explicitly opts out). The match is case-insensitive
+# on the deck's `format` field.
+SINGLETON_FORMATS: frozenset[str] = frozenset({
+    "commander", "edh", "duel commander", "1v1 commander",
+    "brawl", "historic brawl", "standard brawl",
+    "oathbreaker",
+    "highlander", "canadian highlander",
+})
+
+# Phrase Wizards uses on cards that override singleton (Relentless Rats,
+# Shadowborn Apostle, Dragon's Approach, Persistent Petitioners, Rat Colony,
+# Slime Against Humanity, Hare Apparent, Templar Knight, Nazgûl, ...).
+_UNLIMITED_PHRASE = "a deck can have any number of cards named"
+
 
 class DeckError(ValueError):
     """Raised for deck-layer validation errors — surfaces to UI."""
@@ -167,7 +182,9 @@ def create_deck(
 
 
 def list_decks(folder: Optional[str] = None) -> list[dict]:
-    """List decks; optional folder filter. Returns deck + folder + card count."""
+    """List decks; optional folder filter. Returns deck + folder + card count
+    + commander_ci (sorted list of letters, [] for colorless commander, None
+    when no commander is set on the deck)."""
     conn = _ro()
     try:
         cur = conn.cursor()
@@ -195,7 +212,10 @@ def list_decks(folder: Optional[str] = None) -> list[dict]:
                 ORDER BY folder COLLATE NOCASE, d.name COLLATE NOCASE
                 """
             )
-        return [dict(r) for r in cur.fetchall()]
+        rows = [dict(r) for r in cur.fetchall()]
+        for row in rows:
+            row["commander_ci"] = _deck_color_identity_inner(cur, row["id"])
+        return rows
     finally:
         conn.close()
 
@@ -249,7 +269,7 @@ def get_deck(name: str, folder: Optional[str] = None) -> Optional[dict]:
             SELECT dc.card_name, dc.quantity, dc.category,
                    dc.is_commander, dc.is_sideboard,
                    c.type_line, c.mana_cost, c.mana_value, c.colors,
-                   c.power, c.toughness
+                   c.color_identity, c.power, c.toughness
             FROM deck_cards dc
             LEFT JOIN cards c ON c.name = dc.card_name COLLATE NOCASE
             WHERE dc.deck_id = ?
@@ -266,6 +286,7 @@ def get_deck(name: str, folder: Optional[str] = None) -> Optional[dict]:
         deck["total_side"] = sum(
             c["quantity"] for c in deck["cards"] if c["is_sideboard"]
         )
+        deck["commander_ci"] = _deck_color_identity_inner(cur, did)
         return deck
     finally:
         conn.close()
@@ -323,6 +344,70 @@ def move_deck(name: str, new_folder: Optional[str], folder: Optional[str] = None
         conn.close()
 
 
+# --- Format-aware deck metadata --------------------------------------
+
+def _is_singleton_format(fmt: Optional[str]) -> bool:
+    return bool(fmt) and fmt.strip().lower() in SINGLETON_FORMATS
+
+
+def _is_basic_land(type_line: Optional[str]) -> bool:
+    if not type_line:
+        return False
+    return "Basic" in type_line and "Land" in type_line
+
+
+def _allows_unlimited_copies(oracle_text: Optional[str]) -> bool:
+    if not oracle_text:
+        return False
+    return _UNLIMITED_PHRASE in oracle_text.lower()
+
+
+def _deck_color_identity_inner(cur, did: int) -> Optional[list[str]]:
+    """Sorted union of color_identity letters for all is_commander=1 rows.
+
+    Returns None when the deck has no commanders (so callers can skip the
+    filter entirely). Returns [] for a deck whose only commander is colorless.
+    """
+    cur.execute(
+        """
+        SELECT c.color_identity
+        FROM deck_cards dc
+        LEFT JOIN cards c ON c.name = dc.card_name COLLATE NOCASE
+        WHERE dc.deck_id = ? AND dc.is_commander = 1
+        """,
+        (did,),
+    )
+    rows = cur.fetchall()
+    if not rows:
+        return None
+    letters: set[str] = set()
+    for (ci,) in rows:
+        if not ci:
+            continue
+        for ch in ci.split(","):
+            ch = ch.strip()
+            if ch:
+                letters.add(ch)
+    return sorted(letters)
+
+
+def get_deck_color_identity(
+    deck_name: str, folder: Optional[str] = None,
+) -> Optional[list[str]]:
+    """Public helper: returns the deck's effective CI as a sorted letter list.
+
+    None means "no commanders set" — callers (search filter, add-validation)
+    should treat that as "no CI constraint applies".
+    """
+    conn = _ro()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, deck_name, folder)
+        return _deck_color_identity_inner(cur, did)
+    finally:
+        conn.close()
+
+
 # --- Deck cards ------------------------------------------------------
 
 def add_card_to_deck(
@@ -334,9 +419,20 @@ def add_card_to_deck(
     is_sideboard: bool = False,
     folder: Optional[str] = None,
     resolve: bool = True,
+    force: bool = False,
 ) -> str:
     """Returns the canonical card name that was added (helpful for echoing
-    back when the input was a loose form like 'Fire/Ice')."""
+    back when the input was a loose form like 'Fire/Ice').
+
+    Format-aware validation runs by default — disable with `force=True`:
+    - Color identity: in a deck with at least one is_commander=1 row, the
+      added card's color_identity must be a subset of the deck's CI.
+    - Singleton: in a singleton format (commander, canadian highlander, ...),
+      a card already in the deck cannot be added again unless it's a basic
+      land or its oracle text says "a deck can have any number of cards
+      named ...". Sideboard rows do not interact with singleton checks
+      against main-deck rows.
+    """
     if quantity < 1:
         raise DeckError("quantity must be >= 1")
     canonical = resolve_card_name(card_name) if resolve else card_name
@@ -346,6 +442,62 @@ def add_card_to_deck(
     try:
         cur = conn.cursor()
         did = _deck_id(cur, deck_name, folder)
+
+        # Look up the card's metadata once for validation.
+        cur.execute(
+            "SELECT color_identity, type_line, oracle_text FROM cards "
+            "WHERE name = ? COLLATE NOCASE",
+            (canonical,),
+        )
+        meta = cur.fetchone()
+        card_ci = (meta["color_identity"] if meta else None) or ""
+        card_type = (meta["type_line"] if meta else None)
+        card_oracle = (meta["oracle_text"] if meta else None)
+
+        # CI validation (skipped for the commander itself — adding a
+        # commander defines the CI, it isn't checked against it).
+        if not force and not is_commander:
+            deck_ci = _deck_color_identity_inner(cur, did)
+            if deck_ci is not None:
+                card_letters = {ch for ch in card_ci.split(",") if ch}
+                allowed = set(deck_ci)
+                outside = sorted(card_letters - allowed)
+                if outside:
+                    deck_label = "{" + ",".join(deck_ci) + "}" if deck_ci else "{colorless}"
+                    raise DeckError(
+                        f"{canonical!r} has color identity "
+                        f"{{{','.join(sorted(card_letters))}}} which is outside "
+                        f"the deck's CI {deck_label} (offending: {','.join(outside)}). "
+                        f"Pass force=True to override."
+                    )
+
+        # Singleton validation. Sideboard cards are validated against
+        # other sideboard rows; main vs. sideboard are independent.
+        if not force and not is_commander:
+            cur.execute(
+                "SELECT format FROM decks WHERE id = ?", (did,),
+            )
+            fmt = cur.fetchone()["format"]
+            if _is_singleton_format(fmt):
+                if not _is_basic_land(card_type) and not _allows_unlimited_copies(card_oracle):
+                    cur.execute(
+                        """
+                        SELECT COALESCE(SUM(quantity), 0) FROM deck_cards
+                        WHERE deck_id = ? AND card_name = ? COLLATE NOCASE
+                          AND is_sideboard = ?
+                        """,
+                        (did, canonical, int(is_sideboard)),
+                    )
+                    current = cur.fetchone()[0]
+                    if current + quantity > 1:
+                        section = "sideboard" if is_sideboard else "main deck"
+                        raise DeckError(
+                            f"singleton format ({fmt!r}): {canonical!r} would have "
+                            f"{current + quantity} copies in the {section} "
+                            f"(limit is 1; basics and 'any number' cards are exempt). "
+                            f"Pass force=True to override."
+                        )
+
         # If the same (card, commander/sideboard) row already exists, merge qty.
         cur.execute(
             """
@@ -472,6 +624,10 @@ def import_deck(
                 is_commander=(row["section"] == "commander"),
                 is_sideboard=(row["section"] == "sideboard"),
                 folder=folder,
+                # Imports load a list verbatim — singleton/CI checks would
+                # block legitimate decks where the commander row appears
+                # after non-commander cards in the parsed input.
+                force=True,
             )
             added += 1
         except DeckError as e:

@@ -132,6 +132,20 @@ def _colors(card: dict) -> str:
     return ",".join(sorted(colors))
 
 
+def _color_identity(card: dict) -> str:
+    """Comma-separated sorted color letters from Scryfall's `color_identity`.
+
+    Color identity is always a top-level field on Scryfall (already merged
+    across faces), and it includes colors from mana costs, color indicators
+    and rules-text mana symbols — i.e. exactly the field commander-format
+    legality is checked against.
+    """
+    ci = card.get("color_identity")
+    if not isinstance(ci, list):
+        return ""
+    return ",".join(sorted(ci))
+
+
 def _mana_value(card: dict) -> int:
     """Scryfall's `cmc` is typically float (0.5 for Who/What/When/Where/Why).
     Round down to int; None -> 0."""
@@ -188,22 +202,23 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
             """
             INSERT INTO cards (
                 name, oracle_id, oracle_text, mana_cost, mana_value,
-                colors, power, toughness, rarity,
+                colors, color_identity, power, toughness, rarity,
                 type_line, layout, card_faces
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
-                oracle_id   = excluded.oracle_id,
-                oracle_text = excluded.oracle_text,
-                mana_cost   = excluded.mana_cost,
-                mana_value  = excluded.mana_value,
-                colors      = excluded.colors,
-                power       = excluded.power,
-                toughness   = excluded.toughness,
-                rarity      = excluded.rarity,
-                type_line   = excluded.type_line,
-                layout      = excluded.layout,
-                card_faces  = excluded.card_faces
+                oracle_id      = excluded.oracle_id,
+                oracle_text    = excluded.oracle_text,
+                mana_cost      = excluded.mana_cost,
+                mana_value     = excluded.mana_value,
+                colors         = excluded.colors,
+                color_identity = excluded.color_identity,
+                power          = excluded.power,
+                toughness      = excluded.toughness,
+                rarity         = excluded.rarity,
+                type_line      = excluded.type_line,
+                layout         = excluded.layout,
+                card_faces     = excluded.card_faces
             """,
             (
                 name,
@@ -212,6 +227,7 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
                 _face_mana_cost(card),
                 _mana_value(card),
                 _colors(card),
+                _color_identity(card),
                 _power(card),
                 _toughness(card),
                 card.get("rarity"),

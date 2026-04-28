@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
+import migrate_add_scryfall_fields
 import sync_cards
 import sync_combos
 import sync_rules
@@ -172,6 +173,12 @@ def main() -> None:
     args = parser.parse_args()
 
     selected = args.only or list(SOURCES.keys())
+
+    # Self-heal schema before any sync runs. The migration script is
+    # idempotent (uses ALTER TABLE only when a column is missing) and
+    # silent when there's nothing to do, so it's safe on every run.
+    if DB_PATH.exists():
+        migrate_add_scryfall_fields.main()
 
     pre: Optional[dict] = None
     if DB_PATH.exists():

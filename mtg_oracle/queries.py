@@ -155,11 +155,19 @@ def _rows_to_dicts(rows) -> list[dict]:
 
 # --- Cards --------------------------------------------------------------
 
-def get_card(name: str) -> Optional[dict]:
+def get_card(
+    name: str,
+    restrict_to_ci: Optional[list[str]] = None,
+) -> Optional[dict]:
     """Return the full profile of a single card by exact name, or None.
 
     Includes: base fields, tags grouped by category, parsed abilities,
     rulings (chronological), and the top combos the card appears in.
+
+    `restrict_to_ci`: when set, the embedded combos list is pre-filtered
+    so each combo's color identity is a subset of the given letter list
+    (i.e. legal in a deck with that commander color identity). `None`
+    means no filter; `[]` means colorless only.
     """
     if not name:
         return None
@@ -209,18 +217,35 @@ def get_card(name: str) -> Optional[dict]:
         )
         card["rulings"] = _rows_to_dicts(cur.fetchall())
 
+        # Build an optional CI subset filter — combos.color_identity is
+        # stored as a contiguous letter string ('WBG', 'GU', '' for colorless),
+        # so the subset check excludes any combo containing a letter that
+        # isn't in restrict_to_ci.
+        ci_where, ci_params = "", []
+        if restrict_to_ci is not None:
+            allowed = set(restrict_to_ci)
+            excluded = [ch for ch in "WUBRG" if ch not in allowed]
+            if excluded:
+                ci_where = " AND " + " AND ".join(
+                    "(c.color_identity IS NULL OR c.color_identity NOT LIKE ?)"
+                    for _ in excluded
+                )
+                ci_params = [f"%{ch}%" for ch in excluded]
         cur.execute(
             "SELECT c.id, c.color_identity, c.name AS combo_name, "
             "(SELECT COUNT(*) FROM combo_cards WHERE combo_id=c.id) AS card_count, "
             "(SELECT GROUP_CONCAT(card_name, ' + ') "
             " FROM combo_cards WHERE combo_id=c.id) AS cards "
             "FROM combos c JOIN combo_cards cc ON cc.combo_id = c.id "
-            "WHERE cc.card_name = ? "
+            "WHERE cc.card_name = ?" + ci_where + " "
             "ORDER BY card_count ASC, c.id "
             "LIMIT 10",
-            (canonical,),
+            tuple([canonical] + ci_params),
         )
         card["combos"] = _rows_to_dicts(cur.fetchall())
+        card["combos_filtered_by_ci"] = (
+            "".join(restrict_to_ci) if restrict_to_ci else "C"
+        ) if restrict_to_ci is not None else None
 
         cur.execute(
             "SELECT id, topic, correct_claim, source FROM corrections "

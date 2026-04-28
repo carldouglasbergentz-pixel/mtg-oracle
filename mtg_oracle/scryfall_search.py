@@ -7,12 +7,23 @@ Supported syntax (Level 2):
     n:TEXT / name:TEXT          name contains TEXT
     kw:KEYWORD                  has a card_tags row with category='keyword'
     c:COLORS  / c=COLORS        colors subset-contains / equals exactly
+    ci:COLORS / ci<=COLORS      color identity ⊆ COLORS (commander legality)
+    ci=COLORS                   color identity exactly COLORS
+    ci>=COLORS                  color identity ⊇ COLORS
     mv:N, mv=N, mv>N, mv<N,
     mv>=N, mv<=N, mv!=N         mana value compared to integer N
     pow:S  pow=S  pow>N ...     power (string equality for `:`/`=`, numeric for compares)
     tou:S  tou=S  tou>N ...     toughness
     r:RARITY / rarity:RARITY    rarity equals (common|uncommon|rare|mythic|bonus|special)
     layout:LAYOUT               layout equals (normal|transform|modal_dfc|split|flip|...)
+
+    # Sort
+    order:asc_FIELD             sort ascending  (sort: is an alias)
+    order:desc_FIELD            sort descending
+    Fields: mv (mana value), name, power, toughness, rarity (tier order),
+            color, ci (number of colors in color identity).
+    Direction prefix is REQUIRED — bare `order:mv` is rejected. A stable
+    tiebreaker on name is always appended.
 
     # Boolean
     TERM1 TERM2 ...             AND (implicit via whitespace)
@@ -45,6 +56,7 @@ together so the ~300-line grammar is readable end-to-end.
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import dataclass, field as dc_field
 from pathlib import Path
@@ -254,12 +266,15 @@ _FIELD_ALIAS = {
     "name": "n", "n": "n",
     "keyword": "kw", "kw": "kw",
     "color": "c", "c": "c",
+    "ci": "ci", "coloridentity": "ci", "color_identity": "ci", "id": "ci",
     "mv": "mv", "cmc": "mv",
     "pow": "pow", "power": "pow",
     "tou": "tou", "toughness": "tou",
     "rarity": "r", "r": "r",
     "layout": "layout",
 }
+
+_ALL_COLORS = ("W", "U", "B", "R", "G")
 
 _COLOR_WORDS = {
     "white": "W", "w": "W",
@@ -356,6 +371,31 @@ def compile_term(t: Term) -> tuple[str, list]:
             params = [f"%{ch}%" for ch in colors]
             return "(" + " AND ".join(parts) + ")", params
         raise SearchError(f"color supports ':' or '=', got {op!r}")
+    if field == "ci":
+        # Color identity. Scryfall convention:
+        #   ci:WUB / ci<=WUB → card.CI ⊆ {W,U,B}  (commander-deck legality)
+        #   ci=WUB           → card.CI exactly {W,U,B}
+        #   ci>=WUB          → card.CI ⊇ {W,U,B}
+        colors = _parse_colors(val)
+        if op == "=":
+            return "c.color_identity = ?", [",".join(colors)]
+        if op in (":", "<="):
+            # Subset: card has none of the colors NOT in the query set.
+            excluded = [ch for ch in _ALL_COLORS if ch not in colors]
+            if not excluded:
+                # Query covers all five colors → every card is a subset.
+                return "1=1", []
+            parts = ["(c.color_identity IS NULL OR c.color_identity NOT LIKE ?)" for _ in excluded]
+            params = [f"%{ch}%" for ch in excluded]
+            return "(" + " AND ".join(parts) + ")", params
+        if op == ">=":
+            # Superset: card has every color in the query set.
+            if not colors:
+                return "1=1", []
+            parts = ["c.color_identity LIKE ?" for _ in colors]
+            params = [f"%{ch}%" for ch in colors]
+            return "(" + " AND ".join(parts) + ")", params
+        raise SearchError(f"color identity supports ':', '=', '<=', '>=', got {op!r}")
     if field == "mv":
         return _numeric_op("c.mana_value", op, val)
     if field == "pow":
@@ -396,10 +436,119 @@ def compile_ast(node) -> tuple[str, list]:
     raise SearchError(f"unknown AST node: {node!r}")
 
 
+# --- Order extraction + ORDER BY compiler -----------------------------
+
+# Matches `order:asc_FIELD`, `order:desc_FIELD`, `sort:asc_FIELD`, etc.
+# The token must be word-bounded (start of string, or after whitespace) so
+# it doesn't collide with substrings like `disorder:foo` or `o:"order:..."`.
+_ORDER_TOKEN_RE = re.compile(
+    r"(?:^|\s)(?:order|sort)[:=]([a-zA-Z_]+)(?=\s|$)",
+    re.IGNORECASE,
+)
+
+# Fields whose sort expression is a simple column. Power and toughness are
+# handled separately because they're TEXT and need a numeric coercion.
+_SORT_FIELD_SQL = {
+    "mv": "c.mana_value",
+    "cmc": "c.mana_value",
+    "name": "c.name COLLATE NOCASE",
+    "rarity": (
+        "CASE c.rarity "
+        "WHEN 'common' THEN 1 "
+        "WHEN 'uncommon' THEN 2 "
+        "WHEN 'rare' THEN 3 "
+        "WHEN 'mythic' THEN 4 "
+        "WHEN 'bonus' THEN 5 "
+        "WHEN 'special' THEN 6 "
+        "ELSE 7 END"
+    ),
+    "color": "COALESCE(c.colors, '')",
+    # ci sort is by *number of colors* in the color identity — useful for
+    # going from mono to multicolor (or vice-versa) within a result set.
+    "ci": "LENGTH(COALESCE(c.color_identity, '')) - "
+          "(LENGTH(REPLACE(COALESCE(c.color_identity, ''), ',', '')))",
+}
+
+
+def _extract_order(query: str) -> tuple[str, list[tuple[str, str]]]:
+    """Pull `order:` / `sort:` tokens out of the raw query string.
+
+    Returns (cleaned_query, [(field, direction), ...]) where direction is
+    'asc' or 'desc'. Raises SearchError if a token has malformed shape.
+
+    Strict syntax: the value must be `asc_FIELD` or `desc_FIELD`. Bare
+    `order:FIELD` is rejected so the direction is always explicit.
+    """
+    orders: list[tuple[str, str]] = []
+    def _capture(m: re.Match) -> str:
+        spec = m.group(1).lower()
+        if "_" not in spec:
+            raise SearchError(
+                f"sort token must be 'asc_FIELD' or 'desc_FIELD', got "
+                f"{m.group(0).strip()!r}"
+            )
+        direction, _, field = spec.partition("_")
+        if direction not in ("asc", "desc"):
+            raise SearchError(
+                f"sort direction must be 'asc' or 'desc', got {direction!r} "
+                f"in {m.group(0).strip()!r}"
+            )
+        if not field:
+            raise SearchError(f"sort token missing field name: {m.group(0).strip()!r}")
+        orders.append((field, direction))
+        # Replace with a single space so the surrounding query still tokenizes.
+        return " "
+    cleaned = _ORDER_TOKEN_RE.sub(_capture, query).strip()
+    return cleaned, orders
+
+
+def _build_order_by(orders: list[tuple[str, str]]) -> str:
+    """Translate extracted (field, direction) pairs into ORDER BY SQL.
+
+    A trailing tiebreaker on c.name keeps the result stable when two rows
+    share the primary sort key.
+    """
+    if not orders:
+        return "c.name COLLATE NOCASE ASC"
+    parts: list[str] = []
+    for field, direction in orders:
+        dir_sql = "DESC" if direction == "desc" else "ASC"
+        if field in ("pow", "power", "tou", "toughness"):
+            col = "power" if field in ("pow", "power") else "toughness"
+            # Numeric when digits-only ('3'), NULL otherwise ('*', '1+*').
+            expr = (
+                f"CASE WHEN c.{col} GLOB '[0-9]*' "
+                f"THEN CAST(c.{col} AS REAL) END"
+            )
+        elif field in _SORT_FIELD_SQL:
+            expr = _SORT_FIELD_SQL[field]
+        else:
+            valid = sorted(set(_SORT_FIELD_SQL) | {"power", "toughness"})
+            raise SearchError(
+                f"unknown sort field: {field!r}. Valid: {', '.join(valid)}"
+            )
+        # NULL last regardless of direction — piggy-back an IS-NULL boolean
+        # as the primary sub-key so unknown/missing values never lead the
+        # result set in `asc_*` mode.
+        parts.append(f"({expr}) IS NULL")
+        parts.append(f"({expr}) {dir_sql}")
+    parts.append("c.name COLLATE NOCASE ASC")
+    return ", ".join(parts)
+
+
 # --- Top-level query entry point --------------------------------------
 
 def _compile_where(query: str) -> tuple[str, list]:
     return compile_ast(parse(query))
+
+
+def _compile_where_or_all(cleaned_query: str) -> tuple[str, list]:
+    """Like _compile_where but tolerates an empty cleaned query — produced
+    when the user passes only `order:` tokens with no filters. Returns a
+    no-op WHERE that matches all rows."""
+    if not cleaned_query.strip():
+        return "1=1", []
+    return _compile_where(cleaned_query)
 
 
 def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
@@ -407,11 +556,13 @@ def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
         limit = 50
     if offset < 0:
         offset = 0
-    where_sql, params = _compile_where(query)
+    cleaned, orders = _extract_order(query)
+    where_sql, params = _compile_where_or_all(cleaned)
+    order_sql = _build_order_by(orders)
     sql = (
         "SELECT c.name, c.type_line, c.mana_cost, c.mana_value "
         "FROM cards c WHERE " + where_sql +
-        " ORDER BY c.name COLLATE NOCASE LIMIT ? OFFSET ?"
+        " ORDER BY " + order_sql + " LIMIT ? OFFSET ?"
     )
     params_all = list(params) + [limit, offset]
     _ensure_db()
@@ -426,8 +577,11 @@ def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
 
 
 def count_query(query: str) -> int:
-    """Return the total number of matches for a query (no LIMIT / OFFSET)."""
-    where_sql, params = _compile_where(query)
+    """Return the total number of matches for a query (no LIMIT / OFFSET).
+
+    Order tokens are stripped — they don't affect the row count."""
+    cleaned, _ = _extract_order(query)
+    where_sql, params = _compile_where_or_all(cleaned)
     sql = f"SELECT COUNT(*) FROM cards c WHERE {where_sql}"
     _ensure_db()
     conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)

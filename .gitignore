@@ -7,6 +7,9 @@ data/mtg.db-shm
 # Bulk source/raw data (fetched on demand by sync_*.py)
 data/raw/
 
+# User preferences (theme, etc.) — per-machine, not source
+data/config.json
+
 # Python
 __pycache__/
 *.pyc

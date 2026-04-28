@@ -69,6 +69,20 @@ def wrap_combo_row(
     return "\n".join(lines)
 
 
+def _ci_badge(commander_ci) -> str:
+    """Render a deck's commander color identity as a compact badge.
+
+    `commander_ci` is None (no commander set), [] (colorless commander),
+    or a sorted list of letters like ['B','G']. The badge is a stable,
+    Scryfall-style token that fits inline with deck headers.
+    """
+    if commander_ci is None:
+        return ""
+    if not commander_ci:
+        return "[CI: C]"
+    return f"[CI: {''.join(commander_ci)}]"
+
+
 def _header_line(name: str, mana_cost: str) -> str:
     """Render name + mana cost on one line, Scryfall-style.
 
@@ -131,14 +145,28 @@ def render_card(card: dict) -> str:
             lines.append(wrap(r["text"], indent=INDENT * 2))
 
     combos = card.get("combos") or []
+    ci_filter = card.get("combos_filtered_by_ci")
     if combos:
         lines.append("")
-        lines.append(f"Top combos featuring this card ({len(combos)}):")
+        if ci_filter is not None:
+            lines.append(
+                f"Top combos featuring this card ({len(combos)}, "
+                f"filtered to deck CI {ci_filter}):"
+            )
+        else:
+            lines.append(f"Top combos featuring this card ({len(combos)}):")
         for c in combos:
             cards_str = c.get("cards") or c.get("combo_name") or ""
             ci = c.get("color_identity") or "-"
             header = f"{INDENT}[{c['id']:>14}] {ci:<5} ({c['card_count']} cards) "
             lines.append(wrap_combo_row(header, cards_str))
+    elif ci_filter is not None:
+        # No combos passed the filter — make it explicit instead of silent.
+        lines.append("")
+        lines.append(
+            f"Top combos featuring this card: 0 applicable to deck CI {ci_filter} "
+            f"(card may be unplayable here)"
+        )
 
     corrections = card.get("corrections") or []
     if corrections:
@@ -349,9 +377,11 @@ def render_deck_list(
 
     def _row(d: dict) -> str:
         fmt = f" [{d['format']}]" if d.get("format") else ""
+        ci = _ci_badge(d.get("commander_ci"))
+        ci = f" {ci}" if ci else ""
         updated = (d.get("updated_at") or "")[:10]
         return (
-            f"{INDENT}{d['name']:<40} {d['card_count']:>4} cards{fmt}  "
+            f"{INDENT}{d['name']:<40} {d['card_count']:>4} cards{fmt}{ci}  "
             f"updated {updated}"
         )
 
@@ -402,6 +432,9 @@ def render_deck(deck: dict) -> str:
         header_right.append(deck["folder"])
     if deck.get("format"):
         header_right.append(deck["format"])
+    ci = _ci_badge(deck.get("commander_ci"))
+    if ci:
+        header_right.append(ci)
     header_right.append(f"{total} cards")
     side_total = deck.get("total_side", 0)
     if side_total:
@@ -482,7 +515,11 @@ def render_deck_compact(deck: dict, width: int = 36) -> str:
     if len(name_line) > width:
         name_line = name_line[:width - 2] + ".."
 
-    lines: list[str] = [name_line, " / ".join(bits), "=" * min(width, len(name_line))]
+    lines: list[str] = [name_line, " / ".join(bits)]
+    ci = _ci_badge(deck.get("commander_ci"))
+    if ci:
+        lines.append(ci)
+    lines.append("=" * min(width, len(name_line)))
 
     commanders: list[dict] = []
     main_buckets: dict[str, list[dict]] = {}
@@ -495,10 +532,23 @@ def render_deck_compact(deck: dict, width: int = 36) -> str:
         bucket = c.get("category") or _type_bucket(c.get("type_line") or "")
         main_buckets.setdefault(bucket, []).append(c)
 
-    ordered: list[tuple[str, list[dict]]] = []
+    # Pinned commander section: render distinctly above the regular buckets
+    # so the commander stays visually anchored even if the deck is long.
     if commanders:
-        ordered.append(("Commander", commanders))
+        lines.append("")
+        lines.append("-- COMMANDER --")
+        for c in commanders:
+            qty = c["quantity"]
+            cn = c["card_name"]
+            if len(cn) > name_w:
+                cn = cn[:name_w - 2] + ".."
+            lines.append(f"  {qty:>2}x {cn}")
+        lines.append("-" * min(width, 16))
+
+    ordered: list[tuple[str, list[dict]]] = []
     for b in _BUCKET_ORDER:
+        if b == "Commander":
+            continue  # already rendered as the pinned section above
         if b in main_buckets:
             ordered.append((b, main_buckets.pop(b)))
     for k in sorted(main_buckets, key=str.lower):

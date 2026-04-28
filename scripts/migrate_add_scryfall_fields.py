@@ -1,10 +1,12 @@
 """Idempotent migration: add Scryfall-derived searchable columns to `cards`.
 
-- colors       TEXT — comma-separated sorted color letters, e.g., "B,G" (empty for colorless)
-- mana_value   INTEGER — Scryfall's `cmc` cast to int (0 for lands; 0.5-style split cards floor)
-- power        TEXT — creature power as string ("3", "*", "1+*", NULL for non-creatures)
-- toughness    TEXT — creature toughness, same shape
-- rarity       TEXT — "common" / "uncommon" / "rare" / "mythic" / "bonus" / "special"
+- colors          TEXT — comma-separated sorted color letters, e.g., "B,G" (empty for colorless)
+- color_identity  TEXT — same shape; spans both faces and includes mana-cost / color-indicator
+                          colors per Scryfall's `color_identity`. Drives commander-deck filtering.
+- mana_value      INTEGER — Scryfall's `cmc` cast to int (0 for lands; 0.5-style split cards floor)
+- power           TEXT — creature power as string ("3", "*", "1+*", NULL for non-creatures)
+- toughness       TEXT — creature toughness, same shape
+- rarity          TEXT — "common" / "uncommon" / "rare" / "mythic" / "bonus" / "special"
 
 After this runs:
     python scripts/sync.py --only cards --force
@@ -30,17 +32,19 @@ def main():
     cur = conn.cursor()
     changes = []
     for col, ddl in [
-        ("colors",     "ALTER TABLE cards ADD COLUMN colors TEXT"),
-        ("mana_value", "ALTER TABLE cards ADD COLUMN mana_value INTEGER"),
-        ("power",      "ALTER TABLE cards ADD COLUMN power TEXT"),
-        ("toughness",  "ALTER TABLE cards ADD COLUMN toughness TEXT"),
-        ("rarity",     "ALTER TABLE cards ADD COLUMN rarity TEXT"),
+        ("colors",         "ALTER TABLE cards ADD COLUMN colors TEXT"),
+        ("color_identity", "ALTER TABLE cards ADD COLUMN color_identity TEXT"),
+        ("mana_value",     "ALTER TABLE cards ADD COLUMN mana_value INTEGER"),
+        ("power",          "ALTER TABLE cards ADD COLUMN power TEXT"),
+        ("toughness",      "ALTER TABLE cards ADD COLUMN toughness TEXT"),
+        ("rarity",         "ALTER TABLE cards ADD COLUMN rarity TEXT"),
     ]:
         if not col_exists(cur, "cards", col):
             cur.execute(ddl)
             changes.append(f"cards.{col}")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_cards_mana_value ON cards(mana_value)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_cards_rarity ON cards(rarity)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_cards_color_identity ON cards(color_identity)")
     conn.commit()
     conn.close()
     if changes:

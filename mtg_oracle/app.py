@@ -8,9 +8,11 @@ Launch:
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sqlite3
 import sys
+from pathlib import Path
 from typing import Callable, Optional
 
 from textual.app import App, ComposeResult
@@ -26,10 +28,35 @@ from mtg_oracle import decks as d
 from mtg_oracle.deck_parser import parse_deckstring
 
 
+# Persistent user preferences (theme so far). Lives next to the DB —
+# already gitignored as part of `data/`. Single JSON dict so adding more
+# settings later is a one-key addition.
+CONFIG_PATH = Path(__file__).parent.parent / "data" / "config.json"
+
+
+def _load_config() -> dict:
+    try:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_config(config: dict) -> None:
+    try:
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+    except OSError:
+        # Persistence is best-effort; never crash the app over a config write.
+        pass
+
+
 # Width of the left navigation pane (matches the CSS rule). Slightly wider
 # than strictly needed so deck names don't get aggressively truncated when
 # the live deck view is shown.
-NAV_WIDTH = 38
+NAV_WIDTH = 48
 
 
 COMMANDS = [
@@ -315,7 +342,7 @@ class MtgOracleApp(App):
         height: 1fr;
     }
     #nav {
-        width: 38;
+        width: 48;
         border: solid $accent;
         padding: 0 1;
         background: $background;
@@ -401,12 +428,36 @@ class MtgOracleApp(App):
         yield Input(placeholder="type a command (try 'help' or 'card Deathrite Shaman')", id="cmd")
         yield Footer()
 
+    # Set to True after on_mount has applied the saved theme; until then,
+    # watch_theme writes are suppressed so Textual's own default-theme
+    # assignment doesn't overwrite the user's saved choice.
+    _config_ready: bool = False
+
     def on_mount(self) -> None:
         log = self.query_one("#output", RichLog)
         log.write(HELP_TEXT)
         self._install_suggester()
         self._refresh_status()
         self._refresh_nav()
+        # Restore last-used theme (Ctrl+P palette → "Change theme") if any.
+        config = _load_config()
+        saved_theme = config.get("theme")
+        if saved_theme and saved_theme != self.theme:
+            try:
+                self.theme = saved_theme
+            except Exception:
+                # Theme name might be invalid (renamed in a Textual upgrade).
+                # Fall back silently — user can pick a new one.
+                pass
+        self._config_ready = True
+
+    def watch_theme(self, theme: str) -> None:
+        """Persist theme picks made via the command palette."""
+        if not self._config_ready:
+            return
+        config = _load_config()
+        config["theme"] = theme
+        _save_config(config)
 
     def _install_suggester(self) -> None:
         """Preload autofill sources and wire them into the input widget."""
@@ -569,7 +620,19 @@ class MtgOracleApp(App):
                     f"(no row #{arg} in last search; valid range is 1..{len(self._search_rows)})"
                 )
                 return
-        card = q.get_card(arg)
+        # When inside a deck whose commander defines a CI, restrict the
+        # embedded "Top combos featuring this card" list to combos that
+        # are actually playable in the deck — so e.g. Ashnod's Altar in
+        # a Savra (BG) deck doesn't list its UB / GU / W combos.
+        restrict_to_ci = None
+        if self._cwd_deck:
+            try:
+                restrict_to_ci = d.get_deck_color_identity(
+                    self._cwd_deck, folder=self._cwd_folder,
+                )
+            except d.DeckError:
+                restrict_to_ci = None
+        card = q.get_card(arg, restrict_to_ci=restrict_to_ci)
         if not card:
             self._write(f"(card not found: {arg})")
             return
@@ -672,16 +735,38 @@ class MtgOracleApp(App):
         if not arg or arg.lower() in ("help", "?"):
             self._write(SEARCH_HELP)
             return
+
+        # Auto-apply commander color-identity filter when searching inside
+        # a deck that has at least one is_commander=1 row. Hard-applied so
+        # the result strictly matches what the user can legally play; the
+        # user can still cd out of the deck to search broadly.
+        ci_notice = ""
+        effective = arg
+        if self._cwd_deck:
+            try:
+                deck_ci = d.get_deck_color_identity(
+                    self._cwd_deck, folder=self._cwd_folder,
+                )
+            except d.DeckError:
+                deck_ci = None
+            if deck_ci is not None:
+                ci_token = "".join(deck_ci) if deck_ci else "c"
+                effective = f"({arg}) ci<={ci_token}"
+                badge = "".join(deck_ci) if deck_ci else "C"
+                ci_notice = f"[CI filter: ci<={badge}  (commander deck — `cd ..` to search broadly)]\n"
+
         try:
-            total = ss.count_query(arg)
-            rows = ss.run_query(arg, limit=self.SEARCH_PAGE_SIZE, offset=0)
+            total = ss.count_query(effective)
+            rows = ss.run_query(effective, limit=self.SEARCH_PAGE_SIZE, offset=0)
         except ss.SearchError as e:
             self._write(f"search error: {e}\n(type `search help` for syntax)")
             return
-        self._search_query = arg
+        self._search_query = effective
         self._search_page = 1
         self._search_total = total
         self._search_rows = rows
+        if ci_notice:
+            self._write(ci_notice.rstrip("\n"))
         self._render_current_page()
 
     def _cmd_search_next(self, _: str) -> None:
@@ -931,7 +1016,10 @@ class MtgOracleApp(App):
         self._write(self._path_str())
 
     def _cmd_cd(self, arg: str) -> None:
-        target = arg.strip()
+        # Collapse any run of whitespace to a single space so a stray
+        # double-space (paste artifact, double-press) doesn't break a
+        # COLLATE-NOCASE deck-name match.
+        target = " ".join(arg.split())
         if not target or target == "/":
             self._cwd_folder = None
             self._cwd_deck = None
@@ -978,7 +1066,7 @@ class MtgOracleApp(App):
                 self._cwd_deck = deck["name"]
                 self._refresh_status()
                 self._refresh_nav()
-                self._write(self._path_str())
+                self._on_entered_deck()
                 return
             else:
                 self._write("cd: paths support at most <folder>/<deck>")
@@ -1014,7 +1102,7 @@ class MtgOracleApp(App):
             self._cwd_deck = deck["name"]
             self._refresh_status()
             self._refresh_nav()
-            self._write(self._path_str())
+            self._on_entered_deck()
             return
 
         # 3) From root only: look for the deck across ALL folders. If exactly
@@ -1029,7 +1117,7 @@ class MtgOracleApp(App):
                 self._cwd_deck = m["name"]
                 self._refresh_status()
                 self._refresh_nav()
-                self._write(self._path_str())
+                self._on_entered_deck()
                 return
             if len(matches) > 1:
                 lines = [f"cd: {len(matches)} decks named {target!r} — use a folder path:"]
@@ -1110,6 +1198,29 @@ class MtgOracleApp(App):
             self._refresh_status()
             return
         self._write(r.render_deck(deck))
+
+    def _on_entered_deck(self) -> None:
+        """Run after every successful `cd` into a deck.
+
+        Shows the path the user just landed on, then auto-renders the
+        combos contained in the deck — so the right pane immediately
+        answers "what can this deck do?" without a separate `combos`
+        command. Failures are non-fatal (the cd itself already succeeded).
+        """
+        self._write(self._path_str())
+        try:
+            combos = d.combos_in_deck(self._cwd_deck, folder=self._cwd_folder)
+        except Exception as e:
+            self._write(f"(combos lookup failed: {type(e).__name__}: {e})")
+            return
+        if combos:
+            self._last_combos = combos
+            self._write(self._render_numbered_combo_list(
+                combos,
+                f"{len(combos)} combo(s) fully contained in {self._cwd_deck!r}:",
+            ))
+        else:
+            self._write(f"(no Spellbook combos fully contained in {self._cwd_deck!r})")
 
     def _cmd_mkdir(self, arg: str) -> None:
         name = arg.strip()
@@ -1205,7 +1316,18 @@ class MtgOracleApp(App):
             return
         arg = arg.strip()
         if not arg:
-            self._write("usage: add <card> [<qty>]")
+            self._write("usage: add [--force] <card> [<qty>]")
+            return
+        # Strip --force anywhere in the args so it works as both a prefix
+        # and a suffix (`add --force Foo` and `add Foo --force`).
+        force = False
+        toks = arg.split()
+        if "--force" in toks:
+            force = True
+            toks = [t for t in toks if t != "--force"]
+            arg = " ".join(toks)
+        if not arg:
+            self._write("usage: add [--force] <card> [<qty>]")
             return
         # Trailing integer quantity, e.g. `add Sol Ring 2`.
         qty = 1
@@ -1215,8 +1337,10 @@ class MtgOracleApp(App):
         try:
             canonical = d.add_card_to_deck(
                 self._cwd_deck, arg, quantity=qty, folder=self._cwd_folder,
+                force=force,
             )
-            self._write(f"OK {qty}x {canonical}")
+            tag = " (forced)" if force else ""
+            self._write(f"OK {qty}x {canonical}{tag}")
             self._refresh_nav()
         except d.DeckError as e:
             self._write(f"add: {e}")
