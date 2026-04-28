@@ -530,6 +530,92 @@ def add_card_to_deck(
         conn.close()
 
 
+def set_commander(
+    deck_name: str,
+    card_name: str,
+    folder: Optional[str] = None,
+    unset: bool = False,
+) -> tuple[str, str]:
+    """Promote a card to commander, or demote one with `unset=True`.
+
+    Returns (canonical_name, action) where `action` is one of:
+        'promoted'   — existing main/sideboard row flipped to commander
+        'added'      — card wasn't in deck; inserted as a fresh commander row
+        'unchanged'  — card already a commander row with quantity 1
+        'demoted'    — commander row flipped back to main (unset path)
+
+    Promotion rules:
+    - Forces quantity to 1 and is_sideboard to 0 on the chosen row.
+    - When multiple rows exist for the same card (rare, e.g. main + sideboard),
+      the main-deck row is preferred.
+    - Multiple commanders are allowed (Partner / Background / Friends Forever)
+      — promoting a 2nd card simply adds another is_commander=1 row.
+    """
+    canonical = resolve_card_name(card_name)
+    if not canonical:
+        raise DeckError(f"card not found: {card_name!r}")
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, deck_name, folder)
+
+        if unset:
+            cur.execute(
+                "SELECT id FROM deck_cards "
+                "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE "
+                "  AND is_commander = 1",
+                (did, canonical),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise DeckError(
+                    f"{canonical!r} is not currently a commander in this deck"
+                )
+            cur.execute(
+                "UPDATE deck_cards SET is_commander = 0 WHERE id = ?",
+                (row["id"],),
+            )
+            cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+            conn.commit()
+            return canonical, "demoted"
+
+        # Promotion: pick the best existing row to flip, preferring a clean
+        # main-deck row (is_sideboard=0). is_commander=1 rows sort first
+        # within is_sideboard=0 so we detect the "already commander" case.
+        cur.execute(
+            "SELECT id, quantity, is_commander, is_sideboard FROM deck_cards "
+            "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE "
+            "ORDER BY is_sideboard ASC, is_commander DESC",
+            (did, canonical),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            cur.execute(
+                "INSERT INTO deck_cards "
+                "(deck_id, card_name, quantity, is_commander, is_sideboard, added_at) "
+                "VALUES (?, ?, 1, 1, 0, ?)",
+                (did, canonical, _now()),
+            )
+            cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+            conn.commit()
+            return canonical, "added"
+
+        primary = rows[0]
+        if primary["is_commander"] and not primary["is_sideboard"] and primary["quantity"] == 1:
+            return canonical, "unchanged"
+        cur.execute(
+            "UPDATE deck_cards "
+            "SET is_commander = 1, is_sideboard = 0, quantity = 1 "
+            "WHERE id = ?",
+            (primary["id"],),
+        )
+        cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+        conn.commit()
+        return canonical, "promoted"
+    finally:
+        conn.close()
+
+
 def remove_card_from_deck(
     deck_name: str, card_name: str, folder: Optional[str] = None,
 ) -> None:

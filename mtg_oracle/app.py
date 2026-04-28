@@ -68,7 +68,7 @@ COMMANDS = [
     # Terminal-style navigation
     "cd", "pwd", "ls", "mkdir", "rmdir", "new",
     "add", "remove", "show", "rename", "move", "delete",
-    "import", "paste",
+    "commander", "import", "paste",
     # Maintenance
     "sync",
     # Misc
@@ -152,7 +152,13 @@ INSIDE A DECK (`/<folder>/<deck>/`)
   show                      render the full deck to the right pane
                             (useful if you want to scroll / copy it out)
   add <card> [<qty>]        add card (qty defaults to 1)
+  add --force <card>        bypass commander-CI and singleton checks
   remove <card>             remove a card
+  commander <card>          promote a card to commander (adds it if
+                            missing, flips is_commander on existing
+                            row otherwise; multiple commanders allowed
+                            for Partner / Background / Friends Forever)
+  commander --unset <card>  demote a commander back to the main deck
   combos                    list Spellbook combos fully contained here
   paste                     read deckstring from system clipboard and
                             append to current deck (Windows / macOS / Linux)
@@ -212,9 +218,9 @@ Commands:
   card <N>                            expand the N-th row of the last search
   correction [<card-or-topic>]        list relevant feedback-loop corrections
   cd / ls / pwd / mkdir / new /       deck and folder operations — type `deck help`
-    add / remove / show / import /    for the full menu (terminal-style)
-    paste / combos / move / rename /
-    delete / rmdir
+    add / remove / commander /        for the full menu (terminal-style)
+    show / import / paste / combos /
+    move / rename / delete / rmdir
   sync [force]                        refresh data from Scryfall / Wizards / Spellbook
   copy [last|all|nav]                 copy pane content to clipboard via OSC 52
                                       (last = output since last command; all = full
@@ -280,7 +286,7 @@ class MtgSuggester(Suggester):
         cmd, _, rest = value.partition(" ")
         cmd_lc = cmd.lower()
 
-        if cmd_lc in ("card", "ruling", "rulings", "combo", "correction", "corrections"):
+        if cmd_lc in ("card", "ruling", "rulings", "combo", "correction", "corrections", "commander"):
             return self._suggest_card(cmd, rest)
         if cmd_lc == "combos":
             return self._suggest_combos_intersection(cmd, rest)
@@ -581,6 +587,7 @@ class MtgOracleApp(App):
             "move": self._cmd_move,
             "add": self._cmd_add,
             "remove": self._cmd_remove,
+            "commander": self._cmd_commander,
             "show": self._cmd_show,
             "import": self._cmd_import,
             "paste": self._cmd_paste,
@@ -1361,6 +1368,42 @@ class MtgOracleApp(App):
             self._refresh_nav()
         except d.DeckError as e:
             self._write(f"remove: {e}")
+
+    def _cmd_commander(self, arg: str) -> None:
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `commander`)")
+            return
+        arg = arg.strip()
+        if not arg:
+            self._write(
+                "usage: commander <card>            promote a card to commander\n"
+                "       commander --unset <card>    demote a commander back to main"
+            )
+            return
+        unset = False
+        toks = arg.split()
+        if "--unset" in toks:
+            unset = True
+            toks = [t for t in toks if t != "--unset"]
+            arg = " ".join(toks)
+        if not arg:
+            self._write("usage: commander [--unset] <card>")
+            return
+        try:
+            canonical, action = d.set_commander(
+                self._cwd_deck, arg, folder=self._cwd_folder, unset=unset,
+            )
+        except d.DeckError as e:
+            self._write(f"commander: {e}")
+            return
+        msg = {
+            "promoted":  f"OK {canonical} promoted to commander",
+            "added":     f"OK {canonical} added as commander",
+            "unchanged": f"OK {canonical} is already a commander (no change)",
+            "demoted":   f"OK {canonical} demoted from commander to main",
+        }[action]
+        self._write(msg)
+        self._refresh_nav()
 
     def _cmd_show(self, arg: str) -> None:
         target = arg.strip()

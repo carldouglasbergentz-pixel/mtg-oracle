@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `card <name>` inside a commander deck pre-filters the embedded "Top combos featuring this card" list by deck color identity. Combos whose CI isn't a subset of the deck CI are dropped at the SQL level, and the header notes the active filter (`Top combos featuring this card (3, filtered to deck CI BG)`). When zero combos remain, the renderer says so explicitly instead of silently hiding the section.
 - `_cmd_cd` collapses runs of whitespace to a single space before lookup, so a stray double-space in pasted deck names doesn't break the `COLLATE NOCASE` match.
 
+### Added (commander promotion)
+- `commander <card>` command in the TUI promotes a card to commander in the current deck. If the card is already in the deck (main or sideboard), the existing row is flipped to `is_commander = 1` with quantity forced to 1; otherwise a fresh commander row is inserted. Multiple commanders are allowed, so running it on a 2nd card produces a Partner / Background / Friends Forever pair (deck CI becomes the union — Savra + Tymna → `[B, G, W]`).
+- `commander --unset <card>` demotes a commander row back to main-deck without removing the card.
+- `mtg_oracle.decks.set_commander()` helper returns `(canonical_name, action)` where action is one of `promoted` / `added` / `unchanged` / `demoted` so the TUI can echo the right outcome message.
+- Suggester wired so `commander <prefix>` autofills from the full card-name list, same as `card` / `combo`.
+- `DECK_HELP` and the top-level `help` screen both list the new verb.
+
 ### Added (theme persistence)
 - Last-selected Textual theme persists across launches via `data/config.json` (gitignored). `App.watch_theme` writes on user-driven theme changes; `on_mount` reapplies the saved theme. Default-theme assignments during init are gated behind a `_config_ready` flag so they don't overwrite the saved value. Falls back silently when the saved theme name no longer exists (e.g. after a Textual upgrade).
 
