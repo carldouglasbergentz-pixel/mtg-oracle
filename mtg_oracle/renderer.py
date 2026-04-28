@@ -159,7 +159,11 @@ def render_card(card: dict) -> str:
         for c in combos:
             cards_str = c.get("cards") or c.get("combo_name") or ""
             ci = c.get("color_identity") or "-"
-            header = f"{INDENT}[{c['id']:>14}] {ci:<5} ({c['card_count']} cards) "
+            plus = "+" if c.get("has_template_vars") else ""
+            header = (
+                f"{INDENT}[{c['id']:>14}] {ci:<5} "
+                f"({c['card_count']}{plus} cards) "
+            )
             lines.append(wrap_combo_row(header, cards_str))
     elif ci_filter is not None:
         # No combos passed the filter — make it explicit instead of silent.
@@ -197,7 +201,11 @@ def render_combo_list(combos: list[dict], header: str) -> str:
     for c in combos:
         cards_str = c.get("cards") or c.get("combo_name") or ""
         ci = c.get("color_identity") or "-"
-        row_header = f"{INDENT}[{c['id']:>14}] {ci:<5} ({c['card_count']} cards) "
+        plus = "+" if c.get("has_template_vars") else ""
+        row_header = (
+            f"{INDENT}[{c['id']:>14}] {ci:<5} "
+            f"({c['card_count']}{plus} cards) "
+        )
         lines.append(wrap_combo_row(row_header, cards_str))
     return "\n".join(lines)
 
@@ -544,7 +552,8 @@ def render_combos_compact(combos: list[dict], width: int = 48) -> str:
     for i, c in enumerate(combos, 1):
         cards_str = c.get("cards") or c.get("combo_name") or ""
         ci = c.get("color_identity") or "-"
-        header = f"  [{i:>3}] {ci:<5} ({c['card_count']} cards) "
+        plus = "+" if c.get("has_template_vars") else ""
+        header = f"  [{i:>3}] {ci:<5} ({c['card_count']}{plus} cards) "
         lines.append(wrap_combo_row(header, cards_str, row_width=width))
     return "\n".join(lines)
 

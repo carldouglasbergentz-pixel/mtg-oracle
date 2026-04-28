@@ -96,7 +96,7 @@ Trivial edits (typo, comment tweak, one-line config) may skip — call out that 
 
 - Don't fetch from Scryfall / Wizards / Spellbook live unless a card is genuinely missing — running `/sync` is the supported refresh.
 - Don't modify `data/raw/` — overwritten on every sync.
-- Don't assume Spellbook combos are exhaustive. Many homebrew combos exist outside their database; flag the caveat.
+- Don't assume Spellbook combos are exhaustive *or* that the listed cards are the complete set. ~2.8% of Spellbook combos have step text referencing a card slot that `combo_cards` doesn't enumerate ("the affinity permanent", "your commander", "any X creature/permanent/spell") — `queries.flag_template_vars()` detects these and the renderer suffixes the count with `+` (e.g. `(2+ cards)`). Many homebrew combos also exist outside Spellbook entirely; the `user_combos` table is the supplement.
 - Don't run `init_db.py` against a populated database without confirming with the user.
 - Don't skip the `corrections` lookup on interaction/rules questions — that's how last session's bugs reach this session unfixed.
 - Don't mutate `corrections` rows in place when a correction turns out to be wrong — insert a new row that supersedes it, or `/correction delete <id>` after explicit confirmation.

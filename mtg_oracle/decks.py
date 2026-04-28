@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 from mtg_oracle.queries import resolve_card_name as _resolve_canonical
+from mtg_oracle.queries import flag_template_vars as _flag_template_vars
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
@@ -699,7 +700,8 @@ def combos_in_deck(
             """,
             (did, did, limit),
         )
-        return [dict(r) for r in cur.fetchall()]
+        rows = [dict(r) for r in cur.fetchall()]
+        return _flag_template_vars(rows, cur)
     finally:
         conn.close()
 

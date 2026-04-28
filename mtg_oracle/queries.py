@@ -10,12 +10,64 @@ caller decides how to present absence.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import unicodedata
 from pathlib import Path
 from typing import Optional
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
+
+
+# Spellbook combo step text often references a card slot that
+# `combo_cards` doesn't enumerate ("the affinity permanent", "your
+# commander", "any X creature/permanent/spell"). Those combos look
+# smaller than they actually are. We detect the template variable so
+# the renderer can suffix the card count with `+` and stop pretending
+# the listed cards are the full set. Detection is a vetted whitelist
+# rather than a broad "any \w+" regex — flavor text and ordinary
+# English would produce too many false positives otherwise.
+_TEMPLATE_VAR_RE = re.compile(
+    r"\bthe affinity\b"
+    r"|\byour commander\b"
+    r"|\bany \w+\s+(creature|permanent|spell)\b"
+    r"|\bnoncreature spell\b"
+    r"|\ba \w+ (creature|permanent|spell) "
+    r"(you control|in your hand|in your graveyard|on the battlefield)\b",
+    re.IGNORECASE,
+)
+
+
+def flag_template_vars(rows: list[dict], cur: sqlite3.Cursor) -> list[dict]:
+    """Set `has_template_vars` on each row by scanning its combo steps.
+
+    Public helper — used by `decks.combos_in_deck` and the local combo
+    finders. Only meaningful for Spellbook-sourced combos; user combos
+    store free text in `description` and don't have a steps sub-table,
+    so they always get `has_template_vars = False`.
+
+    Modifies rows in place; returns the same list for fluency.
+    """
+    spellbook_ids = [
+        r["id"] for r in rows
+        if r.get("source") in (None, "spellbook")
+    ]
+    flagged: set = set()
+    if spellbook_ids:
+        placeholders = ",".join("?" * len(spellbook_ids))
+        cur.execute(
+            f"SELECT combo_id, text FROM combo_steps "
+            f"WHERE combo_id IN ({placeholders})",
+            spellbook_ids,
+        )
+        for combo_id, text in cur.fetchall():
+            if combo_id in flagged:
+                continue
+            if _TEMPLATE_VAR_RE.search(text or ""):
+                flagged.add(combo_id)
+    for r in rows:
+        r["has_template_vars"] = r["id"] in flagged
+    return rows
 
 
 _LIGATURE_MAP = str.maketrans({
@@ -371,7 +423,8 @@ def find_combos_with_card(card_name: str, limit: int = 25) -> list[dict]:
             "ORDER BY card_count ASC, id LIMIT ?",
             (card_name, card_name, limit),
         )
-        return _rows_to_dicts(cur.fetchall())
+        rows = _rows_to_dicts(cur.fetchall())
+        return flag_template_vars(rows, cur)
     finally:
         conn.close()
 
@@ -423,7 +476,8 @@ def find_combos_with_all(card_names: list[str], limit: int = 25) -> list[dict]:
             sql,
             (*card_names, len(card_names), *card_names, len(card_names), limit),
         )
-        return _rows_to_dicts(cur.fetchall())
+        rows = _rows_to_dicts(cur.fetchall())
+        return flag_template_vars(rows, cur)
     finally:
         conn.close()
 

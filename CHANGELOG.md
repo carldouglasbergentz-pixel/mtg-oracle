@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `card <name>` inside a commander deck pre-filters the embedded "Top combos featuring this card" list by deck color identity. Combos whose CI isn't a subset of the deck CI are dropped at the SQL level, and the header notes the active filter (`Top combos featuring this card (3, filtered to deck CI BG)`). When zero combos remain, the renderer says so explicitly instead of silently hiding the section.
 - `_cmd_cd` collapses runs of whitespace to a single space before lookup, so a stray double-space in pasted deck names doesn't break the `COLLATE NOCASE` match.
 
+### Added (combo card-count honesty)
+- Detect Spellbook combos whose step text references a card slot that `combo_cards` doesn't enumerate ("the affinity permanent", "your commander", "any X creature/permanent/spell", etc.). The renderer now suffixes the count with `+` for those — `(2+ cards)` instead of `(2 cards)` — so users don't get a false impression of how many distinct pieces the combo actually needs.
+- New public helper `mtg_oracle.queries.flag_template_vars(rows, cur)` — vetted-whitelist regex over `combo_steps.text`, sets `has_template_vars` on each row. Applied at the end of `combos_in_deck`, `find_combos_with_card`, `find_combos_with_all`. User combos always get `has_template_vars=False` (their narrative lives in `description`, no separate steps table).
+- All four combo renderers (`render_combo_list`, `render_combos_compact`, embedded combo block in `render_card`, and `_render_numbered_combo_list` in app.py) read the flag and append the `+` suffix.
+- Survey: ~2.8% of Spellbook combos (2,419 of 85,495) have template-variable text in steps. Combo `542--77` is the worst-case 1-card example — Tidespout Tyrant alone, but the steps reference *the affinity permanent* twice, meaning the combo actually requires 3+ pieces.
+
 ### Added (user-curated combos)
 - New tables `user_combos` (`id`, `name`, `color_identity`, `description`, `added_at`, `added_by`) and `user_combo_cards` (`combo_id`, `card_name`, `quantity`) — designed so the Spellbook wipe-and-rebuild in `sync_combos.py` never touches them. IDs use a `user-NNN` zero-padded prefix to stay visually distinct from Spellbook's numeric-pair IDs.
 - `scripts/migrate_add_user_combos.py` — idempotent migration adding both tables; auto-invoked by `sync.py` along with the existing scryfall-fields migration so existing databases self-heal on next run.
