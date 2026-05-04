@@ -155,7 +155,7 @@ INSIDE A DECK (`/<folder>/<deck>/`)
                             (useful if you want to scroll / copy it out)
   add <card> [<qty>]        add card (qty defaults to 1)
   add --force <card>        bypass commander-CI and singleton checks
-  remove <card>             remove a card
+  remove <card> [<qty>]     remove qty copies; omit qty to remove all
   commander <card>          promote a card to commander (adds it if
                             missing, flips is_commander on existing
                             row otherwise; multiple commanders allowed
@@ -1372,13 +1372,23 @@ class MtgOracleApp(App):
             return
         arg = arg.strip()
         if not arg:
-            self._write("usage: remove <card>")
+            self._write("usage: remove <card> [<qty>]   (omit qty to remove all copies)")
             return
+        # Trailing integer = quantity, mirroring `add <card> [<qty>]`.
+        qty: Optional[int] = None
+        toks = arg.rsplit(None, 1)
+        if len(toks) == 2 and toks[1].isdigit():
+            arg, qty = toks[0], int(toks[1])
         try:
-            d.remove_card_from_deck(
-                self._cwd_deck, arg, folder=self._cwd_folder,
+            removed, remaining = d.remove_card_from_deck(
+                self._cwd_deck, arg, quantity=qty, folder=self._cwd_folder,
             )
-            self._write(f"OK removed {arg!r}")
+            if remaining:
+                self._write(
+                    f"OK removed {removed}x {arg} ({remaining} remaining)"
+                )
+            else:
+                self._write(f"OK removed all {removed}x {arg}")
             self._refresh_nav()
         except d.DeckError as e:
             self._write(f"remove: {e}")

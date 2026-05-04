@@ -647,20 +647,74 @@ def _auto_set_commander_format(cur, did: int) -> Optional[str]:
 
 
 def remove_card_from_deck(
-    deck_name: str, card_name: str, folder: Optional[str] = None,
-) -> None:
+    deck_name: str,
+    card_name: str,
+    quantity: Optional[int] = None,
+    folder: Optional[str] = None,
+) -> tuple[int, int]:
+    """Remove copies of a card from the deck.
+
+    `quantity=None` removes ALL copies (the original behavior — used when
+    the user just wants the card gone). A positive integer decrements the
+    matching rows by that amount, clamping at 0 so over-removal silently
+    succeeds (`remove mountain 100` on a 9-Mountain deck takes all 9 and
+    echoes the actual delta).
+
+    Symmetric with `add_card_to_deck`'s trailing-integer parsing.
+
+    Returns (removed_count, remaining_count) so the TUI can echo a precise
+    "OK removed Nx Card (M remaining)" message.
+    """
+    if quantity is not None and quantity < 1:
+        raise DeckError("quantity must be >= 1")
     conn = _rw()
     try:
         cur = conn.cursor()
         did = _deck_id(cur, deck_name, folder)
+
+        # Sum current copies across all rows for this card (main + sideboard
+        # + commander; rare to have multiple but possible). Decrement is
+        # applied across rows in arbitrary order with main-deck rows first
+        # — the caller wanting finer control should specify exact row.
         cur.execute(
-            "DELETE FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE",
+            "SELECT id, quantity FROM deck_cards "
+            "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE "
+            "ORDER BY is_sideboard ASC, is_commander ASC",
             (did, card_name),
         )
-        if cur.rowcount == 0:
+        rows = cur.fetchall()
+        if not rows:
             raise DeckError(f"card not in deck: {card_name!r}")
+
+        current_total = sum(r["quantity"] for r in rows)
+        if quantity is None:
+            # Original "remove all" path.
+            cur.execute(
+                "DELETE FROM deck_cards "
+                "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE",
+                (did, card_name),
+            )
+            removed = current_total
+            remaining = 0
+        else:
+            to_remove = min(quantity, current_total)
+            removed = to_remove
+            remaining = current_total - to_remove
+            for row in rows:
+                if to_remove <= 0:
+                    break
+                if to_remove >= row["quantity"]:
+                    cur.execute("DELETE FROM deck_cards WHERE id = ?", (row["id"],))
+                    to_remove -= row["quantity"]
+                else:
+                    cur.execute(
+                        "UPDATE deck_cards SET quantity = ? WHERE id = ?",
+                        (row["quantity"] - to_remove, row["id"]),
+                    )
+                    to_remove = 0
         cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
         conn.commit()
+        return removed, remaining
     finally:
         conn.close()
 

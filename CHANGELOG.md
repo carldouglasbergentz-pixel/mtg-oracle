@@ -35,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `card <name>` inside a commander deck pre-filters the embedded "Top combos featuring this card" list by deck color identity. Combos whose CI isn't a subset of the deck CI are dropped at the SQL level, and the header notes the active filter (`Top combos featuring this card (3, filtered to deck CI BG)`). When zero combos remain, the renderer says so explicitly instead of silently hiding the section.
 - `_cmd_cd` collapses runs of whitespace to a single space before lookup, so a stray double-space in pasted deck names doesn't break the `COLLATE NOCASE` match.
 
+### Changed (`remove` accepts a quantity)
+- `remove <card> [<qty>]` now mirrors `add <card> [<qty>]`'s trailing-integer parsing. Without qty, the original "remove all copies" behavior is preserved. With qty, decrements by that amount across the matching rows. Over-removal clamps at 0 silently — `remove mountain 999` on a 9-Mountain deck takes all 9 and the echo reports the actual delta (`OK removed all 9x mountain`).
+- `decks.remove_card_from_deck()` signature extended to `(deck_name, card_name, quantity=None, folder=None)`. Returns `(removed_count, remaining_count)` so the TUI can echo `OK removed 3x Mountain (6 remaining)` precisely.
+- DECK_HELP updated to show the new syntax.
+
 ### Changed (`commander` verb auto-sets deck format)
 - Running `commander <card>` on a deck whose `format` is currently NULL now auto-sets it to `'commander'` as part of the same transaction. This activates format-aware behavior (singleton on `add`, CI filter on `search` inside the deck) immediately — previously the user had to remember to `UPDATE decks SET format='commander'` separately, which was a quiet footgun.
 - Behavior preserved: an explicitly set format (`'modern'`, `'canadian highlander'`, anything non-NULL) is left alone — the user's choice wins. Demotion via `commander --unset` never touches `format` either, since the deck might still be a commander deck with a different commander incoming.
