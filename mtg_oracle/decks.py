@@ -536,14 +536,16 @@ def set_commander(
     card_name: str,
     folder: Optional[str] = None,
     unset: bool = False,
-) -> tuple[str, str]:
+) -> tuple[str, str, Optional[str]]:
     """Promote a card to commander, or demote one with `unset=True`.
 
-    Returns (canonical_name, action) where `action` is one of:
+    Returns (canonical_name, action, format_set) where `action` is one of:
         'promoted'   — existing main/sideboard row flipped to commander
         'added'      — card wasn't in deck; inserted as a fresh commander row
         'unchanged'  — card already a commander row with quantity 1
         'demoted'    — commander row flipped back to main (unset path)
+    `format_set` is the new deck format if it was auto-set as part of the
+    call (e.g. 'commander'), or None when no format change happened.
 
     Promotion rules:
     - Forces quantity to 1 and is_sideboard to 0 on the chosen row.
@@ -551,6 +553,10 @@ def set_commander(
       the main-deck row is preferred.
     - Multiple commanders are allowed (Partner / Background / Friends Forever)
       — promoting a 2nd card simply adds another is_commander=1 row.
+    - On promote/add, if `decks.format` is currently NULL, it's auto-set to
+      'commander' so format-aware behavior (CI filter on search, singleton
+      on add) starts working immediately. An already-set format is left
+      alone — the user knows what they're doing.
     """
     canonical = resolve_card_name(card_name)
     if not canonical:
@@ -578,7 +584,10 @@ def set_commander(
             )
             cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
             conn.commit()
-            return canonical, "demoted"
+            # Demotion never touches `format` — preserves the user's intent
+            # (the deck might still be a commander deck, just with a
+            # different commander incoming).
+            return canonical, "demoted", None
 
         # Promotion: pick the best existing row to flip, preferring a clean
         # main-deck row (is_sideboard=0). is_commander=1 rows sort first
@@ -597,24 +606,44 @@ def set_commander(
                 "VALUES (?, ?, 1, 1, 0, ?)",
                 (did, canonical, _now()),
             )
+            format_set = _auto_set_commander_format(cur, did)
             cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
             conn.commit()
-            return canonical, "added"
+            return canonical, "added", format_set
 
         primary = rows[0]
         if primary["is_commander"] and not primary["is_sideboard"] and primary["quantity"] == 1:
-            return canonical, "unchanged"
+            # Already a clean commander row — but format may still be NULL
+            # if the user manually inserted the row before this verb existed.
+            format_set = _auto_set_commander_format(cur, did)
+            if format_set:
+                conn.commit()
+            return canonical, "unchanged", format_set
         cur.execute(
             "UPDATE deck_cards "
             "SET is_commander = 1, is_sideboard = 0, quantity = 1 "
             "WHERE id = ?",
             (primary["id"],),
         )
+        format_set = _auto_set_commander_format(cur, did)
         cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
         conn.commit()
-        return canonical, "promoted"
+        return canonical, "promoted", format_set
     finally:
         conn.close()
+
+
+def _auto_set_commander_format(cur, did: int) -> Optional[str]:
+    """If the deck has no format set, set it to 'commander'. Returns the
+    new format value or None if no change was made. Called from the
+    promote/add paths in `set_commander` so marking a card as commander
+    automatically activates format-aware behavior (CI filter, singleton)."""
+    cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
+    row = cur.fetchone()
+    if row is None or row["format"]:
+        return None
+    cur.execute("UPDATE decks SET format = 'commander' WHERE id = ?", (did,))
+    return "commander"
 
 
 def remove_card_from_deck(

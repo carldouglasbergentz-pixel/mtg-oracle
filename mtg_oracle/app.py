@@ -1404,7 +1404,7 @@ class MtgOracleApp(App):
             self._write("usage: commander [--unset] <card>")
             return
         try:
-            canonical, action = d.set_commander(
+            canonical, action, format_set = d.set_commander(
                 self._cwd_deck, arg, folder=self._cwd_folder, unset=unset,
             )
         except d.DeckError as e:
@@ -1417,6 +1417,11 @@ class MtgOracleApp(App):
             "demoted":   f"OK {canonical} demoted from commander to main",
         }[action]
         self._write(msg)
+        if format_set:
+            self._write(
+                f"   deck format auto-set to {format_set!r} — "
+                f"singleton checks and CI filter on `search` are now active"
+            )
         self._refresh_nav()
 
     def _cmd_show(self, arg: str) -> None:
