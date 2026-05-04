@@ -68,8 +68,8 @@ COMMANDS = [
     "next", "prev", "page",
     "correction",
     # Terminal-style navigation
-    "cd", "pwd", "ls", "mkdir", "rmdir", "new",
-    "add", "remove", "show", "rename", "move", "delete",
+    "cd", "pwd", "ls", "mkdir", "rmdir",
+    "add", "remove", "show", "rename", "move",
     "commander", "import", "paste",
     # Maintenance
     "sync",
@@ -135,15 +135,19 @@ NAVIGATION (works anywhere)
   cd ..                     up one level
   cd /                      go to root
 
+UNIFIED `add` / `remove` (context-aware)
+  At root:    folders are managed with `mkdir` / `rmdir` (see below).
+  In folder:  `add <deck>` creates a deck here; `remove <deck>` deletes it.
+  In deck:    `add <card> [<qty>]` adds; `remove <card> [<qty>]` removes.
+
 AT ROOT (`/`)
   mkdir <name>              create folder
   rmdir <name>              delete an empty folder
-  new <deck>                create an unsorted deck
   show <deck>               render a deck without entering it
 
 INSIDE A FOLDER (`/<folder>/`)
-  new <deck>                create deck in this folder
-  delete <deck>             delete deck in this folder
+  add <deck>                create deck in this folder
+  remove <deck>             delete deck in this folder
   rename <old>; <new>       rename deck
   move <deck>; <folder>     move deck (empty folder = unsorted)
   show <deck>               render a deck without entering
@@ -219,10 +223,10 @@ Commands:
   next / prev / page <N>              navigate search results
   card <N>                            expand the N-th row of the last search
   correction [<card-or-topic>]        list relevant feedback-loop corrections
-  cd / ls / pwd / mkdir / new /       deck and folder operations — type `deck help`
-    add / remove / commander /        for the full menu (terminal-style)
-    show / import / paste / combos /
-    move / rename / delete / rmdir
+  cd / ls / pwd / mkdir / rmdir /     deck and folder operations — context-aware
+    add / remove / commander /        `add` and `remove` adapt by location:
+    show / import / paste / combos /  in folder = deck-level, in deck = card-level
+    move / rename                     (no separate `new`/`delete` verbs)
   sync [force]                        refresh data from Scryfall / Wizards / Spellbook
   copy [last|all|nav]                 copy pane content to clipboard via OSC 52
                                       (last = output since last command; all = full
@@ -264,6 +268,7 @@ class MtgSuggester(Suggester):
         self,
         card_names: list[str],
         rule_numbers: list[str],
+        in_deck: Callable[[], bool] = lambda: False,
         case_sensitive: bool = False,
     ) -> None:
         super().__init__(case_sensitive=case_sensitive, use_cache=False)
@@ -272,6 +277,11 @@ class MtgSuggester(Suggester):
         # Lowercased prefix index for O(n) prefix match per keypress.
         # n is small (34k names), microseconds per call — no bisect needed yet.
         self._card_names_lc = [n.lower() for n in card_names]
+        # Late-binding cwd check — the App passes a callable that returns
+        # True iff the user is currently inside a deck. Used so `add`/
+        # `remove` only autofill from card names in deck context (where
+        # they mean "add card", not "create deck").
+        self._in_deck = in_deck
 
     async def get_suggestion(self, value: str) -> Optional[str]:  # noqa: D401
         if not value:
@@ -289,6 +299,11 @@ class MtgSuggester(Suggester):
         cmd_lc = cmd.lower()
 
         if cmd_lc in ("card", "ruling", "rulings", "combo", "correction", "corrections", "commander"):
+            return self._suggest_card(cmd, rest)
+        if cmd_lc in ("add", "remove") and self._in_deck():
+            # In deck context, add/remove operate on cards; complete from
+            # the card-name index. At folder/root context the same verbs
+            # operate on deck/folder names and we leave them uncompleted.
             return self._suggest_card(cmd, rest)
         if cmd_lc == "combos":
             return self._suggest_combos_intersection(cmd, rest)
@@ -474,7 +489,10 @@ class MtgOracleApp(App):
         except Exception as e:
             self._write(f"(autofill disabled: {type(e).__name__}: {e})")
             return
-        suggester = MtgSuggester(card_names, rule_numbers)
+        suggester = MtgSuggester(
+            card_names, rule_numbers,
+            in_deck=lambda: self._cwd_deck is not None,
+        )
         self.query_one("#cmd", Input).suggester = suggester
 
     @staticmethod
@@ -583,8 +601,6 @@ class MtgOracleApp(App):
             "ls": self._cmd_ls,
             "mkdir": self._cmd_mkdir,
             "rmdir": self._cmd_rmdir,
-            "new": self._cmd_new,
-            "delete": self._cmd_delete,
             "rename": self._cmd_rename,
             "move": self._cmd_move,
             "add": self._cmd_add,
@@ -1267,37 +1283,6 @@ class MtgOracleApp(App):
         except d.DeckError as e:
             self._write(f"rmdir: {e}")
 
-    def _cmd_new(self, arg: str) -> None:
-        name = arg.strip()
-        if not name:
-            self._write("usage: new <deck>  (creates in current folder)")
-            return
-        if self._cwd_deck:
-            self._write("(can't create a deck inside a deck — `cd ..` first)")
-            return
-        try:
-            d.create_deck(name, folder=self._cwd_folder)
-            scope = f"/{self._cwd_folder}" if self._cwd_folder else "(unsorted)"
-            self._write(f"OK created deck {name!r} in {scope}")
-            self._refresh_nav()
-        except d.DeckError as e:
-            self._write(f"new: {e}")
-
-    def _cmd_delete(self, arg: str) -> None:
-        name = arg.strip()
-        if not name:
-            self._write("usage: delete <deck>")
-            return
-        if self._cwd_deck and name == self._cwd_deck:
-            self._write("(can't delete the deck you're inside — `cd ..` first)")
-            return
-        try:
-            d.delete_deck(name, folder=self._cwd_folder)
-            self._write(f"OK deleted deck {name!r}")
-            self._refresh_nav()
-        except d.DeckError as e:
-            self._write(f"delete: {e}")
-
     def _cmd_rename(self, arg: str) -> None:
         if ";" not in arg:
             self._write("usage: rename <old>; <new>")
@@ -1332,9 +1317,22 @@ class MtgOracleApp(App):
             self._write(f"move: {e}")
 
     def _cmd_add(self, arg: str) -> None:
-        if not self._cwd_deck:
-            self._write("(use `cd <deck>` to enter a deck before `add`)")
-            return
+        """Context-aware create/add. Behavior depends on cwd:
+
+        - In a deck:  add a card (with optional [--force] and [<qty>])
+        - In a folder: create a new deck in this folder
+        - At root:    error — folders are created with `mkdir` for clarity
+        """
+        if self._cwd_deck:
+            return self._add_card_to_current_deck(arg)
+        if self._cwd_folder:
+            return self._add_deck_in_current_folder(arg)
+        self._write(
+            "(at root: use `mkdir <folder>` to create a folder, "
+            "or `cd <folder>` first then `add <deck>` to create a deck)"
+        )
+
+    def _add_card_to_current_deck(self, arg: str) -> None:
         arg = arg.strip()
         if not arg:
             self._write("usage: add [--force] <card> [<qty>]")
@@ -1366,10 +1364,36 @@ class MtgOracleApp(App):
         except d.DeckError as e:
             self._write(f"add: {e}")
 
-    def _cmd_remove(self, arg: str) -> None:
-        if not self._cwd_deck:
-            self._write("(use `cd <deck>` to enter a deck before `remove`)")
+    def _add_deck_in_current_folder(self, arg: str) -> None:
+        name = arg.strip()
+        if not name:
+            self._write("usage: add <deck>   (in folder context: creates a deck)")
             return
+        try:
+            d.create_deck(name, folder=self._cwd_folder)
+            scope = f"/{self._cwd_folder}" if self._cwd_folder else "(unsorted)"
+            self._write(f"OK created deck {name!r} in {scope}")
+            self._refresh_nav()
+        except d.DeckError as e:
+            self._write(f"add: {e}")
+
+    def _cmd_remove(self, arg: str) -> None:
+        """Context-aware delete/remove. Behavior depends on cwd:
+
+        - In a deck:  remove copies of a card (with optional [<qty>])
+        - In a folder: delete a deck in this folder
+        - At root:    error — folders are deleted with `rmdir` for clarity
+        """
+        if self._cwd_deck:
+            return self._remove_card_from_current_deck(arg)
+        if self._cwd_folder:
+            return self._remove_deck_in_current_folder(arg)
+        self._write(
+            "(at root: use `rmdir <folder>` to delete a folder, "
+            "or `cd <folder>` first then `remove <deck>` to delete a deck)"
+        )
+
+    def _remove_card_from_current_deck(self, arg: str) -> None:
         arg = arg.strip()
         if not arg:
             self._write("usage: remove <card> [<qty>]   (omit qty to remove all copies)")
@@ -1389,6 +1413,21 @@ class MtgOracleApp(App):
                 )
             else:
                 self._write(f"OK removed all {removed}x {arg}")
+            self._refresh_nav()
+        except d.DeckError as e:
+            self._write(f"remove: {e}")
+
+    def _remove_deck_in_current_folder(self, arg: str) -> None:
+        name = arg.strip()
+        if not name:
+            self._write("usage: remove <deck>  (in folder context: deletes a deck)")
+            return
+        if self._cwd_deck and name == self._cwd_deck:
+            self._write("(can't delete the deck you're inside — `cd ..` first)")
+            return
+        try:
+            d.delete_deck(name, folder=self._cwd_folder)
+            self._write(f"OK deleted deck {name!r}")
             self._refresh_nav()
         except d.DeckError as e:
             self._write(f"remove: {e}")

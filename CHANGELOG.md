@@ -35,6 +35,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `card <name>` inside a commander deck pre-filters the embedded "Top combos featuring this card" list by deck color identity. Combos whose CI isn't a subset of the deck CI are dropped at the SQL level, and the header notes the active filter (`Top combos featuring this card (3, filtered to deck CI BG)`). When zero combos remain, the renderer says so explicitly instead of silently hiding the section.
 - `_cmd_cd` collapses runs of whitespace to a single space before lookup, so a stray double-space in pasted deck names doesn't break the `COLLATE NOCASE` match.
 
+### Changed (unified `add` / `remove` syntax — `new` / `delete` removed)
+- `add` and `remove` are now context-aware verbs that adapt to the current `cd` location:
+    - **In a deck:** `add <card> [<qty>]` adds a card; `remove <card> [<qty>]` removes copies. (Existing behavior, unchanged.)
+    - **In a folder:** `add <deck>` creates a new deck; `remove <deck>` deletes a deck.
+    - **At root:** error message pointing to `mkdir`/`rmdir` for folder operations — folders kept on explicit Unix verbs by user preference (clear intent at top level).
+- **`new` and `delete` removed entirely** — no aliases, no back-compat shims. The unified verbs cover both cases; carrying both vocabularies forward would just be noise. Removed from `_dispatch`, `COMMANDS` (autofill source), and the help texts.
+- `mkdir` / `rmdir` unchanged: canonical way to create/delete folders.
+- `_cmd_add` and `_cmd_remove` refactored from monolithic handlers into routers that dispatch to private helpers (`_add_card_to_current_deck`, `_add_deck_in_current_folder`, `_remove_card_from_current_deck`, `_remove_deck_in_current_folder`).
+- **Suggester is cwd-aware:** `MtgSuggester` takes an `in_deck` callable. `add <card>` and `remove <card>` autofill from the 34k card-name index *only* when the user is inside a deck. At folder/root context the same verbs operate on deck/folder names and stay uncompleted (no false suggestions of card names when creating a deck).
+- DECK_HELP rewritten to lead with the unified-syntax model.
+
 ### Changed (`remove` accepts a quantity)
 - `remove <card> [<qty>]` now mirrors `add <card> [<qty>]`'s trailing-integer parsing. Without qty, the original "remove all copies" behavior is preserved. With qty, decrements by that amount across the matching rows. Over-removal clamps at 0 silently — `remove mountain 999` on a 9-Mountain deck takes all 9 and the echo reports the actual delta (`OK removed all 9x mountain`).
 - `decks.remove_card_from_deck()` signature extended to `(deck_name, card_name, quantity=None, folder=None)`. Returns `(removed_count, remaining_count)` so the TUI can echo `OK removed 3x Mountain (6 remaining)` precisely.
