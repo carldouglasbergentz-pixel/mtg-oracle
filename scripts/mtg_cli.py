@@ -42,22 +42,39 @@ from mtg_oracle.renderer import (
 )
 
 
-SEARCH_HELP = """\
+SEARCH_HELP = f"""\
 Scryfall-style card search. Supports AND (implicit via space), OR, NOT,
 parentheses, negation with `-`, and numeric range operators.
 
 Operators:
   o:TEXT      oracle text contains TEXT (quoted for spaces)
   t:TEXT      type line contains TEXT
-  n:TEXT      name contains TEXT
+  n:TEXT      name contains TEXT (substring)
+  n=TEXT      name is exactly TEXT (case-insensitive)
   kw:KW       card has keyword ability (flying, trample, prowess, ...)
   c:COLORS    colors subset-contains (c:u = any card including blue)
   c=COLORS    colors equal exactly (c=wu = exactly W+U)
+  ci<=COLORS  color identity fits (commander legality; ci:, ci=, ci>= too)
   mv:N        mana value comparisons (:, =, <, >, <=, >=, !=)
   pow:S       power (string match with :/=, numeric with <, >, etc.)
   tou:S       toughness (same shape as pow)
   r:RARITY    rarity (common|uncommon|rare|mythic|bonus|special)
   layout:X    layout (normal|transform|modal_dfc|split|flip|meld|...)
+
+Format legality:
+  f:FORMAT    legal (or restricted) in FORMAT  (aliases: format:, legal:)
+  banned:F    on that format's ban list
+  restricted:F  restricted in that format
+  game:X      paper | arena | mtgo  (game:paper drops Alchemy `A-` cards)
+  is:reserved on the Reserved List
+
+  Formats: {", ".join(sorted(q.LEGALITY_FORMATS))}
+  Spaces and hyphens are ignored; aliases: edh, pdh, duelcommander,
+  pennydreadful, cbrawl.
+
+Sorting:
+  order:asc_FIELD / order:desc_FIELD (alias sort:) — direction required.
+  Fields: mv, name, power, toughness, rarity, color, ci, edhrec.
 
 Boolean:
   A B         both (implicit AND)
@@ -65,13 +82,15 @@ Boolean:
   -A  /  not A  negation
   (A or B) C  grouping
 
-Colors can be letters (u, uw), words (blue, white), or brace form ({W}{U}).
-Bare words and quoted strings default to oracle-text search.
+Colors can be letters (u, uw), words (blue, white, "blue white"), or brace
+form ({{W}}{{U}}). Bare words and quoted strings default to oracle-text search.
 
 Examples:
   o:"enters the battlefield" t:creature c:u mv<=3
   kw:flying (c:w or c:u) -t:artifact
-  "counter target spell" c:u mv:2
+  f:competitivebrawl ci<=UR t:instant order:asc_edhrec
+  f:commander game:paper t:artifact mv<=2
+  banned:commander
   c=wu t:instant
   pow>=4 t:creature r:mythic
 """
@@ -206,9 +225,23 @@ def _cmd_decks(args) -> int:
     return 0
 
 
+# `deck` shares one flat flag set across all its actions, so argparse can't
+# enforce which flags each action needs. Declaring it here turns a stray
+# AttributeError deep in the deck layer into a usage message.
+_DECK_REQUIRED_FLAGS = {
+    "rename": [("new_name", "--new-name")],
+    "add": [("card", "--card")],
+    "remove": [("card", "--card")],
+}
+
+
 def _cmd_deck(args) -> int:
     """Dispatch for `deck <action> ...` sub-subcommands."""
     action = args.action
+    for attr, flag in _DECK_REQUIRED_FLAGS.get(action, []):
+        if getattr(args, attr, None) in (None, ""):
+            print(f"deck {action}: {flag} is required")
+            return 2
     try:
         if action == "show":
             deck = d.get_deck(args.name, folder=args.folder)
@@ -238,16 +271,20 @@ def _cmd_deck(args) -> int:
             print(f"OK moved {args.name!r} -> {args.new_folder or '(unsorted)'}")
             return 0
         if action == "add":
+            qty = args.qty if args.qty is not None else 1
             canonical = d.add_card_to_deck(
-                args.name, args.card, quantity=args.qty,
+                args.name, args.card, quantity=qty,
                 is_commander=args.commander, is_sideboard=args.sideboard,
                 folder=args.folder,
             )
-            print(f"OK {args.qty}x {canonical}")
+            print(f"OK {qty}x {canonical}")
             return 0
         if action == "remove":
-            d.remove_card_from_deck(args.name, args.card, folder=args.folder)
-            print(f"OK removed {args.card!r}")
+            canonical, removed, remaining = d.remove_card_from_deck(
+                args.name, args.card, quantity=args.qty, folder=args.folder,
+            )
+            tail = f" ({remaining} remaining)" if remaining else ""
+            print(f"OK removed {removed}x {canonical}{tail}")
             return 0
         if action == "import":
             text = _read_deck_source(args)
@@ -382,7 +419,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--new-name", help="(rename) the new deck name.")
     sp.add_argument("--new-folder", help="(move) target folder; empty -> (unsorted).")
     sp.add_argument("--card", help="(add/remove) card name.")
-    sp.add_argument("--qty", type=int, default=1, help="(add) quantity.")
+    sp.add_argument(
+        "--qty", type=int, default=None,
+        help="(add) quantity, default 1. (remove) copies to take, default all.",
+    )
     sp.add_argument("--commander", action="store_true", help="(add) add as commander.")
     sp.add_argument("--sideboard", action="store_true", help="(add) add to sideboard.")
     sp.add_argument("--from-file", help="(import) read deckstring from this file.")

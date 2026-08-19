@@ -18,6 +18,192 @@ from typing import Optional
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
+# Seconds to wait for a lock before giving up. `sync.py` writes in long
+# transactions (104k combos in one go), and the TUI can run a sync in the
+# background while the user keeps querying — so every connection waits
+# rather than failing on the first contended read.
+BUSY_TIMEOUT_S = 15.0
+
+
+# --- Format legality ----------------------------------------------------
+
+# The keys Scryfall's `legalities` object uses, i.e. the values that can
+# appear in `card_legalities.format`. Hardcoded as a validation aid so a
+# typo (`f:brawll`) is an error instead of an empty result set that reads
+# as "nothing is legal". `SELECT DISTINCT format FROM card_legalities` is
+# the source of truth if Scryfall ever adds one.
+LEGALITY_FORMATS: frozenset[str] = frozenset({
+    "alchemy", "brawl", "commander", "competitivebrawl", "duel", "future",
+    "gladiator", "historic", "legacy", "modern", "oathbreaker", "oldschool",
+    "pauper", "paupercommander", "penny", "pioneer", "predh", "premodern",
+    "standard", "standardbrawl", "timeless", "tlr", "vintage",
+})
+
+# What people type -> Scryfall's key. Spaces, hyphens and underscores are
+# folded away first, so 'Competitive Brawl' and 'competitive-brawl' both
+# land on 'competitivebrawl'.
+_FORMAT_ALIAS = {
+    "edh": "commander",
+    "duelcommander": "duel",          # Scryfall's `duel` IS Duel Commander
+    "1v1commander": "duel",
+    "historicbrawl": "brawl",         # Arena renamed Historic Brawl to Brawl
+    "pdh": "paupercommander",
+    "pennydreadful": "penny",
+    "cbrawl": "competitivebrawl",
+    "tinyleaders": "tlr",             # `tlr` is Tiny Leaders: Reborn
+    "tinyleadersreborn": "tlr",
+}
+
+# `restricted` does not mean the same thing in every format:
+#   vintage / oldschool  -> you may play ONE copy
+#   duel / tlr           -> the card may be in the deck but NOT as commander
+# Both are singleton-ish formats where "one copy" is already implied, which
+# is why Scryfall reuses the same status word for two different rules.
+RESTRICTED_MEANS_NO_COMMANDER: frozenset[str] = frozenset({"duel", "tlr"})
+
+
+def fold_format(raw: str) -> str:
+    """Lowercase, strip spaces/hyphens/underscores, then resolve aliases."""
+    folded = re.sub(r"[\s_-]+", "", raw.strip().lower())
+    return _FORMAT_ALIAS.get(folded, folded)
+
+
+def normalize_format(raw: str) -> str:
+    """Fold user input to a `card_legalities.format` key. Raises ValueError.
+
+    Strict — for the search language, where a bad format name should be a
+    visible error. Custom formats resolve to the pool they inherit, so
+    `f:canlander` compiles to Vintage's card pool.
+    """
+    key = fold_format(raw)
+    if key in LEGALITY_FORMATS:
+        return key
+    custom = get_custom_formats().get(key)
+    if custom and custom["derives_from"] in LEGALITY_FORMATS:
+        return custom["derives_from"]
+    valid = sorted(LEGALITY_FORMATS | set(get_custom_formats()))
+    raise ValueError(f"unknown format: {raw!r}. Valid: {', '.join(valid)}")
+
+
+def legality_format_or_none(raw: Optional[str]) -> Optional[str]:
+    """The `card_legalities.format` key to check a deck against, or None.
+
+    Resolves through custom formats too: Canadian Highlander has no list of
+    its own but `derives_from` Vintage, so a Canlander deck is checked
+    against Vintage's pool. None means no pool restriction applies.
+    """
+    if not raw:
+        return None
+    key = fold_format(raw)
+    if key in LEGALITY_FORMATS:
+        return key
+    custom = get_custom_formats().get(key)
+    return custom["derives_from"] if custom else None
+
+
+# --- Custom (community) formats -----------------------------------------
+
+# Cached because it's read on every `f:` term compile and every deck
+# validation, and it changes only when `sync.py --only formats` runs.
+# The TUI clears it after a sync; a fresh process starts empty anyway.
+_CUSTOM_FORMATS_CACHE: Optional[dict[str, dict]] = None
+
+
+def clear_format_cache() -> None:
+    """Drop the cached custom-format table. Call after loading formats."""
+    global _CUSTOM_FORMATS_CACHE
+    _CUSTOM_FORMATS_CACHE = None
+
+
+def get_custom_formats() -> dict[str, dict]:
+    """Community formats keyed by format key *and* by every alias.
+
+    Returns {} when the table doesn't exist yet or the DB is missing — a
+    custom format is an enhancement, never a prerequisite for querying.
+    """
+    global _CUSTOM_FORMATS_CACHE
+    if _CUSTOM_FORMATS_CACHE is not None:
+        return _CUSTOM_FORMATS_CACHE
+    formats: dict[str, dict] = {}
+    if DB_PATH.exists():
+        conn = sqlite3.connect(
+            f"file:{DB_PATH}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_S,
+        )
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute(
+                "SELECT format, name, aliases, derives_from, points_budget, "
+                "singleton, source_url, list_current_as_of "
+                "FROM custom_formats"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            rows = []  # table not created yet
+        finally:
+            conn.close()
+        for row in rows:
+            spec = dict(row)
+            try:
+                aliases = json.loads(spec.get("aliases") or "[]")
+            except json.JSONDecodeError:
+                aliases = []
+            spec["aliases"] = aliases
+            formats[spec["format"]] = spec
+            for alias in aliases:
+                formats.setdefault(fold_format(alias), spec)
+    _CUSTOM_FORMATS_CACHE = formats
+    return formats
+
+
+def resolve_format(raw: Optional[str]) -> Optional[dict]:
+    """Everything a caller needs to know about a format name.
+
+    Returns None for an unrecognised name, otherwise:
+        key           canonical key ('commander', 'canadianhighlander')
+        label         human name ('commander', 'Canadian Highlander')
+        legality_key  `card_legalities.format` to check against, or None
+        points_budget per-deck points cap, or None
+        singleton     True when the format allows one copy of each card
+        custom        True for a `custom_formats` row
+    """
+    if not raw:
+        return None
+    key = fold_format(raw)
+    if key in LEGALITY_FORMATS:
+        return {
+            "key": key, "label": key, "legality_key": key,
+            "points_budget": None, "singleton": None, "custom": False,
+        }
+    spec = get_custom_formats().get(key)
+    if not spec:
+        return None
+    return {
+        "key": spec["format"],
+        "label": spec["name"],
+        "legality_key": spec["derives_from"],
+        "points_budget": spec["points_budget"],
+        "singleton": bool(spec["singleton"]),
+        "custom": True,
+    }
+
+
+def get_card_points(format_key: str) -> dict[str, int]:
+    """card_name -> points for one custom format ({} if it has no list)."""
+    if not format_key or not DB_PATH.exists():
+        return {}
+    conn = sqlite3.connect(
+        f"file:{DB_PATH}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_S,
+    )
+    try:
+        rows = conn.execute(
+            "SELECT card_name, points FROM custom_format_points WHERE format = ?",
+            (format_key,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    finally:
+        conn.close()
+    return {name: pts for name, pts in rows}
+
 
 # Spellbook combo step text often references a card slot that
 # `combo_cards` doesn't enumerate ("the affinity permanent", "your
@@ -125,7 +311,9 @@ def resolve_card_name(raw: str) -> Optional[str]:
 
     if not DB_PATH.exists():
         return None
-    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    conn = sqlite3.connect(
+        f"file:{DB_PATH}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_S,
+    )
     try:
         cur = conn.cursor()
         # 1) Exact match (case-insensitive). COLLATE NOCASE is ASCII-only,
@@ -196,7 +384,10 @@ def _connect() -> sqlite3.Connection:
         )
     # SQLite URI mode lets us request read-only; keeps accidental writes impossible.
     uri = f"file:{DB_PATH}?mode=ro"
-    conn = sqlite3.connect(uri, uri=True)
+    # A sync holds a write transaction for tens of seconds. Without a busy
+    # timeout, any read during that window fails instantly with
+    # "database is locked" instead of just waiting its turn.
+    conn = sqlite3.connect(uri, uri=True, timeout=BUSY_TIMEOUT_S)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -230,7 +421,8 @@ def get_card(
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT name, oracle_id, oracle_text, mana_cost, type_line, layout, card_faces "
+            "SELECT name, oracle_id, oracle_text, mana_cost, type_line, layout, "
+            "card_faces, games, reserved, edhrec_rank "
             "FROM cards WHERE name = ?",
             (canonical_input,),
         )
@@ -268,6 +460,25 @@ def get_card(
             (canonical,),
         )
         card["rulings"] = _rows_to_dicts(cur.fetchall())
+
+        # Legality: absence of a row means not legal, so only the formats
+        # worth naming come back. Split by status because "banned in
+        # Legacy" and "not in the Standard pool" are different facts —
+        # and `restricted` is split again, because in Duel Commander and
+        # Tiny Leaders it means "not as your commander", not "one copy".
+        cur.execute(
+            "SELECT format, status FROM card_legalities WHERE card_name = ? "
+            "ORDER BY format",
+            (canonical,),
+        )
+        legal_by_status: dict[str, list[str]] = {}
+        for row in cur.fetchall():
+            status = row["status"]
+            if (status == "restricted"
+                    and row["format"] in RESTRICTED_MEANS_NO_COMMANDER):
+                status = "no_commander"
+            legal_by_status.setdefault(status, []).append(row["format"])
+        card["legalities"] = legal_by_status
 
         # Build an optional CI subset filter — combos.color_identity is
         # stored as a contiguous letter string ('WBG', 'GU', '' for colorless),
@@ -307,70 +518,6 @@ def get_card(
         card["corrections"] = _rows_to_dicts(cur.fetchall())
 
         return card
-    finally:
-        conn.close()
-
-
-def search_cards(
-    name_like: Optional[str] = None,
-    tag: Optional[str] = None,
-    card_type: Optional[str] = None,
-    color_identity: Optional[str] = None,
-    is_mana_ability: Optional[bool] = None,
-    limit: int = 50,
-) -> list[dict]:
-    """Filter the cards table. All filters are ANDed together.
-
-    - name_like: substring match (case-insensitive)
-    - tag: exact tag match in card_tags (any category)
-    - card_type: exact tag match with category in ('type', 'subtype', 'supertype')
-    - color_identity: substring match on type_line (placeholder; better schema TBD)
-    - is_mana_ability: if True, only cards with >=1 parsed mana ability
-    """
-    if limit < 1 or limit > 1000:
-        limit = 50
-
-    clauses: list[str] = []
-    params: list = []
-
-    if name_like:
-        clauses.append("c.name LIKE ?")
-        params.append(f"%{name_like}%")
-    if tag:
-        clauses.append(
-            "EXISTS (SELECT 1 FROM card_tags t "
-            "WHERE t.card_name = c.name AND t.tag = ?)"
-        )
-        params.append(tag.lower())
-    if card_type:
-        clauses.append(
-            "EXISTS (SELECT 1 FROM card_tags t "
-            "WHERE t.card_name = c.name AND t.tag = ? "
-            "AND t.category IN ('type','subtype','supertype'))"
-        )
-        params.append(card_type.lower())
-    if color_identity:
-        clauses.append("c.type_line LIKE ?")
-        params.append(f"%{color_identity}%")
-    if is_mana_ability is True:
-        clauses.append(
-            "EXISTS (SELECT 1 FROM card_abilities a "
-            "WHERE a.card_name = c.name AND a.is_mana_ability = 1)"
-        )
-
-    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-    sql = (
-        "SELECT c.name, c.type_line FROM cards c"
-        + where
-        + " ORDER BY c.name COLLATE NOCASE LIMIT ?"
-    )
-    params.append(limit)
-
-    conn = _connect()
-    try:
-        cur = conn.cursor()
-        cur.execute(sql, params)
-        return _rows_to_dicts(cur.fetchall())
     finally:
         conn.close()
 
@@ -610,11 +757,21 @@ def search_rules(pattern: str, limit: int = 25) -> list[dict]:
 def get_corrections(
     card: Optional[str] = None,
     topic: Optional[str] = None,
+    text: Optional[str] = None,
     limit: int = 25,
 ) -> list[dict]:
-    """List corrections, optionally filtered by card or topic keyword.
+    """List corrections, optionally filtered.
 
-    When both are None, returns the most recent corrections overall.
+    `card` and `topic` are precise filters and are ANDed together — use
+    them when the caller knows which field it means (the CLI's
+    `--card` / `--topic` flags).
+
+    `text` is the loose single-box filter: it matches if the term appears
+    in `relates_to` OR `topic` OR `incorrect_claim`. That's what a user
+    typing `correction yawgmoth` means — a correction whose topic slug
+    doesn't happen to repeat the card name must still be found.
+
+    When all three are None, returns the most recent corrections overall.
     """
     if limit < 1 or limit > 200:
         limit = 25
@@ -628,6 +785,11 @@ def get_corrections(
         clauses.append("(topic LIKE ? OR incorrect_claim LIKE ?)")
         params.append(f"%{topic}%")
         params.append(f"%{topic}%")
+    if text:
+        clauses.append(
+            "(relates_to LIKE ? OR topic LIKE ? OR incorrect_claim LIKE ?)"
+        )
+        params.extend([f"%{text}%"] * 3)
 
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     sql = (

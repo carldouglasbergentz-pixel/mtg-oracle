@@ -9,12 +9,14 @@ Launch:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sqlite3
 import sys
 from pathlib import Path
 from typing import Callable, Optional
 
+from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
@@ -24,6 +26,7 @@ from textual.widgets import Footer, Header, Input, RichLog, Static
 
 from mtg_oracle import analytics as a
 from mtg_oracle import queries as q
+from mtg_oracle.queries import LEGALITY_FORMATS
 from mtg_oracle import renderer as r
 from mtg_oracle import scryfall_search as ss
 from mtg_oracle import decks as d
@@ -70,7 +73,7 @@ COMMANDS = [
     # Terminal-style navigation
     "cd", "pwd", "ls", "mkdir", "rmdir",
     "add", "remove", "show", "rename", "move",
-    "commander", "import", "paste",
+    "commander", "points", "import", "paste",
     # Maintenance
     "sync",
     # Misc
@@ -165,6 +168,9 @@ INSIDE A DECK (`/<folder>/<deck>/`)
                             row otherwise; multiple commanders allowed
                             for Partner / Background / Friends Forever)
   commander --unset <card>  demote a commander back to the main deck
+  points                    points spent / budget, in formats that have a
+                            points list (Canadian Highlander). Pointed
+                            cards are marked `<3p>` in `show`.
   combos                    list Spellbook combos fully contained here
   paste                     read deckstring from system clipboard and
                             append to current deck (Windows / macOS / Linux)
@@ -176,34 +182,61 @@ names: `add fire/ice` resolves to the canonical `Fire // Ice`.
 """
 
 
-SEARCH_HELP = """\
+SEARCH_HELP = f"""\
 Scryfall-style search. AND is implicit (space-separated). OR, NOT, and
 parentheses are supported. `-` is a shortcut for NOT.
 
 Operators:
   o:TEXT      oracle text contains TEXT  (quote for spaces: o:"draw a card")
   t:TEXT      type line contains TEXT    (t:creature, t:planeswalker)
-  n:TEXT      name contains TEXT
+  n:TEXT      name contains TEXT         (substring)
+  n=TEXT      name is exactly TEXT       (n:"Lightning Bolt" also matches
+                                          'Emeritus of Conflict // Lightning Bolt')
   kw:KW       card has keyword ability   (flying, trample, prowess, ward, ...)
   c:COLORS    colors subset-contains     (c:u any-blue; c:wu contains W and U)
   c=COLORS    colors equal exactly       (c=wu exactly W+U, not tri-colored)
+  ci<=COLORS  color identity fits        (commander legality; ci:, ci=, ci>= too)
   mv:N        mana value comparisons     (also mv=, mv<, mv>, mv<=, mv>=, mv!=)
   pow:S       power                      (string match on :/=, numeric for <, >, etc.)
   tou:S       toughness                  (same shape as pow)
   r:RARITY    rarity                     (common | uncommon | rare | mythic | bonus | special)
   layout:X    card layout                (normal | transform | modal_dfc | split | flip | ...)
 
-Colors can be letters (`u`, `uw`), words (`blue`, `white`), or braced (`{W}{U}`).
-Bare words and quoted strings default to oracle-text search, so:
+Format legality:
+  f:FORMAT    legal (or restricted) in FORMAT   (aliases: format:, legal:)
+  banned:F    on that format's ban list
+  restricted:F  restricted in that format. Means "one copy only" in
+              Vintage / Old School, but "may not be your commander" in
+              Duel Commander (`duel`) and Tiny Leaders (`tlr`).
+  game:X      paper | arena | mtgo — `game:paper` drops Arena-only
+              Alchemy rebalances (the `A-` cards)
+  is:reserved on the Reserved List
+
+  Formats: {", ".join(sorted(LEGALITY_FORMATS))}
+  Spaces and hyphens are ignored, so f:"competitive brawl" works.
+  Aliases: edh, pdh, duelcommander, pennydreadful, cbrawl.
+
+Sorting:
+  order:asc_FIELD / order:desc_FIELD  (alias sort:) — direction is required.
+  Fields: mv, name, power, toughness, rarity, color, ci, edhrec.
+  `order:asc_edhrec` is most-played-first. NULLs always sort last.
+
+Colors can be letters (`u`, `uw`), words (`blue`, `white`, `blue white`), or
+braced (`{{W}}{{U}}`). Bare words and quoted strings default to oracle text:
     "enters the battlefield"     <=>  o:"enters the battlefield"
+
+Inside a deck, `search` is automatically restricted to what that deck can
+play — the commander's color identity and the deck's format. The active
+filters are shown above the results; `cd ..` searches the full pool.
 
 Examples:
     o:"enters the battlefield" t:creature c:u mv<=3
     kw:flying (c:w or c:u) -t:artifact
-    "counter target spell" c:u mv:2
+    f:competitivebrawl ci<=UR t:instant order:asc_edhrec
+    f:commander game:paper t:artifact mv<=2 order:asc_edhrec
+    banned:commander
     c=wu t:instant
     pow>=4 t:creature r:mythic
-    not kw:flying t:creature
     (kw:flying or kw:trample) c:g mv<=3
 """
 
@@ -211,33 +244,44 @@ Examples:
 HELP_TEXT = """\
 MTG Oracle - local knowledge base
 
-Commands:
+LOOKUP
   card <name>                         full card profile + tags + rulings + combos
+  card <N>                            expand the N-th row of the last search
   ruling <name>                       rulings for a card
-  combo <card>                        combos featuring a card (auto-expands if 1 match)
-  combos <card1>; <card2>[; ...]      combos containing ALL named cards (auto-expand on 1)
-  combo-info <id-or-number>           full combo detail; accepts list index from last combo search
   rule <number>                       rule text + children (e.g. '605.1a')
   search-rules <text>                 search rule bodies
-  search <query>                      Scryfall-style card search (type `search help` for syntax)
-  next / prev / page <N>              navigate search results
-  card <N>                            expand the N-th row of the last search
   correction [<card-or-topic>]        list relevant feedback-loop corrections
-  cd / ls / pwd / mkdir / rmdir /     deck and folder operations — context-aware
-    add / remove / commander /        `add` and `remove` adapt by location:
-    show / import / paste / combos /  in folder = deck-level, in deck = card-level
-    move / rename                     (no separate `new`/`delete` verbs)
+
+COMBOS
+  combo <card>                        combos featuring a card (auto-expands if 1 match)
+  combos <card1>; <card2>[; ...]      combos containing ALL named cards (auto-expand on 1)
+  combos                              (inside a deck) combos fully contained in it
+  combo-info <id-or-number>           full combo detail; <N> refers to the last list
+
+SEARCH
+  search <query>                      Scryfall-style card search
+  next / prev / page <N>              navigate search results
+
+DECKS                                 (terminal-style: cd / ls / pwd / add / remove ...)
+  cd <name>  ls  pwd                  navigate folders and decks
+  add / remove                        meaning follows your location — see `help decks`
+
+MAINTENANCE
   sync [force]                        refresh data from Scryfall / Wizards / Spellbook
-  copy [last|all|nav]                 copy pane content to clipboard via OSC 52
+  copy [last|all|nav]                 copy pane content to clipboard
                                       (last = output since last command; all = full
                                       right pane; nav = left pane)
-  help                                this screen
   clear                               clear the output pane
   quit                                exit
 
+MORE HELP
+  help decks                          the deck / folder filesystem model, in full
+  help search                         Scryfall-style search syntax and examples
+
 Typing:
   Autofill suggestions appear as gray text after your command (prefix match).
-  Tab or Right Arrow accepts the suggestion.
+  Tab or Right Arrow accepts the suggestion. Inside a deck, `remove` completes
+  from the cards actually in that deck.
   Up / Down  cycle through previously submitted commands (shell-style).
 
 Keys:
@@ -246,6 +290,7 @@ Keys:
   Up / Down    previous / next command in history
   Esc          unfocus
   Ctrl+L       clear
+  Ctrl+P       command palette (e.g. change theme — remembered next launch)
   Ctrl+Q       quit
   Shift+drag   bypass mouse capture to select text (then Ctrl+Shift+C to copy)
 """
@@ -262,6 +307,8 @@ class MtgSuggester(Suggester):
       - `card|ruling|combo|correction <X>`  -> card names
       - `combos ...; <X>`       -> card names (complete the last segment after `;`)
       - `rule <X>`              -> rule numbers
+      - `remove <X>` in a deck  -> only the cards actually in that deck
+      - `commander <X>` in deck -> deck cards first, then all card names
     """
 
     def __init__(
@@ -269,19 +316,22 @@ class MtgSuggester(Suggester):
         card_names: list[str],
         rule_numbers: list[str],
         in_deck: Callable[[], bool] = lambda: False,
+        deck_cards: Callable[[], list[str]] = lambda: [],
         case_sensitive: bool = False,
     ) -> None:
         super().__init__(case_sensitive=case_sensitive, use_cache=False)
         self._card_names = card_names
         self._rule_numbers = rule_numbers
         # Lowercased prefix index for O(n) prefix match per keypress.
-        # n is small (34k names), microseconds per call — no bisect needed yet.
+        # n is small (35k names), microseconds per call — no bisect needed yet.
         self._card_names_lc = [n.lower() for n in card_names]
-        # Late-binding cwd check — the App passes a callable that returns
-        # True iff the user is currently inside a deck. Used so `add`/
-        # `remove` only autofill from card names in deck context (where
-        # they mean "add card", not "create deck").
+        # Late-binding cwd checks — the App passes callables so the
+        # suggester follows the user around without being rebuilt. `add` /
+        # `remove` only autofill card names in deck context (where they
+        # mean "add card", not "create deck"), and `remove` narrows to the
+        # deck's own contents because that's the only legal input.
         self._in_deck = in_deck
+        self._deck_cards = deck_cards
 
     async def get_suggestion(self, value: str) -> Optional[str]:  # noqa: D401
         if not value:
@@ -298,12 +348,18 @@ class MtgSuggester(Suggester):
         cmd, _, rest = value.partition(" ")
         cmd_lc = cmd.lower()
 
-        if cmd_lc in ("card", "ruling", "rulings", "combo", "correction", "corrections", "commander"):
+        if cmd_lc in ("card", "ruling", "rulings", "combo", "correction", "corrections"):
             return self._suggest_card(cmd, rest)
-        if cmd_lc in ("add", "remove") and self._in_deck():
-            # In deck context, add/remove operate on cards; complete from
-            # the card-name index. At folder/root context the same verbs
-            # operate on deck/folder names and we leave them uncompleted.
+        if cmd_lc == "commander" and self._in_deck():
+            # Usually you promote a card already in the deck, but adding a
+            # brand-new one is allowed too — deck first, whole index after.
+            return (
+                self._suggest_from(cmd, rest, self._deck_cards())
+                or self._suggest_card(cmd, rest)
+            )
+        if cmd_lc == "remove" and self._in_deck():
+            return self._suggest_from(cmd, rest, self._deck_cards())
+        if cmd_lc == "add" and self._in_deck():
             return self._suggest_card(cmd, rest)
         if cmd_lc == "combos":
             return self._suggest_combos_intersection(cmd, rest)
@@ -312,6 +368,22 @@ class MtgSuggester(Suggester):
         return None
 
     # --- per-command suggestion helpers ---
+
+    def _suggest_from(
+        self, cmd: str, rest: str, names: list[str],
+    ) -> Optional[str]:
+        """First prefix match in `names`, rendered as a full input line."""
+        if not rest or not names:
+            return None
+        rest_lc = rest.lower()
+        for name in names:
+            if name.lower().startswith(rest_lc):
+                suggestion = f"{cmd} {name}"
+                # Don't re-suggest what the user already has exactly.
+                if suggestion.lower() != f"{cmd} {rest}".lower():
+                    return suggestion
+                return None
+        return None
 
     def _suggest_card(self, cmd: str, rest: str) -> Optional[str]:
         if not rest:
@@ -424,6 +496,11 @@ class MtgOracleApp(App):
         self._cwd_folder: Optional[str] = None
         self._cwd_deck: Optional[str] = None
 
+        # Card names in the deck we're currently inside — kept fresh by
+        # `_refresh_nav` (which already loads the deck) so `remove` can
+        # autofill from the deck instead of the whole 35k-card index.
+        self._deck_card_names: list[str] = []
+
         # Shell-style history. Most-recent at the end. `_history_idx` is
         # -1 when the user is editing fresh input (not browsing history);
         # 0 = most recent, 1 = second-most-recent, etc. `_history_pending`
@@ -432,6 +509,10 @@ class MtgOracleApp(App):
         self._history: list[str] = []
         self._history_idx: int = -1
         self._history_pending: str = ""
+
+        # True while the background sync worker is alive, so a second
+        # `sync` gets a clear message instead of two competing writers.
+        self._sync_running: bool = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -492,6 +573,7 @@ class MtgOracleApp(App):
         suggester = MtgSuggester(
             card_names, rule_numbers,
             in_deck=lambda: self._cwd_deck is not None,
+            deck_cards=lambda: self._deck_card_names,
         )
         self.query_one("#cmd", Input).suggester = suggester
 
@@ -606,6 +688,7 @@ class MtgOracleApp(App):
             "add": self._cmd_add,
             "remove": self._cmd_remove,
             "commander": self._cmd_commander,
+            "points": self._cmd_points,
             "show": self._cmd_show,
             "import": self._cmd_import,
             "paste": self._cmd_paste,
@@ -626,8 +709,25 @@ class MtgOracleApp(App):
 
     # --- command implementations -----------------------------------
 
-    def _cmd_help(self, _: str) -> None:
-        self._write(HELP_TEXT)
+    # Sub-topics for `help <topic>`. DECK_HELP and SEARCH_HELP are long
+    # enough that inlining them in the overview buried everything else.
+    HELP_TOPICS = {
+        "decks": DECK_HELP,
+        "deck": DECK_HELP,
+        "search": SEARCH_HELP,
+    }
+
+    def _cmd_help(self, arg: str) -> None:
+        topic = arg.strip().lower()
+        if not topic:
+            self._write(HELP_TEXT)
+            return
+        body = self.HELP_TOPICS.get(topic)
+        if body is None:
+            known = ", ".join(sorted({"decks", "search"}))
+            self._write(f"(no help topic {topic!r}; try: {known} — or bare `help`)")
+            return
+        self._write(body)
 
     def _cmd_card(self, arg: str) -> None:
         if not arg:
@@ -694,7 +794,11 @@ class MtgOracleApp(App):
             except d.DeckError as e:
                 self._write(f"combos: {e}")
                 return
-            self._write(r.render_combo_list(
+            # Numbered, not id-keyed: the side pane already shows these as
+            # [1]..[N] and `combo-info <N>` resolves against the same list,
+            # so showing raw Spellbook ids here made the two panes disagree.
+            self._last_combos = combos
+            self._write(self._render_numbered_combo_list(
                 combos,
                 f"{len(combos)} combo(s) fully contained in {self._cwd_deck!r}:",
             ))
@@ -761,12 +865,12 @@ class MtgOracleApp(App):
             self._write(SEARCH_HELP)
             return
 
-        # Auto-apply commander color-identity filter when searching inside
-        # a deck that has at least one is_commander=1 row. Hard-applied so
-        # the result strictly matches what the user can legally play; the
-        # user can still cd out of the deck to search broadly.
-        ci_notice = ""
+        # Inside a deck, searches are hard-filtered to what that deck can
+        # actually play: the commander's color identity and the deck's
+        # format legality. Both are announced rather than applied silently;
+        # `cd ..` searches the whole card pool again.
         effective = arg
+        filters: list[str] = []
         if self._cwd_deck:
             try:
                 deck_ci = d.get_deck_color_identity(
@@ -776,9 +880,30 @@ class MtgOracleApp(App):
                 deck_ci = None
             if deck_ci is not None:
                 ci_token = "".join(deck_ci) if deck_ci else "c"
-                effective = f"({arg}) ci<={ci_token}"
-                badge = "".join(deck_ci) if deck_ci else "C"
-                ci_notice = f"[CI filter: ci<={badge}  (commander deck — `cd ..` to search broadly)]\n"
+                effective = f"({effective}) ci<={ci_token}"
+                filters.append(f"ci<={''.join(deck_ci) or 'C'}")
+            try:
+                info = d.get_deck_format_info(
+                    self._cwd_deck, folder=self._cwd_folder,
+                )
+            except d.DeckError:
+                info = None
+            if info and info["legality_key"]:
+                effective = f"({effective}) f:{info['legality_key']}"
+                # Show the deck's own format name, but name the inherited
+                # pool too — "f:Canadian Highlander" alone would look like
+                # a filter we don't actually have data for.
+                filters.append(
+                    f"f:{info['label']}"
+                    + (f" (={info['legality_key']} pool)" if info["custom"] else "")
+                )
+
+        ci_notice = ""
+        if filters:
+            ci_notice = (
+                f"[deck filter: {'  '.join(filters)}"
+                f"  (`cd ..` to search the full pool)]"
+            )
 
         try:
             total = ss.count_query(effective)
@@ -791,7 +916,7 @@ class MtgOracleApp(App):
         self._search_total = total
         self._search_rows = rows
         if ci_notice:
-            self._write(ci_notice.rstrip("\n"))
+            self._write(ci_notice)
         self._render_current_page()
 
     def _cmd_search_next(self, _: str) -> None:
@@ -859,7 +984,11 @@ class MtgOracleApp(App):
         ))
 
     def _cmd_correction(self, arg: str) -> None:
-        rows = q.get_corrections(card=arg or None, topic=arg or None, limit=50)
+        # One free-text box → OR across relates_to / topic / incorrect_claim.
+        # Passing the same term as both `card` and `topic` ANDed the two,
+        # so a correction whose topic slug didn't repeat the card name was
+        # unfindable by card name.
+        rows = q.get_corrections(text=arg.strip() or None, limit=50)
         self._write(r.render_corrections(rows))
 
     # --- copy to clipboard ----------------------------------------
@@ -922,32 +1051,64 @@ class MtgOracleApp(App):
     # --- maintenance: sync ----------------------------------------
 
     def _cmd_sync(self, arg: str) -> None:
-        """Run scripts/sync.py inside the app. Blocks the UI for the
-        duration; pass `force` to re-ingest unchanged sources."""
-        from pathlib import Path as _P
-        sync_path = _P(__file__).resolve().parent.parent / "scripts" / "sync.py"
-        cmd = [sys.executable, str(sync_path)]
-        if arg.strip().lower() == "force":
-            cmd.append("--force")
-        elif arg.strip():
+        """Run scripts/sync.py in a worker thread, streaming its output.
+
+        A full refresh downloads ~650 MB and takes a couple of minutes;
+        doing that on the UI thread froze the app with no sign of life.
+        Pass `force` to re-ingest sources whose upstream hasn't moved.
+        """
+        arg = arg.strip().lower()
+        if arg and arg != "force":
             self._write("usage: sync   (or `sync force` to re-ingest unchanged sources)")
             return
-        self._write("Running sync — this freezes the UI for up to ~30 s when upstream changed.")
+        if self._sync_running:
+            self._write("(a sync is already running — wait for it to finish)")
+            return
+        self._sync_running = True
+        self._write(
+            "Running sync in the background — progress streams in below. "
+            "The app stays usable while it works."
+        )
+        self._run_sync(force=(arg == "force"))
+
+    @work(thread=True, exclusive=True)
+    def _run_sync(self, force: bool) -> None:
+        """Worker body: spawn sync.py and pump its stdout into the log."""
+        sync_path = Path(__file__).resolve().parent.parent / "scripts" / "sync.py"
+        cmd = [sys.executable, "-u", str(sync_path)]
+        if force:
+            cmd.append("--force")
+        # Force UTF-8 on the child's stdout: on Windows a piped stdout
+        # defaults to cp1252, and one em-dash in an upstream message would
+        # kill the sync with a UnicodeEncodeError.
+        env = dict(os.environ, PYTHONIOENCODING="utf-8")
         try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=600,
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace", bufsize=1,
+                env=env,
             )
-        except subprocess.TimeoutExpired:
-            self._write("sync: timed out after 10 minutes")
-            return
         except Exception as e:
-            self._write(f"sync failed to start: {type(e).__name__}: {e}")
+            self.call_from_thread(
+                self._write, f"sync failed to start: {type(e).__name__}: {e}"
+            )
+            self.call_from_thread(self._sync_finished, None)
             return
-        if result.stdout:
-            self._write(result.stdout.rstrip())
-        if result.stderr:
-            self._write(f"stderr:\n{result.stderr.rstrip()}")
-        self._write(f"sync exit: {result.returncode}")
+        for line in proc.stdout or ():
+            line = line.rstrip()
+            if line:
+                self.call_from_thread(self._write, line)
+        self.call_from_thread(self._sync_finished, proc.wait())
+
+    def _sync_finished(self, code: Optional[int]) -> None:
+        self._sync_running = False
+        if code is not None:
+            self._write(f"sync exit: {code}")
+        # New cards / rules make the autofill index stale, and a `formats`
+        # run may have changed the custom-format table the query layer caches.
+        q.clear_format_cache()
+        self._install_suggester()
+        self._refresh_nav()
 
 
     # --- cwd-style verbs --------------------------------------------
@@ -1003,6 +1164,9 @@ class MtgOracleApp(App):
             if not deck:
                 nav.write(f"(deck disappeared: {self._cwd_deck!r})")
                 return
+            self._deck_card_names = [
+                c["card_name"] for c in deck.get("cards", [])
+            ]
             try:
                 analytics = a.compute_deck_analytics(deck)
             except Exception as e:
@@ -1026,6 +1190,7 @@ class MtgOracleApp(App):
             return
 
         # Otherwise → folder/deck tree with cwd marker.
+        self._deck_card_names = []
         nav.write("folders / decks")
         nav.write("-" * 16)
         try:
@@ -1404,15 +1569,15 @@ class MtgOracleApp(App):
         if len(toks) == 2 and toks[1].isdigit():
             arg, qty = toks[0], int(toks[1])
         try:
-            removed, remaining = d.remove_card_from_deck(
+            canonical, removed, remaining = d.remove_card_from_deck(
                 self._cwd_deck, arg, quantity=qty, folder=self._cwd_folder,
             )
             if remaining:
                 self._write(
-                    f"OK removed {removed}x {arg} ({remaining} remaining)"
+                    f"OK removed {removed}x {canonical} ({remaining} remaining)"
                 )
             else:
-                self._write(f"OK removed all {removed}x {arg}")
+                self._write(f"OK removed all {removed}x {canonical}")
             self._refresh_nav()
         except d.DeckError as e:
             self._write(f"remove: {e}")
@@ -1421,9 +1586,6 @@ class MtgOracleApp(App):
         name = arg.strip()
         if not name:
             self._write("usage: remove <deck>  (in folder context: deletes a deck)")
-            return
-        if self._cwd_deck and name == self._cwd_deck:
-            self._write("(can't delete the deck you're inside — `cd ..` first)")
             return
         try:
             d.delete_deck(name, folder=self._cwd_folder)
@@ -1472,6 +1634,27 @@ class MtgOracleApp(App):
                 f"singleton checks and CI filter on `search` are now active"
             )
         self._refresh_nav()
+
+    def _cmd_points(self, _: str) -> None:
+        """Points spent under a points-list format (Canadian Highlander)."""
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `points`)")
+            return
+        try:
+            points = d.deck_points(self._cwd_deck, folder=self._cwd_folder)
+        except d.DeckError as e:
+            self._write(f"points: {e}")
+            return
+        if not points:
+            info = d.get_deck_format_info(self._cwd_deck, folder=self._cwd_folder)
+            label = info["label"] if info else "this deck's format"
+            self._write(
+                f"({label} has no points list — points apply to formats like "
+                f"Canadian Highlander. Set the deck's format to one of them "
+                f"to enable it.)"
+            )
+            return
+        self._write(r.render_points(points))
 
     def _cmd_show(self, arg: str) -> None:
         target = arg.strip()
@@ -1524,23 +1707,12 @@ class MtgOracleApp(App):
         if not parsed:
             self._write("(no card lines recognized in input)")
             return
-        added = 0
-        unresolved: list[str] = []
-        for row in parsed:
-            if row["section"] == "maybeboard":
-                continue
-            try:
-                d.add_card_to_deck(
-                    self._cwd_deck, row["name"], quantity=row["quantity"],
-                    is_commander=(row["section"] == "commander"),
-                    is_sideboard=(row["section"] == "sideboard"),
-                    folder=self._cwd_folder,
-                )
-                added += 1
-            except d.DeckError as e:
-                if "card not found" in str(e):
-                    unresolved.append(row["name"])
-        result = {"added": added, "unresolved": unresolved, "total_input": len(parsed)}
+        # Same code path the CLI's `deck import` uses, so both honour the
+        # documented "a pasted list loads verbatim" rule (force=True) and
+        # both report every row that didn't make it in.
+        result = d.load_parsed_into_deck(
+            self._cwd_deck, parsed, folder=self._cwd_folder,
+        )
         self._write(r.render_import_result(self._cwd_deck, result))
         self._refresh_nav()
 

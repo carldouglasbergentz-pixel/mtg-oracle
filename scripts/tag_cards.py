@@ -146,11 +146,16 @@ def _is_keyword_only(line: str) -> bool:
     return len(stripped) <= 3  # residue of punctuation is fine
 
 
-def detect_flags(ability_type: str, cost: Optional[str], effect: str, raw: str) -> tuple[bool, bool, bool]:
-    """Return (has_target, produces_mana, is_mana_ability)."""
-    full = raw  # has_target / produces_mana are scoped to the full ability text
-    has_target = bool(HAS_TARGET.search(full))
-    produces_mana = bool(PRODUCES_MANA.search(full))
+def detect_flags(ability_type: str, raw: str) -> tuple[bool, bool, bool]:
+    """Return (has_target, produces_mana, is_mana_ability).
+
+    Both text flags are scoped to the full ability line, not the split
+    cost / effect halves — "target" in the cost disqualifies the whole
+    ability from being a mana ability (CR 605.1a), which is exactly why
+    Deathrite Shaman's first ability is correctly not flagged.
+    """
+    has_target = bool(HAS_TARGET.search(raw))
+    produces_mana = bool(PRODUCES_MANA.search(raw))
 
     # CR 605.1a (activated) / 605.1b (triggered). Loyalty never counts.
     is_mana = (
@@ -218,7 +223,7 @@ def tag_card(
 
         for line in split_ability_lines(face_text):
             ability_type, cost, effect = classify_ability(line)
-            has_target, produces_mana, is_mana = detect_flags(ability_type, cost, effect, line)
+            has_target, produces_mana, is_mana = detect_flags(ability_type, line)
             ability_rows.append((
                 name,
                 ability_index,
@@ -289,12 +294,19 @@ def sync(force: bool = False) -> None:
         ability_buffer,
     )
 
-    _set_sync_state(cur, len(tag_buffer), len(ability_buffer))
+    # card_tags is keyed (card_name, tag), so a token that is both a subtype
+    # and a keyword on the same card (e.g. 'saga') only keeps one row. Report
+    # what the table actually holds rather than what we tried to insert.
+    stored_tags = cur.execute("SELECT COUNT(*) FROM card_tags").fetchone()[0]
+    stored_abilities = cur.execute("SELECT COUNT(*) FROM card_abilities").fetchone()[0]
+    _set_sync_state(cur, stored_tags, stored_abilities)
     conn.commit()
     conn.close()
 
+    collapsed = len(tag_buffer) - stored_tags
+    note = f" ({collapsed:,} duplicate tag rows collapsed)" if collapsed else ""
     print(f"OK Tagged {len(cards):,} cards "
-          f"-> {len(tag_buffer):,} tag rows, {len(ability_buffer):,} ability rows")
+          f"-> {stored_tags:,} tag rows, {stored_abilities:,} ability rows{note}")
 
 
 if __name__ == "__main__":

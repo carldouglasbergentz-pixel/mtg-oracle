@@ -11,6 +11,7 @@ Run:
 import argparse
 import datetime as dt
 import json
+import shutil
 import sqlite3
 import sys
 import urllib.request
@@ -52,14 +53,20 @@ def _head_etag() -> tuple[str, str]:
 
 
 def fetch() -> dict:
+    """Download variants.json to the raw cache, then parse it from disk.
+
+    The payload is ~600 MB. Streaming it to disk first and letting
+    `json.load` read from the file keeps one fewer full copy in memory
+    than `json.loads(response.read())` did.
+    """
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
     print(f"-> Downloading {SPELLBOOK_URL}")
     req = urllib.request.Request(SPELLBOOK_URL, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=300) as r:
-        data = r.read()
-    CACHE_PATH.write_bytes(data)
-    print(f"OK Cached at {CACHE_PATH} ({len(data) / 1_000_000:.1f} MB)")
-    return json.loads(data)
+    with urllib.request.urlopen(req, timeout=300) as r, open(CACHE_PATH, "wb") as f:
+        shutil.copyfileobj(r, f)
+    print(f"OK Cached at {CACHE_PATH} ({CACHE_PATH.stat().st_size / 1_000_000:.1f} MB)")
+    with open(CACHE_PATH, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def normalize(payload):

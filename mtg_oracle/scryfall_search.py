@@ -4,7 +4,8 @@ Supported syntax (Level 2):
     # Term operators (all case-insensitive on field names)
     o:TEXT / oracle:TEXT        oracle_text contains TEXT
     t:TEXT / type:TEXT          type_line contains TEXT
-    n:TEXT / name:TEXT          name contains TEXT
+    n:TEXT / name:TEXT          name contains TEXT (substring)
+    n=TEXT                      name is exactly TEXT (case-insensitive)
     kw:KEYWORD                  has a card_tags row with category='keyword'
     c:COLORS  / c=COLORS        colors subset-contains / equals exactly
     ci:COLORS / ci<=COLORS      color identity ⊆ COLORS (commander legality)
@@ -17,11 +18,26 @@ Supported syntax (Level 2):
     r:RARITY / rarity:RARITY    rarity equals (common|uncommon|rare|mythic|bonus|special)
     layout:LAYOUT               layout equals (normal|transform|modal_dfc|split|flip|...)
 
+    # Format legality + printing metadata
+    f:FORMAT / format: / legal: legal (or restricted) in FORMAT
+    banned:FORMAT               on FORMAT's ban list
+    restricted:FORMAT           restricted in FORMAT (Vintage / Old School)
+    game:paper|arena|mtgo       card exists in that game — `game:paper`
+                                excludes Arena-only Alchemy rebalances
+    is:reserved                 on the Reserved List
+    Formats: alchemy brawl commander competitivebrawl duel future gladiator
+             historic legacy modern oathbreaker oldschool pauper
+             paupercommander penny pioneer predh premodern standard
+             standardbrawl timeless tlr vintage
+             (aliases: edh, pdh, duelcommander, pennydreadful, cbrawl;
+              spaces and hyphens are ignored, so f:"competitive brawl" works)
+
     # Sort
     order:asc_FIELD             sort ascending  (sort: is an alias)
     order:desc_FIELD            sort descending
     Fields: mv (mana value), name, power, toughness, rarity (tier order),
-            color, ci (number of colors in color identity).
+            color, ci (number of colors in color identity),
+            edhrec (popularity rank — asc_edhrec is most-played first).
     Direction prefix is REQUIRED — bare `order:mv` is rejected. A stable
     tiebreaker on name is always appended.
 
@@ -41,15 +57,18 @@ Examples:
     t:planeswalker pow>=4
     "enters the battlefield" o:"draw a card"
     c=wu t:instant
+    f:competitivebrawl ci<=UR t:instant order:asc_edhrec
+    f:commander game:paper -banned:commander t:artifact mv<=2
 
 Quick parser semantics:
     - AND binds tighter than OR. `a or b c` parses as `a or (b c)`.
     - Negation binds tighter than AND. `-a b` is `(-a) AND b`.
     - Comparison operators (`>`, `>=`, `<`, `<=`, `!=`) only make sense on
       numeric fields (mv, pow, tou); the compiler raises on misuse.
-    - For string fields (`o:`, `t:`, `n:`), `:` and `=` are synonyms and
-      do substring match (case-insensitive). Use quotes for values with
-      spaces.
+    - For `o:` and `t:`, `:` and `=` are synonyms and do a substring match
+      (exact match on a whole oracle text or type line is never useful).
+      For `n:`, `=` means exact name — consistent with `c=` / `ci=`. Use
+      quotes for values with spaces.
 
 This module is self-contained — tokenizer, parser and SQL compiler live
 together so the ~300-line grammar is readable end-to-end.
@@ -61,6 +80,11 @@ import sqlite3
 from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 from typing import Any, Iterator, Optional
+
+from mtg_oracle.queries import (
+    BUSY_TIMEOUT_S,       # wait out a running sync
+    normalize_format,     # 'Competitive Brawl' -> 'competitivebrawl'
+)
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
@@ -272,7 +296,37 @@ _FIELD_ALIAS = {
     "tou": "tou", "toughness": "tou",
     "rarity": "r", "r": "r",
     "layout": "layout",
+    # Format legality (card_legalities) + printing metadata.
+    "f": "f", "format": "f", "legal": "f",
+    "banned": "banned",
+    "restricted": "restricted",
+    "game": "game",
+    "is": "is",
 }
+
+_GAMES = frozenset({"paper", "mtgo", "arena", "astral", "sega"})
+
+# `is:` predicates. Small on purpose — one entry per genuinely useful flag.
+_IS_PREDICATES = {
+    "reserved": "c.reserved = 1",
+}
+
+
+def _legality_term(op: str, value: str, statuses: tuple[str, ...]) -> tuple[str, list]:
+    """EXISTS against card_legalities for one format and a status set."""
+    if op not in (":", "="):
+        raise SearchError(f"format filters support only ':' or '=', got {op!r}")
+    try:
+        fmt = normalize_format(value)
+    except ValueError as e:
+        raise SearchError(str(e))
+    placeholders = ",".join("?" * len(statuses))
+    return (
+        f"EXISTS (SELECT 1 FROM card_legalities cl "
+        f"WHERE cl.card_name = c.name AND cl.format = ? "
+        f"AND cl.status IN ({placeholders}))",
+        [fmt, *statuses],
+    )
 
 _ALL_COLORS = ("W", "U", "B", "R", "G")
 
@@ -287,12 +341,23 @@ _COLOR_WORDS = {
 
 
 def _parse_colors(raw: str) -> list[str]:
-    """Accept 'uw', 'U,W', 'blue white', '{U}{W}', etc. Return sorted unique letters."""
+    """Accept 'uw', 'U,W', 'blue white', 'blue,white', '{U}{W}'.
+
+    Returns sorted unique letters ([] for colorless).
+    """
     s = raw.strip().lower()
     if s in _COLOR_WORDS:
         v = _COLOR_WORDS[s]
         return [v] if v else []
-    # Strip delimiters
+
+    # Word form first: every space/comma/slash-separated token must be a
+    # known color word. 'blue white' used to fall through to the letter
+    # branch and die on the 'l' in 'blue'.
+    words = [w for w in re.split(r"[\s,;/]+", s) if w]
+    if len(words) > 1 and all(w in _COLOR_WORDS for w in words):
+        return sorted({_COLOR_WORDS[w] for w in words if _COLOR_WORDS[w]})
+
+    # Letter form: 'uw', 'U,W', '{U}{W}'.
     cleaned = "".join(ch for ch in s if ch not in "{},;/ \t")
     result: set[str] = set()
     for ch in cleaned:
@@ -316,9 +381,20 @@ def _numeric_op(field_sql: str, op: str, value: str) -> tuple[str, list]:
     return f"{field_sql} {sql_op} ?", [n]
 
 
+def _digits_only(col: str) -> str:
+    """SQL predicate: this TEXT column holds nothing but digits.
+
+    `GLOB '[0-9]*'` only pins the FIRST character, so '1+*' passed the old
+    guard and CAST('1+*' AS INTEGER) is 1 — Tarmogoyf silently matched
+    `pow<=1`. Requiring every character to be a digit is the real test.
+    NULL columns compare to NULL and are filtered out either way.
+    """
+    return f"(c.{col} <> '' AND c.{col} NOT GLOB '*[^0-9]*')"
+
+
 def _pt_op(col: str, op: str, value: str) -> tuple[str, list]:
     """Power/toughness stored as TEXT. Use string equality for `:`/`=`, numeric
-    comparisons via GLOB-guard + CAST so '*' / '1+*' are excluded safely."""
+    comparisons via a digits-only guard + CAST so '*' / '1+*' never match."""
     if op in (":", "="):
         return f"c.{col} = ?", [value]
     try:
@@ -326,9 +402,10 @@ def _pt_op(col: str, op: str, value: str) -> tuple[str, list]:
     except ValueError:
         raise SearchError(f"expected integer for {col} {op} comparison, got {value!r}")
     sql_op = {"!=": "!=", ">": ">", "<": "<", ">=": ">=", "<=": "<="}[op]
-    # Guard: only rows whose value is digits-only. Casts like CAST('*' AS INTEGER)
-    # return 0 which would produce false matches; the GLOB filter avoids that.
-    return f"(c.{col} GLOB '[0-9]*' AND CAST(c.{col} AS INTEGER) {sql_op} ?)", [n]
+    return (
+        f"({_digits_only(col)} AND CAST(c.{col} AS INTEGER) {sql_op} ?)",
+        [n],
+    )
 
 
 def compile_term(t: Term) -> tuple[str, list]:
@@ -348,7 +425,13 @@ def compile_term(t: Term) -> tuple[str, list]:
             raise SearchError(f"type line supports only ':' or '=', got {op!r}")
         return "c.type_line LIKE ? COLLATE NOCASE", [f"%{val}%"]
     if field == "n":
-        if op not in (":", "="):
+        # `=` means "exactly" everywhere else in this language (c=, ci=), so
+        # it means exact name here too. Substring is `n:`. Without this,
+        # `n:"Lightning Bolt"` also matches
+        # 'Emeritus of Conflict // Lightning Bolt', which is a real card.
+        if op == "=":
+            return "c.name = ? COLLATE NOCASE", [val]
+        if op != ":":
             raise SearchError(f"name supports only ':' or '=', got {op!r}")
         return "c.name LIKE ? COLLATE NOCASE", [f"%{val}%"]
     if field == "kw":
@@ -410,6 +493,34 @@ def compile_term(t: Term) -> tuple[str, list]:
         if op not in (":", "="):
             raise SearchError(f"layout supports only ':' or '='")
         return "c.layout = ?", [val.lower()]
+    if field == "f":
+        # Restricted cards ARE legal to play (limited to one copy), so
+        # `f:vintage` has to include them — matching Scryfall's semantics.
+        return _legality_term(op, val, ("legal", "restricted"))
+    if field == "banned":
+        return _legality_term(op, val, ("banned",))
+    if field == "restricted":
+        return _legality_term(op, val, ("restricted",))
+    if field == "game":
+        if op not in (":", "="):
+            raise SearchError(f"game supports only ':' or '='")
+        game = val.strip().lower()
+        if game not in _GAMES:
+            raise SearchError(
+                f"unknown game: {val!r}. Valid: {', '.join(sorted(_GAMES))}"
+            )
+        # games is a sorted CSV; no game name is a substring of another.
+        return "c.games LIKE ?", [f"%{game}%"]
+    if field == "is":
+        if op not in (":", "="):
+            raise SearchError(f"is: supports only ':' or '='")
+        pred = _IS_PREDICATES.get(val.strip().lower())
+        if pred is None:
+            raise SearchError(
+                f"unknown is: predicate {val!r}. Valid: "
+                f"{', '.join(sorted(_IS_PREDICATES))}"
+            )
+        return pred, []
     raise SearchError(f"unknown field mapping: {field!r}")
 
 
@@ -467,6 +578,10 @@ _SORT_FIELD_SQL = {
     # going from mono to multicolor (or vice-versa) within a result set.
     "ci": "LENGTH(COALESCE(c.color_identity, '')) - "
           "(LENGTH(REPLACE(COALESCE(c.color_identity, ''), ',', '')))",
+    # EDHREC popularity rank: 1 = most played. `order:asc_edhrec` is
+    # "most popular first", which is what you want when browsing
+    # candidates for a deck. NULL (unranked) sorts last as usual.
+    "edhrec": "c.edhrec_rank",
 }
 
 
@@ -515,9 +630,10 @@ def _build_order_by(orders: list[tuple[str, str]]) -> str:
         dir_sql = "DESC" if direction == "desc" else "ASC"
         if field in ("pow", "power", "tou", "toughness"):
             col = "power" if field in ("pow", "power") else "toughness"
-            # Numeric when digits-only ('3'), NULL otherwise ('*', '1+*').
+            # Numeric when digits-only ('3'), NULL otherwise ('*', '1+*') —
+            # and NULLs are forced to sort last just below.
             expr = (
-                f"CASE WHEN c.{col} GLOB '[0-9]*' "
+                f"CASE WHEN {_digits_only(col)} "
                 f"THEN CAST(c.{col} AS REAL) END"
             )
         elif field in _SORT_FIELD_SQL:
@@ -566,7 +682,9 @@ def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
     )
     params_all = list(params) + [limit, offset]
     _ensure_db()
-    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    conn = sqlite3.connect(
+        f"file:{DB_PATH}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_S,
+    )
     try:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
@@ -584,7 +702,9 @@ def count_query(query: str) -> int:
     where_sql, params = _compile_where_or_all(cleaned)
     sql = f"SELECT COUNT(*) FROM cards c WHERE {where_sql}"
     _ensure_db()
-    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    conn = sqlite3.connect(
+        f"file:{DB_PATH}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_S,
+    )
     try:
         cur = conn.cursor()
         cur.execute(sql, list(params))

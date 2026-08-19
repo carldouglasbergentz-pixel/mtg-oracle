@@ -16,11 +16,18 @@ own decks. The Textual TUI in `mtg_oracle.app` is the primary interface;
 
 ## Schema (data/mtg.db)
 
-Tables: `cards`, `rulings`, `rules`, `combos` + `combo_cards` / `combo_results` / `combo_prerequisites` / `combo_steps`, `card_tags`, `card_abilities`, `decks` + `deck_folders` + `deck_cards`, `corrections`, `sync_state`. Read `scripts/init_db.py` for the full column list; only the non-obvious semantics belong here:
+Tables: `cards`, `card_legalities`, `rulings`, `rules`, `combos` + `combo_cards` / `combo_results` / `combo_prerequisites` / `combo_steps`, `card_tags`, `card_abilities`, `decks` + `deck_folders` + `deck_cards`, `corrections`, `sync_state`. Read `scripts/init_db.py` for the full column list; only the non-obvious semantics belong here:
 
 - **`cards.color_identity`** — CSV (`B,G`), spans both faces, drives commander filtering. DFC/split/flip names combine faces with ` // `; per-face data lives in `card_faces` JSON.
 - **`combos.color_identity`** — contiguous letters (`WBG`, `GU`), unlike `cards.color_identity` which is comma-separated. Match accordingly.
 - **`card_abilities.is_mana_ability`** — follows CR 605.1a/b: produces mana, has no target, is not a loyalty ability. Deathrite Shaman's mana ability is correctly *not* flagged because its cost targets a graveyard card.
+- **`card_legalities` only stores `legal` / `restricted` / `banned`.** Scryfall reports all 23 formats for every card, but ~55% are `not_legal` — so **no row means not legal**, and every query has to treat absence as illegal. `f:` matches legal *or* restricted. Format keys are folded through `queries.normalize_format()`; `legality_format_or_none()` is the lenient variant for free-text `decks.format` and returns None for community formats with no upstream list (Canadian Highlander).
+- **`restricted` means two different things**, per `queries.RESTRICTED_MEANS_NO_COMMANDER`. In `vintage` / `oldschool` it's a one-copy limit. In `duel` (Duel Commander) and `tlr` (Tiny Leaders: Reborn) it's **banned as commander, legal in the deck** — verified against duelcommander.org, whose "cannot be used as your commander" list is exactly Scryfall's 27 `duel` restricted rows. `get_card` re-buckets those as `no_commander`.
+- **Scryfall's `duel` key *is* Duel Commander** — you already have that community format, ban list and all (250 bans, 186 of them not shared with EDH). `tlr` is Tiny Leaders: Reborn. Don't build a scraper for either.
+- **`custom_formats` / `custom_format_points`** cover what Scryfall can't express: a points list. `derives_from` names the Scryfall format whose pool is inherited (`canadianhighlander` → `vintage`, because the format shares Vintage's ban list), so legality is never duplicated. Source data is curated JSON in `data/formats/`, loaded by `sync.py --only formats`; a card name that doesn't resolve is a hard failure. `queries.resolve_format()` is the single answer to "what is this format string" — key, label, inherited legality key, points budget, singleton flag — and it's cached, so call `queries.clear_format_cache()` after loading formats.
+- **`cards.games`** — CSV (`arena,mtgo,paper`). This is what separates real cards from the 216 Arena-only Alchemy `A-` rebalances that otherwise head every alphabetical result. `game:paper` is the filter.
+- **`card_tags` PK is `(card_name, tag, category)`** — a token can legitimately be two things on one card (`saga`, `adventure`, `dragon` are subtypes *and* keywords). The old two-column key silently kept whichever row `tag_cards.py`'s set happened to yield first, so `kw:` results varied between syncs. Existing DBs need `scripts/migrate_fix_card_tags_pk.py`.
+- **`cards` rows are never pruned.** `sync_cards.py` upserts on `name`; a card whose name stops appearing upstream keeps its old row with NULL Scryfall columns, and a NULL `color_identity` reads as colorless — which leaks into every `ci<=` filter. `scripts/prune_stale_cards.py` is the cleanup (dry run by default).
 - **`deck_cards.is_commander`** — drives format-aware behavior (see below). Multiple rows allowed for Partner / Background / Friends Forever. ON DELETE CASCADE from `decks`.
 - **`sync_state`** — keyed on `source` with `updated_at` upstream marker (timestamp / ETag / release date).
 
@@ -44,7 +51,9 @@ Corrections are for **specific factual mistakes** about cards/rules/combos. They
 
 ## Workflow
 
-Setup commands live in [`README.md`](README.md). The load-bearing detail for code work is that `scripts/sync.py` is idempotent (sources skip when upstream is unchanged), takes `--force` to re-ingest, `--only cards|rules|combos|tags` to scope, and self-heals the schema by running `migrate_add_scryfall_fields.py` on every invocation. Each run prints `=== changelog ===` summarizing what changed.
+Setup commands live in [`README.md`](README.md). The load-bearing detail for code work is that `scripts/sync.py` is idempotent (sources skip when upstream is unchanged), takes `--force` to re-ingest, `--only cards|rules|combos|tags` to scope, and self-heals the schema by running the additive migrations in `SELF_HEAL_MIGRATIONS` on every invocation. Each run prints `=== changelog ===` summarizing what changed.
+
+Scryfall serves bulk data as **gzipped JSON Lines** via `jsonl_download_uri` — one object per line, not a JSON array. The old uncompressed `download_uri` field is gone. `sync_cards.py` streams it; don't reintroduce `json.load` over the whole export.
 
 ## Query patterns
 
@@ -59,10 +68,12 @@ GROUP BY combo_id HAVING COUNT(DISTINCT card_name) = ?;
 
 ## Format-aware deck behavior
 
-Two triggers decide whether a deck's `add` and `search` get extra rules:
+Three triggers decide whether a deck's `add` and `search` get extra rules:
 
 - **Commander color identity.** When a deck has any `deck_cards.is_commander = 1` row, the deck's effective CI is the sorted union of those rows' `cards.color_identity`. `mtg_oracle.decks.get_deck_color_identity()` returns it (or `None` for no commanders). `add` rejects cards whose CI isn't a subset of the deck CI; `search` inside the deck is hard-filtered with `ci<=<deck CI>`.
-- **Singleton.** When `decks.format` (case-insensitive) is in `mtg_oracle.decks.SINGLETON_FORMATS` (`commander`, `edh`, `duel commander`, `1v1 commander`, `brawl`, `historic brawl`, `standard brawl`, `oathbreaker`, `highlander`, `canadian highlander`), `add` rejects a 2nd copy of the same card. Basic lands (type line contains `Basic` + `Land`) and cards whose oracle text contains `a deck can have any number of cards named` are exempt. Sideboard rows count separately from main.
+- **Format legality.** When `decks.format` resolves to a legality key (`mtg_oracle.decks.get_deck_format_info()`, which follows `derives_from` for custom formats), `search` inside the deck is also hard-filtered with `f:<format>`, and `add` rejects banned cards and cards outside the format's pool with distinct messages naming both the format and its inherited pool. Unlike the CI check, this one *does* apply to commanders — an illegal commander is still illegal. Formats with no definition and no Scryfall key are unchecked.
+- **Points budget.** When the resolved format has a `points_budget` (Canadian Highlander: 10), `add` rejects a card whose points wouldn't fit, and `decks.deck_points()` / the `points` command report spend vs. budget. Going over via `--force` is reported (`[11/10 pts!]`), never hidden.
+- **Singleton.** `decks.format` is folded through `queries.fold_format()` first, so every spelling resolves to one answer (`EDH` → `commander`, `1v1 commander` → `duel`, `tiny leaders` → `tlr`). A folded key in `decks.SINGLETON_LEGALITY_FORMATS` (the 10 Scryfall formats that are singleton) or `decks.SINGLETON_COMMUNITY_FORMATS` (`canlander`, `canadianhighlander`, `highlander`, `ozhighlander`, `leviathan` — no upstream list) makes `add` reject a 2nd copy. Basic lands (type line contains `Basic` + `Land`) and cards whose oracle text contains `a deck can have any number of cards named` are exempt. Sideboard rows count separately from main.
 
 Both checks accept `force=True` (kwarg) / `--force` (TUI) to bypass for one call. `import_deck` always forces — paste lists are loaded verbatim. The commander row itself is never CI-checked because it *defines* the CI.
 

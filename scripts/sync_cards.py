@@ -4,17 +4,25 @@ Fetches the `oracle_cards` and `rulings` bulk files, upserts them into the
 local SQLite database, and records the upstream `updated_at` per source in
 the `sync_state` table so subsequent runs can skip when nothing has changed.
 
+Scryfall serves bulk data as gzipped JSON Lines (`jsonl_download_uri`) —
+one JSON object per line, not a single JSON array. We keep the payload
+gzipped on disk and stream it line by line, so a 400 MB export never has
+to fit in memory.
+
 Run:
     python scripts/sync_cards.py            # skip if upstream unchanged
     python scripts/sync_cards.py --force    # re-ingest regardless
 """
 import argparse
 import datetime as dt
+import gzip
 import json
+import shutil
 import sqlite3
 import sys
 import urllib.request
 from pathlib import Path
+from typing import Iterator
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 RAW_DIR = Path(__file__).parent.parent / "data" / "raw"
@@ -60,15 +68,41 @@ def set_sync_state(
 
 
 def download_bulk(entry: dict, label: str) -> Path:
+    """Stream the gzipped JSONL export to data/raw/ and return its path."""
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    target = RAW_DIR / f"scryfall_{label}.json"
-    url = entry["download_uri"]
-    size_mb = entry.get("size", 0) / 1_000_000
-    print(f"-> Downloading {label} ({size_mb:.1f} MB) from {url}")
-    data = _http_get(url)
-    target.write_bytes(data)
-    print(f"OK Saved {target} ({len(data) / 1_000_000:.1f} MB)")
+    target = RAW_DIR / f"scryfall_{label}.jsonl.gz"
+    url = entry.get("jsonl_download_uri")
+    if not url:
+        # Fail loud with the actual payload shape — Scryfall dropped the old
+        # uncompressed `download_uri` field in 2026, and a bare KeyError here
+        # told us nothing about what changed.
+        raise RuntimeError(
+            f"Scryfall bulk entry {label!r} has no 'jsonl_download_uri'. "
+            f"Fields present: {sorted(entry)}. The bulk-data API shape "
+            f"changed — update scripts/sync_cards.py."
+        )
+    size_mb = entry.get("compressed_size", 0) / 1_000_000
+    print(f"-> Downloading {label} ({size_mb:.1f} MB gzipped) from {url}")
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=300) as resp, open(target, "wb") as f:
+        shutil.copyfileobj(resp, f)
+    print(f"OK Saved {target} ({target.stat().st_size / 1_000_000:.1f} MB)")
     return target
+
+
+def _iter_jsonl(path: Path) -> Iterator[dict]:
+    """Yield one object per line from a gzipped JSON Lines file.
+
+    Streaming keeps peak memory flat — `json.load` on the uncompressed
+    export used to hold ~150 MB of Python objects at once.
+    """
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip().rstrip(",")
+            # Tolerate a stray array wrapper if Scryfall ever ships one.
+            if not line or line in ("[", "]"):
+                continue
+            yield json.loads(line)
 
 
 def _face_text(card: dict) -> str:
@@ -146,6 +180,36 @@ def _color_identity(card: dict) -> str:
     return ",".join(sorted(ci))
 
 
+def _games(card: dict) -> str:
+    """CSV of the games this card exists in: paper / mtgo / arena / ...
+
+    This is the field that separates real cards from Arena-only Alchemy
+    rebalances (the 220 `A-` prefixed rows), which otherwise sort to the
+    top of every alphabetical search result.
+    """
+    games = card.get("games")
+    if not isinstance(games, list):
+        return ""
+    return ",".join(sorted(str(g) for g in games))
+
+
+def _legality_rows(name: str, card: dict) -> list[tuple[str, str, str]]:
+    """(name, format, status) rows for every format the card is playable-ish in.
+
+    `not_legal` is dropped: Scryfall reports all 23 formats for all 35k
+    cards, and ~55% of those are `not_legal`. Absence of a row means
+    "not legal", which every query already has to handle anyway.
+    """
+    legalities = card.get("legalities")
+    if not isinstance(legalities, dict):
+        return []
+    return [
+        (name, fmt, status)
+        for fmt, status in legalities.items()
+        if status and status != "not_legal"
+    ]
+
+
 def _mana_value(card: dict) -> int:
     """Scryfall's `cmc` is typically float (0.5 for Who/What/When/Where/Why).
     Round down to int; None -> 0."""
@@ -179,12 +243,13 @@ def _toughness(card: dict):
 
 def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
     print(f"-> Parsing {path.name}")
-    with open(path, encoding="utf-8") as f:
-        cards = json.load(f)
-
     cur = conn.cursor()
     count = 0
-    for card in cards:
+    # Legalities are a full snapshot per sync — ban lists change, so a
+    # stale `banned` row is worse than no row. Wipe and rebuild.
+    cur.execute("DELETE FROM card_legalities")
+    legality_rows: list[tuple[str, str, str]] = []
+    for card in _iter_jsonl(path):
         # Scryfall oracle-cards includes tokens, emblems, art series, etc.
         # Skip non-playable layouts that add noise without rulings value.
         layout = card.get("layout", "")
@@ -203,9 +268,10 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
             INSERT INTO cards (
                 name, oracle_id, oracle_text, mana_cost, mana_value,
                 colors, color_identity, power, toughness, rarity,
-                type_line, layout, card_faces
+                type_line, layout, card_faces,
+                games, reserved, edhrec_rank
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 oracle_id      = excluded.oracle_id,
                 oracle_text    = excluded.oracle_text,
@@ -218,7 +284,10 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
                 rarity         = excluded.rarity,
                 type_line      = excluded.type_line,
                 layout         = excluded.layout,
-                card_faces     = excluded.card_faces
+                card_faces     = excluded.card_faces,
+                games          = excluded.games,
+                reserved       = excluded.reserved,
+                edhrec_rank    = excluded.edhrec_rank
             """,
             (
                 name,
@@ -234,20 +303,30 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
                 _face_type_line(card),
                 layout,
                 faces_json,
+                _games(card),
+                int(bool(card.get("reserved"))),
+                card.get("edhrec_rank"),
             ),
         )
+        legality_rows.extend(_legality_rows(name, card))
         count += 1
 
+    cur.executemany(
+        "INSERT OR REPLACE INTO card_legalities (card_name, format, status) "
+        "VALUES (?, ?, ?)",
+        legality_rows,
+    )
     conn.commit()
+    formats = cur.execute(
+        "SELECT COUNT(DISTINCT format) FROM card_legalities"
+    ).fetchone()[0]
     print(f"OK Upserted {count:,} cards")
+    print(f"OK Ingested {len(legality_rows):,} legality rows across {formats} formats")
     return count
 
 
 def ingest_rulings(conn: sqlite3.Connection, path: Path) -> int:
     print(f"-> Parsing {path.name}")
-    with open(path, encoding="utf-8") as f:
-        rulings = json.load(f)
-
     cur = conn.cursor()
 
     # Build oracle_id -> name map so we can keep card_name populated for
@@ -260,7 +339,7 @@ def ingest_rulings(conn: sqlite3.Connection, path: Path) -> int:
 
     count = 0
     orphaned = 0
-    for r in rulings:
+    for r in _iter_jsonl(path):
         oracle_id = r.get("oracle_id")
         name = name_by_oracle.get(oracle_id)
         if not name:

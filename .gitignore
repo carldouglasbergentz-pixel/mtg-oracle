@@ -10,6 +10,9 @@ data/raw/
 # User preferences (theme, etc.) — per-machine, not source
 data/config.json
 
+# Generated spreadsheets / dumps from scripts/export_*.py
+data/exports/
+
 # Python
 __pycache__/
 *.pyc

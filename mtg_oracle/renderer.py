@@ -70,6 +70,50 @@ def wrap_combo_row(
     return "\n".join(lines)
 
 
+# Wide enough that the longest label ('1 copy only', 'not as cmdr') still
+# leaves a gap before the body column.
+_LABEL_W = 13
+
+
+def _label_row(label: str, body: str) -> str:
+    """`  label      body...` with the wrap hanging under the body column."""
+    return textwrap.fill(
+        body, width=WRAP_COLS,
+        initial_indent=f"{INDENT}{label:<{_LABEL_W}}",
+        subsequent_indent=INDENT + " " * _LABEL_W,
+        break_long_words=False,
+    )
+
+
+def _points_badge(points: Optional[dict]) -> str:
+    """`[7/10 pts]` for a points-list format, `!` suffixed when over budget."""
+    if not points:
+        return ""
+    over = "!" if points.get("over") else ""
+    return f"[{points['total']}/{points['budget']} pts{over}]"
+
+
+def render_points(points: dict) -> str:
+    """Which cards a deck is spending its points on, dearest first."""
+    lines = [
+        f"{points['label']} points: {points['total']} of {points['budget']}"
+        + ("  -- OVER BUDGET" if points.get("over") else "")
+    ]
+    if not points["cards"]:
+        lines.append(f"{INDENT}(no pointed cards in this deck)")
+        return "\n".join(lines)
+    for name, pts, qty, subtotal in points["cards"]:
+        qty_str = f" x{qty}" if qty > 1 else ""
+        lines.append(f"{INDENT}{subtotal:>2}  {name}{qty_str}"
+                     + (f"  ({pts} each)" if qty > 1 else ""))
+    remaining = points["budget"] - points["total"]
+    lines.append(
+        f"{INDENT}{'--':>2}  {abs(remaining)} point(s) "
+        + ("over budget" if remaining < 0 else "left")
+    )
+    return "\n".join(lines)
+
+
 def _ci_badge(commander_ci) -> str:
     """Render a deck's commander color identity as a compact badge.
 
@@ -136,6 +180,32 @@ def render_card(card: dict) -> str:
                 lines.append(f"{INDENT}  cost:   {a['cost']}")
             if a.get("effect"):
                 lines.append(wrap(f"effect: {a['effect']}", indent=INDENT * 2))
+
+    legalities = card.get("legalities") or {}
+    flags = []
+    if card.get("reserved"):
+        flags.append("Reserved List")
+    if card.get("games"):
+        flags.append(card["games"].replace(",", "/"))
+    if card.get("edhrec_rank"):
+        flags.append(f"EDHREC #{card['edhrec_rank']:,}")
+    if legalities or flags:
+        lines.append("")
+        lines.append("Legality:")
+        # `legal` is the long list; the rest are the facts that change a
+        # decision, so each gets its own row. A format with no row at all
+        # is simply not legal — see sync_cards.py. `no_commander` is
+        # Duel Commander / Tiny Leaders' "may be in the deck, not as your
+        # commander"; queries.get_card splits it out from `restricted`.
+        for status, label in (("legal", "legal"),
+                              ("restricted", "1 copy only"),
+                              ("no_commander", "not as cmdr"),
+                              ("banned", "banned")):
+            formats = legalities.get(status)
+            if formats:
+                lines.append(_label_row(label, ", ".join(formats)))
+        if flags:
+            lines.append(_label_row("printings", "  ·  ".join(flags)))
 
     rulings = card.get("rulings") or []
     if rulings:
@@ -417,7 +487,7 @@ def render_deck_list(
 
 def render_folder_list(folders: list[dict]) -> str:
     if not folders:
-        return "(no folders yet — use `folder new <name>`)"
+        return "(no folders yet — use `mkdir <name>`)"
     lines = ["Folders:"]
     for f in folders:
         created = (f.get("created_at") or "")[:10]
@@ -444,6 +514,9 @@ def render_deck(deck: dict) -> str:
     ci = _ci_badge(deck.get("commander_ci"))
     if ci:
         header_right.append(ci)
+    pts = _points_badge(deck.get("points"))
+    if pts:
+        header_right.append(pts)
     header_right.append(f"{total} cards")
     side_total = deck.get("total_side", 0)
     if side_total:
@@ -485,6 +558,11 @@ def render_deck(deck: dict) -> str:
     if sideboard:
         ordered.append(("Sideboard", sideboard))
 
+    # Mark pointed cards inline so you can see where the budget went
+    # without switching views.
+    points = deck.get("points")
+    points_by_card = {n.lower(): p for n, p, _q, _s in (points or {}).get("cards", [])}
+
     for bucket, cards in ordered:
         subtotal = sum(c["quantity"] for c in cards)
         lines.append("")
@@ -495,9 +573,16 @@ def render_deck(deck: dict) -> str:
             type_line = c.get("type_line") or ""
             # Truncate type line; whole row must stay within WRAP_COLS-ish.
             type_trunc = type_line if len(type_line) <= 30 else type_line[:28] + ".."
+            pts = points_by_card.get((c["card_name"] or "").lower())
+            marker = f" <{pts}p>" if pts else ""
             lines.append(
-                f"{INDENT}{qty:>2}x {c['card_name']:<38} {cost:<14} {type_trunc}"
+                f"{INDENT}{qty:>2}x {c['card_name']:<38} {cost:<14} "
+                f"{type_trunc}{marker}"
             )
+
+    if points:
+        lines.append("")
+        lines.append(render_points(points))
 
     return "\n".join(lines)
 
@@ -546,7 +631,7 @@ def render_combos_compact(combos: list[dict], width: int = 48) -> str:
     Each combo gets a header line plus its card list wrapping at ' + '.
     """
     if not combos:
-        return "COMBOS\n" + "-" * min(width, 6) + "\n  (no Spellbook combos fully contained)"
+        return "COMBOS\n" + "-" * min(width, 6) + "\n  (no combos fully contained in this deck)"
     lines = ["COMBOS", "-" * min(width, 6)]
     lines.append(f"{len(combos)} combo(s) — `combo-info <N>` to expand")
     for i, c in enumerate(combos, 1):
@@ -588,9 +673,10 @@ def render_deck_compact(
         name_line = name_line[:width - 2] + ".."
 
     lines: list[str] = [name_line, " / ".join(bits)]
-    ci = _ci_badge(deck.get("commander_ci"))
-    if ci:
-        lines.append(ci)
+    badges = [b for b in (_ci_badge(deck.get("commander_ci")),
+                          _points_badge(deck.get("points"))) if b]
+    if badges:
+        lines.append(" ".join(badges))
     lines.append("=" * min(width, len(name_line)))
 
     commanders: list[dict] = []
@@ -639,6 +725,13 @@ def render_deck_compact(
                 cn = cn[:name_w - 2] + ".."
             lines.append(f"  {qty:>2}x {cn}")
 
+    points = deck.get("points")
+    if points:
+        lines.append("")
+        lines.append("POINTS")
+        lines.append("-" * min(width, 6))
+        lines.append(render_points(points))
+
     if analytics is not None:
         lines.append("")
         lines.append(render_analytics_compact(analytics, width=width))
@@ -650,10 +743,11 @@ def render_deck_compact(
 
 
 def render_import_result(deck_name: str, result: dict) -> str:
+    copies = result.get("copies")
+    copies_str = f" ({copies} copies)" if copies is not None else ""
     lines = [
-        f"Imported deck {deck_name!r}: "
-        f"{result['added']} cards added "
-        f"from {result['total_input']} input lines."
+        f"Loaded into {deck_name!r}: {result['added']} of "
+        f"{result['total_input']} input lines{copies_str}."
     ]
     unresolved = result.get("unresolved") or []
     if unresolved:
@@ -662,6 +756,13 @@ def render_import_result(deck_name: str, result: dict) -> str:
         )
         for u in unresolved:
             lines.append(f"{INDENT}- {u}")
+    # Rejections come from deck-layer validation (CI / singleton). They used
+    # to vanish without a trace, which read as a silent data loss.
+    rejected = result.get("rejected") or []
+    if rejected:
+        lines.append(f"WARNING {len(rejected)} card(s) rejected by deck rules:")
+        for name, reason in rejected:
+            lines.append(f"{INDENT}- {name}: {reason}")
     return "\n".join(lines)
 
 

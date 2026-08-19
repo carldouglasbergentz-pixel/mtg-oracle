@@ -6,10 +6,12 @@ Runs offline after first sync. No network at query time.
 
 ## What's in the box
 
-- **Cards** — 34k+ unique cards from the Scryfall bulk export, including mana cost, colors, mana value, power/toughness, rarity, layout, and per-face data for DFCs / split / flip cards.
-- **Rulings** — 75k+ official Scryfall/Wizards rulings, joined to cards via `oracle_id`.
-- **Comprehensive Rules** — every numbered rule (3,400+) parsed from the Wizards `.txt` release with parent / section links.
-- **Combos** — 84k+ Commander Spellbook combos with cards, prerequisites, results, and step-by-step play sequences.
+- **Cards** — 35k+ unique cards from the Scryfall bulk export, including mana cost, colors, mana value, power/toughness, rarity, layout, and per-face data for DFCs / split / flip cards.
+- **Rulings** — 78k+ official Scryfall/Wizards rulings, joined to cards via `oracle_id`.
+- **Comprehensive Rules** — every numbered rule (3,300+) parsed from the Wizards `.txt` release with parent / section links.
+- **Combos** — 104k+ Commander Spellbook combos with cards, prerequisites, results, and step-by-step play sequences.
+- **Format legality** — every card's status (`legal` / `restricted` / `banned`) in all 23 formats Scryfall tracks, plus which games it was printed in and its EDHREC popularity rank. Searchable, and enforced per deck. Includes several formats people assume aren't covered: `duel` *is* Duel Commander, `tlr` is Tiny Leaders: Reborn, and Oathbreaker / Pauper Commander / PreDH / Old School are all in there.
+- **Community formats with points** — Canadian Highlander's 43-card points list, with the 10-point deck cap enforced on `add` and shown as a `[7/10 pts]` badge. Definitions are curated JSON in [`data/formats/`](data/formats/); legality is inherited from the Scryfall format they share a ban list with, so nothing is duplicated.
 - **Structured tags** — auto-derived per card: CR 702 keywords, supertypes / types / subtypes, plus a `card_abilities` table with `has_target` / `produces_mana` / `is_mana_ability` per parsed ability (CR 605.1a/b).
 - **Decks Lite** — your own deck-builder. Folders, decks, deck cards. Import from clipboard or text file. Auto-grouped render by card type. Combo detection inside a deck.
 - **Feedback loop** — a `corrections` table that persists factual mistakes so they don't re-emerge in future sessions. Auto-attached to card lookups.
@@ -36,21 +38,27 @@ python scripts/mtg_cli.py search "kw:flying c:u t:creature mv<=3"
 
 `sync.py` is idempotent — it skips any source whose upstream version (timestamp / ETag / release date) hasn't moved. The end of every run prints a `=== changelog ===` summary of what actually changed.
 
+`init_db.py` creates the complete schema, so a fresh install needs nothing else.
+
 ### Existing database from an earlier version?
 
-The repo ships several idempotent migrations that incrementally extend the schema. Apply them in order:
+`sync.py` self-heals: it runs the additive migrations (`scryfall_fields`, `tags`, `corrections`, `user_combos`) on every invocation and stays quiet unless one of them actually changes something. For older databases that predate the `oracle_id` / `mana_cost` / `decks` work, apply those three first:
 
 ```bash
-python scripts/migrate_add_oracle_id.py        # original Scryfall migration
+python scripts/migrate_add_oracle_id.py        # oracle_id, layout, card_faces, sync_state
 python scripts/migrate_add_mana_cost.py        # mana cost rendering
-python scripts/migrate_add_scryfall_fields.py  # colors, power, toughness, rarity, mana_value
-python scripts/migrate_add_tags.py             # card_tags + card_abilities
-python scripts/migrate_add_corrections.py      # feedback loop
 python scripts/migrate_add_decks.py            # decks + folders
-python scripts/sync.py --force                 # repopulate everything from cached bulk
+python scripts/sync.py --force                 # repopulate everything
 ```
 
-Each migration only adds columns / tables that don't exist yet. Running them on a fresh DB is harmless.
+Two one-shot fixes are not in the self-heal list because they rebuild rather than add:
+
+```bash
+python scripts/migrate_fix_card_tags_pk.py     # card_tags PK -> (card_name, tag, category)
+python scripts/prune_stale_cards.py            # dry run; --yes deletes stale card rows
+```
+
+Each migration only touches what it needs to. Running them on a fresh DB is harmless.
 
 ## TUI — terminal-style navigation
 
@@ -64,10 +72,12 @@ The Textual app behaves like a tiny shell. Three levels of "filesystem":
 
 The status bar always shows where you are. Commands change meaning by depth:
 
-| Anywhere | At root or in folder | In a deck |
-|---|---|---|
-| `pwd`, `ls`, `ls all` | `mkdir`, `rmdir`, `new`, `delete` | `add`, `remove`, `combos` |
-| `cd <name>`, `cd ..`, `cd /` | `rename`, `move`, `show <deck>` | `paste`, `import <filepath>` |
+| Anywhere | At root | In a folder | In a deck |
+|---|---|---|---|
+| `pwd`, `ls`, `ls all` | `mkdir`, `rmdir` | `add <deck>`, `remove <deck>` | `add <card>`, `remove <card>` |
+| `cd <name>`, `cd ..`, `cd /` | `show <deck>` | `rename`, `move`, `show <deck>` | `commander`, `points`, `combos`, `paste`, `import <filepath>` |
+
+`add` and `remove` change meaning with your location — there are no separate `new` / `delete` verbs. `help decks` prints the full model in the app.
 
 Plus, on every screen:
 - `card <name-or-N>` — full card profile (or expand the N-th row of the last search)
@@ -87,9 +97,11 @@ search c=wu t:instant
 search pow>=4 t:creature r:mythic order:desc_rarity
 ```
 
-Operators: `o:` `t:` `n:` `kw:` `c:` `c=` `ci:` `mv:` `pow:` `tou:` `r:` `layout:` plus comparisons (`<`, `>`, `<=`, `>=`, `!=`) on numeric fields. Boolean `or`, `not` (or `-` prefix), parentheses for grouping.
+Operators: `o:` `t:` `n:` (substring) `n=` (exact) `kw:` `c:` `c=` `ci:` `mv:` `pow:` `tou:` `r:` `layout:` plus comparisons (`<`, `>`, `<=`, `>=`, `!=`) on numeric fields. Boolean `or`, `not` (or `-` prefix), parentheses for grouping.
 
-Sorting: `order:asc_FIELD` / `order:desc_FIELD` (alias `sort:`). Fields: `mv`, `name`, `power`, `toughness`, `rarity` (tier order common→mythic), `color`, `ci` (number of colors). Direction prefix is required. NULLs always sort last.
+Format legality: `f:FORMAT` (legal or restricted), `banned:FORMAT`, `restricted:FORMAT`, `game:paper|arena|mtgo`, `is:reserved`. All 23 formats Scryfall tracks, from `alchemy` to `vintage` — including `competitivebrawl`, whose ban list differs from `brawl`'s by 33 cards. Spaces and hyphens are ignored (`f:"competitive brawl"`), and `edh` / `pdh` / `cbrawl` are aliases. `game:paper` drops the 216 Arena-only Alchemy `A-` rebalances.
+
+Sorting: `order:asc_FIELD` / `order:desc_FIELD` (alias `sort:`). Fields: `mv`, `name`, `power`, `toughness`, `rarity` (tier order common→mythic), `color`, `ci` (number of colors), `edhrec` (popularity — `asc` is most-played first). Direction prefix is required. NULLs always sort last.
 
 Pagination: `next`, `prev`, `page <N>`. `card <N>` expands the N-th row of the most recent search into a full profile. Tab / right arrow accepts the autofill suggestion that appears as gray ghost text.
 
@@ -137,7 +149,10 @@ The plain-text parser tolerates every common format: `4 Card`, `4x Card`, `Card 
 Set `format = commander` (or `edh`, `canadian highlander`, `brawl`, `oathbreaker`, `highlander`, ...) on a deck and `is_commander = 1` on the commander card to unlock format-aware behavior:
 
 - **Color-identity filter on search.** Inside the deck, every `search` is hard-filtered by `ci<=<commander CI>`. Multiple commander rows union (Partner / Background / Friends Forever). The filter is announced inline; `cd ..` exits it.
+- **Format-legality filter on search.** When the deck's format maps to a Scryfall legality key, `search` is *also* filtered by `f:<format>` — so inside a Competitive Brawl deck you only ever see cards you can actually register. Both active filters are shown above the results.
 - **CI validation on add.** `add` rejects cards whose color identity isn't a subset of the deck CI. `add --force <card>` overrides for one call. The commander itself is never CI-checked — it *defines* the CI.
+- **Legality validation on add.** Banned cards and cards outside the format's pool are rejected with distinct messages. This check *does* apply to the commander.
+- **Points budget.** In a format with a points list (Canadian Highlander), `add` refuses a card that wouldn't fit the 10-point cap and says what the deck is currently spending. `points` breaks down where the budget went; `show` marks pointed cards `<3p>`.
 - **Singleton enforcement on add.** Adding a 2nd copy of any non-basic, non-"any-number-of" card is rejected. Basics and cards like *Relentless Rats* / *Dragon's Approach* are exempt automatically. Sideboard rows are validated independently from the main deck.
 - **Combos pre-filtered to the deck.** `card <name>` inside a commander deck filters the embedded "Top combos featuring this card" list to combos whose CI fits — so an artifact like *Ashnod's Altar* in a Savra (BG) deck only lists combos you can actually play.
 - **Commander pinned in the live deck pane** plus a `[CI: XY]` badge in the deck-list, full deck view, and live deck view headers.
@@ -163,11 +178,12 @@ Every command has `--help`.
 
 | Source | Fetch | Cadence | Idempotency key |
 |---|---|---|---|
-| Cards + rulings | Scryfall `oracle_cards` + `rulings` bulk JSON | daily upstream | `updated_at` timestamp |
+| Cards + rulings | Scryfall `oracle_cards` + `rulings` bulk, gzipped JSONL (`jsonl_download_uri`) | daily upstream | `updated_at` timestamp |
 | Comprehensive Rules | scrape `magic.wizards.com/en/rules` for the latest `.txt` | ~6 / year (set releases) | release date in the URL (`MagicCompRules YYYYMMDD.txt`) |
 | Combos | Commander Spellbook `variants.json` | weekly | HTTP ETag |
 | Tags | local regex on `oracle_text` + type-line | every sync | rebuilt fresh — fast (~3 s) |
-| Decks | user-supplied (text / clipboard / Moxfield CLI flag) | manual | n/a |
+| Community formats | curated JSON in `data/formats/` | manual (list changes ~quarterly) | `verified_at` in the file |
+| Decks | user-supplied (text / clipboard / file) | manual | n/a |
 
 ## Project layout
 
@@ -184,19 +200,22 @@ mtg-oracle/
 │   ├── project-plan.md              Phased plan w/ exit criteria + parked items
 │   └── app-design.md                Aesthetic intent (terminal / monochrome)
 ├── data/
+│   ├── formats/                     Community-format definitions (tracked)
 │   ├── raw/                         Cached upstream payloads (gitignored)
 │   └── mtg.db                       The database (gitignored)
 ├── mtg_oracle/                      Importable package
-│   ├── queries.py                   get_card / search_cards / find_combos / get_rule / ...
+│   ├── queries.py                   get_card / find_combos / get_rule / get_corrections / ...
 │   ├── decks.py                     Deck CRUD, name resolution, combos-in-deck
 │   ├── deck_parser.py               Tolerant plain-text deckstring parser
 │   ├── scryfall_search.py           Tokenizer + parser + SQL compiler for `search`
 │   ├── renderer.py                  Plain-ASCII renderers, shared by CLI + TUI
 │   └── app.py                       Textual TUI app
 └── scripts/
-    ├── init_db.py                   Create schema on a fresh DB
+    ├── init_db.py                   Create the full schema on a fresh DB
     ├── sync.py                      Orchestrator (cards + rules + combos + tags)
-    ├── sync_cards.py                Scryfall bulk
+    ├── sync_cards.py                Scryfall bulk (gzipped JSONL, streamed)
+    ├── load_custom_formats.py       data/formats/*.json -> custom_formats
+    ├── prune_stale_cards.py         Drop card rows upstream no longer ships
     ├── sync_rules.py                Wizards CR scrape
     ├── sync_combos.py               Commander Spellbook
     ├── tag_cards.py                 Local regex tagger

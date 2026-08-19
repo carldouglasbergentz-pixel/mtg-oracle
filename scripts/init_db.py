@@ -19,12 +19,16 @@ CREATE TABLE IF NOT EXISTS cards (
     rarity TEXT,
     type_line TEXT,
     layout TEXT,
-    card_faces TEXT
+    card_faces TEXT,
+    games TEXT,
+    reserved INTEGER,
+    edhrec_rank INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_cards_mana_value ON cards(mana_value);
 CREATE INDEX IF NOT EXISTS idx_cards_rarity ON cards(rarity);
 CREATE INDEX IF NOT EXISTS idx_cards_oracle_id ON cards(oracle_id);
 CREATE INDEX IF NOT EXISTS idx_cards_color_identity ON cards(color_identity);
+CREATE INDEX IF NOT EXISTS idx_cards_edhrec ON cards(edhrec_rank);
 
 CREATE TABLE IF NOT EXISTS rulings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,6 +111,95 @@ CREATE TABLE IF NOT EXISTS user_combo_cards (
     FOREIGN KEY (combo_id) REFERENCES user_combos(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_user_combo_cards_card ON user_combo_cards(card_name);
+
+-- PK includes `category`: a token can be both a subtype and a keyword on
+-- the same card ('saga', 'adventure', 'dragon'). A (card_name, tag) key
+-- kept only one of them, and which one won depended on set iteration
+-- order. Existing databases: scripts/migrate_fix_card_tags_pk.py.
+-- Per-format legality. Only `legal` / `restricted` / `banned` rows exist:
+-- Scryfall reports all 23 formats for every card and ~55% are `not_legal`,
+-- so absence of a row IS "not legal". Note `restricted` means one-copy in
+-- vintage/oldschool but banned-as-commander in duel/tlr — see
+-- queries.RESTRICTED_MEANS_NO_COMMANDER.
+CREATE TABLE IF NOT EXISTS card_legalities (
+    card_name TEXT NOT NULL,
+    format TEXT NOT NULL,
+    status TEXT NOT NULL,
+    PRIMARY KEY (card_name, format),
+    FOREIGN KEY (card_name) REFERENCES cards(name)
+);
+CREATE INDEX IF NOT EXISTS idx_card_legalities_format
+    ON card_legalities(format, status);
+
+-- Community formats Scryfall can't express, i.e. points lists. `derives_from`
+-- names the Scryfall format whose card pool is inherited (Canadian Highlander
+-- shares Vintage's ban list). Source data: data/formats/*.json.
+CREATE TABLE IF NOT EXISTS custom_formats (
+    format TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    aliases TEXT,
+    derives_from TEXT,
+    points_budget INTEGER,
+    singleton INTEGER NOT NULL DEFAULT 0,
+    source_url TEXT,
+    list_current_as_of TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS custom_format_points (
+    format TEXT NOT NULL,
+    card_name TEXT NOT NULL,
+    points INTEGER NOT NULL CHECK(points > 0),
+    PRIMARY KEY (format, card_name),
+    FOREIGN KEY (format) REFERENCES custom_formats(format) ON DELETE CASCADE,
+    FOREIGN KEY (card_name) REFERENCES cards(name)
+);
+CREATE INDEX IF NOT EXISTS idx_custom_points_card
+    ON custom_format_points(card_name);
+
+CREATE TABLE IF NOT EXISTS card_tags (
+    card_name TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    category TEXT NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (card_name, tag, category),
+    FOREIGN KEY (card_name) REFERENCES cards(name)
+);
+CREATE INDEX IF NOT EXISTS idx_card_tags_tag ON card_tags(tag);
+CREATE INDEX IF NOT EXISTS idx_card_tags_category ON card_tags(category);
+
+CREATE TABLE IF NOT EXISTS card_abilities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_name TEXT NOT NULL,
+    ability_index INTEGER NOT NULL,
+    ability_type TEXT NOT NULL,
+    cost TEXT,
+    effect TEXT,
+    has_target INTEGER NOT NULL DEFAULT 0,
+    produces_mana INTEGER NOT NULL DEFAULT 0,
+    is_mana_ability INTEGER NOT NULL DEFAULT 0,
+    raw_text TEXT NOT NULL,
+    FOREIGN KEY (card_name) REFERENCES cards(name)
+);
+CREATE INDEX IF NOT EXISTS idx_card_abilities_card ON card_abilities(card_name);
+CREATE INDEX IF NOT EXISTS idx_card_abilities_type ON card_abilities(ability_type);
+CREATE INDEX IF NOT EXISTS idx_card_abilities_mana ON card_abilities(is_mana_ability);
+
+CREATE TABLE IF NOT EXISTS corrections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic TEXT NOT NULL,
+    category TEXT NOT NULL,
+    incorrect_claim TEXT NOT NULL,
+    correct_claim TEXT NOT NULL,
+    explanation TEXT,
+    relates_to TEXT,
+    source TEXT NOT NULL,
+    added_at TEXT NOT NULL,
+    added_by TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_corrections_topic ON corrections(topic);
+CREATE INDEX IF NOT EXISTS idx_corrections_category ON corrections(category);
+CREATE INDEX IF NOT EXISTS idx_corrections_added_at ON corrections(added_at);
 
 CREATE TABLE IF NOT EXISTS deck_folders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

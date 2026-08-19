@@ -9,7 +9,6 @@ Callers own presentation (CLI, HTTP API, app, LLM tool-use, etc.).
 """
 from mtg_oracle.queries import (
     get_card,
-    search_cards,
     get_rulings,
     find_combos_with_card,
     find_combos_with_all,
@@ -21,7 +20,6 @@ from mtg_oracle.queries import (
 
 __all__ = [
     "get_card",
-    "search_cards",
     "get_rulings",
     "find_combos_with_card",
     "find_combos_with_all",

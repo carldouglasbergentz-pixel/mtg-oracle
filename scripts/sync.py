@@ -13,6 +13,8 @@ Run:
     python scripts/sync.py --only cards rules   # subset
 """
 import argparse
+import contextlib
+import io
 import sqlite3
 import sys
 import time
@@ -20,12 +22,29 @@ from pathlib import Path
 from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
+import load_custom_formats
+import migrate_add_corrections
+import migrate_add_custom_formats
+import migrate_add_legalities
 import migrate_add_scryfall_fields
+import migrate_add_tags
 import migrate_add_user_combos
 import sync_cards
 import sync_combos
 import sync_rules
 import tag_cards
+
+# Every migration whose tables/columns the sync pipeline itself needs.
+# All are idempotent (ALTER / CREATE only when missing) and silent when
+# there's nothing to do, so they run on every invocation.
+SELF_HEAL_MIGRATIONS = (
+    migrate_add_scryfall_fields,
+    migrate_add_legalities,
+    migrate_add_custom_formats,
+    migrate_add_tags,
+    migrate_add_corrections,
+    migrate_add_user_combos,
+)
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
@@ -34,6 +53,9 @@ SOURCES = {
     "rules": ("Wizards Comprehensive Rules", sync_rules.sync),
     "combos": ("Commander Spellbook", sync_combos.sync),
     "tags": ("Local tagging (keywords, types, abilities)", tag_cards.sync),
+    # No upstream fetch — curated JSON in data/formats/. Runs last because
+    # it resolves card names against the cards table.
+    "formats": ("Community formats (points lists)", load_custom_formats.sync),
 }
 
 
@@ -64,7 +86,21 @@ def _snapshot_state(conn: sqlite3.Connection) -> dict:
         "combo_ids": {cid for (cid,) in cur.execute("SELECT id FROM combos")},
         "card_tags_count": cur.execute("SELECT COUNT(*) FROM card_tags").fetchone()[0],
         "card_abilities_count": cur.execute("SELECT COUNT(*) FROM card_abilities").fetchone()[0],
+        "points_count": _count_or_zero(cur, "custom_format_points"),
     }
+
+
+def _count_or_zero(cur: sqlite3.Cursor, table: str) -> int:
+    """Row count, or 0 when the table doesn't exist.
+
+    Defensive: the snapshot is taken after the self-heal migrations, so the
+    table should always be there — but a diff is a report, and a report
+    should not be the thing that crashes a successful sync.
+    """
+    try:
+        return cur.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    except sqlite3.OperationalError:
+        return 0
 
 
 def _diff_state(pre: dict, post: dict) -> dict:
@@ -108,6 +144,10 @@ def _diff_state(pre: dict, post: dict) -> dict:
             "net": post["card_abilities_count"] - pre["card_abilities_count"],
             "total": post["card_abilities_count"],
         },
+        "points": {
+            "net": post["points_count"] - pre["points_count"],
+            "total": post["points_count"],
+        },
     }
 
 
@@ -132,7 +172,7 @@ def _print_changelog(diff: dict) -> None:
             f"{mod_str(d['modified']):>9} "
             f"{d['total']:>10,}"
         )
-    for key in ("rulings", "tags", "abilities"):
+    for key in ("rulings", "tags", "abilities", "points"):
         d = diff[key]
         net_label = f"(net {_fmt_signed(d['net']).strip()})"
         print(f"  {key:10} {net_label:>27}  {d['total']:>10,}")
@@ -140,12 +180,13 @@ def _print_changelog(diff: dict) -> None:
     touched = any(
         diff[k]["added"] or diff[k]["removed"] or (diff[k].get("modified") or 0)
         for k in ("cards", "rules", "combos")
-    ) or any(diff[k]["net"] for k in ("rulings", "tags", "abilities"))
+    ) or any(diff[k]["net"] for k in ("rulings", "tags", "abilities", "points"))
     if not touched:
         print("\n  (no changes - all sources already up to date)")
     print()
     print("  note: `cards.total` counts cards with a Scryfall oracle_id;")
-    print("        rulings/tags/abilities use wipe-and-rebuild so only net delta is tracked.")
+    print("        rulings/tags/abilities/points use wipe-and-rebuild so only")
+    print("        net delta is tracked.")
 
 
 def _print_sync_state() -> None:
@@ -175,12 +216,17 @@ def main() -> None:
 
     selected = args.only or list(SOURCES.keys())
 
-    # Self-heal schema before any sync runs. Both migrations are
-    # idempotent (ALTER / CREATE only when missing) and silent when
-    # there's nothing to do, so they're safe on every run.
+    # Self-heal schema before any sync runs, so a database created by an
+    # older init_db.py still has every table the pipeline writes to.
+    # Each migration announces itself only when it actually changed
+    # something — four "already up to date" lines every run is noise.
     if DB_PATH.exists():
-        migrate_add_scryfall_fields.main()
-        migrate_add_user_combos.main()
+        for migration in SELF_HEAL_MIGRATIONS:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                migration.main()
+            if "Migration applied" in buf.getvalue():
+                print(buf.getvalue().rstrip())
 
     pre: Optional[dict] = None
     if DB_PATH.exists():

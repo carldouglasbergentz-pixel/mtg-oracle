@@ -178,10 +178,15 @@ def sync(force: bool = False) -> None:
         "VALUES (?, ?, ?, ?)",
         rules,
     )
-    _set_sync_state(cur, "wizards_cr", release_date, len(rules))
+    # The parsed list is larger than the table: table-of-contents lines match
+    # the same patterns as real rules and are overwritten by the real body
+    # later in the file (same PK). Report what actually landed.
+    stored = cur.execute("SELECT COUNT(*) FROM rules").fetchone()[0]
+    _set_sync_state(cur, "wizards_cr", release_date, stored)
     conn.commit()
     conn.close()
-    print(f"OK Ingested {len(rules):,} rules (release {release_date})")
+    print(f"OK Ingested {stored:,} rules (release {release_date}; "
+          f"{len(rules) - stored:,} table-of-contents duplicates collapsed)")
 
 
 if __name__ == "__main__":
