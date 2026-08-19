@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (internal review of the 2026-08-19 work — 15 findings)
+
+An adversarial pass over the same day's commit, run because the author of a
+change is the worst reviewer of it. Two findings were severe enough that the
+work should not have shipped without them.
+
+- **`prune_stale_cards.py` could delete the entire `cards` table.** Its
+  staleness test included `games IS NULL`, and a migration that *adds* a
+  column sets it NULL on every row — so on any database where
+  `migrate_add_legalities` had run but the card ingest had since been skipped
+  (upstream unchanged, no `--force`), all 35,228 rows looked stale and `--yes`
+  would have taken them. Each clause is now only used once its column has
+  data behind it, and a sanity valve refuses to act when more than 5% of the
+  table looks stale — a count near the table size means the premise is wrong,
+  not that the database is full of junk. Verified against a copy of the real
+  database in exactly that state: 0 rows deleted, while 3 genuinely stale rows
+  in the same copy were still pruned.
+- **A plain `sync` could leave the app unusable.** The self-heal migrations
+  create `card_legalities` and `cards.games`, but `sync_cards` skipped the
+  ingest that fills them whenever `updated_at` matched upstream — leaving an
+  empty legality table, which makes every `f:` search return zero and every
+  deck `add` fail with "not legal in commander". `updated_at` only says the
+  upstream *file* is unchanged; it says nothing about whether this build has
+  ever written the columns it now reads. `needs_backfill()` detects that and
+  re-ingests, announcing why.
+- **`commander <card>` bypassed every legality rule.** `set_commander()`
+  flips an existing row in place and never went through `add_card_to_deck`'s
+  validation, so in a Duel Commander deck it accepted both Edgar Markov
+  (banned *as commander*) and an outright-banned Sol Ring. The check is now a
+  shared `_assert_legal_in_format()` called from both paths, with
+  `commander --force` to override. The promote path passes a quantity *delta*
+  of 0, so promoting a Vintage-restricted card already in the deck isn't
+  falsely rejected for exceeding its own one-copy limit.
+- **`migrate_add_tags` still created the old two-column `card_tags` PK** — and
+  it is in `sync.py`'s self-heal list, so on any database missing that table
+  sync recreated the exact non-determinism this day's work removed from
+  `init_db.py`.
+- **Pointed sideboard cards were both under-enforced and unreported.**
+  `_assert_points_fit` charged them against a budget `deck_points` computes
+  from main-deck rows only, so two 8-point sideboard cards could both pass
+  while the badge read `[2/10 pts]`. Sideboard rows are now explicitly not
+  charged, matching what's measured and reported.
+- **`load_parsed_into_deck` swallowed structural errors.** The rewrite
+  dropped the original `raise` for non-validation `DeckError`s, so a deck
+  deleted mid-paste produced 100 identical "rejected" lines and a success
+  exit instead of one loud failure. With `force=True` — where no validation
+  rule can fire — anything but "card not found" now propagates.
+- **`_run_sync` had no `try`/`finally`**, so any exception or worker
+  cancellation latched `_sync_running` True for the rest of the session and
+  orphaned the child process against the same database.
+- A typo in a format definition's `derives_from` became a legality key with
+  no rows, rejecting every card with a confident "not in the format's card
+  pool"; it's now validated against `LEGALITY_FORMATS` at load time.
+- The points check ran before the singleton check, so a duplicate pointed
+  card got budget arithmetic instead of "you already have one".
+- An unmigrated database raised a bare `sqlite3.OperationalError: no such
+  column: games`. Both front-ends now add "your database predates this
+  version — run `sync`".
+- Removed as dead on arrival: `decks.get_deck_legality_format()` (no callers),
+  the `SINGLETON_FORMATS` alias (no readers), and
+  `queries.legality_format_or_none()` — `resolve_format()` is the single
+  entry point, as CLAUDE.md already claimed.
+- `ingest_cards` accumulated all 367k legality rows in one list, undoing the
+  flat-memory property the JSONL rewrite was for; it flushes every 20k rows.
+- `download_bulk` deletes the superseded uncompressed `.json` cache — 198 MB
+  of files no code path would ever read again, in a directory contributors
+  are told not to hand-edit.
+- `_suggest_card` was a line-for-line duplicate of `_suggest_from`; the
+  `card_tags` PK rationale comment in `init_db.py` sat above the wrong table;
+  and `get_deck` opened three redundant connections per call on the path
+  `_refresh_nav` runs after every command.
+
 ### Added (community formats + points — phase 3c, second half)
 - **`custom_formats` + `custom_format_points`** for what Scryfall structurally cannot express: Canadian Highlander doesn't ban its strongest cards, it *prices* them and caps a deck at 10 points. `derives_from` names the Scryfall format whose card pool is inherited, so legality is never duplicated. No `custom_format_bans` table yet — a format either inherits a pool or has none, and a bans table waits for a second concrete need.
 - **`data/formats/canlander_points.json`** — the 43-card points list, curated and versioned in git rather than scraped. The list lives on an HTML page with no JSON, CSV or API and changes roughly quarterly; a scraper would be a parser waiting to break for a file you can retype in five minutes. The file carries `source_url`, `list_current_as_of` and a `verified_at` date so staleness is visible instead of assumed.

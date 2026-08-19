@@ -18,7 +18,6 @@ from mtg_oracle.queries import resolve_card_name as _resolve_canonical
 from mtg_oracle.queries import flag_template_vars as _flag_template_vars
 from mtg_oracle.queries import fold_format as _fold_format
 from mtg_oracle.queries import get_card_points as _get_card_points
-from mtg_oracle.queries import legality_format_or_none as _legality_format_or_none
 from mtg_oracle.queries import resolve_format as _resolve_format
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
@@ -47,7 +46,6 @@ SINGLETON_COMMUNITY_FORMATS: frozenset[str] = frozenset({
     "leviathan",
 })
 
-SINGLETON_FORMATS = SINGLETON_LEGALITY_FORMATS | SINGLETON_COMMUNITY_FORMATS
 
 # Phrase Wizards uses on cards that override singleton (Relentless Rats,
 # Shadowborn Apostle, Dragon's Approach, Persistent Petitioners, Rat Colony,
@@ -311,13 +309,12 @@ def get_deck(name: str, folder: Optional[str] = None) -> Optional[dict]:
             c["quantity"] for c in deck["cards"] if c["is_sideboard"]
         )
         deck["commander_ci"] = _deck_color_identity_inner(cur, did)
-        deck["format_info"] = _resolve_format(deck.get("format"))
+        info = _resolve_format(deck.get("format"))
+        deck["format_info"] = info
+        deck["points"] = _deck_points_inner(cur, did, info)
+        return deck
     finally:
         conn.close()
-    # Points needs its own connection (and the deck's format), so it runs
-    # after the read above rather than threading a cursor through.
-    deck["points"] = deck_points(name, folder)
-    return deck
 
 
 def delete_deck(name: str, folder: Optional[str] = None) -> None:
@@ -450,26 +447,6 @@ def get_deck_color_identity(
         conn.close()
 
 
-def get_deck_legality_format(
-    deck_name: str, folder: Optional[str] = None,
-) -> Optional[str]:
-    """The `card_legalities.format` key this deck should be checked against.
-
-    Resolves custom formats to the pool they inherit, so a Canadian
-    Highlander deck comes back as `vintage`. None means no pool restriction
-    applies — `decks.format` is unset or names something unrecognised.
-    """
-    conn = _ro()
-    try:
-        cur = conn.cursor()
-        did = _deck_id(cur, deck_name, folder)
-        cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
-        row = cur.fetchone()
-        return _legality_format_or_none(row["format"] if row else None)
-    finally:
-        conn.close()
-
-
 def get_deck_format_info(
     deck_name: str, folder: Optional[str] = None,
 ) -> Optional[dict]:
@@ -502,24 +479,36 @@ def deck_points(deck_name: str, folder: Optional[str] = None) -> Optional[dict]:
     Points count per copy, which matters only in theory — every pointed
     format is singleton — but counting quantity keeps a forced 2-of honest.
     """
-    info = get_deck_format_info(deck_name, folder)
+    conn = _ro()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, deck_name, folder)
+        cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
+        row = cur.fetchone()
+        info = _resolve_format(row["format"] if row else None)
+        return _deck_points_inner(cur, did, info)
+    finally:
+        conn.close()
+
+
+def _deck_points_inner(cur, did: int, info: Optional[dict]) -> Optional[dict]:
+    """Points calculation on an open cursor, for callers that have one.
+
+    `get_deck` is on the TUI's hot path — `_refresh_nav` calls it after
+    every command — and it already knows the deck id and resolved format,
+    so it must not pay for three more connections to rediscover them.
+    """
     if not info or info.get("points_budget") is None:
         return None
     table = _get_card_points(info["key"])
     if not table:
         return None
-    conn = _ro()
-    try:
-        cur = conn.cursor()
-        did = _deck_id(cur, deck_name, folder)
-        cur.execute(
-            "SELECT card_name, quantity FROM deck_cards "
-            "WHERE deck_id = ? AND is_sideboard = 0",
-            (did,),
-        )
-        rows = cur.fetchall()
-    finally:
-        conn.close()
+    cur.execute(
+        "SELECT card_name, quantity FROM deck_cards "
+        "WHERE deck_id = ? AND is_sideboard = 0",
+        (did,),
+    )
+    rows = cur.fetchall()
 
     # Points tables are keyed on canonical names; deck rows are too (add
     # resolves), but match case-insensitively so a hand-inserted row counts.
@@ -543,6 +532,107 @@ def deck_points(deck_name: str, folder: Optional[str] = None) -> Optional[dict]:
         "cards": cards,
         "over": total > info["points_budget"],
     }
+
+
+def _assert_legal_in_format(
+    cur,
+    deck_id: int,
+    canonical: str,
+    fmt_info: Optional[dict],
+    *,
+    is_commander: bool,
+    is_sideboard: bool,
+    quantity: int,
+    singleton: bool,
+) -> None:
+    """Raise DeckError if the card can't go in this slot of this deck.
+
+    Shared by `add_card_to_deck` and `set_commander` — the latter promotes
+    an existing row in place, and when this lived inline in `add` the TUI's
+    `commander <card>` verb bypassed every legality rule.
+    """
+    if not fmt_info or not fmt_info["legality_key"]:
+        return
+    legality_fmt = fmt_info["legality_key"]
+    label = fmt_info["label"]
+    # For a custom format, say whose pool it is — "not legal in Canadian
+    # Highlander" is confusing without "(Vintage pool)".
+    pool = (f"{label} (inherits {legality_fmt}'s card pool)"
+            if fmt_info["custom"] else label)
+    status = _card_legality_status(cur, canonical, legality_fmt)
+    if status == "banned":
+        raise DeckError(
+            f"{canonical!r} is banned in {pool}. Pass force=True to override."
+        )
+    if status is None:
+        raise DeckError(
+            f"{canonical!r} is not legal in {pool} "
+            f"(not in the format's card pool). Pass force=True to override."
+        )
+    # `restricted` means two different things depending on the format —
+    # see queries.RESTRICTED_MEANS_NO_COMMANDER.
+    if status == "restricted":
+        if legality_fmt in RESTRICTED_MEANS_NO_COMMANDER:
+            if is_commander:
+                raise DeckError(
+                    f"{canonical!r} is banned as a commander in {label} "
+                    f"(it may still be in the deck). "
+                    f"Pass force=True to override."
+                )
+        elif not singleton:
+            # Copy restriction (Vintage, Old School): one only. In a
+            # singleton format the singleton rule already caps it and gives
+            # the clearer message, so don't pre-empt it.
+            cur.execute(
+                "SELECT COALESCE(SUM(quantity), 0) FROM deck_cards "
+                "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE "
+                "  AND is_sideboard = ?",
+                (deck_id, canonical, int(is_sideboard)),
+            )
+            if cur.fetchone()[0] + quantity > 1:
+                raise DeckError(
+                    f"{canonical!r} is restricted in {label} (limit 1 copy). "
+                    f"Pass force=True to override."
+                )
+
+
+def _assert_points_fit(
+    deck_name: str,
+    folder: Optional[str],
+    canonical: str,
+    fmt_info: Optional[dict],
+    *,
+    quantity: int,
+    is_sideboard: bool,
+) -> None:
+    """Raise DeckError if adding this card would blow the points budget.
+
+    A pointed card can be perfectly legal and still not fit. Only called
+    when the card is entering the deck; promoting a card already in the
+    deck to commander costs nothing extra.
+
+    Sideboard rows are not charged, because `deck_points` measures the main
+    deck — which is what a points cap applies to. Charging the sideboard
+    against a main-deck total would let two 8-point sideboard cards both
+    pass while the badge still read 2/10.
+    """
+    if is_sideboard:
+        return
+    if not fmt_info or fmt_info.get("points_budget") is None:
+        return
+    card_pts = _get_card_points(fmt_info["key"]).get(canonical)
+    if not card_pts:
+        return
+    spent = deck_points(deck_name, folder)
+    already = spent["total"] if spent else 0
+    budget = fmt_info["points_budget"]
+    cost = card_pts * quantity
+    if already + cost > budget:
+        raise DeckError(
+            f"{canonical!r} costs {card_pts} point(s) in {fmt_info['label']}; "
+            f"the deck is at {already}/{budget} and would go to "
+            f"{already + cost}. Pass force=True to override."
+        )
 
 
 def _card_legality_status(cur, card_name: str, fmt: str) -> Optional[str]:
@@ -580,11 +670,13 @@ def add_card_to_deck(
     - Color identity: in a deck with at least one is_commander=1 row, the
       added card's color_identity must be a subset of the deck's CI.
       Skipped for the commander, which *defines* the CI.
-    - Legality: when `decks.format` maps to a Scryfall legality key, the
-      card must be `legal` or `restricted` in it. Banned and out-of-pool
-      cards are rejected with different messages. This one *does* apply to
-      commanders — an illegal commander is still illegal. Community formats
-      with no upstream list (Canadian Highlander) are not checked.
+    - Legality: when `decks.format` resolves to a legality key (directly or
+      via a custom format's `derives_from`), the card must be `legal` or
+      `restricted` in it. Banned and out-of-pool cards are rejected with
+      different messages. This one *does* apply to commanders — an illegal
+      commander is still illegal, and `set_commander` runs the same check.
+    - Points: in a format with a points budget, a card whose points don't
+      fit is rejected even though it's legal.
     - Singleton: in a singleton format (commander, canadian highlander, ...),
       a card already in the deck cannot be added again unless it's a basic
       land or its oracle text says "a deck can have any number of cards
@@ -631,79 +723,20 @@ def add_card_to_deck(
 
         cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
         fmt = cur.fetchone()["format"]
-
-        # Format-legality validation. Runs for commanders too — an illegal
-        # commander is still illegal, unlike the CI check which the
-        # commander *defines*.
         fmt_info = _resolve_format(fmt)
         singleton = _is_singleton_format(fmt)
-        if not force and fmt_info and fmt_info["legality_key"]:
-            legality_fmt = fmt_info["legality_key"]
-            label = fmt_info["label"]
-            # For a custom format, say whose pool it is — "not legal in
-            # Canadian Highlander" is confusing without "(Vintage pool)".
-            pool = (f"{label} (inherits {legality_fmt}'s card pool)"
-                    if fmt_info["custom"] else label)
-            status = _card_legality_status(cur, canonical, legality_fmt)
-            if status == "banned":
-                raise DeckError(
-                    f"{canonical!r} is banned in {pool}. "
-                    f"Pass force=True to override."
-                )
-            if status is None:
-                raise DeckError(
-                    f"{canonical!r} is not legal in {pool} "
-                    f"(not in the format's card pool). "
-                    f"Pass force=True to override."
-                )
-            # `restricted` means two different things depending on the
-            # format — see queries.RESTRICTED_MEANS_NO_COMMANDER.
-            if status == "restricted":
-                if legality_fmt in RESTRICTED_MEANS_NO_COMMANDER:
-                    if is_commander:
-                        raise DeckError(
-                            f"{canonical!r} is banned as a commander in "
-                            f"{label} (it may still be in the deck). "
-                            f"Pass force=True to override."
-                        )
-                elif not singleton:
-                    # Copy restriction (Vintage, Old School): one only. In a
-                    # singleton format the singleton rule already caps it and
-                    # gives the clearer message, so don't pre-empt it.
-                    cur.execute(
-                        "SELECT COALESCE(SUM(quantity), 0) FROM deck_cards "
-                        "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE "
-                        "  AND is_sideboard = ?",
-                        (did, canonical, int(is_sideboard)),
-                    )
-                    if cur.fetchone()[0] + quantity > 1:
-                        raise DeckError(
-                            f"{canonical!r} is restricted in {label} "
-                            f"(limit 1 copy). Pass force=True to override."
-                        )
 
-        # Points budget (Canadian Highlander and friends): a pointed card
-        # can be perfectly legal and still not fit in the deck.
-        if not force and fmt_info and fmt_info.get("points_budget") is not None:
-            card_pts = _get_card_points(fmt_info["key"]).get(canonical)
-            if card_pts:
-                # A second copy of an already-pointed card can't get here:
-                # every pointed format is singleton, so the singleton check
-                # below rejects it first. Full price is therefore correct.
-                spent = deck_points(deck_name, folder)
-                already = spent["total"] if spent else 0
-                budget = fmt_info["points_budget"]
-                cost = card_pts * quantity
-                if already + cost > budget:
-                    raise DeckError(
-                        f"{canonical!r} costs {card_pts} point(s) in "
-                        f"{fmt_info['label']}; the deck is at {already}/{budget} "
-                        f"and would go to {already + cost}. "
-                        f"Pass force=True to override."
-                    )
+        if not force:
+            _assert_legal_in_format(
+                cur, did, canonical, fmt_info,
+                is_commander=is_commander, is_sideboard=is_sideboard,
+                quantity=quantity, singleton=singleton,
+            )
 
         # Singleton validation. Sideboard cards are validated against
         # other sideboard rows; main vs. sideboard are independent.
+        # Runs BEFORE the points check: a duplicate pointed card deserves
+        # "you already have one" rather than a budget arithmetic error.
         if (not force and not is_commander and singleton
                 and not _is_basic_land(card_type)
                 and not _allows_unlimited_copies(card_oracle)):
@@ -724,6 +757,12 @@ def add_card_to_deck(
                     f"(limit is 1; basics and 'any number' cards are exempt). "
                     f"Pass force=True to override."
                 )
+
+        if not force:
+            _assert_points_fit(
+                deck_name, folder, canonical, fmt_info,
+                quantity=quantity, is_sideboard=is_sideboard,
+            )
 
         # If the same (card, commander/sideboard) row already exists, merge qty.
         cur.execute(
@@ -762,6 +801,7 @@ def set_commander(
     card_name: str,
     folder: Optional[str] = None,
     unset: bool = False,
+    force: bool = False,
 ) -> tuple[str, str, Optional[str]]:
     """Promote a card to commander, or demote one with `unset=True`.
 
@@ -783,6 +823,11 @@ def set_commander(
       'commander' so format-aware behavior (CI filter on search, singleton
       on add) starts working immediately. An already-set format is left
       alone — the user knows what they're doing.
+    - Format legality is checked on promote and add, with `force=True` to
+      override. A card can be perfectly legal in the 99 and still banned as
+      a commander (Duel Commander, Tiny Leaders), and promoting in place
+      must not be a way around that. Demotion is never checked — removing a
+      commander can't make a deck less legal.
     """
     canonical = resolve_card_name(card_name)
     if not canonical:
@@ -825,6 +870,31 @@ def set_commander(
             (did, canonical),
         )
         rows = cur.fetchall()
+
+        # Same legality gate `add` uses. Promoting a row in place used to
+        # skip it entirely, which made `commander <card>` a way to put a
+        # banned card in the command zone.
+        if not force:
+            cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
+            fmt = cur.fetchone()["format"]
+            fmt_info = _resolve_format(fmt)
+            # quantity is the *delta*: promoting flips a row in place and adds
+            # no copy, so a restricted card already in a Vintage deck must not
+            # trip the one-copy check against itself.
+            _assert_legal_in_format(
+                cur, did, canonical, fmt_info,
+                is_commander=True, is_sideboard=False,
+                quantity=0 if rows else 1,
+                singleton=_is_singleton_format(fmt),
+            )
+            if not rows:
+                # Only a fresh insert changes the points total; promoting a
+                # card already in the deck is already paid for.
+                _assert_points_fit(
+                    deck_name, folder, canonical, fmt_info,
+                    quantity=1, is_sideboard=False,
+                )
+
         if not rows:
             cur.execute(
                 "INSERT INTO deck_cards "
@@ -1039,8 +1109,8 @@ def load_parsed_into_deck(
     non-commander cards.
 
     Returns a summary: rows added, total copies added, names that didn't
-    resolve to a card, and rows the deck layer rejected (only possible
-    with force=False). Nothing is ever dropped silently.
+    resolve to a card, and rows the deck layer rejected. Nothing is ever
+    dropped silently.
     """
     added = 0
     copies = 0
@@ -1064,6 +1134,12 @@ def load_parsed_into_deck(
         except DeckError as e:
             if "card not found" in str(e):
                 unresolved.append(row["name"])
+            elif force:
+                # With force=True every validation rule is skipped, so a
+                # DeckError here is structural — the deck vanished, the name
+                # is ambiguous. Collecting it would turn one real failure
+                # into N identical "rejected" lines and a success exit.
+                raise
             else:
                 rejected.append((row["name"], str(e)))
     return {

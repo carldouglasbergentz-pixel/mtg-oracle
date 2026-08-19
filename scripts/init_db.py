@@ -112,10 +112,6 @@ CREATE TABLE IF NOT EXISTS user_combo_cards (
 );
 CREATE INDEX IF NOT EXISTS idx_user_combo_cards_card ON user_combo_cards(card_name);
 
--- PK includes `category`: a token can be both a subtype and a keyword on
--- the same card ('saga', 'adventure', 'dragon'). A (card_name, tag) key
--- kept only one of them, and which one won depended on set iteration
--- order. Existing databases: scripts/migrate_fix_card_tags_pk.py.
 -- Per-format legality. Only `legal` / `restricted` / `banned` rows exist:
 -- Scryfall reports all 23 formats for every card and ~55% are `not_legal`,
 -- so absence of a row IS "not legal". Note `restricted` means one-copy in
@@ -157,6 +153,10 @@ CREATE TABLE IF NOT EXISTS custom_format_points (
 CREATE INDEX IF NOT EXISTS idx_custom_points_card
     ON custom_format_points(card_name);
 
+-- PK includes `category`: a token can be both a subtype and a keyword on
+-- the same card ('saga', 'adventure', 'dragon'). A (card_name, tag) key
+-- kept only one of them, and which one won depended on set iteration order
+-- in tag_cards.py. Existing databases: scripts/migrate_fix_card_tags_pk.py.
 CREATE TABLE IF NOT EXISTS card_tags (
     card_name TEXT NOT NULL,
     tag TEXT NOT NULL,

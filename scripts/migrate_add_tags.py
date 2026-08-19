@@ -31,7 +31,13 @@ def main() -> None:
                 tag TEXT NOT NULL,
                 category TEXT NOT NULL,
                 source TEXT NOT NULL,
-                PRIMARY KEY (card_name, tag),
+                -- `category` is part of the key: a token can be both a
+                -- subtype and a keyword on the same card ('saga',
+                -- 'adventure', 'dragon'). With a (card_name, tag) key one
+                -- of the two was dropped, and which one depended on set
+                -- iteration order in tag_cards.py. Existing databases are
+                -- repaired by scripts/migrate_fix_card_tags_pk.py.
+                PRIMARY KEY (card_name, tag, category),
                 FOREIGN KEY (card_name) REFERENCES cards(name)
             )
             """

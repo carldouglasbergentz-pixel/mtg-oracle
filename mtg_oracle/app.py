@@ -168,6 +168,8 @@ INSIDE A DECK (`/<folder>/<deck>/`)
                             row otherwise; multiple commanders allowed
                             for Partner / Background / Friends Forever)
   commander --unset <card>  demote a commander back to the main deck
+  commander --force <card>  promote past the legality check (some cards are
+                            legal in the deck but banned as commander)
   points                    points spent / budget, in formats that have a
                             points list (Canadian Highlander). Pointed
                             cards are marked `<3p>` in `show`.
@@ -370,14 +372,23 @@ class MtgSuggester(Suggester):
     # --- per-command suggestion helpers ---
 
     def _suggest_from(
-        self, cmd: str, rest: str, names: list[str],
+        self,
+        cmd: str,
+        rest: str,
+        names: list[str],
+        names_lc: Optional[list[str]] = None,
     ) -> Optional[str]:
-        """First prefix match in `names`, rendered as a full input line."""
+        """First prefix match in `names`, rendered as a full input line.
+
+        `names_lc` is an optional pre-lowered parallel index — worth having
+        for the 35k-name card list, not worth building for a 100-card deck.
+        """
         if not rest or not names:
             return None
         rest_lc = rest.lower()
-        for name in names:
-            if name.lower().startswith(rest_lc):
+        lowered = names_lc if names_lc is not None else [n.lower() for n in names]
+        for name, name_lc in zip(names, lowered):
+            if name_lc.startswith(rest_lc):
                 suggestion = f"{cmd} {name}"
                 # Don't re-suggest what the user already has exactly.
                 if suggestion.lower() != f"{cmd} {rest}".lower():
@@ -386,15 +397,10 @@ class MtgSuggester(Suggester):
         return None
 
     def _suggest_card(self, cmd: str, rest: str) -> Optional[str]:
-        if not rest:
-            return None
-        rest_lc = rest.lower()
-        for name, name_lc in zip(self._card_names, self._card_names_lc):
-            if name_lc.startswith(rest_lc):
-                suggestion = f"{cmd} {name}"
-                # Don't re-suggest what the user already has exactly.
-                return suggestion if suggestion.lower() != f"{cmd} {rest}".lower() else None
-        return None
+        """Complete from the full card index, using the pre-lowered copy."""
+        return self._suggest_from(
+            cmd, rest, self._card_names, self._card_names_lc,
+        )
 
     def _suggest_combos_intersection(self, cmd: str, rest: str) -> Optional[str]:
         # Split on ';' — complete only the last segment.
@@ -620,6 +626,14 @@ class MtgOracleApp(App):
         self._write(f"> {raw}")
         try:
             self._dispatch(raw)
+        except sqlite3.OperationalError as e:
+            # "no such column: games" means the DB predates this build. The
+            # raw message is true but tells the user nothing they can act on.
+            hint = ""
+            if "no such column" in str(e) or "no such table" in str(e):
+                hint = ("\n   Your database predates this version of the app. "
+                        "Run `sync` to migrate it.")
+            self._write(f"ERR database: {e}{hint}")
         except Exception as e:
             self._write(f"ERR {type(e).__name__}: {e}")
 
@@ -1082,23 +1096,33 @@ class MtgOracleApp(App):
         # defaults to cp1252, and one em-dash in an upstream message would
         # kill the sync with a UnicodeEncodeError.
         env = dict(os.environ, PYTHONIOENCODING="utf-8")
+        proc = None
+        code: Optional[int] = None
         try:
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace", bufsize=1,
                 env=env,
             )
-        except Exception as e:
+            for line in proc.stdout or ():
+                line = line.rstrip()
+                if line:
+                    self.call_from_thread(self._write, line)
+            code = proc.wait()
+        except BaseException as e:
+            # Anything at all — a failure to spawn, a broken pipe, worker
+            # cancellation. Without this the flag below stayed True for the
+            # rest of the session and `sync` was permanently unavailable,
+            # with the child left running against the same database.
             self.call_from_thread(
-                self._write, f"sync failed to start: {type(e).__name__}: {e}"
+                self._write, f"sync aborted: {type(e).__name__}: {e}"
             )
-            self.call_from_thread(self._sync_finished, None)
-            return
-        for line in proc.stdout or ():
-            line = line.rstrip()
-            if line:
-                self.call_from_thread(self._write, line)
-        self.call_from_thread(self._sync_finished, proc.wait())
+            if proc and proc.poll() is None:
+                proc.kill()
+                proc.wait()
+            raise
+        finally:
+            self.call_from_thread(self._sync_finished, code)
 
     def _sync_finished(self, code: Optional[int]) -> None:
         self._sync_running = False
@@ -1602,21 +1626,26 @@ class MtgOracleApp(App):
         if not arg:
             self._write(
                 "usage: commander <card>            promote a card to commander\n"
-                "       commander --unset <card>    demote a commander back to main"
+                "       commander --unset <card>    demote a commander back to main\n"
+                "       commander --force <card>    bypass the legality check"
             )
             return
         unset = False
+        force = False
         toks = arg.split()
         if "--unset" in toks:
             unset = True
-            toks = [t for t in toks if t != "--unset"]
-            arg = " ".join(toks)
+        if "--force" in toks:
+            force = True
+        toks = [t for t in toks if t not in ("--unset", "--force")]
+        arg = " ".join(toks)
         if not arg:
-            self._write("usage: commander [--unset] <card>")
+            self._write("usage: commander [--unset] [--force] <card>")
             return
         try:
             canonical, action, format_set = d.set_commander(
                 self._cwd_deck, arg, folder=self._cwd_folder, unset=unset,
+                force=force,
             )
         except d.DeckError as e:
             self._write(f"commander: {e}")

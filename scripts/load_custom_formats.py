@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from mtg_oracle.queries import resolve_card_name
+from mtg_oracle.queries import LEGALITY_FORMATS, resolve_card_name
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 FORMATS_DIR = Path(__file__).parent.parent / "data" / "formats"
@@ -56,6 +56,16 @@ def load_definition(path: Path) -> dict:
         )
     if not isinstance(spec["points"], dict):
         raise FormatDefinitionError(f"{path.name}: 'points' must be an object")
+
+    # An unvalidated `derives_from` becomes a legality key with no rows,
+    # which rejects every card in the format with a confident-sounding
+    # "not in the format's card pool". Catch the typo here instead.
+    derives = spec.get("derives_from")
+    if derives is not None and derives not in LEGALITY_FORMATS:
+        raise FormatDefinitionError(
+            f"{path.name}: derives_from={derives!r} is not a Scryfall legality "
+            f"format. Valid: {', '.join(sorted(LEGALITY_FORMATS))}"
+        )
 
     resolved: dict[str, int] = {}
     unresolved: list[str] = []

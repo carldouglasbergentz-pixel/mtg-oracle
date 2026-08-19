@@ -45,6 +45,39 @@ def fetch_bulk_index() -> dict[str, dict]:
     return {entry["type"]: entry for entry in payload["data"]}
 
 
+def needs_backfill(cur: sqlite3.Cursor, source_type: str) -> str | None:
+    """A reason to ingest even though upstream hasn't moved, or None.
+
+    The `updated_at` marker only says "the upstream file is the same". It
+    says nothing about whether *this* build has ever written the columns and
+    tables it now depends on. When a self-heal migration adds
+    `card_legalities` or `cards.games`, a plain `sync.py` used to add the
+    schema and then skip the ingest that fills it — leaving an empty
+    legality table, which makes every deck `add` fail as "not legal" and
+    every `f:` search return zero. Detect that and ingest anyway.
+    """
+    checks = {
+        "oracle_cards": [
+            ("SELECT EXISTS (SELECT 1 FROM card_legalities)",
+             "card_legalities is empty"),
+            ("SELECT EXISTS (SELECT 1 FROM cards WHERE games IS NOT NULL)",
+             "cards.games has never been populated"),
+        ],
+        "rulings": [
+            ("SELECT EXISTS (SELECT 1 FROM rulings)", "rulings is empty"),
+        ],
+    }
+    for sql, reason in checks.get(source_type, []):
+        try:
+            if not cur.execute(sql).fetchone()[0]:
+                return reason
+        except sqlite3.OperationalError:
+            # Table missing entirely — the migration will create it, and
+            # ingesting is exactly what fills it.
+            return reason
+    return None
+
+
 def get_sync_state(cur: sqlite3.Cursor, source: str) -> str | None:
     cur.execute("SELECT updated_at FROM sync_state WHERE source = ?", (source,))
     row = cur.fetchone()
@@ -87,6 +120,15 @@ def download_bulk(entry: dict, label: str) -> Path:
     with urllib.request.urlopen(req, timeout=300) as resp, open(target, "wb") as f:
         shutil.copyfileobj(resp, f)
     print(f"OK Saved {target} ({target.stat().st_size / 1_000_000:.1f} MB)")
+
+    # The pre-2026 uncompressed cache is superseded and never read again.
+    # data/raw/ is ours to manage and nothing else cleans it, so leaving
+    # ~200 MB of dead payload behind would be our litter.
+    legacy = RAW_DIR / f"scryfall_{label}.json"
+    if legacy.exists():
+        size = legacy.stat().st_size / 1_000_000
+        legacy.unlink()
+        print(f"   (removed superseded {legacy.name}, {size:.0f} MB)")
     return target
 
 
@@ -249,6 +291,25 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
     # stale `banned` row is worse than no row. Wipe and rebuild.
     cur.execute("DELETE FROM card_legalities")
     legality_rows: list[tuple[str, str, str]] = []
+    legality_total = 0
+
+    def flush_legalities() -> None:
+        """Write and clear the buffer, so it never grows with the export.
+
+        ~10 legality rows per card over 35k cards is 367k tuples; holding
+        them all would reintroduce exactly the memory growth the switch to
+        streaming JSONL removed.
+        """
+        nonlocal legality_total
+        if not legality_rows:
+            return
+        cur.executemany(
+            "INSERT OR REPLACE INTO card_legalities (card_name, format, status) "
+            "VALUES (?, ?, ?)",
+            legality_rows,
+        )
+        legality_total += len(legality_rows)
+        legality_rows.clear()
     for card in _iter_jsonl(path):
         # Scryfall oracle-cards includes tokens, emblems, art series, etc.
         # Skip non-playable layouts that add noise without rulings value.
@@ -310,18 +371,16 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
         )
         legality_rows.extend(_legality_rows(name, card))
         count += 1
+        if len(legality_rows) >= 20_000:
+            flush_legalities()
 
-    cur.executemany(
-        "INSERT OR REPLACE INTO card_legalities (card_name, format, status) "
-        "VALUES (?, ?, ?)",
-        legality_rows,
-    )
+    flush_legalities()
     conn.commit()
     formats = cur.execute(
         "SELECT COUNT(DISTINCT format) FROM card_legalities"
     ).fetchone()[0]
     print(f"OK Upserted {count:,} cards")
-    print(f"OK Ingested {len(legality_rows):,} legality rows across {formats} formats")
+    print(f"OK Ingested {legality_total:,} legality rows across {formats} formats")
     return count
 
 
@@ -378,8 +437,12 @@ def sync(force: bool = False) -> None:
         local_updated = get_sync_state(cur, f"scryfall_{label}")
 
         if local_updated == upstream_updated and not force:
-            print(f"-- {label}: up to date ({upstream_updated}), skipping")
-            continue
+            backfill = needs_backfill(cur, source_type)
+            if backfill is None:
+                print(f"-- {label}: up to date ({upstream_updated}), skipping")
+                continue
+            print(f"-- {label}: upstream unchanged but {backfill} "
+                  f"— re-ingesting to backfill")
 
         path = download_bulk(entry, label)
         if source_type == "oracle_cards":

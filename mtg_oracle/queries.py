@@ -85,22 +85,6 @@ def normalize_format(raw: str) -> str:
     raise ValueError(f"unknown format: {raw!r}. Valid: {', '.join(valid)}")
 
 
-def legality_format_or_none(raw: Optional[str]) -> Optional[str]:
-    """The `card_legalities.format` key to check a deck against, or None.
-
-    Resolves through custom formats too: Canadian Highlander has no list of
-    its own but `derives_from` Vintage, so a Canlander deck is checked
-    against Vintage's pool. None means no pool restriction applies.
-    """
-    if not raw:
-        return None
-    key = fold_format(raw)
-    if key in LEGALITY_FORMATS:
-        return key
-    custom = get_custom_formats().get(key)
-    return custom["derives_from"] if custom else None
-
-
 # --- Custom (community) formats -----------------------------------------
 
 # Cached because it's read on every `f:` term compile and every deck

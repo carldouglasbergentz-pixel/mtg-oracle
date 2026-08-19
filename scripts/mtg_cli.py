@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -438,6 +439,13 @@ def main(argv: list[str] | None = None) -> int:
         return args.func(args)
     except FileNotFoundError as e:
         print(f"ERR {e}", file=sys.stderr)
+        return 2
+    except sqlite3.OperationalError as e:
+        # A missing column or table means the database predates this build.
+        print(f"ERR database: {e}", file=sys.stderr)
+        if "no such column" in str(e) or "no such table" in str(e):
+            print("    Your database predates this version. Run: "
+                  "python scripts/sync.py", file=sys.stderr)
         return 2
 
 
