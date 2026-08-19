@@ -8,6 +8,7 @@ returned by `mtg_oracle.queries` and returns a single string of ASCII
 from __future__ import annotations
 
 import textwrap
+from dataclasses import dataclass
 from typing import Optional
 
 BOX_H = "-"
@@ -15,6 +16,45 @@ BOX_V = "|"
 CORNER = "+"
 INDENT = "  "
 WRAP_COLS = 70
+
+
+@dataclass
+class LinkSpan:
+    """A clickable region in a rendered block, in (line, column) coordinates.
+
+    Renderers know exactly where they put things — column widths, truncation,
+    padding — so they report the spans rather than leaving the UI to re-derive
+    them by pattern-matching the output it was just handed. `kind` and `args`
+    are opaque here; the TUI decides what clicking one means.
+    """
+    line: int
+    start: int
+    end: int
+    kind: str
+    args: tuple
+
+
+def _collect(
+    links: Optional[list[LinkSpan]],
+    lines: list[str],
+    text: str,
+    kind: str,
+    *args,
+    column: Optional[int] = None,
+) -> None:
+    """Record a link for `text` on the line that is about to be appended.
+
+    Call this straight after appending the line: `len(lines) - 1` is its
+    index. `column` pins the start when the same text could occur twice on
+    one line; otherwise the first occurrence wins.
+    """
+    if links is None or not text:
+        return
+    line_no = len(lines) - 1
+    start = lines[line_no].find(text) if column is None else column
+    if start < 0:
+        return
+    links.append(LinkSpan(line_no, start, start + len(text), kind, args))
 
 
 def wrap(text: str, indent: str = INDENT) -> str:
@@ -115,11 +155,15 @@ def _points_headline(points: dict) -> str:
     return f"Points   {points['total']} / {points['budget']}   {tail}"
 
 
-def render_points(points: dict, *, headline: bool = True) -> str:
+def render_points(
+    points: dict, *, headline: bool = True, width: Optional[int] = None,
+) -> str:
     """The pointed cards in a deck, dearest first, with points after each.
 
     `headline=False` omits the summary line for callers that already show it
     in a header (the full deck view puts it under the format).
+    `width` truncates names to fit a narrow pane; without it, names are
+    printed in full.
     """
     lines = [_points_headline(points)] if headline else []
     if not points["cards"]:
@@ -128,7 +172,12 @@ def render_points(points: dict, *, headline: bool = True) -> str:
     for name, pts, qty, subtotal in points["cards"]:
         qty_str = f"{qty}x " if qty > 1 else ""
         total_str = f" = {subtotal}" if qty > 1 else ""
-        lines.append(f"{INDENT}{qty_str}{name} ({pts}){total_str}")
+        if width is not None:
+            budget = width - len(INDENT) - len(qty_str) - len(total_str)
+            label = _name_with_points(name, pts, budget)
+        else:
+            label = f"{name} ({pts})"
+        lines.append(f"{INDENT}{qty_str}{label}{total_str}")
     return "\n".join(lines)
 
 
@@ -369,6 +418,7 @@ def render_search(
     total: int | None = None,
     page_size: int = 50,
     nav_hint: str | None = None,
+    links: Optional[list[LinkSpan]] = None,
 ) -> str:
     """Render a paginated search result list.
 
@@ -405,9 +455,11 @@ def render_search(
         # Truncate type line so the row fits inside WRAP_COLS (~70).
         type_trunc = type_line if len(type_line) <= 30 else type_line[:28] + ".."
         name_trunc = name if len(name) <= NAME_W else name[:NAME_W - 2] + ".."
+        prefix = f"{INDENT}[{i:>3}] "
         lines.append(
-            f"{INDENT}[{i:>3}] {name_trunc:<{NAME_W}} {mana_cost:<{COST_W}} {type_trunc}"
+            f"{prefix}{name_trunc:<{NAME_W}} {mana_cost:<{COST_W}} {type_trunc}"
         )
+        _collect(links, lines, name_trunc, "card", name, column=len(prefix))
 
     if nav_hint:
         lines.append(f"{INDENT}{nav_hint}")
@@ -516,7 +568,7 @@ def render_folder_list(folders: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def render_deck(deck: dict) -> str:
+def render_deck(deck: dict, links: Optional[list[LinkSpan]] = None) -> str:
     """Full deck view, auto-grouped by type.
 
     Handles large lists (100+ cards for Commander / Canadian Highlander)
@@ -597,10 +649,11 @@ def render_deck(deck: dict) -> str:
             # Truncate type line; whole row must stay within WRAP_COLS-ish.
             type_trunc = type_line if len(type_line) <= 30 else type_line[:28] + ".."
             pts = points_by_card.get((c["card_name"] or "").lower())
-            lines.append(
-                f"{INDENT}{qty:>2}x {_name_with_points(c['card_name'], pts, NAME_W):<{NAME_W}} "
-                f"{cost:<14} {type_trunc}"
-            )
+            label = _name_with_points(c["card_name"], pts, NAME_W)
+            prefix = f"{INDENT}{qty:>2}x "
+            lines.append(f"{prefix}{label:<{NAME_W}} {cost:<14} {type_trunc}")
+            _collect(links, lines, label, "card", c["card_name"],
+                     column=len(prefix))
 
     return "\n".join(lines)
 
@@ -641,7 +694,11 @@ def render_analytics_compact(analytics: dict, width: int = 48) -> str:
     return "\n".join(lines)
 
 
-def render_combos_compact(combos: list[dict], width: int = 48) -> str:
+def render_combos_compact(
+    combos: list[dict],
+    width: int = 48,
+    links: Optional[list[LinkSpan]] = None,
+) -> str:
     """Numbered combo list for the left navigation pane.
 
     Shape mirrors `_render_numbered_combo_list` (so `combo-info <N>` still
@@ -656,8 +713,16 @@ def render_combos_compact(combos: list[dict], width: int = 48) -> str:
         cards_str = c.get("cards") or c.get("combo_name") or ""
         ci = c.get("color_identity") or "-"
         plus = "+" if c.get("has_template_vars") else ""
-        header = f"  [{i:>3}] {ci:<5} ({c['card_count']}{plus} cards) "
-        lines.append(wrap_combo_row(header, cards_str, row_width=width))
+        index_label = f"[{i:>3}]"
+        header = f"  {index_label} {ci:<5} ({c['card_count']}{plus} cards) "
+        row = wrap_combo_row(header, cards_str, row_width=width)
+        # A wrapped row spans several lines; the index only exists on the
+        # first, so record the link before extending past it.
+        first_line_no = len(lines)
+        lines.extend(row.split("\n"))
+        if links is not None:
+            links.append(LinkSpan(first_line_no, 2, 2 + len(index_label),
+                                  "combo", (i,)))
     return "\n".join(lines)
 
 
@@ -666,6 +731,7 @@ def render_deck_compact(
     width: int = 36,
     analytics: Optional[dict] = None,
     combos: Optional[list[dict]] = None,
+    links: Optional[list[LinkSpan]] = None,
 ) -> str:
     """Narrow deck render for the left navigation pane.
 
@@ -719,6 +785,7 @@ def render_deck_compact(
             if len(cn) > name_w:
                 cn = cn[:name_w - 2] + ".."
             lines.append(f"  {qty:>2}x {cn}")
+            _collect(links, lines, cn, "card", c["card_name"])
         lines.append("-" * min(width, 16))
 
     ordered: list[tuple[str, list[dict]]] = []
@@ -742,22 +809,30 @@ def render_deck_compact(
         for c in cards:
             qty = c["quantity"]
             pts = points_by_card.get((c["card_name"] or "").lower())
-            lines.append(
-                f"  {qty:>2}x {_name_with_points(c['card_name'], pts, name_w)}"
-            )
+            label = _name_with_points(c["card_name"], pts, name_w)
+            lines.append(f"  {qty:>2}x {label}")
+            _collect(links, lines, label, "card", c["card_name"])
 
     if points:
         lines.append("")
         lines.append("POINTS")
         lines.append("-" * min(width, 6))
-        lines.append(render_points(points))
+        lines.append(render_points(points, width=width))
 
     if analytics is not None:
         lines.append("")
         lines.append(render_analytics_compact(analytics, width=width))
     if combos is not None:
         lines.append("")
-        lines.append(render_combos_compact(combos, width=width))
+        # The combo block renders standalone, so its link line numbers are
+        # relative to itself — shift them into this block's coordinates.
+        sub: Optional[list[LinkSpan]] = [] if links is not None else None
+        block = render_combos_compact(combos, width=width, links=sub)
+        offset = len(lines)
+        lines.extend(block.split("\n"))
+        for span in sub or ():
+            links.append(LinkSpan(span.line + offset, span.start, span.end,
+                                  span.kind, span.args))
 
     return "\n".join(lines)
 

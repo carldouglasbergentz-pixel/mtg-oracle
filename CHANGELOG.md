@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (mouse support)
+- **Clickable regions in both panes, with no change of widget.** The first assumption was that `RichLog` couldn't carry click targets and the panes would have to become `DataTable`/`OptionList` — which would have changed the look. Testing that assumption disproved it: `get_style_at` reads back `{'@click': ...}` on exactly the characters a card name occupies, so `RichLog` preserves Rich style meta perfectly, and `App._broker_event` dispatches it to an action. That's the same mechanism Textual's own Markdown widget uses for links.
+    - **Left tree:** a folder or deck name → `cd` into it.
+    - **Left pane inside a deck:** any card name (including the pinned commander) → its full profile in the right pane; a combo's `[ N ]` row number → expands that combo.
+    - **Right pane:** search-result rows, `show` deck rows, and combo row numbers, same targets.
+    - Clicks echo the equivalent command (`> card Ashnod's Altar`), so the mouse teaches the keyboard interface rather than hiding it.
+- **Click targets are integer tickets, never interpolated names.** The `@click` meta is a string parsed by Textual's action parser, and card names are full of apostrophes, commas and `//` — `Thassa's Oracle` and `Jace, Vryn's Prodigy` would need escaping that has no good answer. Each region instead gets a ticket into a table the app owns. Nav-pane tickets are recycled when the pane re-renders (its old lines are gone); output-pane tickets persist, because scrollback stays clickable. An unknown ticket is a silent no-op.
+- **Renderers report their own link spans.** `renderer.LinkSpan(line, start, end, kind, args)` — the renderers are the only code that knows column widths, padding and truncation rules, so they emit the coordinates instead of leaving the UI to re-derive them by pattern-matching output it was just handed. `render_search`, `render_deck`, `render_deck_compact` and `render_combos_compact` take an optional `links` list; the CLI passes nothing and is unaffected.
+- Hover feedback via `link-style-hover: bold underline` — clickable text carries no decoration at rest, so the plain-text look is unchanged, and announces itself under the pointer. Everything remains reachable by typing; the mouse is a shortcut, not a second interface.
+
+### Fixed (nav pane overflowed its own width)
+- `_refresh_nav` passed `NAV_WIDTH - 2` to the compact renderer, subtracting the pane's padding but not its border, so the widest rows ran two characters past the visible area — `1x Jace, Vryn's Prodigy // Jace, Telepath Unb..` at 50 columns in a 48-column pane. Now `NAV_CONTENT_WIDTH = NAV_WIDTH - 4`, verified by asserting no rendered line exceeds the pane's measured content width.
+- `render_points` ignored the pane width entirely, so a long pointed card name overflowed by 13 characters in the side pane. It now accepts `width` and truncates while keeping the points marker.
+- Nav pane widened 48 → 52 columns: appending `(8)` markers to card names made the previous width truncate more aggressively than it used to.
+
 ### Changed (points visualisation)
 - Points moved out of the header's metadata row onto their own line directly under the format — `Points   10 / 10   (0 left)` — because in a points format that's the first thing you check, not a footnote. The list of pointed cards moved with it, from the bottom of the deck view to right under the header.
 - The list reads `Card Name (8)` rather than a right-hand points column, and the per-card marker in the decklist moved from a trailing `<8p>` (after the type line, easy to miss) to `(8)` immediately after the name, inside the name column so the mana-cost column stays aligned.

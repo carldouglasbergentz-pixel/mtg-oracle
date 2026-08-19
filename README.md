@@ -79,6 +79,19 @@ The status bar always shows where you are. Commands change meaning by depth:
 
 `add` and `remove` change meaning with your location — there are no separate `new` / `delete` verbs. `help decks` prints the full model in the app.
 
+### Mouse
+
+Both panes are clickable, and clickable text underlines when you hover it:
+
+| Click | Does |
+|---|---|
+| a folder or deck in the left tree | `cd` into it |
+| a card name in the live deck pane, a search result, or a `show` render | opens its full profile in the right pane |
+| a combo's `[ N ]` row number | expands that combo |
+
+Every click echoes the equivalent command, so the mouse is a shortcut to the
+keyboard interface rather than a parallel one. `Shift+drag` still selects text.
+
 Plus, on every screen:
 - `card <name-or-N>` — full card profile (or expand the N-th row of the last search)
 - `ruling <name>`, `combo <card>`, `combos A; B`, `rule <number>`, `search-rules <text>`

@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
+from rich.style import Style
+from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -58,10 +60,16 @@ def _save_config(config: dict) -> None:
         pass
 
 
-# Width of the left navigation pane (matches the CSS rule). Slightly wider
-# than strictly needed so deck names don't get aggressively truncated when
-# the live deck view is shown.
-NAV_WIDTH = 48
+# Width of the left navigation pane (matches the CSS rule). Wide enough that
+# the live deck view doesn't truncate names aggressively — and card names got
+# longer once points markers were appended to them.
+NAV_WIDTH = 52
+
+# Columns actually available to the renderer inside #nav: the CSS width less
+# the 1-char border and 1-char padding on each side. Passing NAV_WIDTH - 2
+# subtracted the padding but not the border, so the widest rows overflowed
+# the pane by two characters.
+NAV_CONTENT_WIDTH = NAV_WIDTH - 4
 
 
 COMMANDS = [
@@ -280,6 +288,14 @@ MORE HELP
   help decks                          the deck / folder filesystem model, in full
   help search                         Scryfall-style search syntax and examples
 
+Mouse:
+  Clickable, in both panes — they underline when you hover:
+    a folder or deck in the left tree   -> cd into it
+    a card name anywhere               -> its full profile, right pane
+    a combo's [ N ] row number         -> expands that combo
+  Everything is still reachable by typing; the mouse is a shortcut, not a
+  second interface. Shift+drag still selects text.
+
 Typing:
   Autofill suggestions appear as gray text after your command (prefix match).
   Tab or Right Arrow accepts the suggestion. Inside a deck, `remove` completes
@@ -443,7 +459,7 @@ class MtgOracleApp(App):
         height: 1fr;
     }
     #nav {
-        width: 48;
+        width: 52;
         border: solid $accent;
         padding: 0 1;
         background: $background;
@@ -453,6 +469,17 @@ class MtgOracleApp(App):
         border: solid $accent;
         padding: 0 1;
         background: $background;
+    }
+    /* Clickable regions (card names, deck names, combo row numbers) carry
+       no decoration at rest, so the plain-text look is unchanged. They
+       announce themselves on hover instead. */
+    #nav, #output {
+        link-color: $text;
+        link-background: transparent;
+        link-style: not underline;
+        link-color-hover: $accent;
+        link-background-hover: transparent;
+        link-style-hover: bold underline;
     }
     #cmd {
         dock: bottom;
@@ -519,6 +546,17 @@ class MtgOracleApp(App):
         # True while the background sync worker is alive, so a second
         # `sync` gets a clear message instead of two competing writers.
         self._sync_running: bool = False
+
+        # Mouse click targets. The `@click` meta in a Rich style is a string
+        # parsed by Textual's action parser, and card names are full of
+        # apostrophes, commas and `//` — so we never put a name in there.
+        # Each clickable region gets an integer ticket into this table.
+        self._click_targets: dict[int, tuple[str, tuple]] = {}
+        self._click_seq: int = 0
+        # Tickets owned by the nav pane, dropped when it re-renders (the
+        # pane is cleared, so those lines are gone and can't be clicked).
+        # Output-pane tickets stay: old lines scroll back and still work.
+        self._nav_click_ids: list[int] = []
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -669,6 +707,73 @@ class MtgOracleApp(App):
         log = self.query_one("#output", RichLog)
         log.write(text)
 
+    # --- mouse: clickable regions ----------------------------------
+
+    def _click_ticket(self, kind: str, args: tuple, *, nav: bool) -> int:
+        self._click_seq += 1
+        self._click_targets[self._click_seq] = (kind, args)
+        if nav:
+            self._nav_click_ids.append(self._click_seq)
+        return self._click_seq
+
+    def _linked_text(
+        self, body: str, links: list[r.LinkSpan], *, nav: bool = False,
+    ) -> Text:
+        """Turn a rendered block plus its link spans into a clickable Text.
+
+        The renderers report spans in (line, column) coordinates because they
+        are the only code that knows the column widths and truncation rules.
+        """
+        by_line: dict[int, list[r.LinkSpan]] = {}
+        for span in links:
+            by_line.setdefault(span.line, []).append(span)
+        out = Text(no_wrap=True)
+        lines = body.split("\n")
+        for i, line in enumerate(lines):
+            cursor = 0
+            for span in sorted(by_line.get(i, []), key=lambda s: s.start):
+                if span.start < cursor or span.end > len(line):
+                    continue  # overlapping or past end of line — skip it
+                out.append(line[cursor:span.start])
+                ticket = self._click_ticket(span.kind, span.args, nav=nav)
+                out.append(
+                    line[span.start:span.end],
+                    Style.from_meta({"@click": f"click_target({ticket})"}),
+                )
+                cursor = span.end
+            out.append(line[cursor:])
+            if i < len(lines) - 1:
+                out.append("\n")
+        return out
+
+    def _write_linked(self, body: str, links: list[r.LinkSpan]) -> None:
+        """Write a clickable block to the output pane."""
+        if not links:
+            self._write(body)
+            return
+        self.query_one("#output", RichLog).write(self._linked_text(body, links))
+
+    def action_click_target(self, ticket: int) -> None:
+        """Run whatever the clicked region stands for."""
+        target = self._click_targets.get(ticket)
+        if target is None:
+            return
+        kind, args = target
+        if kind == "card":
+            self._write(f"> card {args[0]}")
+            self._cmd_card(args[0])
+        elif kind == "combo":
+            self._write(f"> combo-info {args[0]}")
+            self._cmd_combo_info(str(args[0]))
+        elif kind == "deck":
+            folder, deck = args
+            path = f"{folder}/{deck}" if folder else deck
+            self._write(f"> cd {path}")
+            self._cmd_cd(path)
+        elif kind == "folder":
+            self._write(f"> cd {args[0]}")
+            self._cmd_cd(args[0])
+
     # --- command dispatch ------------------------------------------
 
     def _dispatch(self, raw: str) -> None:
@@ -796,9 +901,9 @@ class MtgOracleApp(App):
             if full:
                 self._write(r.render_combo(full))
                 return
-        self._write(self._render_numbered_combo_list(
+        self._write_combo_list(
             combos, f"{len(combos)} combo(s) featuring {arg}:"
-        ))
+        )
 
     def _cmd_combo_intersection(self, arg: str) -> None:
         # Inside a deck with no args, interpret as "combos in this deck".
@@ -812,10 +917,10 @@ class MtgOracleApp(App):
             # [1]..[N] and `combo-info <N>` resolves against the same list,
             # so showing raw Spellbook ids here made the two panes disagree.
             self._last_combos = combos
-            self._write(self._render_numbered_combo_list(
+            self._write_combo_list(
                 combos,
                 f"{len(combos)} combo(s) fully contained in {self._cwd_deck!r}:",
-            ))
+            )
             return
         if not arg:
             self._write("usage: combos <card1>; <card2>[; ...]  (or `cd <deck>` and run `combos`)")
@@ -832,9 +937,9 @@ class MtgOracleApp(App):
                 self._write(r.render_combo(full))
                 return
         joined = " + ".join(cards)
-        self._write(self._render_numbered_combo_list(
+        self._write_combo_list(
             combos, f"{len(combos)} combo(s) containing ALL of: {joined}"
-        ))
+        )
 
     def _cmd_combo_info(self, arg: str) -> None:
         if not arg:
@@ -989,13 +1094,16 @@ class MtgOracleApp(App):
             hint_parts.append("`prev`")
         hint_parts.append("`card <N>` to expand row")
         nav_hint = "| " + "  |  ".join(hint_parts)
-        self._write(r.render_search(
+        links: list[r.LinkSpan] = []
+        body = r.render_search(
             self._search_rows,
             page=self._search_page,
             total=self._search_total,
             page_size=self.SEARCH_PAGE_SIZE,
             nav_hint=nav_hint,
-        ))
+            links=links,
+        )
+        self._write_linked(body, links)
 
     def _cmd_correction(self, arg: str) -> None:
         # One free-text box → OR across relates_to / topic / incorrect_claim.
@@ -1173,6 +1281,10 @@ class MtgOracleApp(App):
             # Called during init before compose() has run; harmless.
             return
         nav.clear()
+        # The pane's old lines are gone, so their click tickets are dead.
+        for ticket in self._nav_click_ids:
+            self._click_targets.pop(ticket, None)
+        self._nav_click_ids.clear()
 
         # Inside a deck → live deck contents + analytics + combos. Width
         # matches CSS #nav width minus the 1-char padding on either side.
@@ -1207,10 +1319,12 @@ class MtgOracleApp(App):
             # `combo-info <N>` resolves the same numbered list the user sees.
             if combos is not None:
                 self._last_combos = combos
-            nav.write(r.render_deck_compact(
-                deck, width=NAV_WIDTH - 2,
-                analytics=analytics, combos=combos,
-            ))
+            links: list[r.LinkSpan] = []
+            body = r.render_deck_compact(
+                deck, width=NAV_CONTENT_WIDTH,
+                analytics=analytics, combos=combos, links=links,
+            )
+            nav.write(self._linked_text(body, links, nav=True))
             return
 
         # Otherwise → folder/deck tree with cwd marker.
@@ -1228,18 +1342,25 @@ class MtgOracleApp(App):
             (f["deck_count"] for f in folders if f["id"] is None), 0
         )
 
+        def nav_link(prefix: str, label: str, kind: str, args: tuple) -> None:
+            """Write one tree row with the label as a click target."""
+            ticket = self._click_ticket(kind, args, nav=True)
+            row = Text(prefix, no_wrap=True)
+            row.append(label, Style.from_meta({"@click": f"click_target({ticket})"}))
+            nav.write(row)
+
         for f in real_folders:
             name = f["name"]
             here = name == self._cwd_folder
             marker = ">" if here else " "
-            nav.write(f"{marker} {name}")
+            nav_link(f"{marker} ", name, "folder", (name,))
             try:
                 decks_in_folder = d.list_decks(folder=name)
             except Exception as e:
                 nav.write(f"    (error listing decks: {type(e).__name__}: {e})")
                 continue
             for x in decks_in_folder:
-                nav.write(f"    {x['name']}")
+                nav_link("    ", x["name"], "deck", (name, x["name"]))
 
         if unsorted_count:
             nav.write("")
@@ -1249,7 +1370,7 @@ class MtgOracleApp(App):
                 if x.get("folder") is None
             ]
             for x in unsorted:
-                nav.write(f"    {x['name']}")
+                nav_link("    ", x["name"], "deck", (None, x["name"]))
 
     def _cmd_pwd(self, _: str) -> None:
         self._write(self._path_str())
@@ -1436,7 +1557,8 @@ class MtgOracleApp(App):
             self._cwd_deck = None
             self._refresh_status()
             return
-        self._write(r.render_deck(deck))
+        links: list[r.LinkSpan] = []
+        self._write_linked(r.render_deck(deck, links), links)
 
     def _on_entered_deck(self) -> None:
         """Run after every successful `cd` into a deck.
@@ -1693,7 +1815,8 @@ class MtgOracleApp(App):
             if not deck:
                 self._write(f"(deck not found: {target})")
                 return
-            self._write(r.render_deck(deck))
+            links: list[r.LinkSpan] = []
+            self._write_linked(r.render_deck(deck, links), links)
             return
         if self._cwd_deck:
             self._show_current_deck()
@@ -1750,7 +1873,11 @@ class MtgOracleApp(App):
     # --- rendering helpers specific to the app -----------------------
 
     @staticmethod
-    def _render_numbered_combo_list(combos: list[dict], header: str) -> str:
+    def _render_numbered_combo_list(
+        combos: list[dict],
+        header: str,
+        links: Optional[list[r.LinkSpan]] = None,
+    ) -> str:
         if not combos:
             return "(no matching combos)"
         lines = [header]
@@ -1758,10 +1885,20 @@ class MtgOracleApp(App):
             cards_str = c.get("cards") or c.get("combo_name") or ""
             ci = c.get("color_identity") or "-"
             plus = "+" if c.get("has_template_vars") else ""
-            row_header = f"  [{i:>3}] {ci:<5} ({c['card_count']}{plus} cards) "
-            lines.append(r.wrap_combo_row(row_header, cards_str))
-        lines.append("  (type `combo-info <N>` to expand any row)")
+            index_label = f"[{i:>3}]"
+            row_header = f"  {index_label} {ci:<5} ({c['card_count']}{plus} cards) "
+            first_line_no = len(lines)
+            lines.extend(r.wrap_combo_row(row_header, cards_str).split("\n"))
+            if links is not None:
+                links.append(r.LinkSpan(first_line_no, 2, 2 + len(index_label),
+                                        "combo", (i,)))
+        lines.append("  (click a row number, or type `combo-info <N>`)")
         return "\n".join(lines)
+
+    def _write_combo_list(self, combos: list[dict], header: str) -> None:
+        links: list[r.LinkSpan] = []
+        body = self._render_numbered_combo_list(combos, header, links)
+        self._write_linked(body, links)
 
 
 def run() -> None:
