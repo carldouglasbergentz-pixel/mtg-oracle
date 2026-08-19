@@ -551,6 +551,13 @@ class MtgOracleApp(App):
         # parsed by Textual's action parser, and card names are full of
         # apostrophes, commas and `//` — so we never put a name in there.
         # Each clickable region gets an integer ticket into this table.
+        #
+        # The meta must say `app.click_target(...)`, not `click_target(...)`:
+        # a click is brokered with the *widget* as the default namespace, so
+        # an unqualified name is looked up on the RichLog and silently never
+        # found. Textual's own widgets get away with bare names because their
+        # actions live on the widget (Markdown's `link`, Bar's
+        # `range_clicked`); ours live on the App.
         self._click_targets: dict[int, tuple[str, tuple]] = {}
         self._click_seq: int = 0
         # Tickets owned by the nav pane, dropped when it re-renders (the
@@ -738,7 +745,7 @@ class MtgOracleApp(App):
                 ticket = self._click_ticket(span.kind, span.args, nav=nav)
                 out.append(
                     line[span.start:span.end],
-                    Style.from_meta({"@click": f"click_target({ticket})"}),
+                    Style.from_meta({"@click": f"app.click_target({ticket})"}),
                 )
                 cursor = span.end
             out.append(line[cursor:])
@@ -758,6 +765,13 @@ class MtgOracleApp(App):
         target = self._click_targets.get(ticket)
         if target is None:
             return
+        # Clicking a pane focuses it (RichLog is focusable, for scrolling),
+        # which would leave the next keystroke going nowhere useful. A click
+        # is a shortcut for typing a command, so hand the keyboard back.
+        try:
+            self.query_one("#cmd", Input).focus()
+        except NoMatches:
+            pass
         kind, args = target
         if kind == "card":
             self._write(f"> card {args[0]}")
@@ -1346,7 +1360,7 @@ class MtgOracleApp(App):
             """Write one tree row with the label as a click target."""
             ticket = self._click_ticket(kind, args, nav=True)
             row = Text(prefix, no_wrap=True)
-            row.append(label, Style.from_meta({"@click": f"click_target({ticket})"}))
+            row.append(label, Style.from_meta({"@click": f"app.click_target({ticket})"}))
             nav.write(row)
 
         for f in real_folders:

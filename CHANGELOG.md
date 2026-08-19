@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (mouse clicks did nothing — the action was in the wrong namespace)
+- **The `@click` meta named an unqualified action.** A click is brokered with the *widget* it landed in as the default namespace, so `click_target(...)` was looked up on the `RichLog` — where it doesn't exist — and silently never ran. It has to be `app.click_target(...)`; Textual's valid namespaces are `app`, `screen` and `focused`. Textual's own widgets get away with bare names because their actions live on the widget (Markdown's `link`, Bar's `range_clicked`); ours live on the App.
+- **The previous commit's testing note was wrong**, and the wrongness is what hid this. It claimed `pilot.click` couldn't deliver Click events in this harness, on the evidence that a spike using `pick(...)` failed even for Textual's own `Static`. The spike had the *same* missing namespace. With `app.pick(...)` it passes immediately — `pilot.click` works fine, and the "can't test end to end" conclusion was self-inflicted. The mouse suite now drives every path through real `pilot.click`, which is what would have caught this in the first place.
+- **A link click left the keyboard nowhere useful.** `RichLog` is focusable (for scrolling), so clicking a pane moved focus off the command input and the next keystroke went to the log. Since a click is a shortcut for typing a command, `action_click_target` now hands focus back to the input.
+- Removed a deck named `__adversarial__` left in the user's database by a review script that crashed before its own cleanup — the source of a stray `(unsorted)` section in the nav pane.
+
 ### Added (mouse support)
 - **Clickable regions in both panes, with no change of widget.** The first assumption was that `RichLog` couldn't carry click targets and the panes would have to become `DataTable`/`OptionList` — which would have changed the look. Testing that assumption disproved it: `get_style_at` reads back `{'@click': ...}` on exactly the characters a card name occupies, so `RichLog` preserves Rich style meta perfectly, and `App._broker_event` dispatches it to an action. That's the same mechanism Textual's own Markdown widget uses for links.
     - **Left tree:** a folder or deck name → `cd` into it.
