@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (points visualisation)
+- Points moved out of the header's metadata row onto their own line directly under the format — `Points   10 / 10   (0 left)` — because in a points format that's the first thing you check, not a footnote. The list of pointed cards moved with it, from the bottom of the deck view to right under the header.
+- The list reads `Card Name (8)` rather than a right-hand points column, and the per-card marker in the decklist moved from a trailing `<8p>` (after the type line, easy to miss) to `(8)` immediately after the name, inside the name column so the mana-cost column stays aligned.
+- The marker is appended *after* truncation, so it survives on long names. Naive truncation dropped it on exactly the cards where it matters: `Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar` is 53 characters and lost its `(1)` in both the full and compact views.
+- The side pane keeps the compact `[10/10 pts]` badge (with `!` when over), since a 46-column pane has no room for a headline row.
+
 ### Fixed (internal review of the 2026-08-19 work — 15 findings)
 
 An adversarial pass over the same day's commit, run because the author of a

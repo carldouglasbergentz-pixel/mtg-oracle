@@ -93,24 +93,42 @@ def _points_badge(points: Optional[dict]) -> str:
     return f"[{points['total']}/{points['budget']} pts{over}]"
 
 
-def render_points(points: dict) -> str:
-    """Which cards a deck is spending its points on, dearest first."""
-    lines = [
-        f"{points['label']} points: {points['total']} of {points['budget']}"
-        + ("  -- OVER BUDGET" if points.get("over") else "")
-    ]
+def _name_with_points(name: str, points: Optional[int], width: int) -> str:
+    """`Card Name (3)`, truncating the NAME so the marker is never cut off.
+
+    Long names are exactly the case where the marker matters and exactly the
+    case naive truncation loses it — 'Tamiyo, Inquisitive Student // Tamiyo,
+    Seasoned Scholar' is 53 characters and its `(1)` fell off the end.
+    """
+    suffix = f" ({points})" if points else ""
+    available = width - len(suffix)
+    if len(name) > available:
+        name = name[:max(1, available - 2)] + ".."
+    return name + suffix
+
+
+def _points_headline(points: dict) -> str:
+    """`Points   10 / 10   (0 left)` — the one-line budget summary."""
+    remaining = points["budget"] - points["total"]
+    tail = (f"({abs(remaining)} over budget)" if remaining < 0
+            else f"({remaining} left)")
+    return f"Points   {points['total']} / {points['budget']}   {tail}"
+
+
+def render_points(points: dict, *, headline: bool = True) -> str:
+    """The pointed cards in a deck, dearest first, with points after each.
+
+    `headline=False` omits the summary line for callers that already show it
+    in a header (the full deck view puts it under the format).
+    """
+    lines = [_points_headline(points)] if headline else []
     if not points["cards"]:
         lines.append(f"{INDENT}(no pointed cards in this deck)")
         return "\n".join(lines)
     for name, pts, qty, subtotal in points["cards"]:
-        qty_str = f" x{qty}" if qty > 1 else ""
-        lines.append(f"{INDENT}{subtotal:>2}  {name}{qty_str}"
-                     + (f"  ({pts} each)" if qty > 1 else ""))
-    remaining = points["budget"] - points["total"]
-    lines.append(
-        f"{INDENT}{'--':>2}  {abs(remaining)} point(s) "
-        + ("over budget" if remaining < 0 else "left")
-    )
+        qty_str = f"{qty}x " if qty > 1 else ""
+        total_str = f" = {subtotal}" if qty > 1 else ""
+        lines.append(f"{INDENT}{qty_str}{name} ({pts}){total_str}")
     return "\n".join(lines)
 
 
@@ -514,9 +532,6 @@ def render_deck(deck: dict) -> str:
     ci = _ci_badge(deck.get("commander_ci"))
     if ci:
         header_right.append(ci)
-    pts = _points_badge(deck.get("points"))
-    if pts:
-        header_right.append(pts)
     header_right.append(f"{total} cards")
     side_total = deck.get("total_side", 0)
     if side_total:
@@ -529,7 +544,15 @@ def render_deck(deck: dict) -> str:
     lines = [hr(), f"{BOX_V} {name}{' ' * pad}{right}"]
     if deck.get("description"):
         lines.append(f"{BOX_V} {deck['description']}")
+    # Points get their own header row, directly under the format line — in a
+    # points format it's the first thing you check, not a footnote.
+    points = deck.get("points")
+    if points:
+        lines.append(f"{BOX_V} {_points_headline(points)}")
     lines.append(hr())
+    if points:
+        lines.append("")
+        lines.append(render_points(points, headline=False))
 
     # Group cards
     commanders: list[dict] = []
@@ -558,10 +581,10 @@ def render_deck(deck: dict) -> str:
     if sideboard:
         ordered.append(("Sideboard", sideboard))
 
-    # Mark pointed cards inline so you can see where the budget went
-    # without switching views.
-    points = deck.get("points")
+    # Mark pointed cards where the eye already is — right after the name,
+    # inside the name column so the mana-cost column stays aligned.
     points_by_card = {n.lower(): p for n, p, _q, _s in (points or {}).get("cards", [])}
+    NAME_W = 38
 
     for bucket, cards in ordered:
         subtotal = sum(c["quantity"] for c in cards)
@@ -574,15 +597,10 @@ def render_deck(deck: dict) -> str:
             # Truncate type line; whole row must stay within WRAP_COLS-ish.
             type_trunc = type_line if len(type_line) <= 30 else type_line[:28] + ".."
             pts = points_by_card.get((c["card_name"] or "").lower())
-            marker = f" <{pts}p>" if pts else ""
             lines.append(
-                f"{INDENT}{qty:>2}x {c['card_name']:<38} {cost:<14} "
-                f"{type_trunc}{marker}"
+                f"{INDENT}{qty:>2}x {_name_with_points(c['card_name'], pts, NAME_W):<{NAME_W}} "
+                f"{cost:<14} {type_trunc}"
             )
-
-    if points:
-        lines.append("")
-        lines.append(render_points(points))
 
     return "\n".join(lines)
 
@@ -714,18 +732,20 @@ def render_deck_compact(
     if sideboard:
         ordered.append(("Sideboard", sideboard))
 
+    points = deck.get("points")
+    points_by_card = {n.lower(): p for n, p, _q, _s in (points or {}).get("cards", [])}
+
     for bucket, cards in ordered:
         subtotal = sum(c["quantity"] for c in cards)
         lines.append("")
         lines.append(f"{bucket} ({subtotal})")
         for c in cards:
             qty = c["quantity"]
-            cn = c["card_name"]
-            if len(cn) > name_w:
-                cn = cn[:name_w - 2] + ".."
-            lines.append(f"  {qty:>2}x {cn}")
+            pts = points_by_card.get((c["card_name"] or "").lower())
+            lines.append(
+                f"  {qty:>2}x {_name_with_points(c['card_name'], pts, name_w)}"
+            )
 
-    points = deck.get("points")
     if points:
         lines.append("")
         lines.append("POINTS")
