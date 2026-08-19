@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (the app appeared to hang when dragging the pane divider)
+- **`set_nav_width` did the expensive half on every mouse-move.** A drag emits one `MouseMove` per column crossed, and each one re-rendered the whole nav pane and wrote `config.json`. Measured: **24 seconds for a 24-column drag**, 1 s per column. The divider now reports movement and completion as separate messages — `Dragged` only moves the boundary (0.01 ms), `DragEnded` does the re-render and the config write, once. Verified by counting: 0 re-renders and 0 config writes across 12 drag moves, exactly 1 of each after release.
+- **The nav refresh was slow on its own — 801 ms — and it runs after every command.** The cause was a project-wide indexing gap, not the drag: every name index was on the default BINARY collation, and SQLite cannot use a BINARY index to satisfy a `COLLATE NOCASE` comparison. The convention the whole codebase follows was therefore forcing full table scans on its hottest queries. `get_deck`'s `LEFT JOIN cards ON c.name = dc.card_name COLLATE NOCASE` scanned all 35k cards *once per deck row*.
+    - `scripts/migrate_add_nocase_indexes.py` adds an index per case-insensitively-compared column (8 of them). Measured on the real database: **`get_deck` join 747 ms → 0.8 ms (884×)**, name lookup 0.89 → 0.02 ms, legality lookup 14.7 → 0.05 ms, `combos_in_deck` 47 → 2.9 ms. Cost: ~23 MB on a 270 MB database, ~0.5 s to build. In the self-heal list, and in `init_db.py` for fresh databases.
+    - This was never a drag-only problem: every `add`, `remove` and `cd` paid the 800 ms, because the TUI refreshes the deck pane after each command. A nav refresh is now 11 ms.
+- Guessing wrong here was instructive: the first hypothesis was `combos_in_deck` against 104k combos. It was 47 ms of the 801. Profiling before fixing pointed at `get_deck` instead.
+
+### Added (folder default format)
+- **`deck_folders.format`** — a folder can carry a format, and decks created in it inherit it. This is what makes the organisation the user already has mean something: a deck dropped into a folder called "Canadian Highlander" now gets Canlander's rules without being told twice. It is a *default*, not an override — a deck's own format always wins, and the folder only fills it in at creation.
+- `format` in a folder shows the default; `format <name>` sets it and says plainly that existing decks are unchanged; `format <name> --all` also stamps decks in the folder that have **no** format, never overwriting one that does; `format --unset` clears it. At root, `format` explains there's nothing to set there.
+- The nav tree shows the default beside the folder name (`Canadian Highlander  [canlander]`) — where you create decks is where the inherited format belongs.
+- Applied to the user's own folders: both Canlander decks are at 10/10 points, and `Azami, Lady of Scrolls` — the one deck that had no format — picked up `commander`.
+
 ### Added (navigation and layout by mouse)
 - **Clickable breadcrumb at the top of the nav pane** — `/ Canadian Highlander / Blue Moon`, every segment a link. Inside a deck the pane switches to that deck's contents, so the tree that got you there is gone; before this there was no mouse route back to a folder or to root at all. Clicking a folder segment now uses an absolute `cd /<folder>`, because the bareword form is refused from inside a deck.
 - **Draggable pane divider.** Textual has no splitter widget, so `PaneDivider` is the whole mechanism: capture the mouse on press, report the pointer column while it moves, release on let-go. The App decides what a column means for the pane width; the divider knows nothing about the panes it sits between. `Ctrl+Left` / `Ctrl+Right` do the same from the keyboard, the split is clamped so neither pane can be squeezed out, and it's remembered in `data/config.json` like the theme.

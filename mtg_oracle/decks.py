@@ -112,14 +112,14 @@ def create_folder(name: str) -> int:
 
 
 def list_folders() -> list[dict]:
-    """All folders + deck count per folder, plus a synthetic 'Unsorted' row
-    counting decks that have NULL folder_id."""
+    """All folders + deck count + default format per folder, plus a synthetic
+    'Unsorted' row counting decks that have NULL folder_id."""
     conn = _ro()
     try:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT f.id, f.name, f.created_at,
+            SELECT f.id, f.name, f.created_at, f.format,
                    (SELECT COUNT(*) FROM decks d WHERE d.folder_id = f.id) AS deck_count
             FROM deck_folders f
             ORDER BY f.name COLLATE NOCASE
@@ -130,11 +130,57 @@ def list_folders() -> list[dict]:
         unsorted = cur.fetchone()[0]
         if unsorted:
             rows.append({
-                "id": None, "name": "(unsorted)", "created_at": None, "deck_count": unsorted,
+                "id": None, "name": "(unsorted)", "created_at": None,
+                "format": None, "deck_count": unsorted,
             })
         return rows
     finally:
         conn.close()
+
+
+def get_folder_format(name: str) -> Optional[str]:
+    """A folder's default format, or None."""
+    conn = _ro()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT format FROM deck_folders WHERE name = ? COLLATE NOCASE", (name,)
+        )
+        row = cur.fetchone()
+        return row["format"] if row else None
+    finally:
+        conn.close()
+
+
+def set_folder_format(
+    name: str, fmt: Optional[str], apply_to_decks: bool = False,
+) -> tuple[Optional[str], Optional[dict], int]:
+    """Set (or clear) a folder's default format.
+
+    Returns (stored_value, resolved_info, decks_updated). The default only
+    fills in a *new* deck's format — a deck that already has one keeps it.
+    With `apply_to_decks=True` the format is also stamped onto existing decks
+    in the folder that have none; decks with a format are never overwritten,
+    because the folder is a default and not an authority.
+    """
+    fmt = (fmt or "").strip() or None
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        fid = _folder_id(cur, name)
+        cur.execute("UPDATE deck_folders SET format = ? WHERE id = ?", (fmt, fid))
+        updated = 0
+        if apply_to_decks and fmt:
+            cur.execute(
+                "UPDATE decks SET format = ?, updated_at = ? "
+                "WHERE folder_id = ? AND (format IS NULL OR format = '')",
+                (fmt, _now(), fid),
+            )
+            updated = cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return fmt, _resolve_format(fmt), updated
 
 
 def delete_folder(name: str, force: bool = False) -> None:
@@ -187,6 +233,13 @@ def create_deck(
     try:
         cur = conn.cursor()
         fid = _folder_id(cur, folder)
+        if format is None and fid is not None:
+            # Inherit the folder's default. This is the whole point of the
+            # folder format: a deck dropped into "Canadian Highlander" should
+            # get Canlander's rules without being told twice.
+            cur.execute("SELECT format FROM deck_folders WHERE id = ?", (fid,))
+            row = cur.fetchone()
+            format = (row["format"] if row else None) or None
         try:
             cur.execute(
                 """

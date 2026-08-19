@@ -29,6 +29,12 @@ CREATE INDEX IF NOT EXISTS idx_cards_rarity ON cards(rarity);
 CREATE INDEX IF NOT EXISTS idx_cards_oracle_id ON cards(oracle_id);
 CREATE INDEX IF NOT EXISTS idx_cards_color_identity ON cards(color_identity);
 CREATE INDEX IF NOT EXISTS idx_cards_edhrec ON cards(edhrec_rank);
+-- Name comparisons in this project use COLLATE NOCASE, and SQLite cannot
+-- satisfy a NOCASE comparison from a BINARY index. Without these, the
+-- convention silently costs a full table scan: get_deck's join over a
+-- 100-card deck took 747 ms instead of 0.8 ms. One per column any query
+-- compares case-insensitively — see scripts/migrate_add_nocase_indexes.py.
+CREATE INDEX IF NOT EXISTS idx_cards_name_nocase ON cards(name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS rulings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,6 +46,7 @@ CREATE TABLE IF NOT EXISTS rulings (
 );
 CREATE INDEX IF NOT EXISTS idx_rulings_card ON rulings(card_name);
 CREATE INDEX IF NOT EXISTS idx_rulings_oracle_id ON rulings(oracle_id);
+CREATE INDEX IF NOT EXISTS idx_rulings_card_nocase ON rulings(card_name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS sync_state (
     source TEXT PRIMARY KEY,
@@ -71,6 +78,7 @@ CREATE TABLE IF NOT EXISTS combo_cards (
     FOREIGN KEY (combo_id) REFERENCES combos(id)
 );
 CREATE INDEX IF NOT EXISTS idx_combo_cards_card ON combo_cards(card_name);
+CREATE INDEX IF NOT EXISTS idx_combo_cards_card_nocase ON combo_cards(card_name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS combo_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,6 +119,7 @@ CREATE TABLE IF NOT EXISTS user_combo_cards (
     FOREIGN KEY (combo_id) REFERENCES user_combos(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_user_combo_cards_card ON user_combo_cards(card_name);
+CREATE INDEX IF NOT EXISTS idx_user_combo_cards_card_nocase ON user_combo_cards(card_name COLLATE NOCASE);
 
 -- Per-format legality. Only `legal` / `restricted` / `banned` rows exist:
 -- Scryfall reports all 23 formats for every card and ~55% are `not_legal`,
@@ -126,6 +135,8 @@ CREATE TABLE IF NOT EXISTS card_legalities (
 );
 CREATE INDEX IF NOT EXISTS idx_card_legalities_format
     ON card_legalities(format, status);
+CREATE INDEX IF NOT EXISTS idx_card_legalities_card_nocase
+    ON card_legalities(card_name COLLATE NOCASE);
 
 -- Community formats Scryfall can't express, i.e. points lists. `derives_from`
 -- names the Scryfall format whose card pool is inherited (Canadian Highlander
@@ -152,6 +163,8 @@ CREATE TABLE IF NOT EXISTS custom_format_points (
 );
 CREATE INDEX IF NOT EXISTS idx_custom_points_card
     ON custom_format_points(card_name);
+CREATE INDEX IF NOT EXISTS idx_custom_points_card_nocase
+    ON custom_format_points(card_name COLLATE NOCASE);
 
 -- PK includes `category`: a token can be both a subtype and a keyword on
 -- the same card ('saga', 'adventure', 'dragon'). A (card_name, tag) key
@@ -167,6 +180,7 @@ CREATE TABLE IF NOT EXISTS card_tags (
 );
 CREATE INDEX IF NOT EXISTS idx_card_tags_tag ON card_tags(tag);
 CREATE INDEX IF NOT EXISTS idx_card_tags_category ON card_tags(category);
+CREATE INDEX IF NOT EXISTS idx_card_tags_card_nocase ON card_tags(card_name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS card_abilities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -204,7 +218,11 @@ CREATE INDEX IF NOT EXISTS idx_corrections_added_at ON corrections(added_at);
 CREATE TABLE IF NOT EXISTS deck_folders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    -- Default format for decks created in this folder. A default, not an
+    -- override: a deck's own `format` always wins, the folder only fills it
+    -- in at creation time.
+    format TEXT
 );
 
 CREATE TABLE IF NOT EXISTS decks (
@@ -234,6 +252,7 @@ CREATE TABLE IF NOT EXISTS deck_cards (
 );
 CREATE INDEX IF NOT EXISTS idx_deck_cards_deck ON deck_cards(deck_id);
 CREATE INDEX IF NOT EXISTS idx_deck_cards_card ON deck_cards(card_name);
+CREATE INDEX IF NOT EXISTS idx_deck_cards_card_nocase ON deck_cards(card_name COLLATE NOCASE);
 """
 
 

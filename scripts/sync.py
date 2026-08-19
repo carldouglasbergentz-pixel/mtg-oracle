@@ -25,7 +25,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 import load_custom_formats
 import migrate_add_corrections
 import migrate_add_custom_formats
+import migrate_add_folder_format
 import migrate_add_legalities
+import migrate_add_nocase_indexes
 import migrate_add_scryfall_fields
 import migrate_add_tags
 import migrate_add_user_combos
@@ -41,9 +43,12 @@ SELF_HEAL_MIGRATIONS = (
     migrate_add_scryfall_fields,
     migrate_add_legalities,
     migrate_add_custom_formats,
+    migrate_add_folder_format,
     migrate_add_tags,
     migrate_add_corrections,
     migrate_add_user_combos,
+    # Last: it indexes columns the migrations above may have just created.
+    migrate_add_nocase_indexes,
 )
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"

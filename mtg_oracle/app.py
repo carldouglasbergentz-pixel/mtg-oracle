@@ -162,6 +162,15 @@ AT ROOT (`/`)
   rmdir <name>              delete an empty folder
   show <deck>               render a deck without entering it
 
+FOLDER DEFAULT FORMAT (`/<folder>/`)
+  format                    show this folder's default format
+  format <name>             set it — decks created here inherit it, so a
+                            "Canadian Highlander" folder can hand every new
+                            deck the Canlander rules
+  format <name> --all       also stamp it on decks here that have no format
+                            (decks that already have one are left alone)
+  format --unset            clear the default
+
 INSIDE A FOLDER (`/<folder>/`)
   add <deck>                create deck in this folder
   remove <deck>             delete deck in this folder
@@ -482,11 +491,15 @@ class PaneDivider(Widget):
     """
 
     class Dragged(Message):
-        """The divider was dragged to an absolute screen column."""
+        """The divider moved to an absolute screen column, mid-drag."""
 
         def __init__(self, screen_x: int) -> None:
             self.screen_x = screen_x
             super().__init__()
+
+    class DragEnded(Message):
+        """The drag finished. Anything expensive belongs here, not in
+        `Dragged`: a real drag emits a MouseMove per column crossed."""
 
     def render(self) -> RenderResult:
         return Text("\n".join(["│"] * max(1, self.size.height)), no_wrap=True)
@@ -505,7 +518,10 @@ class PaneDivider(Widget):
             event.stop()
 
     def on_mouse_up(self, event: events.MouseUp) -> None:
+        was_dragging = self.app.mouse_captured is self
         self.release_mouse()
+        if was_dragging:
+            self.post_message(self.DragEnded())
         event.stop()
 
 
@@ -797,29 +813,55 @@ class MtgOracleApp(App):
     # --- resizable panes ------------------------------------------
 
     def on_pane_divider_dragged(self, event: PaneDivider.Dragged) -> None:
+        # Mid-drag: move the boundary and nothing else. Re-rendering the pane
+        # or writing the config here meant a 24-column drag did 24 full deck
+        # re-renders and 24 file writes — 24 seconds of apparent hang.
         nav = self.query_one("#nav", RichLog)
-        self.set_nav_width(event.screen_x - nav.region.x)
+        self.set_nav_width(event.screen_x - nav.region.x,
+                           refresh=False, persist=False)
 
-    def set_nav_width(self, width: int) -> None:
-        """Resize the left pane, clamped so neither pane can be squeezed out."""
+    def on_pane_divider_drag_ended(self, event: PaneDivider.DragEnded) -> None:
+        # Let go: now do the expensive part, once.
+        self._persist_nav_width()
+        self._refresh_nav()
+
+    def _nav_width(self) -> int:
+        """Current pane width in columns, whatever set it."""
+        width = self.query_one("#nav", RichLog).styles.width
+        value = getattr(width, "value", None)
+        return int(value) if value else NAV_WIDTH
+
+    def _persist_nav_width(self) -> None:
+        config = _load_config()
+        config["nav_width"] = self._nav_width()
+        _save_config(config)
+
+    def set_nav_width(
+        self, width: int, *, refresh: bool = True, persist: bool = True,
+    ) -> None:
+        """Resize the left pane, clamped so neither pane can be squeezed out.
+
+        `refresh` re-renders the pane contents, which the compact deck view
+        needs because it truncates card names to the pane width — but it is
+        the expensive half, so a drag turns it off until the mouse is
+        released.
+        """
         nav = self.query_one("#nav", RichLog)
         largest = max(MIN_NAV_WIDTH, self.size.width - MIN_OUTPUT_WIDTH)
         width = max(MIN_NAV_WIDTH, min(width, largest))
-        if width == nav.styles.width.value:
+        if width == self._nav_width():
             return
         nav.styles.width = width
-        config = _load_config()
-        config["nav_width"] = width
-        _save_config(config)
-        # Re-render: the compact deck view truncates to the pane, so the
-        # contents have to be rebuilt at the new width, not just reflowed.
-        self._refresh_nav()
+        if persist:
+            self._persist_nav_width()
+        if refresh:
+            self._refresh_nav()
 
     def action_widen_nav(self) -> None:
-        self.set_nav_width(int(self.query_one("#nav", RichLog).styles.width.value) + 2)
+        self.set_nav_width(self._nav_width() + 2)
 
     def action_narrow_nav(self) -> None:
-        self.set_nav_width(int(self.query_one("#nav", RichLog).styles.width.value) - 2)
+        self.set_nav_width(self._nav_width() - 2)
 
     def _nav_content_width(self) -> int:
         """Columns the nav renderer may use, measured rather than assumed.
@@ -1510,18 +1552,25 @@ class MtgOracleApp(App):
             (f["deck_count"] for f in folders if f["id"] is None), 0
         )
 
-        def nav_link(prefix: str, label: str, kind: str, args: tuple) -> None:
+        def nav_link(
+            prefix: str, label: str, kind: str, args: tuple, suffix: str = "",
+        ) -> None:
             """Write one tree row with the label as a click target."""
             ticket = self._click_ticket(kind, args, nav=True)
             row = Text(prefix, no_wrap=True)
             row.append(label, Style.from_meta({"@click": f"app.click_target({ticket})"}))
+            if suffix:
+                row.append(suffix)
             nav.write(row)
 
         for f in real_folders:
             name = f["name"]
             here = name == self._cwd_folder
             marker = ">" if here else " "
-            nav_link(f"{marker} ", name, "folder", (name,))
+            # Show the folder's default format: it's what decks created here
+            # will inherit, so it belongs where you create them.
+            suffix = f"  [{f['format']}]" if f.get("format") else ""
+            nav_link(f"{marker} ", name, "folder", (name,), suffix=suffix)
             try:
                 decks_in_folder = d.list_decks(folder=name)
             except Exception as e:
@@ -1955,11 +2004,79 @@ class MtgOracleApp(App):
         self._refresh_nav()
 
     def _cmd_format(self, arg: str) -> None:
-        """Show or set the current deck's format — the switch for every rule."""
-        if not self._cwd_deck:
-            self._write("(use `cd <deck>` to enter a deck before `format`)")
+        """Show or set a format. Which one depends on where you are:
+
+        - in a deck:   that deck's format
+        - in a folder: the folder's default, inherited by decks created there
+        - at root:     nothing to set
+        """
+        if self._cwd_deck:
+            return self._deck_format(arg.strip())
+        if self._cwd_folder:
+            return self._folder_format(arg.strip())
+        self._write(
+            "(at root there's nothing to set — `cd <folder>` for a folder "
+            "default, or `cd <deck>` for one deck)"
+        )
+
+    def _folder_format(self, arg: str) -> None:
+        """The folder's default format, inherited by decks created in it."""
+        folder = self._cwd_folder
+        try:
+            if not arg:
+                current = d.get_folder_format(folder)
+                if not current:
+                    self._write(
+                        f"folder {folder!r} has no default format.\n"
+                        f"  `format <name>` sets one — new decks created here "
+                        f"inherit it.\n"
+                        f"  add `--all` to also stamp it on decks here that "
+                        f"have no format yet.\n"
+                        + self._known_formats()
+                    )
+                else:
+                    info = q.resolve_format(current)
+                    self._write(
+                        f"folder {folder!r} default format: {current!r}\n"
+                        f"{self._format_effect(info)}"
+                    )
+                return
+            toks = arg.split()
+            apply_all = "--all" in toks
+            name = " ".join(t for t in toks if t != "--all")
+            if name in ("--unset", "--clear"):
+                d.set_folder_format(folder, None)
+                self._write(f"OK cleared the default format for {folder!r}")
+            elif not name:
+                self._write("usage: format <name> [--all]  |  format --unset")
+                return
+            else:
+                stored, info, updated = d.set_folder_format(
+                    folder, name, apply_to_decks=apply_all,
+                )
+                lines = [
+                    f"OK folder {folder!r} default format set to {stored!r} — "
+                    f"new decks here inherit it",
+                    self._format_effect(info),
+                ]
+                if apply_all:
+                    lines.append(
+                        f"   applied to {updated} existing deck(s) that had no "
+                        f"format (decks with one were left alone)"
+                    )
+                else:
+                    lines.append(
+                        "   existing decks are unchanged — re-run with `--all` "
+                        "to stamp the ones with no format"
+                    )
+                self._write("\n".join(lines))
+        except d.DeckError as e:
+            self._write(f"format: {e}")
             return
-        arg = arg.strip()
+        self._refresh_nav()
+
+    def _deck_format(self, arg: str) -> None:
+        """Show or set the current deck's format — the switch for every rule."""
         try:
             if not arg:
                 info = d.get_deck_format_info(self._cwd_deck, folder=self._cwd_folder)
