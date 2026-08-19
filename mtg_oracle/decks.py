@@ -344,7 +344,12 @@ def get_deck(name: str, folder: Optional[str] = None) -> Optional[dict]:
             SELECT dc.card_name, dc.quantity, dc.category,
                    dc.is_commander, dc.is_sideboard,
                    c.type_line, c.mana_cost, c.mana_value, c.colors,
-                   c.color_identity, c.power, c.toughness, c.oracle_text
+                   c.color_identity, c.power, c.toughness, c.oracle_text,
+                   -- layout + per-face data: analytics needs to tell an MDFC
+                   -- whose back is a land (a spell you may play as a land)
+                   -- from a transform card whose back is only reachable by
+                   -- transforming.
+                   c.layout, c.card_faces
             FROM deck_cards dc
             LEFT JOIN cards c ON c.name = dc.card_name COLLATE NOCASE
             WHERE dc.deck_id = ?

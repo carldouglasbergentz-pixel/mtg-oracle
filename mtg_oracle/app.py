@@ -359,11 +359,13 @@ class MtgSuggester(Suggester):
         rule_numbers: list[str],
         in_deck: Callable[[], bool] = lambda: False,
         deck_cards: Callable[[], list[str]] = lambda: [],
+        format_names: Optional[list[str]] = None,
         case_sensitive: bool = False,
     ) -> None:
         super().__init__(case_sensitive=case_sensitive, use_cache=False)
         self._card_names = card_names
         self._rule_numbers = rule_numbers
+        self._format_names = format_names or []
         # Lowercased prefix index for O(n) prefix match per keypress.
         # n is small (35k names), microseconds per call — no bisect needed yet.
         self._card_names_lc = [n.lower() for n in card_names]
@@ -403,6 +405,11 @@ class MtgSuggester(Suggester):
             return self._suggest_from(cmd, rest, self._deck_cards())
         if cmd_lc == "add" and self._in_deck():
             return self._suggest_card(cmd, rest)
+        if cmd_lc == "format":
+            # Format names are easy to half-remember ('canlander' or
+            # 'canadian highlander'? 'competitivebrawl' or two words?), so
+            # complete them the same way card names are completed.
+            return self._suggest_from(cmd, rest, self._format_names)
         if cmd_lc == "combos":
             return self._suggest_combos_intersection(cmd, rest)
         if cmd_lc == "rule":
@@ -721,8 +728,24 @@ class MtgOracleApp(App):
             card_names, rule_numbers,
             in_deck=lambda: self._cwd_deck is not None,
             deck_cards=lambda: self._deck_card_names,
+            format_names=self._format_names(),
         )
         self.query_one("#cmd", Input).suggester = suggester
+
+    @staticmethod
+    def _format_names() -> list[str]:
+        """Every format string `format` accepts, for autofill.
+
+        Scryfall keys, then each custom format's canonical key and its
+        aliases — so both `canadianhighlander` and `canlander` complete.
+        Longer, more specific names sort first so a prefix that matches two
+        entries offers the fuller one rather than a bare stem.
+        """
+        names = set(q.LEGALITY_FORMATS)
+        for spec in q.get_custom_formats().values():
+            names.add(spec["format"])
+            names.update(spec.get("aliases") or [])
+        return sorted(names) + ["--unset"]
 
     @staticmethod
     def _load_suggestion_data() -> tuple[list[str], list[str]]:

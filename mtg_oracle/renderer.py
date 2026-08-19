@@ -668,15 +668,22 @@ def render_analytics_compact(analytics: dict, width: int = 48) -> str:
     curve = analytics["mana_curve"]
     nonland = analytics["nonland_count"]
     land = analytics["land_count"]
+    mdfc = analytics.get("mdfc_land_count", 0)
+    land_total = analytics.get("land_total", land)
     mv_avg = analytics["mv_avg"]
     pips = analytics["color_pips"]
     pip_total = analytics["pip_total"]
     sources = analytics["mana_sources"]
 
+    # A modal DFC with a land back is both a spell and a land drop, so it is
+    # counted in both columns. Spelling out the second number keeps that from
+    # looking like the totals don't add up.
+    land_str = f"{land} ({land_total} with MDFC)" if mdfc else str(land)
+
     lines: list[str] = []
     lines.append("ANALYTICS")
     lines.append("-" * min(width, 9))
-    lines.append(f"avg MV: {mv_avg:.2f}   non-lands: {nonland}   lands: {land}")
+    lines.append(f"avg MV: {mv_avg:.2f}   non-lands: {nonland}   lands: {land_str}")
     lines.append("")
     buckets = ("0", "1", "2", "3", "4", "5", "6+")
     lines.append("curve  " + "  ".join(f"{b:>2}" for b in buckets))
@@ -687,9 +694,9 @@ def render_analytics_compact(analytics: dict, width: int = 48) -> str:
         lines.append("")
         lines.append(f"pips ({pip_total}):    {present}")
 
-    if land > 0:
+    if land_total > 0:
         present = " ".join(f"{c}:{sources[c]}" for c in "WUBRGC" if sources[c])
-        lines.append(f"sources ({land}): {present}")
+        lines.append(f"sources ({land_total}): {present}")
 
     return "\n".join(lines)
 
