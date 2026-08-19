@@ -466,6 +466,35 @@ def get_deck_format_info(
         conn.close()
 
 
+def set_deck_format(
+    deck_name: str,
+    fmt: Optional[str],
+    folder: Optional[str] = None,
+) -> tuple[Optional[str], Optional[dict]]:
+    """Set (or clear, with `fmt=None`) a deck's format.
+
+    Returns (stored_value, resolved_info) where `resolved_info` is
+    `queries.resolve_format()`'s answer — None when the name means nothing to
+    the rules engine. The value is stored verbatim either way: `decks.format`
+    has always been free text, and refusing an unrecognised name would stop
+    people labelling decks for formats we don't model yet. The caller is
+    expected to say which rules actually became active.
+    """
+    fmt = (fmt or "").strip() or None
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, deck_name, folder)
+        cur.execute(
+            "UPDATE decks SET format = ?, updated_at = ? WHERE id = ?",
+            (fmt, _now(), did),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return fmt, _resolve_format(fmt)
+
+
 def deck_points(deck_name: str, folder: Optional[str] = None) -> Optional[dict]:
     """Points a deck spends under its format's points list.
 

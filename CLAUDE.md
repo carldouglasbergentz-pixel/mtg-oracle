@@ -99,7 +99,8 @@ Trivial edits (typo, comment tweak, one-line config) may skip — call out that 
 ## Conventions
 
 - **Clickable output.** Renderers report clickable regions as `renderer.LinkSpan(line, start, end, kind, args)` via an optional `links` list — they own the column widths and truncation rules, so the TUI must never re-derive positions by pattern-matching rendered text. The TUI turns each span into a Rich `@click` meta whose payload is an **integer ticket** into `app._click_targets`; never interpolate a card name into an action string (apostrophes, commas and `//` all break the action parser). Nav-pane tickets are recycled on re-render, output-pane tickets persist with the scrollback.
-- **Pane widths.** `#nav` is `NAV_WIDTH` columns; renderers get `NAV_CONTENT_WIDTH` (= `NAV_WIDTH - 4`), because the border and the padding each take a column per side. Getting this wrong overflows silently — assert against `widget.content_region.width`, not against the CSS width.
+- **Pane widths are measured, not assumed.** The nav pane is resizable (drag the `PaneDivider`, or `Ctrl+Left`/`Ctrl+Right`), so renderers get `app._nav_content_width()` — the widget's live `content_region.width` — not a constant. `NAV_WIDTH - 4` is only the fallback before layout: the border and the padding each take a column per side. Getting it wrong overflows silently, so assert against `widget.content_region.width`.
+- **A deck's format is the switch for every rule** — legality, singleton and points all hang off `decks.format`, and a deck with none gets none of them. That was invisible until the `format` command existed; when a rule seems not to fire, check the format first.
 - For *rules interactions*, prefer `rules` over `rulings`. Rulings clarify specific cards; rules govern the system.
 - For "can X do Y?" questions, check **both** rules AND that card's rulings.
 - Combo answers include: cards involved, color identity, prerequisites, result, steps.

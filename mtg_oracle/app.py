@@ -18,12 +18,14 @@ from typing import Callable, Optional
 
 from rich.style import Style
 from rich.text import Text
-from textual import work
-from textual.app import App, ComposeResult
+from textual import events, work
+from textual.app import App, ComposeResult, RenderResult
 from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.css.query import NoMatches
+from textual.message import Message
 from textual.suggester import Suggester
+from textual.widget import Widget
 from textual.widgets import Footer, Header, Input, RichLog, Static
 
 from mtg_oracle import analytics as a
@@ -71,6 +73,10 @@ NAV_WIDTH = 52
 # the pane by two characters.
 NAV_CONTENT_WIDTH = NAV_WIDTH - 4
 
+# Drag limits for the pane divider: neither pane may be squeezed to nothing.
+MIN_NAV_WIDTH = 24
+MIN_OUTPUT_WIDTH = 30
+
 
 COMMANDS = [
     # Card / rules / combo lookup
@@ -81,7 +87,7 @@ COMMANDS = [
     # Terminal-style navigation
     "cd", "pwd", "ls", "mkdir", "rmdir",
     "add", "remove", "show", "rename", "move",
-    "commander", "points", "import", "paste",
+    "commander", "format", "points", "import", "paste",
     # Maintenance
     "sync",
     # Misc
@@ -178,6 +184,11 @@ INSIDE A DECK (`/<folder>/<deck>/`)
   commander --unset <card>  demote a commander back to the main deck
   commander --force <card>  promote past the legality check (some cards are
                             legal in the deck but banned as commander)
+  format                    show the deck's format and which rules it turns
+                            on (legality, singleton, points)
+  format <name>             set it — `format canlander`, `format commander`,
+                            `format competitive brawl`, ...
+  format --unset            clear it; no format rules apply
   points                    points spent / budget, in formats that have a
                             points list (Canadian Highlander). Pointed
                             cards are marked `<3p>` in `show`.
@@ -290,9 +301,13 @@ MORE HELP
 
 Mouse:
   Clickable, in both panes — they underline when you hover:
-    a folder or deck in the left tree   -> cd into it
-    a card name anywhere               -> its full profile, right pane
-    a combo's [ N ] row number         -> expands that combo
+    the path at the top of the left pane -> `/` goes to root, the folder
+                                           name goes up one level
+    a folder or deck in the left tree    -> cd into it
+    a card name anywhere                 -> its full profile, right pane
+    a combo's [ N ] row number           -> expands that combo
+  Drag the `|` divider between the panes to resize them (Ctrl+Left /
+  Ctrl+Right does the same). The split is remembered next launch.
   Everything is still reachable by typing; the mouse is a shortcut, not a
   second interface. Shift+drag still selects text.
 
@@ -443,6 +458,57 @@ class MtgSuggester(Suggester):
         return None
 
 
+# --- pane divider -----------------------------------------------------
+
+
+class PaneDivider(Widget):
+    """A one-column drag handle between the two panes.
+
+    Textual has no splitter widget, so this is the whole mechanism: capture
+    the mouse on press, report the pointer's column while it moves, release
+    on let-go. The App decides what a given column means for the nav width —
+    the divider deliberately knows nothing about the panes it sits between.
+    """
+
+    DEFAULT_CSS = """
+    PaneDivider {
+        width: 1;
+        height: 1fr;
+        color: $accent;
+    }
+    PaneDivider:hover {
+        color: $text;
+    }
+    """
+
+    class Dragged(Message):
+        """The divider was dragged to an absolute screen column."""
+
+        def __init__(self, screen_x: int) -> None:
+            self.screen_x = screen_x
+            super().__init__()
+
+    def render(self) -> RenderResult:
+        return Text("\n".join(["│"] * max(1, self.size.height)), no_wrap=True)
+
+    def on_resize(self, event: events.Resize) -> None:
+        self.refresh()
+
+    def on_mouse_down(self, event: events.MouseDown) -> None:
+        self.capture_mouse()
+        event.stop()
+
+    def on_mouse_move(self, event: events.MouseMove) -> None:
+        # Only while captured: otherwise a plain hover would resize the pane.
+        if self.app.mouse_captured is self:
+            self.post_message(self.Dragged(event.screen_x))
+            event.stop()
+
+    def on_mouse_up(self, event: events.MouseUp) -> None:
+        self.release_mouse()
+        event.stop()
+
+
 # --- app --------------------------------------------------------------
 
 
@@ -499,6 +565,9 @@ class MtgOracleApp(App):
         Binding(":", "focus_cmd", "Command", show=True),
         Binding("escape", "unfocus_cmd", "Unfocus", show=False),
         Binding("ctrl+l", "clear_output", "Clear", show=True),
+        # Keyboard equivalent of dragging the divider.
+        Binding("ctrl+right", "widen_nav", "Widen pane", show=False),
+        Binding("ctrl+left", "narrow_nav", "Narrow pane", show=False),
         # Shell-style history navigation while focused on the input.
         Binding("up", "history_prev", show=False),
         Binding("down", "history_next", show=False),
@@ -572,6 +641,7 @@ class MtgOracleApp(App):
                 id="nav", wrap=False, markup=False, highlight=False,
                 auto_scroll=False,
             )
+            yield PaneDivider(id="divider")
             yield RichLog(
                 id="output", wrap=False, markup=False, highlight=False,
                 auto_scroll=True,
@@ -594,8 +664,18 @@ class MtgOracleApp(App):
         self._install_suggester()
         self._refresh_status()
         self._refresh_nav()
-        # Restore last-used theme (Ctrl+P palette → "Change theme") if any.
         config = _load_config()
+        # Restore the pane split before anything renders, so the compact deck
+        # view is built at the width it will actually be shown at.
+        saved_width = config.get("nav_width")
+        if isinstance(saved_width, int):
+            try:
+                self.query_one("#nav", RichLog).styles.width = max(
+                    MIN_NAV_WIDTH, saved_width
+                )
+            except NoMatches:
+                pass
+        # Restore last-used theme (Ctrl+P palette → "Change theme") if any.
         saved_theme = config.get("theme")
         if saved_theme and saved_theme != self.theme:
             try:
@@ -714,6 +794,46 @@ class MtgOracleApp(App):
         log = self.query_one("#output", RichLog)
         log.write(text)
 
+    # --- resizable panes ------------------------------------------
+
+    def on_pane_divider_dragged(self, event: PaneDivider.Dragged) -> None:
+        nav = self.query_one("#nav", RichLog)
+        self.set_nav_width(event.screen_x - nav.region.x)
+
+    def set_nav_width(self, width: int) -> None:
+        """Resize the left pane, clamped so neither pane can be squeezed out."""
+        nav = self.query_one("#nav", RichLog)
+        largest = max(MIN_NAV_WIDTH, self.size.width - MIN_OUTPUT_WIDTH)
+        width = max(MIN_NAV_WIDTH, min(width, largest))
+        if width == nav.styles.width.value:
+            return
+        nav.styles.width = width
+        config = _load_config()
+        config["nav_width"] = width
+        _save_config(config)
+        # Re-render: the compact deck view truncates to the pane, so the
+        # contents have to be rebuilt at the new width, not just reflowed.
+        self._refresh_nav()
+
+    def action_widen_nav(self) -> None:
+        self.set_nav_width(int(self.query_one("#nav", RichLog).styles.width.value) + 2)
+
+    def action_narrow_nav(self) -> None:
+        self.set_nav_width(int(self.query_one("#nav", RichLog).styles.width.value) - 2)
+
+    def _nav_content_width(self) -> int:
+        """Columns the nav renderer may use, measured rather than assumed.
+
+        The pane's border and padding each take a column per side; reading the
+        widget's own content region keeps this correct after a drag instead of
+        depending on a constant that a resize would invalidate.
+        """
+        try:
+            measured = self.query_one("#nav", RichLog).content_region.width
+        except NoMatches:
+            measured = 0
+        return measured if measured > 8 else NAV_WIDTH - 4
+
     # --- mouse: clickable regions ----------------------------------
 
     def _click_ticket(self, kind: str, args: tuple, *, nav: bool) -> int:
@@ -785,8 +905,11 @@ class MtgOracleApp(App):
             self._write(f"> cd {path}")
             self._cmd_cd(path)
         elif kind == "folder":
-            self._write(f"> cd {args[0]}")
-            self._cmd_cd(args[0])
+            self._write(f"> cd /{args[0]}")
+            self._cmd_cd(f"/{args[0]}")
+        elif kind == "root":
+            self._write("> cd /")
+            self._cmd_cd("/")
 
     # --- command dispatch ------------------------------------------
 
@@ -821,6 +944,7 @@ class MtgOracleApp(App):
             "add": self._cmd_add,
             "remove": self._cmd_remove,
             "commander": self._cmd_commander,
+            "format": self._cmd_format,
             "points": self._cmd_points,
             "show": self._cmd_show,
             "import": self._cmd_import,
@@ -1280,6 +1404,34 @@ class MtgOracleApp(App):
             f"{path}  |  : focus  |  Ctrl+L clear  |  Ctrl+Q quit  |  Shift+drag to copy"
         )
 
+    def _write_breadcrumb(self, nav: RichLog) -> None:
+        """Clickable path at the top of the nav pane.
+
+        Inside a deck the pane switches to the deck's contents, so the tree
+        that got you there is gone — without this there is no way back to a
+        folder or to root except by typing. Every segment is a click target,
+        including the leading `/`.
+        """
+        row = Text(no_wrap=True)
+
+        def segment(label: str, kind: str, args: tuple) -> None:
+            ticket = self._click_ticket(kind, args, nav=True)
+            row.append(
+                label, Style.from_meta({"@click": f"app.click_target({ticket})"})
+            )
+
+        segment("/", "root", ())
+        if self._cwd_folder:
+            row.append(" ")
+            segment(self._cwd_folder, "folder", (self._cwd_folder,))
+        if self._cwd_deck:
+            row.append(" / ")
+            # The deck segment re-enters the deck: harmless, and it keeps the
+            # whole path uniformly clickable rather than one dead tail.
+            segment(self._cwd_deck, "deck", (self._cwd_folder, self._cwd_deck))
+        nav.write(row)
+        nav.write("-" * 16)
+
     def _refresh_nav(self) -> None:
         """Re-render the left navigation panel.
 
@@ -1299,6 +1451,8 @@ class MtgOracleApp(App):
         for ticket in self._nav_click_ids:
             self._click_targets.pop(ticket, None)
         self._nav_click_ids.clear()
+
+        self._write_breadcrumb(nav)
 
         # Inside a deck → live deck contents + analytics + combos. Width
         # matches CSS #nav width minus the 1-char padding on either side.
@@ -1335,16 +1489,16 @@ class MtgOracleApp(App):
                 self._last_combos = combos
             links: list[r.LinkSpan] = []
             body = r.render_deck_compact(
-                deck, width=NAV_CONTENT_WIDTH,
+                deck, width=self._nav_content_width(),
                 analytics=analytics, combos=combos, links=links,
             )
             nav.write(self._linked_text(body, links, nav=True))
             return
 
-        # Otherwise → folder/deck tree with cwd marker.
+        # Otherwise → folder/deck tree with cwd marker. No header row: the
+        # breadcrumb above already says where we are, and two separator
+        # lines in a row read as a rendering glitch.
         self._deck_card_names = []
-        nav.write("folders / decks")
-        nav.write("-" * 16)
         try:
             folders = d.list_folders()
         except Exception as e:
@@ -1799,6 +1953,86 @@ class MtgOracleApp(App):
                 f"singleton checks and CI filter on `search` are now active"
             )
         self._refresh_nav()
+
+    def _cmd_format(self, arg: str) -> None:
+        """Show or set the current deck's format — the switch for every rule."""
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `format`)")
+            return
+        arg = arg.strip()
+        try:
+            if not arg:
+                info = d.get_deck_format_info(self._cwd_deck, folder=self._cwd_folder)
+                deck = d.get_deck(self._cwd_deck, folder=self._cwd_folder)
+                current = (deck or {}).get("format")
+                if not current:
+                    self._write(
+                        "no format set — no legality, singleton or points rules "
+                        "apply.\n"
+                        "  set one with `format <name>`, e.g. "
+                        "`format canlander` or `format commander`.\n"
+                        + self._known_formats()
+                    )
+                else:
+                    self._write(f"format: {current!r}\n{self._format_effect(info)}")
+                return
+            if arg in ("--unset", "--clear"):
+                d.set_deck_format(self._cwd_deck, None, folder=self._cwd_folder)
+                self._write("OK format cleared — no format rules apply now")
+            else:
+                stored, info = d.set_deck_format(
+                    self._cwd_deck, arg, folder=self._cwd_folder,
+                )
+                self._write(f"OK format set to {stored!r}\n{self._format_effect(info)}")
+        except d.DeckError as e:
+            self._write(f"format: {e}")
+            return
+        self._refresh_nav()
+
+    @staticmethod
+    def _known_formats() -> str:
+        """Every format name that switches rules on — including the custom
+        ones, which is where Canadian Highlander lives. Listing only the
+        Scryfall keys omitted the one format the points feature exists for."""
+        import textwrap as _tw
+        lines = [
+            _tw.fill(", ".join(sorted(q.LEGALITY_FORMATS)), width=68,
+                     initial_indent="  with rules:  ",
+                     subsequent_indent="               ")
+        ]
+        # get_custom_formats() is keyed by name *and* alias; dedupe by spec.
+        seen: dict[str, dict] = {}
+        for spec in q.get_custom_formats().values():
+            seen[spec["format"]] = spec
+        if seen:
+            community = ", ".join(
+                f"{s['name']}"
+                + (f" ({', '.join(s['aliases'][:2])})" if s.get("aliases") else "")
+                for s in sorted(seen.values(), key=lambda s: s["name"])
+            )
+            lines.append(_tw.fill(community, width=68,
+                                  initial_indent="  community:   ",
+                                  subsequent_indent="               "))
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_effect(info: Optional[dict]) -> str:
+        """Spell out which rules a format actually switches on."""
+        if not info:
+            return ("  (not a format this build has rules for — the label is "
+                    "stored, but no legality / singleton / points checks apply)")
+        bits = []
+        if info["legality_key"]:
+            pool = (f"card pool + ban list from {info['legality_key']}"
+                    if info["custom"] else "card pool + ban list")
+            bits.append(f"  legality: {pool}")
+        if info.get("points_budget") is not None:
+            bits.append(f"  points:   budget {info['points_budget']} per deck")
+        if d._is_singleton_format(info["key"]):
+            bits.append("  singleton: one copy of each non-basic card")
+        if not bits:
+            bits.append("  (no rules attached to this format)")
+        return f"  -> {info['label']}\n" + "\n".join(bits)
 
     def _cmd_points(self, _: str) -> None:
         """Points spent under a points-list format (Canadian Highlander)."""

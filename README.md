@@ -85,9 +85,13 @@ Both panes are clickable, and clickable text underlines when you hover it:
 
 | Click | Does |
 |---|---|
+| the breadcrumb at the top of the left pane | `/` goes to root, the folder name goes up a level |
 | a folder or deck in the left tree | `cd` into it |
 | a card name in the live deck pane, a search result, or a `show` render | opens its full profile in the right pane |
 | a combo's `[ N ]` row number | expands that combo |
+
+Drag the `|` divider between the panes to resize them — `Ctrl+Left` /
+`Ctrl+Right` do the same, and the split is remembered next launch.
 
 Every click echoes the equivalent command, so the mouse is a shortcut to the
 keyboard interface rather than a parallel one. `Shift+drag` still selects text.

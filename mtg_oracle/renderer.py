@@ -751,6 +751,10 @@ def render_deck_compact(
     side = deck.get("total_side", 0)
     if side:
         bits.append(f"+{side} side")
+    # An absent format is why legality, singleton and points are all silent.
+    # Say so where the user is looking for them, rather than just omitting
+    # the rows and leaving them to wonder.
+    no_format_hint = None if deck.get("format") else "no format — see `format`"
 
     name_line = deck.get("name") or "(deck)"
     if len(name_line) > width:
@@ -761,6 +765,8 @@ def render_deck_compact(
                           _points_badge(deck.get("points"))) if b]
     if badges:
         lines.append(" ".join(badges))
+    if no_format_hint:
+        lines.append(no_format_hint)
     lines.append("=" * min(width, len(name_line)))
 
     commanders: list[dict] = []
