@@ -1,0 +1,670 @@
+<title>Elminster Field Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Azorius: limestone paper, ink with a blue bias, lapis accent, restrained
+   gold for the one thing that needs emphasis. Light is the primary palette;
+   both dark paths redefine only tokens. Shared with uw-canlander-report.html
+   — see docs/report-style.md. */
+:root{
+  --paper:#F5F4F1; --surface:#FFFFFF; --sunk:#EDEBE6;
+  --ink:#16181D; --ink-2:#42474F; --ink-3:#6E747E;
+  --rule:#DCD9D2; --rule-2:#C6C2B9;
+  --lapis:#2C4B8F; --lapis-wash:#E3E8F4;
+  --gold:#8A6A34; --gold-wash:#F1E9D9;
+  --good:#2F6B51; --warn:#8A6A34; --crit:#8F3630;
+  /* `.pips` bar width, set inline per row. Defaulted so the shared sheet
+     carries no undefined var in a report that has no pip bars. */
+  --p:0%;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12141A; --surface:#191C23; --sunk:#0E1015;
+    --ink:#E7E6E2; --ink-2:#AFB3BB; --ink-3:#7C828D;
+    --rule:#282C34; --rule-2:#3A3F4A;
+    --lapis:#87A4DE; --lapis-wash:#1B2333;
+    --gold:#C6A86D; --gold-wash:#282217;
+    --good:#6FBF95; --warn:#C6A86D; --crit:#DB7B73;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12141A; --surface:#191C23; --sunk:#0E1015;
+  --ink:#E7E6E2; --ink-2:#AFB3BB; --ink-3:#7C828D;
+  --rule:#282C34; --rule-2:#3A3F4A;
+  --lapis:#87A4DE; --lapis-wash:#1B2333;
+  --gold:#C6A86D; --gold-wash:#282217;
+  --good:#6FBF95; --warn:#C6A86D; --crit:#DB7B73;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:Spectral,Georgia,"Times New Roman",serif;
+  font-size:17px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:0 clamp(16px,4vw,40px)}
+.layout{display:grid; grid-template-columns:196px minmax(0,1fr);
+  gap:clamp(24px,4vw,52px); align-items:start}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  nav.toc{position:static; border-right:0; padding-right:0; padding-bottom:20px;
+    border-bottom:1px solid var(--rule)}
+  nav.toc ol{flex-direction:row; flex-wrap:wrap; gap:2px 4px}
+}
+
+header.mast{border-bottom:1px solid var(--rule); background:var(--surface)}
+.mast .wrap{padding-top:clamp(32px,6vw,60px); padding-bottom:clamp(22px,4vw,36px)}
+.eyebrow{font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:11px;
+  font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--lapis); margin:0 0 14px}
+h1{font-size:clamp(30px,5vw,50px); line-height:1.07; font-weight:700;
+  margin:0 0 16px; letter-spacing:-.02em; text-wrap:balance; max-width:24ch}
+.dek{font-size:clamp(17px,2vw,20px); color:var(--ink-2); margin:0; max-width:64ch}
+.meta{display:flex; flex-wrap:wrap; gap:6px 26px; margin:24px 0 0;
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:12.5px; color:var(--ink-3)}
+.meta b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
+
+.figs{display:grid; grid-template-columns:repeat(auto-fit,minmax(146px,1fr));
+  gap:1px; background:var(--rule); border:1px solid var(--rule);
+  margin:clamp(26px,5vw,40px) 0}
+.fig{background:var(--surface); padding:15px 17px}
+.fig .n{font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:clamp(23px,3vw,30px); font-weight:600; line-height:1.05;
+  letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--lapis);
+  display:block}
+.fig .n.gold{color:var(--gold)}
+.fig .n.crit{color:var(--crit)}
+.fig .l{font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:11.5px;
+  line-height:1.35; color:var(--ink-3); display:block; margin-top:7px}
+
+nav.toc{position:sticky; top:20px; border-right:1px solid var(--rule);
+  padding-right:18px; font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:13px}
+nav.toc p{font-size:10.5px; font-weight:600; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--ink-3); margin:0 0 11px}
+nav.toc ol{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1px}
+nav.toc a{display:block; padding:5px 8px; color:var(--ink-2); text-decoration:none;
+  border-left:2px solid transparent; line-height:1.35}
+nav.toc a:hover{color:var(--lapis); background:var(--lapis-wash); border-left-color:var(--lapis)}
+nav.toc a:focus-visible{outline:2px solid var(--lapis); outline-offset:1px}
+
+main{padding:clamp(30px,5vw,48px) 0 90px}
+section{margin:0 0 clamp(38px,6vw,64px); scroll-margin-top:18px}
+h2{font-size:clamp(22px,3vw,28px); font-weight:700; letter-spacing:-.015em;
+  line-height:1.16; margin:0 0 8px; text-wrap:balance}
+h2 .h2n{font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:11.5px;
+  font-weight:600; color:var(--lapis); letter-spacing:.11em; display:block;
+  margin-bottom:9px; text-transform:uppercase}
+h3{font-size:17.5px; font-weight:700; margin:clamp(24px,3vw,32px) 0 8px;
+  letter-spacing:-.01em}
+p{margin:0 0 14px; max-width:66ch}
+.lede{font-size:18.5px; color:var(--ink-2); max-width:64ch}
+ul,ol.body{margin:0 0 16px; padding-left:22px; max-width:64ch}
+li{margin:0 0 7px}
+a{color:var(--lapis)}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.86em;
+  background:var(--sunk); padding:1px 5px; border-radius:3px}
+code.mana{background:none; padding:0; color:var(--ink-2); white-space:nowrap; font-size:12.5px}
+
+.note{border-left:3px solid var(--lapis); background:var(--lapis-wash);
+  padding:14px 18px; margin:0 0 18px}
+.note.gold{border-left-color:var(--gold); background:var(--gold-wash)}
+.note.plain{border-left-color:var(--rule-2); background:var(--sunk)}
+.note.crit{border-left-color:var(--crit); background:var(--sunk)}
+.note p:last-child{margin-bottom:0}
+.note .nt{font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:10.5px;
+  font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--lapis); display:block; margin-bottom:6px}
+.note.gold .nt{color:var(--gold)}
+.note.plain .nt{color:var(--ink-3)}
+.note.crit .nt{color:var(--crit)}
+
+.scroll{overflow-x:auto; margin:0 0 10px; border:1px solid var(--rule);
+  background:var(--surface)}
+table{border-collapse:collapse; width:100%;
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:13px;
+  font-variant-numeric:tabular-nums}
+thead th{background:var(--sunk); color:var(--ink-2); font-weight:600; font-size:11px;
+  letter-spacing:.05em; text-transform:uppercase; text-align:left; padding:9px 10px;
+  border-bottom:1px solid var(--rule-2); white-space:nowrap}
+thead th.num,thead th.lid{text-align:right}
+thead th.lid{font-family:"IBM Plex Mono",ui-monospace,monospace;
+  text-transform:none; letter-spacing:0}
+tbody th{text-align:left; font-weight:600; padding:8px 10px; white-space:nowrap;
+  border-bottom:1px solid var(--rule); color:var(--ink)}
+tbody td{padding:8px 10px; border-bottom:1px solid var(--rule); text-align:right;
+  color:var(--ink-2)}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right}
+td.strong,.strong{color:var(--ink); font-weight:600}
+td.muted,.muted{color:var(--ink-3)}
+.gain{color:var(--good); font-weight:600}
+.warn{color:var(--warn); font-weight:600}
+.crit{color:var(--crit); font-weight:600}
+tr.total th,tr.total td{border-top:1px solid var(--rule-2); background:var(--sunk)}
+tr.mine th,tr.mine td{background:var(--lapis-wash)}
+table.tight tbody td,table.tight tbody th{padding:6px 10px}
+
+table.prob td.p{position:relative; text-align:right; padding:8px 10px; isolation:isolate}
+td.p .fill{position:absolute; inset:2px auto 2px 2px; z-index:0; border-radius:2px;
+  background:var(--lapis-wash)}
+td.p .fill-gold{background:var(--gold-wash)}
+td.p .fill-stone{background:var(--sunk)}
+td.p .v{position:relative; z-index:1; color:var(--ink)}
+
+table.rank td.cardname,table.grid td.cardname{text-align:left; color:var(--ink); font-weight:500}
+table.rank td.why,table.grid td.why{text-align:left; color:var(--ink-3);
+  font-size:11.5px; line-height:1.4}
+tr.mvsep td{background:var(--sunk); color:var(--lapis); font-weight:600; font-size:10.5px;
+  letter-spacing:.12em; text-transform:uppercase; text-align:left; padding:5px 10px}
+td.cnt{white-space:nowrap; text-align:left; width:76px}
+.pips{display:inline-block; width:30px; height:4px; border-radius:2px;
+  background:var(--rule-2); position:relative; vertical-align:middle;
+  margin-right:7px; overflow:hidden}
+.pips::after{content:""; position:absolute; inset:0 auto 0 0; width:var(--p);
+  background:var(--lapis)}
+.cntv{font-size:11.5px; color:var(--ink-3); vertical-align:middle}
+.tag{display:inline-block; font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:9.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--ink-3); border:1px solid var(--rule-2); padding:1px 5px;
+  border-radius:2px; white-space:nowrap; vertical-align:1px}
+.tag-gold{color:var(--gold); border-color:var(--gold)}
+.tag-crit{color:var(--crit); border-color:var(--crit)}
+.tag-good{color:var(--good); border-color:var(--good)}
+.adj{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
+  color:var(--gold); font-weight:600; margin-right:5px}
+
+.cardlist{columns:210px 4; column-gap:22px;
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:13px; margin:0 0 16px}
+.cardlist span{display:block; break-inside:avoid; padding:2.5px 0; color:var(--ink-2)}
+.two{display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr));
+  gap:clamp(16px,3vw,26px)}
+.cap{font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:11.5px;
+  color:var(--ink-3); margin:0 0 22px; max-width:72ch; line-height:1.5}
+.legend{display:flex; flex-wrap:wrap; gap:6px 18px; margin:0 0 14px;
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:11.5px; color:var(--ink-3)}
+.legend i{display:inline-block; width:14px; height:3px; vertical-align:3px; margin-right:6px}
+.sw-lapis{background:var(--lapis)} .sw-gold{background:var(--gold)} .sw-stone{background:var(--rule-2)}
+footer{border-top:1px solid var(--rule); background:var(--surface);
+  padding:26px 0 38px; font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:12px; color:var(--ink-3)}
+footer p{max-width:74ch}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="wrap">
+    <p class="eyebrow">Duel Commander &middot; Azorius draw-go</p>
+    <h1>Elminster Field Report</h1>
+    <p class="dek">Din lista mätt mot de fyra Elminster-lekarna i referensmängden som
+      faktiskt bar en turneringsplacering &mdash; och mot de nio som inte gjorde det, för
+      att se vad de placerade byggena ändrade.</p>
+    <div class="meta">
+      <span><b>Subjekt</b> Elminster Boomer Wizard, 100 kort</span>
+      <span><b>Referens</b> 4 placerade listor, jun&ndash;aug 2026</span>
+      <span><b>Kontrast</b> 9 oplacerade, 2024&ndash;2026</span>
+      <span><b>Genererad</b> 2026-08-20</span>
+    </div>
+    <div class="figs">
+      <div class="fig"><span class="n gold">40 / 43</span><span class="l">kort som alla fyra placerade listor spelar, som du också spelar</span></div>
+      <div class="fig"><span class="n">21</span><span class="l">counterspells mot deras spann 20&ndash;24</span></div>
+      <div class="fig"><span class="n crit">3</span><span class="l">utility-platser mot deras 1&ndash;2 &mdash; enda rollen utanför spann</span></div>
+      <div class="fig"><span class="n">&minus;10p</span><span class="l">lägre chans till en threat från tur tre</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="layout">
+
+    <nav class="toc">
+      <p>Innehåll</p>
+      <ol>
+        <li><a href="#sammanfattning">Sammanfattning</a></li>
+        <li><a href="#material">Datamaterialet</a></li>
+        <li><a href="#metod">Metod</a></li>
+        <li><a href="#densitet">Densitet</a></li>
+        <li><a href="#kurvan">On curve</a></li>
+        <li><a href="#trender">Trender</a></li>
+        <li><a href="#rattelser">Rättelser</a></li>
+        <li><a href="#karnan">Konsensuskärnan</a></li>
+        <li><a href="#egna">Dina egna val</a></li>
+        <li><a href="#forslag">Förslag</a></li>
+        <li><a href="#granser">Vad detta inte kan säga</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <section id="sammanfattning">
+        <h2><span class="h2n">Sammanfattning</span>Tre kort skiljer din lek från konsensus</h2>
+        <p class="lede">Fyrtiotre kort finns i alla fyra placerade listor. Du spelar
+          fyrtio av dem. De tre du saknar är <strong>Mystic Confluence</strong>,
+          <strong>Mystic Gate</strong> och <strong>Prairie Stream</strong>.</p>
+        <p>Varje roll i din lek ligger inne i de placerade listornas spann utom en:
+          utility, där du kör tre och ingen av dem kör mer än två. Leken är inte felbyggd.
+          Den är tre kort från konsensuskärnan, ungefär två threats lätt, och den bär två
+          utility-platser som de vinnande listorna lägger någon annanstans.</p>
+        <p>Resten av rapporten är hur den slutsatsen nåddes, vilka delar av den som håller
+          vid ett urval på fyra, och tre råd jag gav dig tidigare som datan motsäger.</p>
+        <div class="note gold">
+          <span class="nt">Det korta svaret</span>
+          <p>Byt <strong>Forbid &rarr; Mystic Confluence</strong>,
+            <strong>Exotic Orchard &rarr; Mystic Gate</strong>,
+            <strong>Mishra&rsquo;s Factory &rarr; Prairie Stream</strong> och
+            <strong>Dress Down &rarr; Sunset Revelry</strong>. Det lägger till alla tre
+            konsensuskort, tar utility tillbaka in i spannet och flyttar threats från sex
+            till sju.</p>
+        </div>
+      </section>
+
+      <section id="material">
+        <h2><span class="h2n">Datamaterialet</span>Fyra placerade listor, nio till som kontrast</h2>
+        <p>Tretton Elminster-listor totalt. Fyra bär en placering; de fyra är
+          referensmängden här. Tre av dem faller inom nitton dagar och den fjärde ligger
+          sex veckor tidigare, så det här är närmare en stillbild av ett metaögonblick än
+          en trendlinje.</p>
+        <div class="scroll">
+          <table class="grid">
+            <thead>
+              <tr><th>Lista</th><th>Datum</th><th>Resultat</th><th class="num">Kort</th><th class="num">Länder</th><th class="num">Snitt-MV</th></tr>
+            </thead>
+            <tbody>
+              <tr><th>Joao</th><td class="cardname">2026-06-28</td><td class="cardname">3:a&ndash;4:a</td><td>100</td><td>39</td><td>2,62</td></tr>
+              <tr><th>Imman</th><td class="cardname">2026-07-24</td><td class="cardname">6:a</td><td>100</td><td>41</td><td>2,49</td></tr>
+              <tr><th>Kiwy</th><td class="cardname">2026-08-10</td><td class="cardname">2:a</td><td>100</td><td>42</td><td>2,53</td></tr>
+              <tr><th>Jeremiah</th><td class="cardname">2026-08-12</td><td class="cardname">4:a</td><td>100</td><td>41</td><td>2,56</td></tr>
+              <tr class="total mine"><th>Din lek</th><td class="cardname muted">&mdash;</td><td class="cardname muted">&mdash;</td><td class="strong">100</td><td class="strong">42</td><td class="strong">2,40</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="cap">Källa mtgtop8. De nio oplacerade listorna (2024xx till 202607)
+          används bara i trendavsnittet, som kontrastmängd.</p>
+        <div class="note">
+          <span class="nt">Läs detta först</span>
+          <p>Ett urval på fyra är tunt. Rapporten märker varje trendpåstående med
+            sannolikheten att det kunde uppstått av slump, och bara ett av dem klarar den
+            vanliga gränsen. Där en siffra är brus står det brus, inte "fynd".</p>
+        </div>
+      </section>
+
+      <section id="metod">
+        <h2><span class="h2n">Metod</span>Vad som räknas, och vad som inte är modellerat</h2>
+        <p>Varje kort får <em>en</em> primär roll, så kolumnen summerar till 100. Det är
+          en modell, inte sanningen: Mystic Confluence räknas som counterspell och drar
+          kort också, Emeria&rsquo;s Call räknas som land och vinner spel.</p>
+        <p>Mana value är <em>effektiv</em>, inte tryckt. Force of Negation är inte en
+          tre-drop när du pitchar den, delve prissätts efter färgade pips, och
+          <code class="mana">{X}</code> sätts efter vad X faktiskt köper &mdash; 2 för ett
+          svar, 1 för en token-maker, 0 för en kropp som redan står tryckt på kortet.</p>
+        <p>On curve är exakt hypergeometrisk sannolikhet att rollen är
+          <em>spelbar</em> på tur T: att ett kort du har mana till finns bland korten du
+          sett. Inte "håller ett" &mdash; spelbart. Ingen mulliganmodell, inga
+          sekvenseringsbeslut, ingen motståndare.</p>
+        <div class="note plain">
+          <span class="nt">En modelldetalj som syns i talen</span>
+          <p>En modal DFC med land på baksidan räknas som <em>land överallt</em>, inte som
+            spell. Därför läser din lek 42 länder och 21 counterspells snarare än 39 och
+            22 &mdash; Sink into Stupor ligger i landraden. Draw-matematiken partitionerar
+            leken i land, rocks och spells, och ett kort kan bara ligga i en hink.</p>
+        </div>
+      </section>
+
+      <section id="densitet">
+        <h2><span class="h2n">Densitet</span>Vad de 100 korten går till</h2>
+        <p>Verdict-kolumnen jämför ditt antal med de placerade listornas <em>spann</em>,
+          inte deras medel: att ligga två från ett snitt som spänner fem är ingenting,
+          medan ett steg utanför ett spann ingen lämnat är ett val värt att veta att du
+          gjort.</p>
+        <div class="scroll">
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Roll</th>
+                <th class="lid num">Joao</th><th class="lid num">Imman</th>
+                <th class="lid num">Kiwy</th><th class="lid num">Jerem.</th>
+                <th class="num">Medel</th><th class="num">Spann</th>
+                <th class="num">Din</th><th>Verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th>Counterspells</th><td>24</td><td>20</td><td>23</td><td>23</td><td>22,5</td><td>20&ndash;24</td><td class="strong">21</td><td class="why"><span class="tag tag-good">i spann</span></td></tr>
+              <tr><th>Single-target removal</th><td>12</td><td>10</td><td>10</td><td>9</td><td>10,2</td><td>9&ndash;12</td><td class="strong">10</td><td class="why"><span class="tag tag-good">i spann</span></td></tr>
+              <tr><th>Sweepers</th><td>6</td><td>4</td><td>7</td><td>6</td><td>5,8</td><td>4&ndash;7</td><td class="strong">6</td><td class="why"><span class="tag tag-good">i spann</span></td></tr>
+              <tr><th>Threats</th><td>8</td><td>10</td><td>5</td><td>9</td><td>8,0</td><td>5&ndash;10</td><td class="strong">6</td><td class="why"><span class="tag tag-good">i spann</span> nedre delen</td></tr>
+              <tr><th>Card advantage</th><td>4</td><td>4</td><td>5</td><td>2</td><td>3,8</td><td>2&ndash;5</td><td class="strong">5</td><td class="why"><span class="tag tag-good">i spann</span> i taket</td></tr>
+              <tr><th>Cantrips</th><td>5</td><td>5</td><td>5</td><td>4</td><td>4,8</td><td>4&ndash;5</td><td class="strong">5</td><td class="why"><span class="tag tag-good">i spann</span></td></tr>
+              <tr><th>Tutors</th><td>0</td><td>4</td><td>2</td><td>4</td><td>2,5</td><td>0&ndash;4</td><td class="strong">2</td><td class="why"><span class="tag tag-good">i spann</span></td></tr>
+              <tr><th>Utility / lock / hate</th><td>2</td><td>1</td><td>1</td><td>1</td><td>1,2</td><td>1&ndash;2</td><td class="crit">3</td><td class="why"><span class="tag tag-crit">över alla</span></td></tr>
+              <tr><th>Non-land mana</th><td>0</td><td>1</td><td>0</td><td>1</td><td>0,5</td><td>0&ndash;1</td><td class="strong">0</td><td class="why"><span class="tag tag-good">i spann</span></td></tr>
+              <tr><th>Länder</th><td>39</td><td>41</td><td>42</td><td>41</td><td>40,8</td><td>39&ndash;42</td><td class="strong">42</td><td class="why"><span class="tag tag-good">i spann</span></td></tr>
+              <tr class="total"><th>Snitt effektiv MV</th><td>2,62</td><td>2,49</td><td>2,53</td><td>2,56</td><td>2,55</td><td>2,49&ndash;2,62</td><td class="strong">2,40</td><td class="why">billigast av de fem</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Utility är den enda riktiga avvikaren</h3>
+        <p>Alla fyra placerade listor kör <em>exakt ett</em> utility-kort &mdash; Teferi,
+          Time Raveler &mdash; och Joao lägger till Narset, Parter of Veils som ett andra.
+          Du kör tre: Teferi, plus Dress Down och Ghost Vacuum.</p>
+        <p>Ghost Vacuum är ett val du redan förklarat, och ingen placerad lista kör
+          dedikerat graveyard-hat alls, så den platsen är du som svarar på en meta de inte
+          mötte. Dress Down har inget sådant försvar.</p>
+
+        <h3>Threats i nedre delen är den andra saken</h3>
+        <p>Sex mot ett medel på åtta. Kurvan nedan sätter siffra på vad det kostar.</p>
+      </section>
+
+      <section id="kurvan">
+        <h2><span class="h2n">On curve</span>Sannolikheten att rollen är spelbar</h2>
+        <p>Exakt hypergeometrisk sannolikhet att rollen är <em>castbar</em> på tur T, on
+          the play. Counterspells och removal är i praktiken identiska med de placerade
+          listorna. Threats är det inte.</p>
+        <div class="legend">
+          <span><i class="sw-lapis"></i>placerat medel</span>
+          <span><i class="sw-gold"></i>din lek, där den avviker mer än 2p</span>
+          <span><i class="sw-stone"></i>din lek, inom brus</span>
+        </div>
+        <div class="scroll">
+          <table class="prob grid">
+            <thead>
+              <tr><th>Roll</th><th></th>
+                <th class="num">T1</th><th class="num">T2</th><th class="num">T3</th><th class="num">T4</th>
+                <th class="num">T5</th><th class="num">T6</th><th class="num">T7</th><th class="num">T8</th></tr>
+            </thead>
+            <tbody>
+              <tr><th rowspan="2">Counterspells</th><td class="muted">placerat</td>
+                <td class="p"><span class="fill" style="width:45%"></span><span class="v">45%</span></td>
+                <td class="p"><span class="fill" style="width:78%"></span><span class="v">78%</span></td>
+                <td class="p"><span class="fill" style="width:86%"></span><span class="v">86%</span></td>
+                <td class="p"><span class="fill" style="width:91%"></span><span class="v">91%</span></td>
+                <td class="p"><span class="fill" style="width:94%"></span><span class="v">94%</span></td>
+                <td class="p"><span class="fill" style="width:96%"></span><span class="v">96%</span></td>
+                <td class="p"><span class="fill" style="width:97%"></span><span class="v">97%</span></td>
+                <td class="p"><span class="fill" style="width:98%"></span><span class="v">98%</span></td></tr>
+              <tr><td class="muted">din, diff</td><td class="muted">&minus;1p</td><td class="muted">&plusmn;0</td><td class="muted">&plusmn;0</td><td class="muted">&plusmn;0</td><td class="muted">&minus;1p</td><td class="muted">&minus;1p</td><td class="muted">&minus;1p</td><td class="muted">&minus;1p</td></tr>
+
+              <tr><th rowspan="2">Removal</th><td class="muted">placerat</td>
+                <td class="p"><span class="fill" style="width:28%"></span><span class="v">28%</span></td>
+                <td class="p"><span class="fill" style="width:46%"></span><span class="v">46%</span></td>
+                <td class="p"><span class="fill" style="width:64%"></span><span class="v">64%</span></td>
+                <td class="p"><span class="fill" style="width:80%"></span><span class="v">80%</span></td>
+                <td class="p"><span class="fill" style="width:87%"></span><span class="v">87%</span></td>
+                <td class="p"><span class="fill" style="width:92%"></span><span class="v">92%</span></td>
+                <td class="p"><span class="fill" style="width:94%"></span><span class="v">94%</span></td>
+                <td class="p"><span class="fill" style="width:96%"></span><span class="v">96%</span></td></tr>
+              <tr><td class="muted">din, diff</td><td class="gain">+7p</td><td class="gain">+3p</td><td class="muted">&plusmn;0</td><td class="muted">+2p</td><td class="muted">+1p</td><td class="muted">&plusmn;0</td><td class="muted">&plusmn;0</td><td class="muted">&plusmn;0</td></tr>
+
+              <tr><th rowspan="2">Threats</th><td class="muted">placerat</td>
+                <td class="p"><span class="fill fill-gold" style="width:11%"></span><span class="v">11%</span></td>
+                <td class="p"><span class="fill fill-gold" style="width:28%"></span><span class="v">28%</span></td>
+                <td class="p"><span class="fill fill-gold" style="width:40%"></span><span class="v">40%</span></td>
+                <td class="p"><span class="fill fill-gold" style="width:55%"></span><span class="v">55%</span></td>
+                <td class="p"><span class="fill fill-gold" style="width:66%"></span><span class="v">66%</span></td>
+                <td class="p"><span class="fill fill-gold" style="width:73%"></span><span class="v">73%</span></td>
+                <td class="p"><span class="fill fill-gold" style="width:78%"></span><span class="v">78%</span></td>
+                <td class="p"><span class="fill fill-gold" style="width:83%"></span><span class="v">83%</span></td></tr>
+              <tr><td class="muted">din, diff</td><td class="muted">+3p</td><td class="warn">&minus;6p</td><td class="crit">&minus;10p</td><td class="crit">&minus;10p</td><td class="crit">&minus;10p</td><td class="crit">&minus;11p</td><td class="crit">&minus;11p</td><td class="crit">&minus;11p</td></tr>
+
+              <tr><th rowspan="2">Sweepers</th><td class="muted">placerat</td>
+                <td class="p"><span class="fill fill-stone" style="width:1%"></span><span class="v">0%</span></td>
+                <td class="p"><span class="fill fill-stone" style="width:1%"></span><span class="v">0%</span></td>
+                <td class="p"><span class="fill fill-stone" style="width:5%"></span><span class="v">5%</span></td>
+                <td class="p"><span class="fill fill-stone" style="width:23%"></span><span class="v">23%</span></td>
+                <td class="p"><span class="fill fill-stone" style="width:29%"></span><span class="v">29%</span></td>
+                <td class="p"><span class="fill fill-stone" style="width:37%"></span><span class="v">37%</span></td>
+                <td class="p"><span class="fill fill-stone" style="width:43%"></span><span class="v">43%</span></td>
+                <td class="p"><span class="fill fill-stone" style="width:49%"></span><span class="v">49%</span></td></tr>
+              <tr><td class="muted">din, diff</td><td class="muted">&plusmn;0</td><td class="muted">&plusmn;0</td><td class="warn">&minus;5p</td><td class="muted">&minus;2p</td><td class="muted">+1p</td><td class="muted">+1p</td><td class="muted">+2p</td><td class="muted">+2p</td></tr>
+
+              <tr><th rowspan="2">Card advantage</th><td class="muted">placerat</td>
+                <td class="p"><span class="fill" style="width:1%"></span><span class="v">1%</span></td>
+                <td class="p"><span class="fill" style="width:22%"></span><span class="v">22%</span></td>
+                <td class="p"><span class="fill" style="width:44%"></span><span class="v">44%</span></td>
+                <td class="p"><span class="fill" style="width:62%"></span><span class="v">62%</span></td>
+                <td class="p"><span class="fill" style="width:74%"></span><span class="v">74%</span></td>
+                <td class="p"><span class="fill" style="width:81%"></span><span class="v">81%</span></td>
+                <td class="p"><span class="fill" style="width:86%"></span><span class="v">86%</span></td>
+                <td class="p"><span class="fill" style="width:89%"></span><span class="v">89%</span></td></tr>
+              <tr><td class="muted">din, diff</td><td class="muted">&minus;1p</td><td class="muted">&minus;2p</td><td class="muted">&minus;2p</td><td class="muted">&minus;2p</td><td class="muted">&minus;1p</td><td class="muted">&minus;1p</td><td class="muted">&minus;1p</td><td class="muted">&minus;1p</td></tr>
+
+              <tr><th rowspan="2">Cantrips</th><td class="muted">placerat</td>
+                <td class="p"><span class="fill" style="width:22%"></span><span class="v">22%</span></td>
+                <td class="p"><span class="fill" style="width:42%"></span><span class="v">42%</span></td>
+                <td class="p"><span class="fill" style="width:51%"></span><span class="v">51%</span></td>
+                <td class="p"><span class="fill" style="width:56%"></span><span class="v">56%</span></td>
+                <td class="p"><span class="fill" style="width:61%"></span><span class="v">61%</span></td>
+                <td class="p"><span class="fill" style="width:65%"></span><span class="v">65%</span></td>
+                <td class="p"><span class="fill" style="width:68%"></span><span class="v">68%</span></td>
+                <td class="p"><span class="fill" style="width:71%"></span><span class="v">71%</span></td></tr>
+              <tr><td class="muted">din, diff</td><td class="muted">&minus;3p</td><td class="gain">+5p</td><td class="gain">+5p</td><td class="gain">+5p</td><td class="gain">+5p</td><td class="gain">+5p</td><td class="gain">+5p</td><td class="gain">+5p</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="cap">Procentenheter. Staplarna bakom talen är det placerade medlet, så
+          kurvans form syns utan att man läser siffrorna.</p>
+
+        <p>Threat-raden är fyndet. Från tur tre och framåt är du
+          <strong>tio procentenheter</strong> mindre sannolik än en placerad lista att ha
+          något på bordet som avslutar spelet. Allt annat ligger inom två punkter, vilket
+          är brus vid det här urvalet &mdash; dina counterspell- och card-advantage-kurvor
+          är samma lek som deras.</p>
+        <p>Läst ihop med densitetstabellen är diagnosen smal: du har deras svar, deras
+          kortdragning och deras mana, och två färre sätt att vinna.</p>
+
+        <div class="note plain">
+          <span class="nt">En detalj värd att stanna vid</span>
+          <p>Deras T3-sweeper på 5,5% mot din 0% kommer <em>helt</em> från Temporary
+            Lockdown, som är en tre-drop. Din billigaste wrath kostar fyra. Och den enda
+            placerade leken som kör Lockdown är Kiwy &mdash; 2:a-placeringen, den bästa av
+            de fyra. Mer om det i rättelserna.</p>
+        </div>
+      </section>
+
+      <section id="trender">
+        <h2><span class="h2n">Trender</span>Vad de placerade listorna ändrade</h2>
+        <p>De fyra placerade listorna mot de nio oplacerade.
+          <code>p</code>-kolumnen är sannolikheten att se det placerade antalet av slump
+          om den oplacerade frekvensen vore den sanna &mdash; ett skydd mot att läsa fyra
+          lekar som en trend.</p>
+        <div class="scroll">
+          <table class="grid">
+            <thead>
+              <tr><th>Kort</th><th>Roll</th><th class="num">Oplacerat</th><th class="num">Placerat</th><th class="num">p</th><th>Signal</th><th>Din lek</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="cardname">Mystic Confluence</td><td class="why">counter</td><td>3/9</td><td class="strong">4/4</td><td class="strong">0,012</td><td class="why"><span class="tag tag-good">signal</span></td><td class="why"><span class="tag tag-crit">saknas</span></td></tr>
+              <tr><td class="cardname">Floodfarm Verge</td><td class="why">land</td><td>8/9</td><td>2/4</td><td>0,064</td><td class="why"><span class="tag tag-gold">svag, ned</span></td><td class="why"><span class="tag">har</span></td></tr>
+              <tr><td class="cardname">Cactus Preserve</td><td class="why">land</td><td>3/9</td><td>3/4</td><td>0,111</td><td class="why"><span class="tag tag-gold">svag, upp</span></td><td class="why"><span class="tag tag-crit">saknas</span></td></tr>
+              <tr><td class="cardname">Temporary Lockdown</td><td class="why">sweeper</td><td>6/9</td><td>1/4</td><td>0,111</td><td class="why"><span class="tag tag-gold">svag, ned</span></td><td class="why"><span class="tag">spelar ej</span></td></tr>
+              <tr><td class="cardname">Jace, the Mind Sculptor</td><td class="why">threat</td><td>6/9</td><td>1/4</td><td>0,111</td><td class="why"><span class="tag tag-gold">svag, ned</span></td><td class="why"><span class="tag">har</span></td></tr>
+              <tr><td class="cardname">Absorb</td><td class="why">counter</td><td>5/9</td><td>1/4</td><td>0,234</td><td class="why"><span class="tag">brus</span></td><td class="why"><span class="tag">spelar ej</span></td></tr>
+              <tr><td class="cardname">Fractured Identity</td><td class="why">removal</td><td>5/9</td><td>3/4</td><td>0,400</td><td class="why"><span class="tag">brus</span></td><td class="why"><span class="tag tag-crit">saknas</span></td></tr>
+              <tr><td class="cardname">Council&rsquo;s Judgment</td><td class="why">removal</td><td>6/9</td><td>2/4</td><td>0,407</td><td class="why"><span class="tag">brus</span></td><td class="why"><span class="tag tag-crit">saknas</span></td></tr>
+              <tr><td class="cardname">Sunset Revelry</td><td class="why">threat</td><td>7/9</td><td>3/4</td><td>0,634</td><td class="why"><span class="tag">brus</span></td><td class="why"><span class="tag tag-crit">saknas</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>En rad klarar gränsen.</strong> Mystic Confluence går från en tredjedel
+          av de oplacerade listorna till <em>alla fyra</em> placerade, vid ungefär en chans
+          på åttio att det är slump. Allt annat i tabellen är antingen svagt eller
+          oskiljbart från brus &mdash; inklusive tre kort jag rekommenderade dig på styrkan
+          av snittet över tretton listor.</p>
+      </section>
+
+      <section id="rattelser">
+        <h2><span class="h2n">Rättelser</span>Tre råd som datan motsäger</h2>
+
+        <h3>Mystic Confluence <code class="mana">{3}{U}{U}</code> &middot; 4/4 placerat, 3/9 oplacerat</h3>
+        <p>Jag sa åt dig att hoppa över den: "fem mana i en aggro-meta". Det var fel, och
+          det är den enda rena signalen i datan. Varje placerad lista kör den. Tre lägen,
+          fritt repeterbara &mdash; counter-om-inte-betala-3, bounce en creature, dra ett
+          kort &mdash; så den är en counterspell som aldrig är ett dött kort i det sena
+          spel en draw-go-lek försöker nå. <strong>Ta in den.</strong></p>
+
+        <h3>Absorb <code class="mana">{W}{U}{U}</code> &middot; 1/4 placerat, 5/9 oplacerat</h3>
+        <p>Jag kallade den en rak uppgradering över Forbid på styrkan av tre liv mot
+          aggro. Bara Joao kör den, och Joao är den äldsta av de fyra. De placerade
+          listorna vill hellre ha den flexibla fem-droppen än den livsgivande
+          tre-droppen. <strong>Inte stöttat.</strong> Kapa Forbid för Mystic Confluence
+          istället.</p>
+
+        <h3>Temporary Lockdown <code class="mana">{1}{W}{W}</code> &middot; 1/4 placerat, 6/9 oplacerat</h3>
+        <p>Jag kallade den ett starkt meta-val mot Rakdos-aggro, och på trettonlistvyn såg
+          den ut som ett. Tre av fyra placerade lekar kapade den. Den troliga orsaken är
+          den jag flaggade som förbehåll: den är en enchantment, så att svara på den ger
+          tillbaka allt, och den exilar dina egna två-droppar.</p>
+        <div class="note gold">
+          <span class="nt">Men läs den fjärde leken innan du avskriver den</span>
+          <p>Den enda placerade leken som kör Temporary Lockdown är <strong>Kiwy &mdash;
+            2:a-placeringen, den bästa av de fyra</strong> &mdash; och den är hela orsaken
+            till att de placerade listorna har någon T3-sweeper-sannolikhet alls. Vid n=4
+            är det en lek, inte en trend i någon riktning.
+            <strong>Verdict: genuint öppen.</strong> Är din lokala meta så aggro-tung som
+            du beskriver väger 2:a-placeringen som håller med mitt ursprungliga resonemang
+            tyngre än de tre som kapade.</p>
+        </div>
+
+        <div class="note crit">
+          <span class="nt">Rättelse &mdash; loggad som #12</span>
+          <p>Jag beskrev också <strong>Personal Tutor</strong> som kortneutral. Den är det
+            inte. Den lägger sorceryn <em>på toppen av biblioteket</em>, inte i handen, så
+            du spenderar ett kort och får ingenting i handen &mdash; ditt nästa dragsteg
+            kom ändå. Netto <strong>&minus;1 kort</strong>. Bara en tutor-till-hand som
+            Solve the Equation är kortneutral.</p>
+          <p>Vilket spelar roll här, för datan visar vad som betalar för det tappade
+            kortet: alla sju listor som kör Personal Tutor kör också Approach of the Second
+            Sun, och <strong>noll</strong> kör den utan. Det är ett wincon-paketkort, inte
+            en tutor. Du vill inte ha Approach, så Personal Tutor har ingenting att göra i
+            din lek.</p>
+        </div>
+      </section>
+
+      <section id="karnan">
+        <h2><span class="h2n">Konsensuskärnan</span>43 kort alla fyra spelar</h2>
+        <p>Fyrtiotre kort finns i alla fyra placerade listor. Det är en märkbart låst
+          arketyp &mdash; nästan halva leken är avgjord. Du spelar fyrtio av dem.</p>
+        <div class="scroll">
+          <table class="grid tight">
+            <thead>
+              <tr><th>Roll</th><th class="num">n</th><th>Kort</th><th class="num">Du har</th></tr>
+            </thead>
+            <tbody>
+              <tr><th>Counterspells</th><td>16</td><td class="cardname">Force Spike, Mana Tithe, Spell Snare, Stern Scolding, Wash Away, Counterspell, Lose Focus, Mana Leak, Memory Lapse, Miscalculation, No More Lies, Remand, Tale&rsquo;s End, Archmage&rsquo;s Charm, Cryptic Command, <span class="crit">Mystic Confluence</span></td><td class="strong">15/16</td></tr>
+              <tr><th>Removal</th><td>5</td><td class="cardname">Condemn, Oust, Swords to Plowshares, Unexpectedly Absent, March of Otherworldly Light</td><td class="strong">5/5</td></tr>
+              <tr><th>Sweepers</th><td>3</td><td class="cardname">Supreme Verdict, Wrath of God, Wrath of the Skies</td><td class="strong">3/3</td></tr>
+              <tr><th>Threats</th><td>4</td><td class="cardname">Shorikai Genesis Engine, The Wandering Emperor, Elminster, Teferi Hero of Dominaria</td><td class="strong">4/4</td></tr>
+              <tr><th>Card advantage</th><td>2</td><td class="cardname">Brainsurge, Stock Up</td><td class="strong">2/2</td></tr>
+              <tr><th>Cantrips</th><td>3</td><td class="cardname">Brainstorm, Ponder, Preordain</td><td class="strong">3/3</td></tr>
+              <tr><th>Utility</th><td>1</td><td class="cardname">Teferi, Time Raveler</td><td class="strong">1/1</td></tr>
+              <tr><th>Länder</th><td>9</td><td class="cardname">Command Tower, Field of Ruin, Glacial Fortress, Hall of Storm Giants, Irrigated Farmland, Island, Plains, <span class="crit">Mystic Gate</span>, <span class="crit">Prairie Stream</span></td><td class="strong">7/9</td></tr>
+              <tr class="total"><th>Totalt</th><td>43</td><td class="cardname muted">rödmarkerat = du spelar det inte</td><td class="strong">40/43</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Varför de två länderna inte är valfria</h3>
+        <p><strong>Mystic Gate</strong> finns i alla tretton listor i hela
+          referensmängden, placerade och oplacerade, utan undantag. Din lek har
+          <strong>22 kort</strong> som kräver två eller fler av en enda färg, inklusive
+          <code class="mana">{U}{U}{U}</code> Archmage&rsquo;s Charm,
+          <code class="mana">{1}{U}{U}{U}</code> Cryptic Command och
+          <code class="mana">{4}{W}{W}{W}</code> Emeria&rsquo;s Call. Ett filterland som
+          gör en hybridkälla till <code class="mana">{W}{W}</code> eller
+          <code class="mana">{U}{U}</code> är inte ett trevligt tillägg i den leken.</p>
+        <p><strong>Prairie Stream</strong> kommer in otappad om du kontrollerar två eller
+          fler basics, och du kör tio. Den är ett vanligt otappat dual-land för dig de
+          flesta spel.</p>
+      </section>
+
+      <section id="egna">
+        <h2><span class="h2n">Dina egna val</span>De nio korten bara du spelar</h2>
+        <p>Ingen kritik &mdash; det här är där ditt bygge är sitt eget. Ordnat efter hur
+          försvarbart jag tycker att varje är.</p>
+        <div class="scroll">
+          <table class="grid">
+            <thead>
+              <tr><th>Kort</th><th>Roll</th><th class="num">MV</th><th>Läsning</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="cardname">Ghost Vacuum</td><td class="why">utility</td><td>1</td><td class="why">Ditt val, och ett rimligt. Ingen placerad lista kör graveyard-hat alls, så det här är du som svarar på en meta de inte var i.</td></tr>
+              <tr><td class="cardname">Emeria&rsquo;s Call</td><td class="why">land</td><td>7</td><td class="why">Ett land som är en threat. Precis den axel du är kort på, utan att kosta en spell-plats. Behåll.</td></tr>
+              <tr><td class="cardname">Ultima</td><td class="why">sweeper</td><td>5</td><td class="why">En fjärde wrath i en lek som redan har sex. Försvarbart, och "end the turn" slår att bli återbyggd.</td></tr>
+              <tr><td class="cardname">Mishra&rsquo;s Factory</td><td class="why">land</td><td>0</td><td class="why">Färglöst i en lek med 22 dubbelpip-kort. Det svagaste landet du äger.</td></tr>
+              <tr><td class="cardname">Fountainport</td><td class="why">land</td><td>0</td><td class="why">Långsamt värdeland. Går an, men det är andra kapet om du behöver en plats.</td></tr>
+              <tr><td class="cardname">Exotic Orchard</td><td class="why">land</td><td>0</td><td class="why">Beror på <em>deras</em> länder. I 1v1 mot en mono-röd lek producerar den rött. Kapa den först.</td></tr>
+              <tr><td class="cardname">Sphinx&rsquo;s Revelation</td><td class="why">draw</td><td>5</td><td class="why">Din card advantage ligger redan i taket av spannet och det här är dess långsammaste del.</td></tr>
+              <tr><td class="cardname">Forbid</td><td class="why">counter</td><td>3</td><td class="why">Buyback kostar två kort. Ingen av tretton listor kör den. Det uppenbara kapet.</td></tr>
+              <tr><td class="cardname">Dress Down</td><td class="why">utility</td><td>2</td><td class="why">Den tredje utility-platsen, och den utan argument bakom sig. Det här är vad som sätter dig utanför spannet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="forslag">
+        <h2><span class="h2n">Förslag</span>Fyra byten</h2>
+        <p>De lägger till alla tre saknade konsensuskort, tar utility tillbaka in i
+          spannet och flyttar threats från sex till sju.</p>
+        <div class="scroll">
+          <table class="grid">
+            <thead>
+              <tr><th>Ut</th><th>In</th><th>Varför</th></tr>
+            </thead>
+            <tbody>
+              <tr><th>Forbid</th><td class="cardname strong">Mystic Confluence</td><td class="why">4/4 placerat, p=0,012 &mdash; den enda rena signalen i mängden. Forbid finns i noll av tretton.</td></tr>
+              <tr><th>Exotic Orchard</th><td class="cardname strong">Mystic Gate</td><td class="why">13/13 totalt. Du har 22 kort som kräver dubbla pips; Orchard läser motståndarens bord.</td></tr>
+              <tr><th>Mishra&rsquo;s Factory</th><td class="cardname strong">Prairie Stream</td><td class="why">4/4 placerat, och otappad för dig med tio basics.</td></tr>
+              <tr><th>Dress Down</th><td class="cardname strong">Sunset Revelry</td><td class="why">Utility 3&rarr;2, in i spannet. Threats 6&rarr;7. Varje klausul utlöses bara när du är bakom, vilket är när aggro har dig.</td></tr>
+              <tr class="total"><th class="muted">valfritt</th><td class="cardname muted">Sphinx&rsquo;s Rev &rarr; Fractured Identity</td><td class="why">Threats 7&rarr;8, deras medel. I 1v1 exilar du deras commander och behåller kopian.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Två kandidater jag uttryckligen <em>inte</em> rekommenderar längre:
+          <strong>Absorb</strong>, kapad av tre av fyra, och <strong>Personal Tutor</strong>,
+          som bara finns för att hitta ett kort du inte vill spela. Temporary Lockdown är
+          öppen, av skälet ovan.</p>
+        <p><strong>Cactus Preserve</strong> är den jag skulle testa näst efter dessa fyra.
+          Dess andel gick från tre av nio oplacerade till tre av fyra placerade, och den
+          blir en X/X med reach där X är din commanders mana value &mdash; en 5/5 för
+          <code class="mana">{3}</code> i en landplats, vilket är den billigaste threat du
+          kan köpa givet att threats är din enda mjuka siffra.</p>
+      </section>
+
+      <section id="granser">
+        <h2><span class="h2n">Gränser</span>Vad detta inte kan säga</h2>
+        <ul>
+          <li><strong>Fyra listor är fyra listor.</strong> Bara Mystic Confluence-skiftet
+            är statistiskt meningsfullt. Behandla varje annat "de placerade kapade X" som
+            en ledtråd att kontrollera, inte en slutsats.</li>
+          <li><strong>Placeringar, inte segrar.</strong> 2:a, 3:a&ndash;4:a, 4:a och 6:a.
+            Goda resultat, inte bevis för det bästa bygget.</li>
+          <li><strong>Ingen matchup-data.</strong> Referenslistorna säger ingenting om vad
+            de slog. En lista som placerade 6:a genom en aggro-fri bracket säger lite om
+            din lokala meta, som du beskriver som aggro-tung.</li>
+          <li><strong>Rollantal är en modell.</strong> Ett kort får en primär roll så
+            kolumnerna summerar till 100. Mystic Confluence räknas som counterspell och
+            drar kort också; Emeria&rsquo;s Call räknas som land och vinner spel.</li>
+          <li><strong>Kurvan antar att du behåller varje hand.</strong> Ingen
+            mulliganmodell, inga sekvenseringsbeslut, ingen motståndarinteraktion.</li>
+        </ul>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Genererad ur analyspipelinen i repot
+      (<code>scripts/analyse_archetype.py</code>), så talen här kan inte glida ifrån
+      verktyget. Rollklassificering använder Scryfall Taggers community-oracle-taggar med
+      lokala textregler som fallback; effektiv mana value prissätter fria alternativkostnader,
+      Phyrexian mana, delve och <code class="mana">{X}</code> efter konvention snarare än
+      tryckt kostnad. Varje tal i rapporten är korsvaliderat mot listorna programmatiskt
+      &mdash; 128 kontroller, en avvikelse hittad och rättad.</p>
+    <p>Två klassificeringsbuggar hittades och rättades medan rapporten togs fram: Path to
+      Exile och Erode klassades som manakällor snarare än removal, och en modal DFC
+      räknades i två hinkar samtidigt. Tal citerade tidigare i konversationen föregår de
+      rättelserna.</p>
+  </div>
+</footer>

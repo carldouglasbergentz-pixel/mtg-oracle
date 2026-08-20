@@ -12,6 +12,7 @@ own decks. The Textual TUI in `mtg_oracle.tui` is the primary interface;
 - **Per-feature history** → [`CHANGELOG.md`](CHANGELOG.md). Append-only.
 - **Bootstrapping a new contributor** → [`README.md`](README.md).
 - **App aesthetic intent** → [`docs/app-design.md`](docs/app-design.md).
+- **Deck-analysis report style** → [`docs/report-style.md`](docs/report-style.md). Reports are written in **Swedish** (every other doc here is English, because those are code-facing), live in `docs/*-report.html` **and** as an artifact, and share one inlined stylesheet. Read it before writing a new one — the convention existed only as a single example once, and the second report was written in the wrong language because of it.
 - **Stable user preferences** → `memory/` (loaded selectively).
 - **This file** → durable rules: schema semantics, conventions, don'ts, plan-first gate, self-review checklist. Loaded every turn — keep it lean.
 
