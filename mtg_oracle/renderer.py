@@ -1006,3 +1006,291 @@ def render_corrections(rows: list[dict]) -> str:
         if rel_str:
             lines.append(f"{INDENT * 2}re:      {rel_str}")
     return "\n".join(lines)
+
+
+# --- deck analysis ------------------------------------------------------
+#
+# These three render the output of `services.profile_deck`, `services.
+# rank_cards` and `services.compare_decks`. They take the role vocabulary as
+# arguments rather than importing `roles`, for the reason at the top of this
+# module: a renderer that could reach for the taxonomy would start deciding
+# what a card does instead of formatting the decision.
+#
+# `profiles` and `cmp` are duck-typed. The dataclasses live in `services`, and
+# reading their attributes needs no import.
+
+ROLE_COL = 26          # width of the leading role-label column
+_TURN_COL = 7          # width of one turn column in the curve tables
+
+
+def _mean(values) -> float:
+    values = list(values)
+    return sum(values) / len(values) if values else 0.0
+
+
+def _median(values) -> float:
+    values = sorted(values)
+    if not values:
+        return 0.0
+    mid = len(values) // 2
+    if len(values) % 2:
+        return float(values[mid])
+    return (values[mid - 1] + values[mid]) / 2
+
+
+def _signed(delta: float) -> str:
+    """`+3`, `-2`, or `=` when there is no difference."""
+    if delta > 0:
+        return f"+{delta:g}"
+    return f"{delta:g}" if delta else "="
+
+
+def render_profile(
+    profiles,
+    *,
+    role_labels: dict,
+    role_order: list,
+    turns: list,
+    on_play: bool = True,
+    low_confidence=(),
+) -> str:
+    """Density, reach, on-curve and ceiling tables for one or more decks.
+
+    `role_order` is the reporting order and excludes `land`, which gets its
+    own row beneath the spells because it is the one row that is not one.
+    """
+    lines: list[str] = []
+    ids = [p.name for p in profiles]
+    n = len(profiles)
+
+    lines.append(f"{n} list(s): {', '.join(ids)}")
+    odd = {p.name: p.size for p in profiles if p.size != 100}
+    if odd:
+        lines.append(f"  note: not 100 cards -> {odd}")
+    for p in profiles:
+        if p.unresolved:
+            lines.append(f"  {p.name}: {len(p.unresolved)} unresolved -> "
+                         f"{', '.join(p.unresolved[:6])}")
+    # Cards nothing could place. On a familiar archetype this is empty; on
+    # your own deck it is the list worth a second look.
+    unsure = sorted(low_confidence)
+    if unsure:
+        lines.append("")
+        lines.append(f"  {len(unsure)} card(s) fell through to 'utility' - "
+                     f"classification worth checking:")
+        lines.extend(f"    {name}" for name in unsure)
+
+    lines.append("")
+    lines.append("=== DENSITY (primary role; sums to deck size) ===")
+    lines.append(f"{'role':<{ROLE_COL}}{'mean':>6}{'med':>5}{'min':>5}{'max':>5}   "
+                 + " ".join(f"{i[-6:]:>6}" for i in ids))
+    # A role every list has zero of is noise in a nine-column table.
+    rows = [r for r in role_order
+            if any(p.counts.get(r, 0) for p in profiles)] + ["land"]
+    for role in rows:
+        vals = [p.counts.get(role, 0) for p in profiles]
+        lines.append(
+            f"{role_labels[role]:<{ROLE_COL}}{_mean(vals):>6.1f}"
+            f"{_median(vals):>5.0f}{min(vals):>5}{max(vals):>5}   "
+            + " ".join(f"{v:>6}" for v in vals))
+    src = [p.mana_sources for p in profiles]
+    lines.append(f"{'MANA SOURCES':<{ROLE_COL}}{_mean(src):>6.1f}"
+                 f"{_median(src):>5.0f}{min(src):>5}{max(src):>5}   "
+                 + " ".join(f"{v:>6}" for v in src))
+    mv = [p.avg_mv for p in profiles]
+    lines.append(f"{'avg effective MV':<{ROLE_COL}}{_mean(mv):>6.2f}{'':>5}"
+                 f"{min(mv):>5.2f}{max(mv):>5.2f}   "
+                 + " ".join(f"{v:>6.2f}" for v in mv))
+
+    lines.append("")
+    lines.append("=== REACH (every role a card can fill, not just its primary) ===")
+    lines.append(f"{'role':<{ROLE_COL}}{'primary':>8}{'reach':>7}{'diff':>7}"
+                 f"{'engines':>9}")
+    for role in role_order:
+        prim = _mean([p.counts.get(role, 0) for p in profiles])
+        reach = _mean([sum(p.role_mv.get(role, {}).values()) for p in profiles])
+        eng = _mean([p.engines.get(role, 0) for p in profiles])
+        lines.append(f"{role_labels[role]:<{ROLE_COL}}{prim:>8.1f}{reach:>7.1f}"
+                     f"{reach - prim:>+7.1f}{(f'{eng:.1f}' if eng else '-'):>9}")
+    lines.append("  (engines = permanents that keep producing the effect rather "
+                 "than resolving once;")
+    lines.append("   a planeswalker that draws every turn is not interchangeable "
+                 "with Memory Deluge)")
+
+    label = "on the play" if on_play else "on the draw"
+    lines.append("")
+    lines.append(f"=== ON CURVE - role is playable on turn T, {label} ===")
+    lines.append(f"{'role':<{ROLE_COL}}"
+                 + "".join(f"{'T' + str(t):>{_TURN_COL}}" for t in turns))
+    for role in role_order:
+        curves = [p.live_curve(role, turns, on_play=on_play) for p in profiles]
+        means = [_mean([c[t] for c in curves]) for t in turns]
+        lines.append(f"{role_labels[role]:<{ROLE_COL}}"
+                     + "".join(f"{m * 100:>6.0f}%" for m in means))
+
+    lines.append("")
+    lines.append("=== CEILING - holding one at all, mana ignored ===")
+    lines.append(f"{'role':<{ROLE_COL}}"
+                 + "".join(f"{'T' + str(t):>{_TURN_COL}}" for t in turns)
+                 + f"{'gap T4':>8}")
+    for role in role_order:
+        ceil = [p.ceiling(role, turns, on_play=on_play) for p in profiles]
+        live = [p.live_curve(role, turns, on_play=on_play) for p in profiles]
+        means = [_mean([c[t] for c in ceil]) for t in turns]
+        # The gap is what mana costs you: held by turn 4 minus castable then.
+        gap = (means[3] - _mean([c[turns[3]] for c in live])
+               if len(turns) > 3 else 0.0)
+        lines.append(f"{role_labels[role]:<{ROLE_COL}}"
+                     + "".join(f"{m * 100:>6.0f}%" for m in means)
+                     + f"{gap * 100:>7.0f}p")
+    return "\n".join(lines)
+
+
+def render_ranking(ranking: dict, n: int, *, role_labels: dict,
+                   role_order: list) -> str:
+    """How many lists play each card, per role, grouped by effective cost."""
+    lines = ["=== MOST PLAYED per role (sorted by effective mana value) ==="]
+    for role in role_order:
+        rows = ranking.get(role, [])
+        if not rows:
+            continue
+        lines.append("")
+        lines.append(f"  -- {role_labels[role]} --")
+        last = None
+        for row in rows:
+            if row["mv"] != last:
+                lines.append(f"     MV {row['mv']}")
+                last = row["mv"]
+            tag = "" if row["primary"] else "  (secondary)"
+            why = f"   [{row['reason']}]" if row["reason"] else ""
+            lines.append(f"       {row['n']:>2}/{n}  {row['name'][:44]:<46}"
+                         f"{row['cost']:<16}{tag}{why}")
+    return "\n".join(lines)
+
+
+_VERDICT_MARK = {"under": "<-- BELOW every list",
+                 "over": "--> ABOVE every list",
+                 "in": ""}
+
+
+def render_comparison(cmp, *, role_labels: dict, role_order: list,
+                      turns: list, on_play: bool = True) -> str:
+    """One deck against a reference set: ranges, curve deltas, card diff.
+
+    A single reference deck is rendered as a head-to-head instead. The range
+    verdicts exist to say "nobody in the reference set went there", and with
+    one list the range is a point - every difference would read as stepping
+    outside it, which is noise wearing the clothes of a finding.
+    """
+    subj, refs = cmp.subject, cmp.reference
+    n = len(refs)
+    solo = n == 1
+    lines = ["", "=" * 76]
+    lines.append(f"HEAD TO HEAD - {subj.name!r} against {refs[0].name!r}" if solo
+                 else f"COMPARISON - {subj.name!r} against {n} reference list(s)")
+    lines.append("=" * 76)
+    if subj.size != 100:
+        lines.append(f"  note: subject is {subj.size} cards; the draw maths still "
+                     f"treats the deck as 100, so the unfilled slots count as "
+                     f"blanks")
+
+    lines.append("")
+    if solo:
+        lines.append("=== ROLE COUNTS ===")
+        lines.append(f"{'role':<{ROLE_COL}}{'yours':>7}{'theirs':>10}{'delta':>8}")
+    else:
+        lines.append("=== IN RANGE? (range, not mean - a range nobody left is "
+                     "the rule) ===")
+        lines.append(f"{'role':<{ROLE_COL}}{'yours':>7}{'ref mean':>10}"
+                     f"{'range':>10}{'delta':>8}   verdict")
+    order = {role: i for i, role in enumerate(list(role_order) + ["land"])}
+
+    def role_row(label, d):
+        if solo:
+            return (f"{label:<{ROLE_COL}}{d.subject:>7}{d.ref_mean:>10.0f}"
+                    f"{_signed(d.delta):>8}")
+        return (f"{label:<{ROLE_COL}}{d.subject:>7}{d.ref_mean:>10.1f}"
+                f"{f'{d.ref_min}-{d.ref_max}':>10}{_signed(d.delta):>8}   "
+                f"{_VERDICT_MARK[d.verdict]}")
+
+    for d in sorted(cmp.roles, key=lambda r: order.get(r.role, 99)):
+        lines.append(role_row(role_labels[d.role], d))
+    lines.append(role_row("MANA SOURCES", cmp.mana_sources))
+    mine_mv, ref_mv = cmp.avg_mv
+    lines.append(f"{'avg effective MV':<{ROLE_COL}}{mine_mv:>7.2f}{ref_mv:>10.2f}"
+                 f"{_signed(round(mine_mv - ref_mv, 2)):>{8 if solo else 18}}")
+
+    if solo:
+        lines.append("")
+        lines.append(f"  role-density distance: {cmp.nearest[0][1]:.2f}"
+                     f"   (0 would be the same 100 cards by role)")
+    else:
+        out = cmp.out_of_range
+        lines.append("")
+        lines.append(f"  {len(out)} role(s) outside the reference range"
+                     + (f": {', '.join(role_labels[r.role] for r in out)}" if out
+                        else " - this deck sits inside the archetype on every axis"))
+        # A reference set spanning two archetypes has a mean that describes
+        # neither, so say so rather than letting the delta column imply there
+        # is one right answer to be closer to.
+        widest = max(cmp.roles, key=lambda r: r.ref_max - r.ref_min)
+        if widest.ref_max - widest.ref_min >= 6:
+            lines.append("")
+            lines.append(f"  CAUTION: the reference set spans {widest.ref_min}-"
+                         f"{widest.ref_max} on {role_labels[widest.role].lower()}, "
+                         f"so it holds more than one")
+            lines.append("  build and the mean above describes neither. Use the "
+                         "nearest-list line, or re-run")
+            lines.append("  with only the lists you actually want to resemble.")
+        lines.append("")
+        lines.append("=== NEAREST REFERENCE LIST (role-density distance) ===")
+        for name, dist in cmp.nearest[:5]:
+            lines.append(f"   {dist:>6.2f}  {name}")
+        lines.append("   (lower is more alike; the axis with the widest spread in "
+                     "the reference set dominates, which is the axis that "
+                     "defines the build)")
+
+    label = "on the play" if on_play else "on the draw"
+    lines.append("")
+    lines.append(f"=== ON CURVE, yours minus "
+                 f"{'theirs' if solo else 'the reference mean'} ({label}) ===")
+    lines.append(f"{'role':<{ROLE_COL}}"
+                 + "".join(f"{'T' + str(t):>{_TURN_COL}}" for t in turns))
+    for role in role_order:
+        d = cmp.curve_delta.get(role, {})
+        lines.append(f"{role_labels[role]:<{ROLE_COL}}"
+                     + "".join(f"{d.get(t, 0) * 100:>+6.0f}p" for t in turns))
+    lines.append("  (percentage points; + means this deck does it more often)")
+
+    if cmp.missing:
+        # "Played by more than one list" would hide everything when there is
+        # only one list to be played by.
+        shown = list(cmp.missing) if solo else (
+            [c for c in cmp.missing if c.n_lists > 1] or list(cmp.missing))
+        lines.append("")
+        lines.append(f"=== {'CARDS THEY PLAY' if solo else 'CARDS THE REFERENCE PLAYS'}"
+                     f" THAT THIS DECK DOESN'T ({len(cmp.missing)}) ===")
+        for role in list(role_order) + ["land"]:
+            group = [c for c in shown if c.role == role]
+            if not group:
+                continue
+            lines.append("")
+            lines.append(f"  -- {role_labels[role]}")
+            for c in group:
+                count = "" if solo else f"{c.n_lists:>2}/{c.of_lists}  "
+                lines.append(f"       {count}MV{c.mv:<3} {c.name}")
+        if len(shown) < len(cmp.missing):
+            lines.append("")
+            lines.append(f"  ({len(cmp.missing) - len(shown)} more played by "
+                         f"exactly one list - pass --min-share 0 and read the "
+                         f"JSON for those)")
+
+    if cmp.unique:
+        lines.append("")
+        lines.append(f"=== CARDS ONLY THIS DECK PLAYS ({len(cmp.unique)}) ===")
+        lines.append("  Not a criticism - this is where your build is its own "
+                     "thing.")
+        for c in cmp.unique:
+            lines.append(f"       {role_labels.get(c.role, c.role):<{ROLE_COL}} "
+                         f"MV{c.mv:<3} {c.name}")
+    return "\n".join(lines)

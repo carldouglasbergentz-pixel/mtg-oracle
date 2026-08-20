@@ -220,22 +220,30 @@ mtg-oracle/
 │   ├── formats/                     Community-format definitions (tracked)
 │   ├── raw/                         Cached upstream payloads (gitignored)
 │   └── mtg.db                       The database (gitignored)
-├── mtg_oracle/                      Importable package
-│   ├── queries.py                   get_card / find_combos / get_rule / get_corrections / ...
-│   ├── decks.py                     Deck CRUD, name resolution, combos-in-deck
-│   ├── deck_parser.py               Tolerant plain-text deckstring parser
-│   ├── scryfall_search.py           Tokenizer + parser + SQL compiler for `search`
-│   ├── renderer.py                  Plain-ASCII renderers, shared by CLI + TUI
-│   └── app.py                       Textual TUI app
+├── mtg_oracle/                      Importable package. Four layers, one-way
+│   │                                dependencies — see CLAUDE.md > Layers
+│   ├── queries.py                   [data] get_card / find_combos / get_rule / ...
+│   ├── decks.py                     [data] Deck CRUD, name resolution, combos-in-deck
+│   ├── scryfall_search.py           [data] Tokenizer + parser + SQL compiler for `search`
+│   ├── renderer.py                  [pure] Plain-ASCII renderers, shared by CLI + TUI
+│   ├── roles.py                     [pure] What a card does, and what it really costs
+│   ├── probability.py               [pure] Exact hypergeometric draw maths
+│   ├── analytics.py                 [pure] Mana curve, colour pips, mana sources
+│   ├── deck_parser.py               [pure] Tolerant plain-text deckstring parser
+│   ├── services.py                  [use cases] One function per user intent
+│   └── tui/                         [adapter] Textual app + help, autofill, divider
 └── scripts/
     ├── init_db.py                   Create the full schema on a fresh DB
-    ├── sync.py                      Orchestrator (cards + rules + combos + tags)
+    ├── sync.py                      Orchestrator (cards, rules, combos, tags, oracletags, formats)
     ├── sync_cards.py                Scryfall bulk (gzipped JSONL, streamed)
-    ├── load_custom_formats.py       data/formats/*.json -> custom_formats
-    ├── prune_stale_cards.py         Drop card rows upstream no longer ships
     ├── sync_rules.py                Wizards CR scrape
     ├── sync_combos.py               Commander Spellbook
-    ├── tag_cards.py                 Local regex tagger
+    ├── sync_oracle_tags.py          Scryfall Tagger oracle tags (what a card does)
+    ├── tag_cards.py                 Local regex tagger (keywords, types, abilities)
+    ├── load_custom_formats.py       data/formats/*.json -> custom_formats
+    ├── prune_stale_cards.py         Drop card rows upstream no longer ships
+    ├── analyse_archetype.py         Deck analysis over a folder of reference lists
+    ├── add_user_combo.py            Add a curated combo to user_combos
     ├── migrate_add_*.py             Idempotent schema migrations
     ├── mtg_cli.py                   CLI front-end
     └── mtg_app.py                   TUI launcher

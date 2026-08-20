@@ -24,6 +24,7 @@ COMMANDS = [
     "cd", "pwd", "ls", "mkdir", "rmdir",
     "add", "remove", "show", "rename", "move",
     "commander", "format", "points", "import", "paste", "export",
+    "profile", "compare",
     # Maintenance
     "sync",
     # Misc
@@ -111,9 +112,22 @@ INSIDE A DECK (`/<folder>/<deck>/`)
   export --front-face       shorten two-faced names to the front face
                             (split cards keep `//`; `Fire` is not a card)
   export --grouped          add `// role` headers; importers skip them
+  profile                   what the deck is made of: role densities,
+                            reach, and the exact odds each role is
+                            castable on each turn. Ends with the cards
+                            whose role could not be established.
+  profile <deck>            profile another deck without `cd`-ing to it
+  compare <deck>            this deck against that one, head to head:
+                            role counts, curve deltas, and which cards
+                            each plays that the other does not
 
 Card-name resolution is tolerant of `/` vs ` // ` and front-face-only DFC
 names: `add fire/ice` resolves to the canonical `Fire // Ice`.
+
+`compare` measures against one deck in this collection. To measure against
+a whole set of reference lists, run `scripts/analyse_archetype.py --dir
+<folder> --compare <deck>`: with several lists it reports ranges rather
+than a single opponent, and a range nobody left is a rule worth knowing.
 """
 
 
@@ -148,6 +162,9 @@ SEARCH
 DECKS                                 (terminal-style: cd / ls / pwd / add / remove ...)
   cd <name>  ls  pwd                  navigate folders and decks
   add / remove                        meaning follows your location — see `help decks`
+  profile [<deck>]                    role densities, reach, and the odds each
+                                      role is castable on each turn
+  compare <deck>                      this deck against that one, head to head
 
 MAINTENANCE
   sync [force]                        refresh data from Scryfall / Wizards / Spellbook

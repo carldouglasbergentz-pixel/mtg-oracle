@@ -27,6 +27,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from mtg_oracle import queries as q
 from mtg_oracle.scryfall_search import SYNTAX_HELP
 from mtg_oracle import decks as d
+from mtg_oracle import renderer as r
+from mtg_oracle import roles
 from mtg_oracle import services as svc
 from mtg_oracle.renderer import (
     render_card as _render_card,
@@ -178,6 +180,7 @@ _DECK_REQUIRED_FLAGS = {
     "rename": [("new_name", "--new-name")],
     "add": [("card", "--card")],
     "remove": [("card", "--card")],
+    "compare": [("against", "--against")],
 }
 
 
@@ -253,6 +256,22 @@ def _cmd_deck(args) -> int:
             else:
                 print(exported.text, end="")
             return 0
+        if action in ("profile", "compare"):
+            turns = list(range(1, 9))
+            order = [x for x in roles.ROLES if x != "land"]
+            fmt = {"role_labels": roles.LABELS, "role_order": order,
+                   "turns": turns}
+            deck = svc.deck_cards_for_analysis(
+                svc.DeckRef(deck=args.name, folder=args.folder))
+            if action == "profile":
+                profile = svc.profile_deck(deck["name"], deck["cards"])
+                _, low = svc.rank_cards([deck], order)
+                print(r.render_profile([profile], low_confidence=low, **fmt))
+                return 0
+            other = svc.deck_cards_for_analysis(svc.DeckRef(deck=args.against))
+            cmp = svc.compare_decks(deck, [other], turns=turns)
+            print(r.render_comparison(cmp, **fmt))
+            return 0
         if action == "combos":
             combos = d.combos_in_deck(args.name, folder=args.folder)
             if args.json:
@@ -263,6 +282,13 @@ def _cmd_deck(args) -> int:
                 ))
             return 0
     except d.DeckError as e:
+        print(f"deck error: {e}")
+        return 2
+    except svc.ServiceError as e:
+        # `ServiceError` is the type the service layer raises for anything the
+        # user should see, and it was never caught here — so `deck export
+        # "No Such Deck"` printed a traceback instead of the message the
+        # exception was carrying.
         print(f"deck error: {e}")
         return 2
     print(f"unknown deck action: {action}")
@@ -364,12 +390,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("deck", help=(
         "Manage decks: deck (show|new|delete|rename|move|add|remove|import|"
-        "export|combos) <name> ..."
+        "export|profile|compare|combos) <name> ..."
     ))
     sp.add_argument(
         "action",
         choices=["show", "new", "delete", "rename", "move", "add", "remove",
-                 "import", "export", "combos"],
+                 "import", "export", "profile", "compare", "combos"],
     )
     sp.add_argument("name", help="Deck name.")
     sp.add_argument("--folder", help="Folder the deck lives in (disambiguates duplicates).")
@@ -390,6 +416,10 @@ def build_parser() -> argparse.ArgumentParser:
                          "(split cards keep their full name — 'Fire' is not a card).")
     sp.add_argument("--grouped", action="store_true",
                     help="(export) add `//` role headers; importers skip them.")
+    sp.add_argument("--against", metavar="DECK",
+                    help="(compare) the deck to measure this one against. "
+                         "For a whole reference set of lists, use "
+                         "scripts/analyse_archetype.py --dir instead.")
     sp.set_defaults(func=_cmd_deck)
 
     return p

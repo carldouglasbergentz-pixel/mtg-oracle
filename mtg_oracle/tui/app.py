@@ -35,6 +35,7 @@ from textual.widgets import Footer, Header, Input, RichLog, Static
 from mtg_oracle import analytics as a
 from mtg_oracle import queries as q
 from mtg_oracle import renderer as r
+from mtg_oracle import roles
 from mtg_oracle import services as svc
 from mtg_oracle import decks as d
 from mtg_oracle.tui.clipboard import read_clipboard
@@ -520,6 +521,8 @@ class MtgOracleApp(App):
             "commander": self._cmd_commander,
             "format": self._cmd_format,
             "points": self._cmd_points,
+            "profile": self._cmd_profile,
+            "compare": self._cmd_compare,
             "show": self._cmd_show,
             "import": self._cmd_import,
             "paste": self._cmd_paste,
@@ -1604,6 +1607,71 @@ class MtgOracleApp(App):
             )
             return
         self._write(r.render_points(points))
+
+    # Eight turns is what the analysis tables were built around, and the
+    # output pane is the wide one, so the curve fits without a width guess.
+    _ANALYSIS_TURNS = list(range(1, 9))
+
+    def _analysis_kwargs(self) -> dict:
+        return {"role_labels": roles.LABELS,
+                "role_order": [x for x in roles.ROLES if x != "land"],
+                "turns": self._ANALYSIS_TURNS}
+
+    def _cmd_profile(self, arg: str) -> None:
+        """What the deck is made of, and when each role is actually castable.
+
+        No argument profiles the deck you are in, like `export` and `points`.
+        Naming one profiles that deck instead, without having to `cd` first.
+        """
+        name = arg.strip() or self._cwd_deck
+        if not name:
+            self._write("usage: profile [<deck>]   "
+                        "(or `cd <deck>` first to profile the deck you are in)")
+            return
+        folder = self._cwd_folder if name == self._cwd_deck else None
+        try:
+            deck = svc.deck_cards_for_analysis(
+                svc.DeckRef(deck=name, folder=folder))
+        except svc.ServiceError as e:
+            self._write(f"profile: {e}")
+            return
+        profile = svc.profile_deck(deck["name"], deck["cards"])
+        # The fall-through list is the useful half on your own deck — these
+        # are the cards whose role nothing could establish, so every number
+        # above rests on a guess for them.
+        _, low = svc.rank_cards([deck], self._analysis_kwargs()["role_order"])
+        self._write(r.render_profile([profile], low_confidence=low,
+                                     **self._analysis_kwargs()))
+
+    def _cmd_compare(self, arg: str) -> None:
+        """This deck against another one in the collection, head to head.
+
+        Deliberately deck-to-deck rather than deck-to-folder-of-files: the
+        command language knows decks and folders in the database, and letting
+        filesystem paths in here would make it a second, weaker CLI. Import
+        the reference lists as decks and they become comparable.
+        """
+        other = arg.strip()
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `compare`)")
+            return
+        if not other:
+            self._write("usage: compare <deck>   "
+                        f"(measures {self._cwd_deck!r} against that deck)")
+            return
+        if other == self._cwd_deck:
+            self._write("(a deck compared to itself deviates nowhere — "
+                        "name a different one)")
+            return
+        try:
+            subject = svc.deck_cards_for_analysis(self._ref())
+            reference = svc.deck_cards_for_analysis(svc.DeckRef(deck=other))
+        except svc.ServiceError as e:
+            self._write(f"compare: {e}")
+            return
+        cmp = svc.compare_decks(subject, [reference],
+                                turns=self._ANALYSIS_TURNS)
+        self._write(r.render_comparison(cmp, **self._analysis_kwargs()))
 
     def _cmd_show(self, arg: str) -> None:
         target = arg.strip()

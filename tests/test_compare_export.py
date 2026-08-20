@@ -125,6 +125,48 @@ class TestCompare(unittest.TestCase):
 
 
 @unittest.skipUnless(DB.exists(), "needs data/mtg.db")
+@unittest.skipUnless(DB.exists() and SAMPLES.is_dir(),
+                     "needs data/mtg.db and the sample decklists")
+class TestProfileInvariants(unittest.TestCase):
+    """Arithmetic that must hold for every deck, whatever the classifier says."""
+
+    @classmethod
+    def setUpClass(cls):
+        files = sorted(SAMPLES.glob("*.txt"))
+        duel = Path(__file__).parent.parent / "docs" / "sample decklists-duel commander 2026"
+        files += sorted(duel.glob("*.txt"))
+        if not files:
+            raise unittest.SkipTest("no sample lists")
+        cls.profiles = svc.profile_decks([read_list(f) for f in files])
+
+    def test_primary_roles_sum_to_deck_size(self):
+        """One primary per card. A role that stops summing has been double-counted."""
+        for p in self.profiles:
+            with self.subTest(deck=p.name):
+                self.assertEqual(sum(p.counts.values()), p.size)
+
+    def test_reach_is_never_below_primary(self):
+        """Reach counts every role a card can fill, so it is a superset.
+
+        It fell below for MDFC counterspells: `counts` credited Sink into
+        Stupor's spell half and `role_mv` did not, and the report showed
+        22 counterspells with a reach of 21.
+        """
+        for p in self.profiles:
+            for role in R.ROLES:
+                if role == "land":
+                    continue
+                with self.subTest(deck=p.name, role=role):
+                    reach = sum(p.role_mv.get(role, {}).values())
+                    self.assertGreaterEqual(reach, p.counts.get(role, 0))
+
+    def test_rituals_are_not_counted_as_permanent_mana(self):
+        """`rocks` feeds the on-curve model as +1 mana every turn, forever."""
+        for p in self.profiles:
+            with self.subTest(deck=p.name):
+                self.assertLessEqual(p.rocks, p.counts.get("mana", 0))
+
+
 class TestExportRoundTrip(unittest.TestCase):
     """An exported deck must re-import into the same deck.
 

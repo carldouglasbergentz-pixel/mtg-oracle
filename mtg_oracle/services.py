@@ -16,6 +16,7 @@ was right. Anything two interfaces both need lives here once.
 """
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
@@ -362,6 +363,7 @@ def profile_deck(
     deck accurately, and the printed cost is then the wrong number for them.
     """
     facts = q.get_card_facts(cards)
+    tags = q.get_oracle_tags(cards)
     missing = tuple(sorted(n for n in cards if n not in facts))
     if missing and strict:
         raise ServiceError(f"unknown card(s): {', '.join(missing)}")
@@ -382,27 +384,33 @@ def profile_deck(
             lands += qty
             continue
 
-        cl = roles.classify(fact, x_value)
+        cl = roles.classify(fact, x_value, tags=tags.get(card_name, ()))
         if miracle and cl.cost.alternative is not None:
             cl = replace(cl, cost=replace(cl.cost, effective=cl.cost.alternative,
                                           reason=cl.cost.alternative_reason))
         counts[cl.primary] += qty
-        # A modal DFC with a land back is played as a land far more often than
-        # as its spell half, so it counts toward mana and is NOT offered as a
-        # castable spell. Counting it both ways would double-count the slot.
+        mv = cl.cost.effective
+        # Reach credits the spell half of a modal DFC. A Sink into Stupor is a
+        # counterspell you have when you need a counterspell — that is the
+        # whole reason to play a modal card — and leaving it out put `reach`
+        # BELOW `primary` in the report, which cannot be true of a number that
+        # counts every role a card can fill.
+        for role in cl.roles:
+            if role in role_mv:
+                role_mv[role][mv] = role_mv[role].get(mv, 0) + qty
+                if cl.engine:
+                    engines[role] = engines.get(role, 0) + qty
+        # The mana base and the deck's mana curve treat it as a land instead,
+        # because that is how it is played most of the time. Letting the slot
+        # into `curve` as well would overstate how many real spells there are
+        # and drag the average mana value up with a card nobody hard-casts.
         if roles.has_land_back(fact):
             lands += qty
             land_backs += qty
             continue
         if cl.primary == "mana":
             rocks += qty
-        mv = cl.cost.effective
         curve[mv] = curve.get(mv, 0) + qty
-        for role in cl.roles:
-            if role in role_mv:
-                role_mv[role][mv] = role_mv[role].get(mv, 0) + qty
-                if cl.engine:
-                    engines[role] = engines.get(role, 0) + qty
 
     # Rocks are mana, not spells, for the draw maths: `probability.category_live`
     # takes them as their own group.
@@ -584,12 +592,13 @@ def compare_decks(
 
     everything = sorted(set(counts) | subj_cards)
     facts = q.get_card_facts(everything)
+    tags = q.get_oracle_tags(everything)
 
     def describe(name, n_lists):
         fact = facts.get(name)
         if fact is None:
             return CardDiff(name, "?", 99, n_lists, n)
-        cl = roles.classify(fact, x_value)
+        cl = roles.classify(fact, x_value, tags=tags.get(name, ()))
         return CardDiff(fact["name"], cl.primary, cl.cost.effective, n_lists, n)
 
     missing = [describe(name, c) for name, c in counts.items()
@@ -625,6 +634,75 @@ class DeckExport:
 
 # Section headers `deck_parser` understands, so an exported deck re-imports
 # into the same deck. That round-trip is asserted in the tests.
+def deck_cards_for_analysis(ref: DeckRef) -> dict:
+    """A stored deck reduced to `{"name", "cards"}` — what the analysis takes.
+
+    The same shape a parsed decklist file produces, so `profile_decks`,
+    `rank_cards` and `compare_decks` never need to know which one they got.
+    Sideboard rows are dropped: the draw maths is about the 100 you shuffle.
+    """
+    deck = d.get_deck(ref.deck, folder=ref.folder)
+    if not deck:
+        raise ServiceError(f"no deck named {ref.deck!r}")
+    cards: dict[str, int] = {}
+    for row in deck.get("cards", []):
+        if row.get("is_sideboard"):
+            continue
+        name = row["card_name"]
+        cards[name] = cards.get(name, 0) + row["quantity"]
+    return {"name": deck["name"], "cards": cards, "files": [deck["name"]]}
+
+
+def rank_cards(decks, role_order=None) -> tuple[dict, set[str]]:
+    """Per role, which cards the most lists play — and which fell through.
+
+    Returns `({role: [row, ...]}, low_confidence_names)`. Each row carries the
+    card, how many lists play it, its effective and printed cost, whether the
+    role is that card's primary, and why the cost was adjusted if it was.
+    Rows are sorted by effective cost, then by how many lists play the card.
+
+    Lands are skipped: `1/9 Snow-Covered Swamp` is not a finding, and the
+    mana base is measured by `profile_deck` instead. Lives here rather than in
+    `analytics` because it needs two data calls, which is the test for what
+    belongs in this layer.
+    """
+    order = list(role_order) if role_order is not None else list(roles.ROLES)
+    n = len(decks)
+    if not n:
+        return {r: [] for r in order}, set()
+    all_names = sorted({name for d in decks for name in d["cards"]})
+    facts = q.get_card_facts(all_names)
+    tags = q.get_oracle_tags(all_names)
+    played = Counter(name for d in decks for name in d["cards"])
+
+    out: dict[str, list] = {r: [] for r in order}
+    low: set[str] = set()
+    for name in all_names:
+        fact = facts.get(name)
+        if fact is None or roles.is_land(fact):
+            continue
+        cl = roles.classify(fact, tags=tags.get(name, ()))
+        if cl.low_confidence:
+            low.add(name)
+        for role in cl.roles:
+            if role not in out:
+                continue
+            out[role].append({
+                "name": name,
+                "n": played[name],
+                "pct": round(100 * played[name] / n),
+                "mv": cl.cost.effective,
+                "printed": cl.cost.printed,
+                "cost": fact.get("mana_cost") or "",
+                "primary": cl.primary == role,
+                "reason": cl.cost.reason if cl.cost.adjusted else "",
+                "source": cl.source,
+            })
+    for role in out:
+        out[role].sort(key=lambda row: (row["mv"], -row["n"], row["name"]))
+    return out, low
+
+
 _EXPORT_ORDER = (("commander", "Commander"), ("main", "Deck"),
                  ("sideboard", "Sideboard"))
 
@@ -667,6 +745,7 @@ def export_deck_text(
 
     all_names = [n for b in buckets.values() for n in b]
     facts = q.get_card_facts(all_names) if (front_face or group_by_role) else {}
+    tags = q.get_oracle_tags(all_names) if group_by_role else {}
 
     def display(name: str) -> str:
         if not front_face or " // " not in name:
@@ -693,7 +772,8 @@ def export_deck_text(
             by_role: dict[str, list[str]] = {}
             for name in entries:
                 fact = facts.get(name)
-                role = roles.classify(fact).primary if fact else "utility"
+                role = (roles.classify(fact, tags=tags.get(name, ())).primary
+                        if fact else "utility")
                 by_role.setdefault(role, []).append(name)
             for role in roles.ROLES:
                 names = sorted(by_role.get(role, []))
