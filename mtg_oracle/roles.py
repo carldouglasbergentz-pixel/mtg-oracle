@@ -575,9 +575,12 @@ OVERRIDES: dict[str, tuple[str, tuple[str, ...], Optional[int], str]] = {
                                   "spree: {U} plus {1}{U} for the counter mode"),
     # Tuck effects at X=0 are real removal.
     "Unexpectedly Absent":       ("spot", (), 2, "{X}{W}{W} at X=0 tucks on top"),
-    # Converge caps X at the number of colours actually available.
-    "Prismatic Ending":          ("spot", (), 3,
-                                  "{X}{W} at X=2 — converge caps X at 2 in two colours"),
+    # Three mana is three mana whatever converge reaches — but what it kills
+    # depends on how many colours the deck can actually spend, which is a
+    # property of the manabase and not of the card. A two-colour deck exiles
+    # mana value 2; add one source of a third colour (a Triome) and the same
+    # three mana exiles mana value 3.
+    "Prismatic Ending":          ("spot", (), 3, "{X}{W} at X=2"),
     # A preparation card: see CASTABLE_SECOND_FACE. Listed explicitly so the
     # 5-mana body is never mistaken for the {U} inset frame again.
     "Emeritus of Ideation":      ("threat", ("draw",), None,

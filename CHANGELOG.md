@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (a card override asserted something that is a property of the manabase)
+- **`Prismatic Ending`'s override said "converge caps X at 2 in two colours".** Three mana is three mana whatever converge reaches; what it *kills* depends on how many colours the deck can spend, which belongs to the manabase and not to the card. Adding one source of a third colour turns the same three mana from "exile mana value 2" into "exile mana value 3". Surfaced when the user swapped an Underground Sea for a Raugrin Triome and the comment became false.
+
 ### Fixed ({X} was priced by one blanket rule, and the rule only fits removal)
 - **The floor for an `{X}` spell is now the smallest X at which the card does the job it is counted for**, not a single global X=2.
     - X sizes an **answer** → 2, unchanged. The smallest X that kills a real card in this format; X=0 would make Wrath of the Skies a two-mana sweeper.
