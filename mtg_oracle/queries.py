@@ -61,6 +61,30 @@ _FORMAT_ALIAS = {
 # is why Scryfall reuses the same status word for two different rules.
 RESTRICTED_MEANS_NO_COMMANDER: frozenset[str] = frozenset({"duel", "tlr"})
 
+# Formats that enforce singleton (max 1 of each card except basic lands and
+# cards whose oracle text explicitly opts out).
+#
+# Split in two because a deck's format is free text the user typed. Anything
+# that folds to a Scryfall legality key is matched on the key, so every
+# spelling of it works at once ('EDH', 'edh', 'Duel Commander', '1v1
+# commander' all land on a key). The rest are community formats Scryfall
+# doesn't track, matched on the folded string.
+SINGLETON_LEGALITY_FORMATS: frozenset[str] = frozenset({
+    "commander", "duel", "oathbreaker",
+    "brawl", "standardbrawl", "competitivebrawl",
+    "gladiator", "paupercommander", "predh",
+    "tlr",  # Tiny Leaders: Reborn — 50-card singleton, MV <= 3
+})
+
+# Folded (no spaces / hyphens), because that's what `fold_format` produces.
+# 'canlander' is the abbreviation people actually type and was missing
+# before, so Canadian Highlander decks got no singleton enforcement at all.
+SINGLETON_COMMUNITY_FORMATS: frozenset[str] = frozenset({
+    "highlander", "canadianhighlander", "canlander",
+    "australianhighlander", "ozziehighlander", "ozhighlander",
+    "leviathan",
+})
+
 
 def fold_format(raw: str) -> str:
     """Lowercase, strip spaces/hyphens/underscores, then resolve aliases."""
@@ -155,7 +179,9 @@ def resolve_format(raw: Optional[str]) -> Optional[dict]:
     if key in LEGALITY_FORMATS:
         return {
             "key": key, "label": key, "legality_key": key,
-            "points_budget": None, "singleton": None, "custom": False,
+            "points_budget": None,
+            "singleton": key in SINGLETON_LEGALITY_FORMATS,
+            "custom": False,
         }
     spec = get_custom_formats().get(key)
     if not spec:
@@ -168,6 +194,22 @@ def resolve_format(raw: Optional[str]) -> Optional[dict]:
         "singleton": bool(spec["singleton"]),
         "custom": True,
     }
+
+
+def is_singleton_format(raw: Optional[str]) -> bool:
+    """True when a format name carries a one-copy rule.
+
+    Resolves through the same alias table the search language uses, so a
+    format spelled any of the ways people spell it lands on one answer. A
+    defined format carries the answer itself (`resolve_format`); the
+    community set is the fallback for formats with no definition file.
+    """
+    if not raw:
+        return False
+    info = resolve_format(raw)
+    if info is not None:
+        return bool(info["singleton"])
+    return fold_format(raw) in SINGLETON_COMMUNITY_FORMATS
 
 
 def get_card_points(format_key: str) -> dict[str, int]:

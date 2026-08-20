@@ -56,6 +56,23 @@ Setup commands live in [`README.md`](README.md). The load-bearing detail for cod
 
 Scryfall serves bulk data as **gzipped JSON Lines** via `jsonl_download_uri` — one object per line, not a JSON array. The old uncompressed `download_uri` field is gone. `sync_cards.py` streams it; don't reintroduce `json.load` over the whole export.
 
+## Layers
+
+Four of them, and the direction of dependency is one-way:
+
+| module | owns | may import |
+|---|---|---|
+| `queries` / `decks` / `scryfall_search` | SQL, one concept each (reads / deck writes / the search language) | each other |
+| `renderer` / `analytics` | plain-text presentation and pure computation over dicts | nothing from this project |
+| `services` | **use cases** — one function per user intent | the data modules |
+| `tui/` + `scripts/mtg_cli.py` | argument syntax, widgets, printing | services + renderer |
+
+`services.py` is the seam, and the rule for what belongs there is *composition*: an intent that needs more than one data call, or a decision made before the call. A one-line pass-through to `queries` or `decks` does **not** belong there — call those directly, or the layer becomes a second copy of the API with nothing added.
+
+It exists because the interfaces kept growing their own copies of the same use case and only one copy was right: `paste` and `deck import` each parsed a deckstring their own way, and `commander <card>` skipped the legality check that `add` applied. Anything two interfaces both need lives in `services` once. It is also the surface the LLM layer will call — plain values in, plain data out, `ServiceError` for anything the user should see.
+
+`renderer` never imports `queries` or `decks`: presentation takes primitives, so a caller wanting the singleton flag passes it in rather than the renderer reaching for a DB.
+
 ## Query patterns
 
 Most card / rule / combo / deck lookups have helpers in `mtg_oracle.queries` and `mtg_oracle.decks` — prefer those over hand-rolled SQL. For ad-hoc queries, the conventions are `COLLATE NOCASE` on names, `resolve_card_name()` for tolerant input, and `''` to escape apostrophes (`'Thassa''s Oracle'`). One emblematic shape:
@@ -74,7 +91,7 @@ Three triggers decide whether a deck's `add` and `search` get extra rules:
 - **Commander color identity.** When a deck has any `deck_cards.is_commander = 1` row, the deck's effective CI is the sorted union of those rows' `cards.color_identity`. `mtg_oracle.decks.get_deck_color_identity()` returns it (or `None` for no commanders). `add` rejects cards whose CI isn't a subset of the deck CI; `search` inside the deck is hard-filtered with `ci<=<deck CI>`.
 - **Format legality.** When `decks.format` resolves to a legality key (`mtg_oracle.decks.get_deck_format_info()`, which follows `derives_from` for custom formats), `search` inside the deck is also hard-filtered with `f:<format>`, and `add` rejects banned cards and cards outside the format's pool with distinct messages naming both the format and its inherited pool. Unlike the CI check, this one *does* apply to commanders — an illegal commander is still illegal. Formats with no definition and no Scryfall key are unchecked.
 - **Points budget.** When the resolved format has a `points_budget` (Canadian Highlander: 10), `add` rejects a card whose points wouldn't fit, and `decks.deck_points()` / the `points` command report spend vs. budget. Going over via `--force` is reported (`[11/10 pts!]`), never hidden.
-- **Singleton.** `decks.format` is folded through `queries.fold_format()` first, so every spelling resolves to one answer (`EDH` → `commander`, `1v1 commander` → `duel`, `tiny leaders` → `tlr`). A folded key in `decks.SINGLETON_LEGALITY_FORMATS` (the 10 Scryfall formats that are singleton) or `decks.SINGLETON_COMMUNITY_FORMATS` (`canlander`, `canadianhighlander`, `highlander`, `ozhighlander`, `leviathan` — no upstream list) makes `add` reject a 2nd copy. Basic lands (type line contains `Basic` + `Land`) and cards whose oracle text contains `a deck can have any number of cards named` are exempt. Sideboard rows count separately from main.
+- **Singleton.** `queries.is_singleton_format()` is the one answer, and it takes the raw string the user typed: it folds through `queries.fold_format()` (`EDH` → `commander`, `1v1 commander` → `duel`, `tiny leaders` → `tlr`), then asks `resolve_format()`. A format with no definition and no Scryfall key still gets the rule if it's in `queries.SINGLETON_COMMUNITY_FORMATS` (`highlander`, `ozhighlander`, `leviathan` — no upstream list), which is why the singleton question can't be answered from `resolve_format()` alone: that returns None for those. Basic lands (type line contains `Basic` + `Land`) and cards whose oracle text contains `a deck can have any number of cards named` are exempt. Sideboard rows count separately from main.
 
 Both checks accept `force=True` (kwarg) / `--force` (TUI) to bypass for one call. `import_deck` always forces — paste lists are loaded verbatim. The commander row itself is never CI-checked because it *defines* the CI.
 

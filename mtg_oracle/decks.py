@@ -16,35 +16,11 @@ from typing import Optional
 from mtg_oracle.queries import BUSY_TIMEOUT_S, RESTRICTED_MEANS_NO_COMMANDER
 from mtg_oracle.queries import resolve_card_name as _resolve_canonical
 from mtg_oracle.queries import flag_template_vars as _flag_template_vars
-from mtg_oracle.queries import fold_format as _fold_format
 from mtg_oracle.queries import get_card_points as _get_card_points
+from mtg_oracle.queries import is_singleton_format as _is_singleton_format
 from mtg_oracle.queries import resolve_format as _resolve_format
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
-
-# Formats that enforce singleton (max 1 of each card except basic lands and
-# cards whose oracle text explicitly opts out).
-#
-# Split in two because `decks.format` is free text the user typed. Anything
-# that folds to a Scryfall legality key is matched on the key, so every
-# spelling of it works at once ('EDH', 'edh', 'Duel Commander', '1v1
-# commander' all land on a key). The rest are community formats Scryfall
-# doesn't track, matched on the folded string.
-SINGLETON_LEGALITY_FORMATS: frozenset[str] = frozenset({
-    "commander", "duel", "oathbreaker",
-    "brawl", "standardbrawl", "competitivebrawl",
-    "gladiator", "paupercommander", "predh",
-    "tlr",  # Tiny Leaders: Reborn — 50-card singleton, MV <= 3
-})
-
-# Folded (no spaces / hyphens), because that's what `fold_format` produces.
-# 'canlander' is the abbreviation people actually type and was missing
-# before, so Canadian Highlander decks got no singleton enforcement at all.
-SINGLETON_COMMUNITY_FORMATS: frozenset[str] = frozenset({
-    "highlander", "canadianhighlander", "canlander",
-    "australianhighlander", "ozziehighlander", "ozhighlander",
-    "leviathan",
-})
 
 
 # Phrase Wizards uses on cards that override singleton (Relentless Rats,
@@ -428,24 +404,6 @@ def move_deck(name: str, new_folder: Optional[str], folder: Optional[str] = None
 
 
 # --- Format-aware deck metadata --------------------------------------
-
-def _is_singleton_format(fmt: Optional[str]) -> bool:
-    """True when `decks.format` names a format with a one-copy rule.
-
-    Resolves through the same alias table the search language uses, so a
-    format spelled any of the ways people spell it lands on one answer.
-    A custom format carries its own `singleton` flag (from its JSON); the
-    community set is the fallback for formats with no definition file.
-    """
-    if not fmt:
-        return False
-    info = _resolve_format(fmt)
-    if info is not None:
-        if info["custom"]:
-            return bool(info["singleton"])
-        return info["key"] in SINGLETON_LEGALITY_FORMATS
-    return _fold_format(fmt) in SINGLETON_COMMUNITY_FORMATS
-
 
 def _is_basic_land(type_line: Optional[str]) -> bool:
     if not type_line:

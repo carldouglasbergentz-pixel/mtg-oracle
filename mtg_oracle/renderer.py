@@ -331,19 +331,47 @@ def render_rulings(card_name: str, rulings: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def render_combo_list(combos: list[dict], header: str) -> str:
+def render_combo_list(
+    combos: list[dict],
+    header: str,
+    *,
+    numbered: bool = False,
+    links: Optional[list[LinkSpan]] = None,
+) -> str:
+    """A combo list, one row per combo, wrapping at ' + ' boundaries.
+
+    `numbered=False` labels each row with its Spellbook id — the CLI, where
+    the id is what you'd paste into the next command.
+
+    `numbered=True` labels rows `[  1]`..`[  N]` and records each label as a
+    click target, for the TUI where `combo-info <N>` resolves against the
+    list the user is looking at. Showing raw ids there made the numbered side
+    pane and the output pane disagree about what `3` meant.
+    """
     if not combos:
         return "(no matching combos)"
     lines = [header]
-    for c in combos:
+    for i, c in enumerate(combos, 1):
         cards_str = c.get("cards") or c.get("combo_name") or ""
         ci = c.get("color_identity") or "-"
+        # A combo whose steps name a card slot `combo_cards` doesn't
+        # enumerate ('your commander', 'the affinity permanent') needs more
+        # cards than it lists — say so rather than under-report.
         plus = "+" if c.get("has_template_vars") else ""
-        row_header = (
-            f"{INDENT}[{c['id']:>14}] {ci:<5} "
-            f"({c['card_count']}{plus} cards) "
-        )
-        lines.append(wrap_combo_row(row_header, cards_str))
+        label = f"[{i:>3}]" if numbered else f"[{c['id']:>14}]"
+        row_header = f"{INDENT}{label} {ci:<5} ({c['card_count']}{plus} cards) "
+        first_line_no = len(lines)
+        lines.extend(wrap_combo_row(row_header, cards_str).split("\n"))
+        # The label sits at a known column on the row's first line, so record
+        # it directly rather than searching for `[  3]` in text that also
+        # contains card names.
+        if numbered and links is not None:
+            links.append(LinkSpan(
+                first_line_no, len(INDENT), len(INDENT) + len(label),
+                "combo", (i,),
+            ))
+    if numbered:
+        lines.append(f"{INDENT}(click a row number, or type `combo-info <N>`)")
     return "\n".join(lines)
 
 
@@ -464,6 +492,85 @@ def render_search(
     if nav_hint:
         lines.append(f"{INDENT}{nav_hint}")
 
+    return "\n".join(lines)
+
+
+def render_search_nav_hint(has_next: bool, has_prev: bool) -> str:
+    """The `| \\`next\\` | \\`prev\\` | ...` line under a page of results."""
+    parts = []
+    if has_next:
+        parts.append("`next`")
+    if has_prev:
+        parts.append("`prev`")
+    parts.append("`card <N>` to expand row")
+    return "| " + "  |  ".join(parts)
+
+
+def render_deck_filter_notice(filters) -> str:
+    """Announce the filters a deck added to a search — never applied silently.
+
+    A search that returns fewer cards than expected reads as missing data
+    unless the reason is on screen.
+    """
+    if not filters:
+        return ""
+    return (
+        f"[deck filter: {'  '.join(filters)}"
+        f"  (`cd ..` to search the full pool)]"
+    )
+
+
+# --- formats -----------------------------------------------------------
+
+def render_format_effect(info: Optional[dict], *, singleton: bool = False) -> str:
+    """Spell out which rules a format actually switches on.
+
+    `info` is `queries.resolve_format()`'s answer; `singleton` is asked
+    separately because a community format with no definition file
+    (`highlander`) resolves to None here and still has singleton enforced.
+    """
+    bits = []
+    if info:
+        if info["legality_key"]:
+            pool = (f"card pool + ban list from {info['legality_key']}"
+                    if info["custom"] else "card pool + ban list")
+            bits.append(f"  legality: {pool}")
+        if info.get("points_budget") is not None:
+            bits.append(f"  points:   budget {info['points_budget']} per deck")
+    if singleton:
+        bits.append("  singleton: one copy of each non-basic card")
+    if not info:
+        if not bits:
+            return ("  (not a format this build has rules for — the label is "
+                    "stored, but no legality / singleton / points checks apply)")
+        # Known by name only: no ban list, but the one-copy rule still fires.
+        return ("  -> not a format with a card pool this build knows, but:\n"
+                + "\n".join(bits))
+    if not bits:
+        bits.append("  (no rules attached to this format)")
+    return f"  -> {info['label']}\n" + "\n".join(bits)
+
+
+def render_known_formats(scryfall, community) -> str:
+    """The two columns of format names `format <name>` accepts.
+
+    Listing only the Scryfall keys omitted the one format the points feature
+    exists for, so the community formats are named alongside their aliases.
+    """
+    lines = [
+        textwrap.fill(", ".join(scryfall), width=68,
+                      initial_indent="  with rules:  ",
+                      subsequent_indent="               ")
+    ]
+    if community:
+        names = ", ".join(
+            spec["name"]
+            + (f" ({', '.join(spec['aliases'][:2])})" if spec.get("aliases") else "")
+            for spec in community
+        )
+        lines.append(textwrap.fill(names, width=68,
+                                   initial_indent="  community:   ",
+                                   subsequent_indent="               "))
     return "\n".join(lines)
 
 

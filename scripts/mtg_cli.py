@@ -24,9 +24,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from mtg_oracle import queries as q
-from mtg_oracle import scryfall_search as ss
 from mtg_oracle import decks as d
-from mtg_oracle.deck_parser import parse_deckstring
+from mtg_oracle import services as svc
 from mtg_oracle.renderer import (
     render_card as _render_card,
     render_rulings as _render_rulings,
@@ -181,20 +180,18 @@ def _cmd_search(args) -> int:
         print(SEARCH_HELP)
         return 0
     try:
-        total = ss.count_query(query)
-        offset = (max(1, args.page) - 1) * args.limit
-        cards = ss.run_query(query, limit=args.limit, offset=offset)
-    except ss.SearchError as e:
+        page = svc.search(query, page=args.page, page_size=args.limit)
+    except svc.ServiceError as e:
         print(f"search error: {e}\n\nType `search help` for syntax.")
         return 2
     if args.json:
-        print(json.dumps({"total": total, "page": args.page,
-                          "page_size": args.limit, "rows": cards},
+        print(json.dumps({"total": page.total, "page": page.page,
+                          "page_size": page.page_size, "rows": page.rows},
                          indent=2, default=str))
     else:
-        print(_render_search(cards, page=args.page, total=total,
-                             page_size=args.limit))
-    return 0 if cards else 1
+        print(_render_search(page.rows, page=page.page, total=page.total,
+                             page_size=page.page_size))
+    return 0 if page.rows else 1
 
 
 def _cmd_correction(args) -> int:
@@ -288,14 +285,14 @@ def _cmd_deck(args) -> int:
             print(f"OK removed {removed}x {canonical}{tail}")
             return 0
         if action == "import":
-            text = _read_deck_source(args)
-            parsed = parse_deckstring(text)
-            if not parsed:
-                print("no cards found in input")
+            ref = svc.DeckRef(deck=args.name, folder=args.folder)
+            try:
+                result = svc.create_deck_from_text(
+                    ref, _read_deck_source(args), format=args.format,
+                )
+            except svc.ServiceError as e:
+                print(f"deck import: {e}")
                 return 1
-            result = d.import_deck(
-                args.name, parsed, folder=args.folder, format=args.format
-            )
             print(_render_import_result(args.name, result))
             return 0
         if action == "combos":

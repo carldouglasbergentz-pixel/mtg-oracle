@@ -32,9 +32,8 @@ from mtg_oracle import analytics as a
 from mtg_oracle import queries as q
 from mtg_oracle.queries import LEGALITY_FORMATS
 from mtg_oracle import renderer as r
-from mtg_oracle import scryfall_search as ss
+from mtg_oracle import services as svc
 from mtg_oracle import decks as d
-from mtg_oracle.deck_parser import parse_deckstring
 
 
 # Persistent user preferences (theme so far). Lives next to the DB —
@@ -607,12 +606,9 @@ class MtgOracleApp(App):
         # opaque Spellbook id.
         self._last_combos: list[dict] = []
 
-        # Most recent search state — powers pagination (next/prev/page) and
-        # the `card <N>` expand shortcut.
-        self._search_query: Optional[str] = None
-        self._search_page: int = 1
-        self._search_total: int = 0
-        self._search_rows: list[dict] = []
+        # Most recent search — powers pagination (next/prev/page) and the
+        # `card <N>` expand shortcut. None until the first search.
+        self._search: Optional[svc.SearchPage] = None
 
         # Terminal-style cwd over decks and folders.
         # Both None = root. folder set, deck None = inside a folder.
@@ -734,18 +730,8 @@ class MtgOracleApp(App):
 
     @staticmethod
     def _format_names() -> list[str]:
-        """Every format string `format` accepts, for autofill.
-
-        Scryfall keys, then each custom format's canonical key and its
-        aliases — so both `canadianhighlander` and `canlander` complete.
-        Longer, more specific names sort first so a prefix that matches two
-        entries offers the fuller one rather than a bare stem.
-        """
-        names = set(q.LEGALITY_FORMATS)
-        for spec in q.get_custom_formats().values():
-            names.add(spec["format"])
-            names.update(spec.get("aliases") or [])
-        return sorted(names) + ["--unset"]
+        """Every string `format` accepts, for autofill — plus its one flag."""
+        return svc.format_catalog().names() + ["--unset"]
 
     @staticmethod
     def _load_suggestion_data() -> tuple[list[str], list[str]]:
@@ -1058,28 +1044,17 @@ class MtgOracleApp(App):
         # `card <N>` expands a result from the most recent search, the same
         # pattern combo-info uses for the last combo list. Small integers
         # only; no card is actually named '1'/'2'/...
-        if arg.isdigit() and self._search_rows:
+        rows = self._search.rows if self._search else []
+        if arg.isdigit() and rows:
             idx = int(arg) - 1
-            if 0 <= idx < len(self._search_rows):
-                arg = self._search_rows[idx]["name"]
+            if 0 <= idx < len(rows):
+                arg = rows[idx]["name"]
             else:
                 self._write(
-                    f"(no row #{arg} in last search; valid range is 1..{len(self._search_rows)})"
+                    f"(no row #{arg} in last search; valid range is 1..{len(rows)})"
                 )
                 return
-        # When inside a deck whose commander defines a CI, restrict the
-        # embedded "Top combos featuring this card" list to combos that
-        # are actually playable in the deck — so e.g. Ashnod's Altar in
-        # a Savra (BG) deck doesn't list its UB / GU / W combos.
-        restrict_to_ci = None
-        if self._cwd_deck:
-            try:
-                restrict_to_ci = d.get_deck_color_identity(
-                    self._cwd_deck, folder=self._cwd_folder,
-                )
-            except d.DeckError:
-                restrict_to_ci = None
-        card = q.get_card(arg, restrict_to_ci=restrict_to_ci)
+        card = svc.card_profile(arg, self._ref())
         if not card:
             self._write(f"(card not found: {arg})")
             return
@@ -1186,82 +1161,41 @@ class MtgOracleApp(App):
         if not arg or arg.lower() in ("help", "?"):
             self._write(SEARCH_HELP)
             return
-
-        # Inside a deck, searches are hard-filtered to what that deck can
-        # actually play: the commander's color identity and the deck's
-        # format legality. Both are announced rather than applied silently;
-        # `cd ..` searches the whole card pool again.
-        effective = arg
-        filters: list[str] = []
-        if self._cwd_deck:
-            try:
-                deck_ci = d.get_deck_color_identity(
-                    self._cwd_deck, folder=self._cwd_folder,
-                )
-            except d.DeckError:
-                deck_ci = None
-            if deck_ci is not None:
-                ci_token = "".join(deck_ci) if deck_ci else "c"
-                effective = f"({effective}) ci<={ci_token}"
-                filters.append(f"ci<={''.join(deck_ci) or 'C'}")
-            try:
-                info = d.get_deck_format_info(
-                    self._cwd_deck, folder=self._cwd_folder,
-                )
-            except d.DeckError:
-                info = None
-            if info and info["legality_key"]:
-                effective = f"({effective}) f:{info['legality_key']}"
-                # Show the deck's own format name, but name the inherited
-                # pool too — "f:Canadian Highlander" alone would look like
-                # a filter we don't actually have data for.
-                filters.append(
-                    f"f:{info['label']}"
-                    + (f" (={info['legality_key']} pool)" if info["custom"] else "")
-                )
-
-        ci_notice = ""
-        if filters:
-            ci_notice = (
-                f"[deck filter: {'  '.join(filters)}"
-                f"  (`cd ..` to search the full pool)]"
-            )
-
+        # Inside a deck the query is hard-filtered to what that deck can
+        # actually play; `cd ..` searches the whole card pool again.
         try:
-            total = ss.count_query(effective)
-            rows = ss.run_query(effective, limit=self.SEARCH_PAGE_SIZE, offset=0)
-        except ss.SearchError as e:
+            page = svc.deck_search(
+                arg, self._ref(), page_size=self.SEARCH_PAGE_SIZE,
+            )
+        except svc.ServiceError as e:
             self._write(f"search error: {e}\n(type `search help` for syntax)")
             return
-        self._search_query = effective
-        self._search_page = 1
-        self._search_total = total
-        self._search_rows = rows
-        if ci_notice:
-            self._write(ci_notice)
+        self._search = page
+        notice = r.render_deck_filter_notice(page.filters)
+        if notice:
+            self._write(notice)
         self._render_current_page()
 
     def _cmd_search_next(self, _: str) -> None:
-        if not self._search_query:
+        if self._search is None:
             self._write("(no prior search — run `search <query>` first)")
             return
-        last_page = max(1, (self._search_total + self.SEARCH_PAGE_SIZE - 1) // self.SEARCH_PAGE_SIZE)
-        if self._search_page >= last_page:
-            self._write(f"(already on last page {last_page})")
+        if not self._search.has_next:
+            self._write(f"(already on last page {self._search.last_page})")
             return
-        self._load_search_page(self._search_page + 1)
+        self._load_search_page(self._search.page + 1)
 
     def _cmd_search_prev(self, _: str) -> None:
-        if not self._search_query:
+        if self._search is None:
             self._write("(no prior search — run `search <query>` first)")
             return
-        if self._search_page <= 1:
+        if not self._search.has_prev:
             self._write("(already on first page)")
             return
-        self._load_search_page(self._search_page - 1)
+        self._load_search_page(self._search.page - 1)
 
     def _cmd_search_page(self, arg: str) -> None:
-        if not self._search_query:
+        if self._search is None:
             self._write("(no prior search — run `search <query>` first)")
             return
         arg = arg.strip()
@@ -1269,41 +1203,34 @@ class MtgOracleApp(App):
             self._write("usage: page <N>")
             return
         n = int(arg)
-        last_page = max(1, (self._search_total + self.SEARCH_PAGE_SIZE - 1) // self.SEARCH_PAGE_SIZE)
-        if not (1 <= n <= last_page):
-            self._write(f"(valid pages are 1..{last_page})")
+        if not (1 <= n <= self._search.last_page):
+            self._write(f"(valid pages are 1..{self._search.last_page})")
             return
         self._load_search_page(n)
 
     def _load_search_page(self, page: int) -> None:
-        offset = (page - 1) * self.SEARCH_PAGE_SIZE
+        # Re-run the *effective* query, filters included — re-scoping per page
+        # would silently change the result set when the user walks out of the
+        # deck mid-pagination.
         try:
-            rows = ss.run_query(
-                self._search_query, limit=self.SEARCH_PAGE_SIZE, offset=offset,
+            self._search = svc.search(
+                self._search.effective, page=page,
+                page_size=self.SEARCH_PAGE_SIZE, filters=self._search.filters,
             )
-        except ss.SearchError as e:
+        except svc.ServiceError as e:
             self._write(f"search error: {e}")
             return
-        self._search_page = page
-        self._search_rows = rows
         self._render_current_page()
 
     def _render_current_page(self) -> None:
-        last_page = max(1, (self._search_total + self.SEARCH_PAGE_SIZE - 1) // self.SEARCH_PAGE_SIZE)
-        hint_parts = []
-        if self._search_page < last_page:
-            hint_parts.append("`next`")
-        if self._search_page > 1:
-            hint_parts.append("`prev`")
-        hint_parts.append("`card <N>` to expand row")
-        nav_hint = "| " + "  |  ".join(hint_parts)
+        page = self._search
         links: list[r.LinkSpan] = []
         body = r.render_search(
-            self._search_rows,
-            page=self._search_page,
-            total=self._search_total,
-            page_size=self.SEARCH_PAGE_SIZE,
-            nav_hint=nav_hint,
+            page.rows,
+            page=page.page,
+            total=page.total,
+            page_size=page.page_size,
+            nav_hint=r.render_search_nav_hint(page.has_next, page.has_prev),
             links=links,
         )
         self._write_linked(body, links)
@@ -1448,14 +1375,13 @@ class MtgOracleApp(App):
 
     # --- cwd-style verbs --------------------------------------------
 
+    def _ref(self) -> svc.DeckRef:
+        """The cwd as the services layer wants it: one value, not two."""
+        return svc.DeckRef(deck=self._cwd_deck, folder=self._cwd_folder)
+
     def _path_str(self) -> str:
         """Render the current cwd as a unix-style path."""
-        if self._cwd_deck:
-            base = f"/{self._cwd_folder}" if self._cwd_folder else ""
-            return f"{base}/{self._cwd_deck}"
-        if self._cwd_folder:
-            return f"/{self._cwd_folder}"
-        return "/"
+        return self._ref().path
 
     def _refresh_status(self) -> None:
         """Update the bottom status bar with the current path."""
@@ -2058,10 +1984,9 @@ class MtgOracleApp(App):
                         + self._known_formats()
                     )
                 else:
-                    info = q.resolve_format(current)
                     self._write(
                         f"folder {folder!r} default format: {current!r}\n"
-                        f"{self._format_effect(info)}"
+                        f"{self._format_effect(current)}"
                     )
                 return
             toks = arg.split()
@@ -2074,13 +1999,13 @@ class MtgOracleApp(App):
                 self._write("usage: format <name> [--all]  |  format --unset")
                 return
             else:
-                stored, info, updated = d.set_folder_format(
+                stored, _info, updated = d.set_folder_format(
                     folder, name, apply_to_decks=apply_all,
                 )
                 lines = [
                     f"OK folder {folder!r} default format set to {stored!r} — "
                     f"new decks here inherit it",
-                    self._format_effect(info),
+                    self._format_effect(stored),
                 ]
                 if apply_all:
                     lines.append(
@@ -2102,7 +2027,6 @@ class MtgOracleApp(App):
         """Show or set the current deck's format — the switch for every rule."""
         try:
             if not arg:
-                info = d.get_deck_format_info(self._cwd_deck, folder=self._cwd_folder)
                 deck = d.get_deck(self._cwd_deck, folder=self._cwd_folder)
                 current = (deck or {}).get("format")
                 if not current:
@@ -2114,16 +2038,16 @@ class MtgOracleApp(App):
                         + self._known_formats()
                     )
                 else:
-                    self._write(f"format: {current!r}\n{self._format_effect(info)}")
+                    self._write(f"format: {current!r}\n{self._format_effect(current)}")
                 return
             if arg in ("--unset", "--clear"):
                 d.set_deck_format(self._cwd_deck, None, folder=self._cwd_folder)
                 self._write("OK format cleared — no format rules apply now")
             else:
-                stored, info = d.set_deck_format(
+                stored, _info = d.set_deck_format(
                     self._cwd_deck, arg, folder=self._cwd_folder,
                 )
-                self._write(f"OK format set to {stored!r}\n{self._format_effect(info)}")
+                self._write(f"OK format set to {stored!r}\n{self._format_effect(stored)}")
         except d.DeckError as e:
             self._write(f"format: {e}")
             return
@@ -2131,48 +2055,18 @@ class MtgOracleApp(App):
 
     @staticmethod
     def _known_formats() -> str:
-        """Every format name that switches rules on — including the custom
-        ones, which is where Canadian Highlander lives. Listing only the
-        Scryfall keys omitted the one format the points feature exists for."""
-        import textwrap as _tw
-        lines = [
-            _tw.fill(", ".join(sorted(q.LEGALITY_FORMATS)), width=68,
-                     initial_indent="  with rules:  ",
-                     subsequent_indent="               ")
-        ]
-        # get_custom_formats() is keyed by name *and* alias; dedupe by spec.
-        seen: dict[str, dict] = {}
-        for spec in q.get_custom_formats().values():
-            seen[spec["format"]] = spec
-        if seen:
-            community = ", ".join(
-                f"{s['name']}"
-                + (f" ({', '.join(s['aliases'][:2])})" if s.get("aliases") else "")
-                for s in sorted(seen.values(), key=lambda s: s["name"])
-            )
-            lines.append(_tw.fill(community, width=68,
-                                  initial_indent="  community:   ",
-                                  subsequent_indent="               "))
-        return "\n".join(lines)
+        catalog = svc.format_catalog()
+        return r.render_known_formats(catalog.scryfall, catalog.community)
 
     @staticmethod
-    def _format_effect(info: Optional[dict]) -> str:
-        """Spell out which rules a format actually switches on."""
-        if not info:
-            return ("  (not a format this build has rules for — the label is "
-                    "stored, but no legality / singleton / points checks apply)")
-        bits = []
-        if info["legality_key"]:
-            pool = (f"card pool + ban list from {info['legality_key']}"
-                    if info["custom"] else "card pool + ban list")
-            bits.append(f"  legality: {pool}")
-        if info.get("points_budget") is not None:
-            bits.append(f"  points:   budget {info['points_budget']} per deck")
-        if d._is_singleton_format(info["key"]):
-            bits.append("  singleton: one copy of each non-basic card")
-        if not bits:
-            bits.append("  (no rules attached to this format)")
-        return f"  -> {info['label']}\n" + "\n".join(bits)
+    def _format_effect(raw: Optional[str]) -> str:
+        """Which rules the named format switches on, in full.
+
+        Takes the raw stored string rather than a resolved dict because
+        singleton has a source `resolve_format` doesn't cover — see
+        `services.format_rules`.
+        """
+        return r.render_format_effect(**svc.format_rules(raw))
 
     def _cmd_points(self, _: str) -> None:
         """Points spent under a points-list format (Canadian Highlander)."""
@@ -2243,49 +2137,20 @@ class MtgOracleApp(App):
         self._import_text_into_current_deck(text)
 
     def _import_text_into_current_deck(self, text: str) -> None:
-        parsed = parse_deckstring(text)
-        if not parsed:
-            self._write("(no card lines recognized in input)")
+        try:
+            result = svc.import_text_into_deck(self._ref(), text)
+        except svc.ServiceError as e:
+            self._write(f"({e})")
             return
-        # Same code path the CLI's `deck import` uses, so both honour the
-        # documented "a pasted list loads verbatim" rule (force=True) and
-        # both report every row that didn't make it in.
-        result = d.load_parsed_into_deck(
-            self._cwd_deck, parsed, folder=self._cwd_folder,
-        )
         self._write(r.render_import_result(self._cwd_deck, result))
         self._refresh_nav()
 
 
 
-    # --- rendering helpers specific to the app -----------------------
-
-    @staticmethod
-    def _render_numbered_combo_list(
-        combos: list[dict],
-        header: str,
-        links: Optional[list[r.LinkSpan]] = None,
-    ) -> str:
-        if not combos:
-            return "(no matching combos)"
-        lines = [header]
-        for i, c in enumerate(combos, 1):
-            cards_str = c.get("cards") or c.get("combo_name") or ""
-            ci = c.get("color_identity") or "-"
-            plus = "+" if c.get("has_template_vars") else ""
-            index_label = f"[{i:>3}]"
-            row_header = f"  {index_label} {ci:<5} ({c['card_count']}{plus} cards) "
-            first_line_no = len(lines)
-            lines.extend(r.wrap_combo_row(row_header, cards_str).split("\n"))
-            if links is not None:
-                links.append(r.LinkSpan(first_line_no, 2, 2 + len(index_label),
-                                        "combo", (i,)))
-        lines.append("  (click a row number, or type `combo-info <N>`)")
-        return "\n".join(lines)
-
     def _write_combo_list(self, combos: list[dict], header: str) -> None:
+        """A clickable, numbered combo list — `combo-info <N>` matches it."""
         links: list[r.LinkSpan] = []
-        body = self._render_numbered_combo_list(combos, header, links)
+        body = r.render_combo_list(combos, header, numbered=True, links=links)
         self._write_linked(body, links)
 
 
