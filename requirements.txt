@@ -1,5 +1,10 @@
 # Core sync pipeline + query library: Python stdlib only.
+# Tests too — `python -m unittest discover tests` needs nothing extra.
 #
 # Desktop TUI app (phase 2): requires Textual. If you only run sync or
 # the CLI, textual is unused and safely missing.
 textual>=0.80
+
+# Spreadsheet exports only: scripts/export_land_fetchers.py and
+# scripts/export_typal_matters.py write .xlsx. Nothing else imports it.
+openpyxl>=3.1
