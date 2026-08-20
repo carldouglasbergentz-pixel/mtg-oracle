@@ -31,11 +31,15 @@ from typing import Optional
 
 ROLES = (
     "land",      # a land by its front face
-    "mana",      # non-land mana source (Mox, Sol Ring)
+    "mana",      # non-land mana source: a Mox, a dork, an enchanted Forest
+    "ritual",    # one-shot mana: Dark Ritual, High Tide, Turnabout
     "counter",   # counterspells, hard and soft
     "sweeper",   # mass removal
-    "spot",      # single-target removal, bounce, tuck
+    "discard",   # attacks the opponent's hand
+    "spot",      # single-target removal, bounce, tuck, edict
+    "burn",      # damage aimed at a player — a clock, not an answer
     "tutor",     # searches the library for a specific card
+    "recursion", # brings something back from a graveyard
     "threat",    # creature or planeswalker — something that wins
     "draw",      # net card advantage
     "cantrip",   # cheap selection, roughly card-neutral
@@ -43,11 +47,12 @@ ROLES = (
 )
 
 LABELS = {
-    "land": "Lands", "mana": "Fast mana", "counter": "Counterspells",
-    "sweeper": "Sweepers / wraths", "spot": "Single-target removal",
-    "tutor": "Tutors", "threat": "Threats / win conditions",
-    "draw": "Card advantage", "cantrip": "Cantrips / selection",
-    "utility": "Utility / lock / hate",
+    "land": "Lands", "mana": "Mana sources", "ritual": "Rituals",
+    "counter": "Counterspells", "sweeper": "Sweepers / wraths",
+    "discard": "Hand disruption", "spot": "Single-target removal",
+    "burn": "Burn / reach", "tutor": "Tutors", "recursion": "Recursion",
+    "threat": "Threats / win conditions", "draw": "Card advantage",
+    "cantrip": "Cantrips / selection", "utility": "Utility / lock / hate",
 }
 
 # Precedence for picking ONE primary role, so per-deck densities sum to the
@@ -61,8 +66,138 @@ LABELS = {
 # cantrip — Jace, the Mind Sculptor's `-12` exiles a library, which read as
 # a sweeper until this rule existed. Ones that really are lock pieces
 # (Teferi, Time Raveler; Narset) are named in OVERRIDES.
-PRIMARY_ORDER = ("land", "mana", "planeswalker", "sweeper", "counter",
-                 "spot", "tutor", "threat", "draw", "cantrip", "utility")
+#
+# `discard` beats `threat` for the same reason `spot` does: Grief is a 3/2
+# with menace that nobody casts — it is evoked to strip a card, exactly as
+# Solitude is evoked to kill one.
+#
+# `burn` sits BELOW `threat` and `spot` on purpose. Lightning Bolt can point
+# at a face but is played as removal; Eidolon of the Great Revel burns but is
+# played as a creature. What lands on `burn` is the card that can only ever
+# go at a player — Lava Spike, Flame Rift, Sulfuric Vortex — which is a
+# clock, not an answer.
+#
+# `ritual` beats `mana`, and that one is correctness rather than taste. Dark
+# Ritual is tagged both `ritual` and `adds multiple mana`; if `mana` won,
+# `profile_deck` would count it as a rock and the on-curve model would hand
+# the deck a permanent extra mana from turn one onward. One-shot mana must
+# never look like a mana base.
+PRIMARY_ORDER = ("land", "ritual", "mana", "planeswalker", "sweeper", "counter",
+                 "discard", "spot", "tutor", "recursion", "threat", "burn",
+                 "draw", "cantrip", "utility")
+
+# --- Scryfall Tagger labels ---------------------------------------------
+#
+# The community Tagger taxonomy answers "what does this card do" for 99.4% of
+# the database (229,786 taggings over 35,019 of 35,228 cards), curated by
+# people. Where a card is tagged, that beats anything derived from a regex,
+# and it covers whole role families the text rules never had: hand attack,
+# burn, rituals, reanimation, mana dorks.
+#
+# EXACT labels are checked first so a specific meaning can override its own
+# family — `sweeper-graveyard` is Rest in Peace, which exiles graveyards and
+# does not touch the board. An empty tuple means "explicitly no role": the
+# label is recognised and deliberately carries none, which stops the prefix
+# rules below from claiming it.
+TAG_EXACT_ROLES = {
+    "sweeper-graveyard": ("utility",),
+    # `deanimate self` is a creature that stops being one — Detective's
+    # Phoenix, not removal. 125 cards carry it against 23 for `deanimate`,
+    # so the family is matched exactly rather than by prefix.
+    "deanimate": ("spot",),
+    "deanimate self": (),
+    "pacifism": ("spot",),
+    "artifactify": ("spot",),
+    "graveyard seal": ("utility",),
+    "mass land denial": ("utility",),
+    "alternate win condition": ("threat",),
+    "cantrip": ("cantrip",),
+    "discard": ("discard",),
+    "ramp": ("mana",),
+    "land ramp": ("mana",),
+    "multi land ramp": ("mana",),
+    "mana increaser": ("mana",),
+    "adds multiple mana": ("mana",),
+    "cost reducer": ("mana",),
+    "spot removal": ("spot",),
+    "multi removal": ("spot",),
+    "repeatable removal": ("spot",),
+    "pure draw": ("draw",),
+    "burst draw": ("draw",),
+    "draw engine": ("draw",),
+    "repeatable pure draw": ("draw",),
+    "extra turn": ("threat",),
+}
+
+# PREFIX rules, tried in order. `hate-` comes first on purpose: a card tagged
+# `hate-counterspell` fights counterspells, it is not one, and matching on the
+# substring would have made Pyroblast a counterspell family member for the
+# wrong reason.
+TAG_PREFIX_ROLES = (
+    ("hate-", ("utility",)),
+    ("counterspell", ("counter",)),
+    ("sweeper", ("sweeper",)),
+    # The burn family is listed exactly rather than by prefix. A `burn `
+    # prefix swept up `burn with set's mechanic` — a flavour tag for Arcane
+    # and its kin — and made Lava Spike removal, which is the one thing it
+    # cannot be. Only a spell that can point at a creature or a permanent is
+    # an answer; player-or-planeswalker burn is a clock.
+    ("burn creature", ("spot", "burn")),
+    ("burn any", ("spot", "burn")),
+    ("burn permanent", ("spot", "burn")),
+    ("burn battle", ("spot", "burn")),
+    ("burn player", ("burn",)),
+    ("burn planeswalker", ("burn",)),
+    ("removal-", ("spot",)),
+    ("protects-", ("utility",)),
+    ("tutor-", ("tutor",)),
+    ("reanimate", ("recursion",)),
+    # `regrowth-creature` returns a card from the graveyard to hand rather
+    # than to the battlefield. Same role: the graveyard is a resource again.
+    ("regrowth", ("recursion",)),
+    ("temporary reanimation", ("recursion",)),
+    ("ritual", ("ritual",)),
+    ("mana dork", ("mana",)),
+    ("mana rock", ("mana",)),
+    ("utility mana rock", ("mana",)),
+    ("impulsive draw", ("draw",)),
+    ("long term impulsive draw", ("draw",)),
+    ("repeatable impulsive draw", ("draw",)),
+)
+
+
+# Labels that veto a role for the whole card, applied after everything else.
+#
+# A card that returns ITSELF is a resilient threat, not a recursion effect —
+# and the veto has to see the whole tag set to know that. Gravecrawler carries
+# `reanimate-self` AND `reanimate-cast`; suppressing only the first label
+# would leave the second to make a recursive one-drop into a recursion spell,
+# which is how Rakdos aggro came out with ten of them. Chainer, Nightmare
+# Adept has `reanimate-cast` and no `-self`, and stays a recursion engine.
+TAG_SUPPRESS = {
+    "reanimate-self": ("recursion",),
+    "regrowth-self": ("recursion",),
+}
+
+
+def roles_from_tags(tags) -> set[str]:
+    """The roles a set of Scryfall Tagger labels implies. {} when none apply."""
+    found: set[str] = set()
+    vetoed: set[str] = set()
+    for tag in tags or ():
+        label = tag.lower()
+        vetoed.update(TAG_SUPPRESS.get(label, ()))
+        # Membership, not truthiness: an empty tuple is a deliberate "this
+        # label means no role", and must stop the prefix rules from firing.
+        if label in TAG_EXACT_ROLES:
+            found.update(TAG_EXACT_ROLES[label])
+            continue
+        for prefix, implied in TAG_PREFIX_ROLES:
+            if label.startswith(prefix):
+                found.update(implied)
+                break
+    return found - vetoed
+
 
 # --- text patterns ------------------------------------------------------
 
@@ -101,8 +236,12 @@ _SPOT = re.compile(
     # Damage and -N/-N are removal too. Absent at first because the UW lists
     # that seeded this module kill by exiling; the first red deck run through
     # it dropped Lightning Bolt, Flame Slash and eight others into `utility`.
-    r"|\bdeals? \d+ damage to (?:any target|target|up to)\b"
-    r"|\bdeals? damage equal to [^.]{0,40}to (?:any target|target)\b"
+    #
+    # The target has to be something on the battlefield. A bare `damage to
+    # target` also matched Lava Spike — "3 damage to target player" — which
+    # made a burn spell read as removal.
+    r"|\bdeals? \d+ damage to (?:any target|up to|target (?:creature|permanent|planeswalker|artifact))\b"
+    r"|\bdeals? damage equal to [^.]{0,40}to (?:any target|target (?:creature|permanent))\b"
     r"|\btarget creature gets -\d+/-\d+\b"
     r"|\btarget creature gets -x/-x\b"
     # `divided as you choose among ... target creatures` (Pyrokinesis, Fire)
@@ -140,6 +279,32 @@ _INVESTIGATE = re.compile(r"\binvestigate\b")
 _WINCON = re.compile(r"\byou win the game\b")
 _MAKES_CREATURES = re.compile(r"\bcreate\b[^.]{0,70}\bcreature tokens?\b")
 _PRODUCES_MANA = re.compile(r":\s*add\b")
+
+# Fallbacks for the roles the Scryfall tags own. Only reached for the ~0.6% of
+# cards with no taggings, and for anything printed since the last tag sync —
+# so these are deliberately the plainest phrasing of each effect rather than
+# an attempt to re-derive what the Tagger already curated.
+# Hand attack needs an OPPONENT doing the discarding. Without that subject,
+# "draw a card, then discard a card" matched and Smuggler's Copter — a 3/3
+# flying looter that every aggro deck plays to attack with — read as hand
+# disruption. Looting is selection; this role is about the other player's hand.
+_DISCARD = re.compile(
+    r"\b(?:target (?:player|opponent)|each (?:player|opponent)|that player|"
+    r"defending player|opponents?) discards?\b"
+    r"|\breveals their hand\b"
+)
+_BURN_PLAYER = re.compile(
+    r"\bdeals \d+ damage to (?:each|target|that) (?:player|opponent)\b"
+    r"|\bdeals \d+ damage to each of\b"
+)
+# `Add {B}{B}{B}` on a spell, not a permanent: two or more symbols after `add`
+# is a ritual, one is usually a land or a rock's tap ability.
+_RITUAL = re.compile(r"\badd (?:\{[^}]+\}){2,}")
+_UNTAP_FOR_MANA = re.compile(r"\buntap (?:all|up to \w+|target) [^.]{0,30}\blands?\b")
+_RECURSION = re.compile(
+    r"\breturn target [^.]{0,60}?from (?:your|a) graveyard to (?:the battlefield|your hand)\b"
+    r"|\breturn (?:up to \w+ )?target [^.]{0,40}?cards? from your graveyard\b"
+)
 
 
 def _faces(card: dict) -> list[dict]:
@@ -494,6 +659,15 @@ def derive_roles(card: dict) -> set[str]:
         found.add("spot")
     if _TUTOR.search(text):
         found.add("tutor")
+    if _DISCARD.search(text):
+        found.add("discard")
+    if _BURN_PLAYER.search(text):
+        found.add("burn")
+    if _RECURSION.search(text):
+        found.add("recursion")
+    if any(t in front for t in ("Instant", "Sorcery")) and (
+            _RITUAL.search(text) or _UNTAP_FOR_MANA.search(text)):
+        found.add("ritual")
     # Card advantage means NET cards. Brainstorm says "draw three" and gives
     # two back, so the count alone is not enough; a card that puts the rest
     # on the bottom, or its own hand back on top, is selection.
@@ -504,7 +678,11 @@ def derive_roles(card: dict) -> set[str]:
     )
     if net_positive:
         found.add("draw")
-    if "Creature" in front or "Planeswalker" in front:
+    # A Vehicle is a creature that has to be crewed first. Smuggler's Copter
+    # is in an aggro deck to attack, exactly like a two-drop creature, so the
+    # type earns `threat` the same way — otherwise its looting made it read as
+    # hand disruption and Flywheel Racer's crew-for-mana made it a Mox.
+    if any(t in front for t in ("Creature", "Planeswalker", "Vehicle")):
         found.add("threat")
     if _WINCON.search(text) or _MAKES_CREATURES.search(text):
         found.add("threat")
@@ -531,11 +709,11 @@ class Classification:
     primary: str
     roles: tuple[str, ...]
     cost: Cost
-    source: str = "derived"          # derived | override
+    source: str = "derived"          # derived | tagged | override
     reason: str = ""
-    # True when nothing in the text matched and the card fell through to
-    # `utility`. Surfaced by the CLI: on an unfamiliar deck it is the list of
-    # cards whose classification deserves a human look.
+    # True when no Tagger label applied, nothing in the text matched, and the
+    # card fell through to `utility`. Surfaced by the CLI: on an unfamiliar
+    # deck it is the list of cards whose classification deserves a human look.
     low_confidence: bool = False
     # True for a permanent that keeps drawing cards, turn after turn, rather
     # than once. Elminster and Teferi, Hero of Dominaria draw *every* turn;
@@ -554,6 +732,11 @@ OVERRIDES: dict[str, tuple[str, tuple[str, ...], Optional[int], str]] = {
     "Teferi, Time Raveler":      ("utility", ("spot", "cantrip"), None,
                                   "flash-lock is the reason it is played"),
     "Narset, Parter of Veils":   ("utility", ("cantrip",), None, "draw-hate"),
+    # Pitched from hand for one mana, once. Tagger says `ramp`, which would
+    # make them permanent mana sources in the on-curve model; they are
+    # rituals with a creature type line they almost never get to use.
+    "Simian Spirit Guide":       ("ritual", (), 0, "exiled from hand for {R}"),
+    "Elvish Spirit Guide":       ("ritual", (), 0, "exiled from hand for {G}"),
     # Creatures that lock rather than attack.
     "Harbinger of the Seas":     ("utility", ("threat",), None, "nonbasic lock"),
     "Hullbreacher":              ("utility", ("threat",), None, "draw-hate"),
@@ -635,11 +818,38 @@ def _override_for(name: str, card: dict) -> Optional[tuple]:
     return None
 
 
-def classify(card: dict, x_value: int = X_VALUE) -> Classification:
-    """Roles, primary role and effective cost for one card."""
+def classify(card: dict, x_value: int = X_VALUE, tags=()) -> Classification:
+    """Roles, primary role and effective cost for one card.
+
+    `tags` are Scryfall Tagger labels for the card (see `roles_from_tags`).
+    When a card is tagged, the tags decide what it *does* and the text rules
+    are not consulted for it — union would be worse than replacement, because
+    a loose text rule can add a role the tags correctly withheld. Lava Spike
+    is the case that settled it: "3 damage to target player" matched the
+    removal pattern, and the tag says `burn player`, which is the truth.
+
+    The type line still supplies `threat` and `land` either way — there is no
+    tag for "this is a creature", and there does not need to be.
+    """
     name = card.get("name") or card.get("card_name") or "?"
     cost = effective_mana(card, x_value)
-    derived = derive_roles(card)
+    tagged = roles_from_tags(tags)
+    if tagged:
+        structural = {r for r in derive_roles(card) if r in ("threat", "land")}
+        derived = tagged | structural
+        source = "tagged"
+    else:
+        derived = derive_roles(card)
+        source = "derived"
+
+    # A Vehicle that taps for mana is not a mana source. Flywheel Racer is
+    # tagged `utility mana rock` — accurate for the 240 Cluestones and Lockets
+    # that share the label, wrong here, because the ability reads "only if
+    # this permanent is a creature" and getting there costs a crew. You play
+    # it to attack. Narrow on purpose: Birds of Paradise is a creature that
+    # makes mana and IS a mana source, so only Vehicles are demoted.
+    if "Vehicle" in front_type_line(card):
+        derived.discard("mana")
 
     # Cheap selection is a cantrip; the same shape at more mana is card
     # advantage. Two mana is the line — Impulse is selection, Stock Up at
@@ -692,7 +902,11 @@ def classify(card: dict, x_value: int = X_VALUE) -> Classification:
             break
     primary = primary or "utility"
 
-    low = derived == {"utility"} and not is_land(card)
+    # Only a *derived* fall-through is low confidence. When Tagger says a card
+    # is `hate-graveyard` and nothing else, `utility` is the right answer and a
+    # human already gave it — flagging that alongside the genuine unknowns
+    # would bury them.
+    low = source == "derived" and derived == {"utility"} and not is_land(card)
     return Classification(name, primary, tuple(sorted(derived)), cost,
-                          "derived", cost.reason, low_confidence=low,
+                          source, cost.reason, low_confidence=low,
                           engine=_is_engine(card, "draw" in derived))

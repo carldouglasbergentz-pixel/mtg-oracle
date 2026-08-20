@@ -28,11 +28,13 @@ import migrate_add_custom_formats
 import migrate_add_folder_format
 import migrate_add_legalities
 import migrate_add_nocase_indexes
+import migrate_add_oracle_tags
 import migrate_add_scryfall_fields
 import migrate_add_tags
 import migrate_add_user_combos
 import sync_cards
 import sync_combos
+import sync_oracle_tags
 import sync_rules
 import tag_cards
 
@@ -47,6 +49,7 @@ SELF_HEAL_MIGRATIONS = (
     migrate_add_tags,
     migrate_add_corrections,
     migrate_add_user_combos,
+    migrate_add_oracle_tags,
     # Last: it indexes columns the migrations above may have just created.
     migrate_add_nocase_indexes,
 )
@@ -58,6 +61,9 @@ SOURCES = {
     "rules": ("Wizards Comprehensive Rules", sync_rules.sync),
     "combos": ("Commander Spellbook", sync_combos.sync),
     "tags": ("Local tagging (keywords, types, abilities)", tag_cards.sync),
+    # Scryfall Tagger's community "what does this card do" labels. Runs
+    # after cards because it resolves oracle_id -> name against them.
+    "oracletags": ("Scryfall Tagger oracle tags", sync_oracle_tags.sync),
     # No upstream fetch — curated JSON in data/formats/. Runs last because
     # it resolves card names against the cards table.
     "formats": ("Community formats (points lists)", load_custom_formats.sync),
@@ -92,6 +98,7 @@ def _snapshot_state(conn: sqlite3.Connection) -> dict:
         "card_tags_count": cur.execute("SELECT COUNT(*) FROM card_tags").fetchone()[0],
         "card_abilities_count": cur.execute("SELECT COUNT(*) FROM card_abilities").fetchone()[0],
         "points_count": _count_or_zero(cur, "custom_format_points"),
+        "oracle_tags_count": _count_or_zero(cur, "card_oracle_tags"),
     }
 
 
@@ -153,6 +160,10 @@ def _diff_state(pre: dict, post: dict) -> dict:
             "net": post["points_count"] - pre["points_count"],
             "total": post["points_count"],
         },
+        "oracletags": {
+            "net": post["oracle_tags_count"] - pre["oracle_tags_count"],
+            "total": post["oracle_tags_count"],
+        },
     }
 
 
@@ -177,7 +188,7 @@ def _print_changelog(diff: dict) -> None:
             f"{mod_str(d['modified']):>9} "
             f"{d['total']:>10,}"
         )
-    for key in ("rulings", "tags", "abilities", "points"):
+    for key in ("rulings", "tags", "abilities", "points", "oracletags"):
         d = diff[key]
         net_label = f"(net {_fmt_signed(d['net']).strip()})"
         print(f"  {key:10} {net_label:>27}  {d['total']:>10,}")
@@ -185,13 +196,14 @@ def _print_changelog(diff: dict) -> None:
     touched = any(
         diff[k]["added"] or diff[k]["removed"] or (diff[k].get("modified") or 0)
         for k in ("cards", "rules", "combos")
-    ) or any(diff[k]["net"] for k in ("rulings", "tags", "abilities", "points"))
+    ) or any(diff[k]["net"]
+             for k in ("rulings", "tags", "abilities", "points", "oracletags"))
     if not touched:
         print("\n  (no changes - all sources already up to date)")
     print()
     print("  note: `cards.total` counts cards with a Scryfall oracle_id;")
-    print("        rulings/tags/abilities/points use wipe-and-rebuild so only")
-    print("        net delta is tracked.")
+    print("        rulings/tags/abilities/points/oracletags use wipe-and-rebuild,")
+    print("        so only net delta is tracked.")
 
 
 def _print_sync_state() -> None:

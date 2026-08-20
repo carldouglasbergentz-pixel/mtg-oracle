@@ -475,6 +475,49 @@ def get_card_facts(names) -> dict[str, dict]:
     return out
 
 
+def get_oracle_tags(names) -> dict[str, frozenset[str]]:
+    """Bulk-fetch Scryfall Tagger oracle tags, keyed by INPUT name.
+
+    Mirrors `get_card_facts`: tolerant name resolution, chunked, absent for
+    names that don't resolve or carry no tags. `mtg_oracle.roles` imports
+    nothing from this package, so the tags have to be fetched here and passed
+    in to `roles.classify(card, tags=...)`.
+    """
+    wanted = list(dict.fromkeys(names))
+    if not wanted:
+        return {}
+    resolved = {n: resolve_card_name(n) for n in wanted}
+    canonical = sorted({c for c in resolved.values() if c})
+    if not canonical:
+        return {}
+
+    tags: dict[str, set[str]] = {}
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        for i in range(0, len(canonical), 400):
+            chunk = canonical[i:i + 400]
+            marks = ", ".join("?" * len(chunk))
+            cur.execute(
+                f"SELECT card_name, tag FROM card_oracle_tags "
+                f"WHERE card_name COLLATE NOCASE IN ({marks})", chunk)
+            for row in cur.fetchall():
+                tags.setdefault(row["card_name"].lower(), set()).add(row["tag"])
+    except sqlite3.OperationalError:
+        # No card_oracle_tags table yet: an un-synced database still
+        # classifies, it just falls back to the text rules everywhere.
+        return {}
+    finally:
+        conn.close()
+
+    out = {}
+    for asked, canon in resolved.items():
+        found = tags.get((canon or "").lower())
+        if found:
+            out[asked] = frozenset(found)
+    return out
+
+
 def get_card(
     name: str,
     restrict_to_ci: Optional[list[str]] = None,

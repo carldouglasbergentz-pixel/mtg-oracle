@@ -182,6 +182,19 @@ CREATE INDEX IF NOT EXISTS idx_card_tags_tag ON card_tags(tag);
 CREATE INDEX IF NOT EXISTS idx_card_tags_category ON card_tags(category);
 CREATE INDEX IF NOT EXISTS idx_card_tags_card_nocase ON card_tags(card_name COLLATE NOCASE);
 
+-- Scryfall Tagger's community oracle tags: "what does this card do".
+-- Distinct from card_tags above, which this project derives locally from
+-- keywords and subtypes. Populated by scripts/sync_oracle_tags.py.
+CREATE TABLE IF NOT EXISTS card_oracle_tags (
+    card_name TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    weight TEXT,
+    PRIMARY KEY (card_name, tag)
+);
+CREATE INDEX IF NOT EXISTS idx_card_oracle_tags_tag ON card_oracle_tags(tag);
+CREATE INDEX IF NOT EXISTS idx_card_oracle_tags_card_nocase
+    ON card_oracle_tags(card_name COLLATE NOCASE);
+
 CREATE TABLE IF NOT EXISTS card_abilities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     card_name TEXT NOT NULL,
