@@ -20,7 +20,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 from mtg_oracle import decks as d
+from mtg_oracle import probability
 from mtg_oracle import queries as q
+from mtg_oracle import roles
 from mtg_oracle import scryfall_search as ss
 from mtg_oracle.deck_parser import parse_deckstring
 
@@ -286,3 +288,132 @@ def format_rules(raw: Optional[str]) -> dict:
         "info": q.resolve_format(raw),
         "singleton": q.is_singleton_format(raw),
     }
+
+
+# --- archetype analysis ------------------------------------------------
+
+@dataclass(frozen=True)
+class DeckProfile:
+    """One deck, classified: what its cards do and what they really cost.
+
+    `counts` uses each card's PRIMARY role, so it sums to the deck size and
+    two decks can be compared directly. `role_mv` uses EVERY role a card can
+    fill — a Cryptic Command appears under counters and card advantage both,
+    because at the table it is available as either.
+    """
+    name: str
+    size: int
+    counts: dict[str, int]
+    role_mv: dict[str, dict[int, int]]
+    curve: dict[int, int]
+    lands: int
+    rocks: int
+    land_backs: int
+    unresolved: tuple[str, ...] = ()
+
+    @property
+    def mana_sources(self) -> int:
+        """Lands, modal-DFC land backs and rocks — everything that makes mana."""
+        return self.lands + self.rocks
+
+    @property
+    def spells(self) -> int:
+        return self.size - self.lands
+
+    @property
+    def avg_mv(self) -> float:
+        total = sum(self.curve.values())
+        return (sum(mv * n for mv, n in self.curve.items()) / total) if total else 0.0
+
+    def live_curve(self, role: str, turns=range(1, 9), on_play: bool = True):
+        """P(this deck can play `role` on each turn). See `probability`."""
+        return probability.curve(
+            self.role_mv.get(role, {}), self.lands, self.rocks, turns, on_play)
+
+    def ceiling(self, role: str, turns=range(1, 9), on_play: bool = True):
+        """The same, ignoring mana — the upper bound the mana base caps."""
+        return probability.ceiling(
+            sum(self.role_mv.get(role, {}).values()), turns, on_play)
+
+
+def profile_deck(
+    name: str,
+    cards: dict[str, int],
+    *,
+    strict: bool = False,
+    x_value: int = roles.X_VALUE,
+) -> DeckProfile:
+    """Classify a deck given `{card name: quantity}`.
+
+    `strict=True` raises when a name doesn't resolve; otherwise unresolved
+    names are counted in `unresolved` and left out of the analysis, because
+    a single typo should not throw away the other 99 cards.
+    """
+    facts = q.get_card_facts(cards)
+    missing = tuple(sorted(n for n in cards if n not in facts))
+    if missing and strict:
+        raise ServiceError(f"unknown card(s): {', '.join(missing)}")
+
+    counts = {r: 0 for r in roles.ROLES}
+    role_mv: dict[str, dict[int, int]] = {r: {} for r in roles.ROLES}
+    curve: dict[int, int] = {}
+    lands = rocks = land_backs = size = 0
+
+    for card_name, qty in cards.items():
+        fact = facts.get(card_name)
+        if fact is None:
+            continue
+        size += qty
+        if roles.is_land(fact):
+            counts["land"] += qty
+            lands += qty
+            continue
+
+        cl = roles.classify(fact, x_value)
+        counts[cl.primary] += qty
+        # A modal DFC with a land back is played as a land far more often than
+        # as its spell half, so it counts toward mana and is NOT offered as a
+        # castable spell. Counting it both ways would double-count the slot.
+        if roles.has_land_back(fact):
+            lands += qty
+            land_backs += qty
+            continue
+        if cl.primary == "mana":
+            rocks += qty
+        mv = cl.cost.effective
+        curve[mv] = curve.get(mv, 0) + qty
+        for role in cl.roles:
+            if role in role_mv:
+                role_mv[role][mv] = role_mv[role].get(mv, 0) + qty
+
+    # Rocks are mana, not spells, for the draw maths: `probability.category_live`
+    # takes them as their own group.
+    lands -= 0
+    return DeckProfile(name, size, counts, role_mv, curve,
+                       lands, rocks, land_backs, missing)
+
+
+def profile_decks(decks, **kw) -> list[DeckProfile]:
+    """`profile_deck` over `[(name, {card: qty}), ...]` or `[{name, cards}]`."""
+    out = []
+    for d in decks:
+        if isinstance(d, dict):
+            out.append(profile_deck(d["name"], d["cards"], **kw))
+        else:
+            out.append(profile_deck(d[0], d[1], **kw))
+    return out
+
+
+def deck_profile_from_db(ref: DeckRef, **kw) -> DeckProfile:
+    """Classify a deck that lives in the user's own deck list."""
+    if not ref:
+        raise ServiceError("no deck selected")
+    deck = d.get_deck(ref.deck, folder=ref.folder)
+    if not deck:
+        raise ServiceError(f"no deck named {ref.deck!r}")
+    main = {}
+    for row in deck.get("cards", []):
+        if row.get("is_sideboard"):
+            continue
+        main[row["card_name"]] = main.get(row["card_name"], 0) + row["quantity"]
+    return profile_deck(deck["name"], main, **kw)

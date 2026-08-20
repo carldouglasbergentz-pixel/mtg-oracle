@@ -1,0 +1,96 @@
+1 Absorb
+1 Adarkar Wastes
+1 Arch of Orazca
+1 Archmage's Charm
+1 Arid Mesa
+1 Blue Sun's Zenith
+1 Brainstorm
+1 Brainsurge
+1 Calciform Pools
+1 Castle Ardenvale
+1 Castle Vantress
+1 Celestial Colonnade
+1 Consider
+1 Consult the Star Charts
+1 Counterspell
+1 Cryptic Command
+1 Day of Judgment
+1 Deserted Beach
+1 Dovin's Veto
+1 Elixir of Immortality
+1 Entreat the Angels
+1 Erode
+1 Fact or Fiction
+1 Farewell
+1 Fateful Absence
+1 Flooded Strand
+1 Floodfarm Verge
+1 Force of Will
+1 Get Lost
+1 Glacial Fortress
+1 Great Hall of the Biblioplex
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Irrigated Farmland
+3 Island
+1 Karakas
+1 Kor Haven
+1 Logic Knot
+1 Lórien Revealed
+1 Lose Focus
+1 Mana Drain
+1 Mana Leak
+1 March of Otherworldly Light
+1 Marsh Flats
+1 Memory Deluge
+1 Memory Lapse
+1 Meticulous Archive
+1 Miscalculation
+1 Misty Rainforest
+1 Mox Pearl
+1 Mox Sapphire
+1 Mystic Gate
+1 Mystic Sanctuary
+1 Mystical Tutor
+1 No More Lies
+1 Ojutai's Command
+1 Ondu Inversion
+1 Opt
+1 Oust
+1 Path to Exile
+1 Personal Tutor
+3 Plains
+1 Polluted Delta
+1 Ponder
+1 Portent
+1 Prairie Stream
+1 Prismatic Ending
+1 Prismatic Vista
+1 Pull from Tomorrow
+1 Remand
+1 Reprieve
+1 Restless Anchorage
+1 Scalding Tarn
+1 Sea Gate Restoration
+1 Seachrome Coast
+1 Shark Typhoon
+1 Snapcaster Mage
+1 Solitude
+1 Spell Snare
+1 Sphinx's Revelation
+1 Stern Scolding
+1 Supreme Verdict
+1 Swords to Plowshares
+1 Tectonic Edge
+1 Teferi, Hero of Dominaria
+1 Temple of Enlightenment
+1 Terminus
+1 Three Steps Ahead
+1 Thundering Falls
+1 Thundertrap Trainer
+1 Treasure Cruise
+1 Tundra
+1 Wan Shi Tong, Librarian
+1 Wasteland
+1 Windswept Heath
+1 Wrath of God

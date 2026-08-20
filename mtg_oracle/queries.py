@@ -424,6 +424,57 @@ def _rows_to_dicts(rows) -> list[dict]:
 
 # --- Cards --------------------------------------------------------------
 
+# What `mtg_oracle.roles` needs to classify a card and price it. Kept lean on
+# purpose: `get_card` also fetches tags, abilities, rulings and combos, which
+# is four extra queries per card — fine for one card on screen, wrong for a
+# hundred-card deck.
+CARD_FACT_COLUMNS = (
+    "name", "mana_cost", "mana_value", "type_line", "oracle_text",
+    "color_identity", "colors", "layout", "card_faces", "rarity",
+    "edhrec_rank", "power", "toughness",
+)
+
+
+def get_card_facts(names) -> dict[str, dict]:
+    """Bulk-fetch the columns needed to classify cards, keyed by INPUT name.
+
+    Names are resolved tolerantly (`resolve_card_name`), so the returned dict
+    is keyed by what the caller asked for while the row holds the canonical
+    name. Names that don't resolve are simply absent — the caller decides
+    whether a miss is fatal.
+    """
+    wanted = list(dict.fromkeys(names))
+    if not wanted:
+        return {}
+    resolved = {n: resolve_card_name(n) for n in wanted}
+    canonical = sorted({c for c in resolved.values() if c})
+    if not canonical:
+        return {}
+
+    cols = ", ".join(CARD_FACT_COLUMNS)
+    rows: dict[str, dict] = {}
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        # Chunked so a very large deck list can't blow SQLite's variable limit.
+        for i in range(0, len(canonical), 400):
+            chunk = canonical[i:i + 400]
+            marks = ", ".join("?" * len(chunk))
+            cur.execute(
+                f"SELECT {cols} FROM cards "
+                f"WHERE name COLLATE NOCASE IN ({marks})", chunk)
+            for row in cur.fetchall():
+                rows[row["name"].lower()] = dict(row)
+    finally:
+        conn.close()
+
+    out = {}
+    for asked, canon in resolved.items():
+        if canon and canon.lower() in rows:
+            out[asked] = rows[canon.lower()]
+    return out
+
+
 def get_card(
     name: str,
     restrict_to_ci: Optional[list[str]] = None,

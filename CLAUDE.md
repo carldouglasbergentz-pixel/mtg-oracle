@@ -64,15 +64,17 @@ Four of them, and the direction of dependency is one-way:
 | module | owns | may import |
 |---|---|---|
 | `queries` / `decks` / `scryfall_search` | SQL, one concept each (reads / deck writes / the search language) | each other |
-| `renderer` / `analytics` | plain-text presentation and pure computation over dicts | nothing from this project |
+| `renderer` / `analytics` / `probability` / `roles` | plain-text presentation and pure computation over dicts | nothing from this project |
 | `services` | **use cases** — one function per user intent | the data modules |
-| `tui/` + `scripts/mtg_cli.py` | argument syntax, widgets, printing | services + renderer |
+| `tui/` + `scripts/*.py` | argument syntax, widgets, printing | services + renderer |
 
 `services.py` is the seam, and the rule for what belongs there is *composition*: an intent that needs more than one data call, or a decision made before the call. A one-line pass-through to `queries` or `decks` does **not** belong there — call those directly, or the layer becomes a second copy of the API with nothing added.
 
 It exists because the interfaces kept growing their own copies of the same use case and only one copy was right: `paste` and `deck import` each parsed a deckstring their own way, and `commander <card>` skipped the legality check that `add` applied. Anything two interfaces both need lives in `services` once. It is also the surface the LLM layer will call — plain values in, plain data out, `ServiceError` for anything the user should see.
 
-`renderer` never imports `queries` or `decks`: presentation takes primitives, so a caller wanting the singleton flag passes it in rather than the renderer reaching for a DB.
+`renderer` never imports `queries` or `decks`: presentation takes primitives, so a caller wanting the singleton flag passes it in rather than the renderer reaching for a DB. Same for `probability` (exact hypergeometric draw maths) and `roles` (what a card does and what it really costs) — both are pure functions over dicts, both are unit-tested without a database where possible.
+
+Tests live in `tests/`, stdlib `unittest`, no new dependency: `python -m unittest discover tests`. The suites that need `data/mtg.db` skip themselves when it is absent.
 
 ## Query patterns
 
