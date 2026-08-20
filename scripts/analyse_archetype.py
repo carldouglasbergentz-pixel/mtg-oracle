@@ -359,6 +359,10 @@ def main(argv=None) -> int:
                     help="probabilities for the player on the draw (default: on the play)")
     ap.add_argument("--x-value", type=int, default=roles.X_VALUE,
                     help=f"what {{X}} is costed at (default {roles.X_VALUE})")
+    ap.add_argument("--miracle", action="store_true",
+                    help="cost miracle cards at their miracle cost. Off by "
+                         "default: miracle depends on draw order. Turn it on "
+                         "if you genuinely never hardcast them.")
     ap.add_argument("--json", action="store_true", help="emit JSON instead of tables")
     args = ap.parse_args(argv)
 
@@ -403,14 +407,16 @@ def main(argv=None) -> int:
         print("nothing to analyse", file=sys.stderr)
         return 1
 
-    profiles = services.profile_decks(decks, x_value=args.x_value)
+    profiles = services.profile_decks(decks, x_value=args.x_value,
+                                  miracle=args.miracle)
     args.ranking, args.low_confidence = build_ranking(decks, len(profiles))
 
     comparison = None
     if subject is not None:
         comparison = services.compare_decks(
             subject, decks, turns=TURNS, on_play=not args.on_draw,
-            min_share=args.min_share, x_value=args.x_value)
+            min_share=args.min_share, x_value=args.x_value,
+            miracle=args.miracle)
 
     if args.json:
         print(json.dumps({
@@ -437,6 +443,7 @@ def main(argv=None) -> int:
                 "x_value": args.x_value,
                 "delve_yard": roles.DELVE_YARD,
                 "cantrip_max_mana": roles.CANTRIP_MAX_MANA,
+                "miracle_costed": args.miracle,
                 "castable_second_faces": sorted(roles.CASTABLE_SECOND_FACE),
                 "on_play": not args.on_draw,
             },

@@ -276,10 +276,33 @@ def _face_mana_value(cost: str) -> Optional[int]:
 
 # --- effective mana -----------------------------------------------------
 
-# {X} spells are costed at this X. The smallest X that answers a real card:
-# a two-drop, a Mox plus a one-drop. X=0 would make Wrath of the Skies a
-# two-mana sweeper, which it is not.
+# {X} spells are costed at this X. The floor is the smallest X at which the
+# card does the job it is being counted for.
+#
+#   X sizes an ANSWER          -> 2. The smallest X that kills a real card in
+#     (Wrath of the Skies,        this format: a two-drop, or a Mox plus a
+#      Prismatic Ending,          one-drop. X=0 would make Wrath of the Skies
+#      March of Otherworldly      a two-mana sweeper, which it is not.
+#      Light, Logic Knot)
+#
+#   X sizes a DRAW             -> 2. One card for four mana is not card
+#     (Sphinx's Revelation,       advantage, it is a bad Divination, so the
+#      Blue Sun's Zenith,         role's floor is two.
+#      Pull from Tomorrow)
+#
+#   X sizes a BODY             -> 1. One 4/4 flying Angel for {1}{W}{W} is a
+#     (Entreat the Angels,        threat, full stop. Pricing it at X=2 charges
+#      Forth Eorlingas!)          for a second Angel the role does not need.
 X_VALUE = 2
+X_VALUE_TOKENS = 1
+
+# `Create X ... creature tokens` / `X +1/+1 counters`: the X buys bodies, and
+# one body already performs the `threat` role.
+_X_MAKES_BODIES = re.compile(
+    r"\bcreate x\b[^.]{0,60}\bcreature tokens?\b"
+    r"|\bput x \+1/\+1 counters\b",
+    re.IGNORECASE,
+)
 
 # The most a card can cost and still count as selection rather than card
 # advantage. Impulse and Consult the Star Charts sit at two; Stock Up at
@@ -343,12 +366,16 @@ def effective_mana(card: dict, x_value: int = X_VALUE) -> Cost:
     def x_count(s: str) -> int:
         return len(re.findall(r"\{X\}", s, re.IGNORECASE))
 
+    # One body already does the `threat` job, so X buys nothing extra for the
+    # purposes of "when can I deploy this". See X_VALUE_TOKENS.
+    x_each = X_VALUE_TOKENS if _X_MAKES_BODIES.search(text) else x_value
+
     alt, alt_reason = None, ""
     m = _MIRACLE.search(card.get("oracle_text") or "")
     if m:
         mv = _face_mana_value(m.group(1))
         if mv is not None:
-            alt = mv + x_value * x_count(m.group(1))
+            alt = mv + x_each * x_count(m.group(1))
             alt_reason = f"miracle {m.group(1)}"
 
     def out(eff, reason):
@@ -406,8 +433,8 @@ def effective_mana(card: dict, x_value: int = X_VALUE) -> Cost:
         if "Creature" in front_type_line(card) and _has_printed_body(card):
             return out(printed, "{X} creature with a printed body — X=0 is castable")
         # Entreat the Angels is {X}{X}{W}{W}{W}: two X's, so X=2 costs seven.
-        return out(printed + x_value * n_x,
-                   f"{{X}} at X={x_value}" + (f" (×{n_x})" if n_x > 1 else ""))
+        return out(printed + x_each * n_x,
+                   f"{{X}} at X={x_each}" + (f" (×{n_x})" if n_x > 1 else ""))
 
     return out(printed, "")
 

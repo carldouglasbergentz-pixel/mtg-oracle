@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed ({X} was priced by one blanket rule, and the rule only fits removal)
+- **The floor for an `{X}` spell is now the smallest X at which the card does the job it is counted for**, not a single global X=2.
+    - X sizes an **answer** → 2, unchanged. The smallest X that kills a real card in this format; X=0 would make Wrath of the Skies a two-mana sweeper.
+    - X sizes a **draw** → 2, unchanged. One card for four mana is not card advantage, it is a bad Divination.
+    - X sizes a **body** → **1**. One 4/4 flying Angel for `{1}{W}{W}` is a threat, full stop, and charging for a second Angel the role does not need overpriced the card by a full mana. Entreat the Angels was 7 hardcast / 4 on miracle; it is now 5 / **3**. Forth Eorlingas! drops 4 → 3.
+    - Reported by the user, who pointed out that Entreat's miracle cost `{X}{W}{W}` is three mana in practice. The original justification for X=2 was explicitly about *answering* something — it was never argued for token makers, and applying it there was over-reach.
+
+### Added (`--miracle`)
+- `scripts/analyse_archetype.py --miracle` and `services.profile_deck(miracle=True)` cost the miracle cards at their miracle cost. Off by default, because miracle depends on draw order and pricing Terminus at `{W}` claims a deck can wrath on turn one. On when the pilot says they never hardcast them, which is a true statement about their own deck and makes the printed cost the wrong number for them.
+
 ### Added (repeatable card advantage is not the same as a spell that draws)
 - **`roles.Classification.engine`** — True for a permanent whose draw *repeats*, so five planeswalkers that draw every turn read as an engine count rather than blending into fourteen spells that draw once. Prompted by the user's observation that planeswalkers act as both threat and card advantage: they already did carry both roles, but the tool could not say that Elminster and Memory Deluge are not interchangeable.
     - Derived, not listed: a loyalty ability, an activated ability, or a recurring trigger that draws counts; `When this creature enters, ...` does not, which is why Snapcaster Mage and Thundertrap Trainer are correctly excluded. Connive nets zero cards, so Ledger Shredder is not card advantage at all.

@@ -54,7 +54,9 @@ class RolesTestCase(unittest.TestCase):
         # shapes were all missing until a red deck was run through the module.
         "Lightning Bolt", "Flame Slash", "Pyrokinesis", "Galvanic Discharge",
         "Magmatic Sinkhole", "Fire // Ice", "Brotherhood's End",
-        "Back to Basics", "Blood Moon",
+        "Back to Basics", "Blood Moon", "Blue Sun's Zenith",
+        "Pull from Tomorrow", "Forth Eorlingas!",
+        "March of Otherworldly Light",
         # Repeatable vs one-shot card advantage.
         "Elminster", "Shorikai, Genesis Engine", "Faerie Mastermind",
         "Consecrated Sphinx", "Narset, Parter of Veils", "Ledger Shredder",
@@ -182,8 +184,31 @@ class TestEffectiveMana(RolesTestCase):
         self.assertEqual(self.mv("Wrath of the Skies"), 4)    # {X}{W}{W}
 
     def test_double_x_is_counted_twice(self):
-        """Entreat the Angels is {X}{X}{W}{W}{W}: X=2 costs seven, not five."""
-        self.assertEqual(self.mv("Entreat the Angels"), 7)
+        """Entreat the Angels is {X}{X}{W}{W}{W}: both X's are paid for."""
+        # X=1 here, not 2 — see the next test. Two X's at one each plus WWW.
+        self.assertEqual(self.mv("Entreat the Angels"), 5)
+        self.assertEqual(self.mv("Sphinx's Revelation"), 5)   # {X}{W}{U}{U}, X=2
+
+    def test_x_that_buys_bodies_is_costed_at_one(self):
+        """One 4/4 flying Angel is a threat; X=2 charges for a second.
+
+        The X=2 convention exists because X=1 does not *answer* anything —
+        that reasoning applies to removal, not to a token maker. The floor is
+        the smallest X at which the card does the job it is counted for.
+        """
+        self.assertEqual(self.cl("Entreat the Angels").cost.alternative, 3)
+        self.assertEqual(self.mv("Forth Eorlingas!"), 3)
+
+    def test_x_that_buys_cards_stays_at_two(self):
+        """One card for four mana is not card advantage, it is a bad Divination."""
+        for n, expect in (("Sphinx's Revelation", 5), ("Blue Sun's Zenith", 5),
+                          ("Pull from Tomorrow", 4)):
+            self.assertEqual(self.mv(n), expect, n)
+
+    def test_x_that_sizes_an_answer_stays_at_two(self):
+        for n, expect in (("Wrath of the Skies", 4), ("Prismatic Ending", 3),
+                          ("March of Otherworldly Light", 3)):
+            self.assertEqual(self.mv(n), expect, n)
 
     def test_an_x_creature_with_a_printed_body_is_castable_at_x_zero(self):
         """Wan Shi Tong is a 1/1 for {U}{U}; X only buys counters on top."""

@@ -16,7 +16,7 @@ was right. Anything two interfaces both need lives here once.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 from mtg_oracle import decks as d
@@ -347,12 +347,19 @@ def profile_deck(
     *,
     strict: bool = False,
     x_value: int = roles.X_VALUE,
+    miracle: bool = False,
 ) -> DeckProfile:
     """Classify a deck given `{card name: quantity}`.
 
     `strict=True` raises when a name doesn't resolve; otherwise unresolved
     names are counted in `unresolved` and left out of the analysis, because
     a single typo should not throw away the other 99 cards.
+
+    `miracle=True` costs the miracle cards at their miracle cost. Off by
+    default because miracle depends on draw order and treating Terminus as a
+    one-mana sweeper claims a deck can wrath on turn one — but a pilot who
+    says "I will never hardcast Entreat the Angels" is describing their own
+    deck accurately, and the printed cost is then the wrong number for them.
     """
     facts = q.get_card_facts(cards)
     missing = tuple(sorted(n for n in cards if n not in facts))
@@ -376,6 +383,9 @@ def profile_deck(
             continue
 
         cl = roles.classify(fact, x_value)
+        if miracle and cl.cost.alternative is not None:
+            cl = replace(cl, cost=replace(cl.cost, effective=cl.cost.alternative,
+                                          reason=cl.cost.alternative_reason))
         counts[cl.primary] += qty
         # A modal DFC with a land back is played as a land far more often than
         # as its spell half, so it counts toward mana and is NOT offered as a
@@ -520,6 +530,7 @@ def compare_decks(
     on_play: bool = True,
     min_share: float = 0.0,
     x_value: int = roles.X_VALUE,
+    miracle: bool = False,
 ) -> Comparison:
     """Measure one deck against a set of others.
 
@@ -534,8 +545,9 @@ def compare_decks(
     if not reference:
         raise ServiceError("nothing to compare against")
 
-    subj = profile_deck(subject["name"], subject["cards"], x_value=x_value)
-    refs = tuple(profile_decks(reference, x_value=x_value))
+    subj = profile_deck(subject["name"], subject["cards"], x_value=x_value,
+                        miracle=miracle)
+    refs = tuple(profile_decks(reference, x_value=x_value, miracle=miracle))
     n = len(refs)
 
     def stats(values):
