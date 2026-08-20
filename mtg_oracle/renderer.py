@@ -1,9 +1,14 @@
 """Plain-text renderers for query results.
 
 Shared by the CLI (`scripts/mtg_cli.py`) and the Textual app
-(`mtg_oracle/app.py`). Every function takes a Python dict / list as
-returned by `mtg_oracle.queries` and returns a single string of ASCII
-(no unicode borders, so Windows consoles render it cleanly).
+(`mtg_oracle.tui`). Every function takes a Python dict / list as returned
+by `mtg_oracle.queries` and returns a single string of ASCII (no unicode
+borders, so Windows consoles render it cleanly).
+
+This module imports nothing else from the project, deliberately: a
+renderer that could reach for the database would start answering
+questions instead of formatting answers. Anything a renderer needs to
+know is passed in.
 """
 from __future__ import annotations
 

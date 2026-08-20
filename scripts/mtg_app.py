@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from mtg_oracle.app import run
+    from mtg_oracle.tui import run
 except ModuleNotFoundError as e:
     if "textual" in str(e):
         print(

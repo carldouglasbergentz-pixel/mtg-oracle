@@ -2,8 +2,9 @@
 
 A queryable SQLite knowledge base of Magic: The Gathering cards, rulings,
 the Comprehensive Rules, Commander Spellbook combos, and the user's
-own decks. The Textual TUI in `mtg_oracle.app` is the primary interface;
-`scripts/mtg_cli.py` mirrors it for shell use.
+own decks. The Textual TUI in `mtg_oracle.tui` is the primary interface;
+`scripts/mtg_cli.py` mirrors it for shell use. Both are thin adapters over
+`mtg_oracle.services` — see **Layers** below.
 
 ## Where things live
 

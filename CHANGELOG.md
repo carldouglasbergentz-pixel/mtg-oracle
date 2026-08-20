@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (`mtg_oracle/app.py` → `mtg_oracle/tui/`)
+- **2,293 lines split six ways.** `tui/help.py` (the three help texts + `COMMANDS`), `tui/suggester.py` (autofill — the one TUI piece with logic worth testing alone), `tui/divider.py` (the drag handle), `tui/config.py` (persisted preferences), `tui/clipboard.py` (reading the system clipboard), and `tui/app.py` (the App itself, 1,675 lines). `python scripts/mtg_app.py` is unchanged; it now imports `mtg_oracle.tui`.
+- **The old module is gone rather than left as a shim.** There was exactly one real consumer and it moved in the same commit; a re-export would have let a stale import look like it still worked.
+- **`tui/config.py` states the repo root once.** Every path built from `__file__` has to count directories, and this package is one level deeper — `_run_sync` computed `parent.parent / "scripts" / "sync.py"`, which after the move would have pointed inside `mtg_oracle/`. It now goes through `REPO_ROOT`, asserted to resolve.
+- **Not done, deliberately:** the App class is still one file. Splitting the command handlers into mixins was considered and rejected — a mixin reaching into `self._cwd_deck` / `self._write` / `self._refresh_nav` costs a reader more than the line count saves.
+
 ### Changed (a service layer, so the CLI, the TUI and the LLM layer share one implementation)
 - **`mtg_oracle/services.py`** — one function per user intent, taking plain values and returning plain data. It exists because of what the drift kept costing: `paste` and `deck import` each grew their own copy of "parse a deckstring and load it" and only one was correct, and `commander <card>` skipped the legality check `add` applied. Anything two interfaces both need now lives here once. The rule for what belongs is *composition* — an intent needing more than one data call, or a decision before the call. A one-line pass-through to `queries` or `decks` does not qualify; that would just be a second copy of the API.
     - `DeckRef` replaces the `(deck, folder)` pair that every deck call passed positionally. `card_profile`, `deck_search_scope`, `deck_search`, `search`, `import_text_into_deck`, `create_deck_from_text`, `format_catalog`, `format_rules`.
