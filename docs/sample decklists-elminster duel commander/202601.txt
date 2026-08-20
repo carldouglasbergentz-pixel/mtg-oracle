@@ -1,0 +1,94 @@
+1 Elminster (CLB) 274
+1 Approach of the Second Sun (AKH) 4
+1 Arid Mesa (MM3) 229
+1 Brainstorm (MMQ) 61
+1 Brainsurge (MH3) 53
+1 Cactus Preserve (OTC) 76
+1 Castle Vantress (M3C) 327
+1 Celestial Colonnade (WWK) 133
+1 Command Tower (BRC) 178
+1 Condemn (DIS) 8
+1 Confounding Conundrum (ZNR) 53
+1 Consult the Star Charts (EOE) 51
+1 Council's Judgment (CNS) 16
+1 Counterspell (ICE) 64
+1 Demolition Field (BRO) 260
+1 Deserted Beach (MID) 281
+1 Eiganjo, Seat of the Empire (PNEO) 268p
+1 Emeria's Call / Emeria, Shattered Skyclave (ZNR) 12
+1 Farewell (M3C) 170
+1 Field of Ruin (TSR) 407
+1 Flooded Strand (KTK) 233
+1 Floodfarm Verge (DSK) 259
+1 Force of Negation (2X2) 50
+1 Force Spike (LEG) 58
+1 Fractured Identity (C17) 37
+1 Get Lost (LCI) 333
+1 Glacial Fortress (M12) 227
+1 Hall of Storm Giants (AFR) 257
+1 Hallowed Fountain (RTR) 241
+5 Island (WOE) 270
+1 Jace, the Mind Sculptor (WWK) 31
+1 Lórien Revealed (LTR) 60
+1 Lose Focus (MH2) 49
+1 Mana Leak (STH) 36
+1 Mana Tithe (PLST) PLC-25
+1 March of Otherworldly Light (PNEO) 28p
+1 Marsh Flats (PMH2) 248s *F*
+1 Memory Lapse (MIR) 74
+1 Mental Misstep (NPH) 38
+1 Meticulous Archive (MKM) 328
+1 Miscalculation (ULG) 36
+1 Mistrise Village (TDM) 261
+1 Misty Rainforest (MH2) 250
+1 Myriad Landscape (C20) 292
+1 Mystic Gate (SHM) 277
+1 Mystic Sanctuary (MKC) 277
+1 Narset, Parter of Veils (CMM) 853
+1 No More Lies (MKM) 221
+1 Opt (INV) 64
+1 Otawara, Soaring City (PNEO) 271s *F*
+1 Oust (ROE) 40
+1 Parallax Tide (NEM) 37
+1 Personal Tutor (POR) 64
+3 Plains (MKM) 278
+1 Polluted Delta (KTK) 239
+1 Ponder (M10) 68
+1 Prairie Stream (M3C) 365
+1 Preordain (M11) 70
+1 Prismatic Vista (MH1) 244
+1 Quicken (RVR) 318
+1 Remand (RAV) 63
+1 Reprieve (LTR) 26
+1 Restless Anchorage (PLCI) 280p
+1 Scalding Tarn (MM3) 244
+1 Sea Gate Restoration / Sea Gate, Reborn (ZNR) 76
+1 Serum Visions (5DN) 36
+1 Shorikai, Genesis Engine (NEC) 4
+1 Sink into Stupor / Soporific Springs (MH3) 241
+1 Snapcaster Mage (ISD) 78
+1 Solitude (MH2) 32
+1 Solve the Equation (STX) 54
+1 Spell Snare (PLST) DIS-33
+1 Stern Scolding (LTR) 71
+1 Stifle (MB2) 173
+1 Stock Up (DFT) 67
+1 Subtlety (MH2) 67
+1 Sunken Palace (M3C) 133
+1 Sunset Revelry (MID) 38
+1 Supreme Verdict (RVR) 461
+1 Swords to Plowshares (ICE) 54
+1 Tale's End (M20) 77
+1 Teferi, Hero of Dominaria (DOM) 207
+1 Teferi, Time Raveler (WAR) 221
+1 Temple of the False God (SCG) 143
+1 Temporal Mastery (MM3) 54
+1 Temporary Lockdown (DMU) 36
+1 Terminus (AVR) 38
+1 Tithe (VIS) 23
+1 Tundra (3ED) 289
+1 Ultima (FIN) 38
+1 Wash Away (VOW) 87
+1 Windswept Heath (KTK) 248
+1 Wrath of God (POR) 39
+1 Wrath of the Skies (MH3) 49
