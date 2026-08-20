@@ -24,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from mtg_oracle import queries as q
+from mtg_oracle.scryfall_search import SYNTAX_HELP
 from mtg_oracle import decks as d
 from mtg_oracle import services as svc
 from mtg_oracle.renderer import (
@@ -40,60 +41,6 @@ from mtg_oracle.renderer import (
     render_folder_list as _render_folder_list,
     render_import_result as _render_import_result,
 )
-
-
-SEARCH_HELP = f"""\
-Scryfall-style card search. Supports AND (implicit via space), OR, NOT,
-parentheses, negation with `-`, and numeric range operators.
-
-Operators:
-  o:TEXT      oracle text contains TEXT (quoted for spaces)
-  t:TEXT      type line contains TEXT
-  n:TEXT      name contains TEXT (substring)
-  n=TEXT      name is exactly TEXT (case-insensitive)
-  kw:KW       card has keyword ability (flying, trample, prowess, ...)
-  c:COLORS    colors subset-contains (c:u = any card including blue)
-  c=COLORS    colors equal exactly (c=wu = exactly W+U)
-  ci<=COLORS  color identity fits (commander legality; ci:, ci=, ci>= too)
-  mv:N        mana value comparisons (:, =, <, >, <=, >=, !=)
-  pow:S       power (string match with :/=, numeric with <, >, etc.)
-  tou:S       toughness (same shape as pow)
-  r:RARITY    rarity (common|uncommon|rare|mythic|bonus|special)
-  layout:X    layout (normal|transform|modal_dfc|split|flip|meld|...)
-
-Format legality:
-  f:FORMAT    legal (or restricted) in FORMAT  (aliases: format:, legal:)
-  banned:F    on that format's ban list
-  restricted:F  restricted in that format
-  game:X      paper | arena | mtgo  (game:paper drops Alchemy `A-` cards)
-  is:reserved on the Reserved List
-
-  Formats: {", ".join(sorted(q.LEGALITY_FORMATS))}
-  Spaces and hyphens are ignored; aliases: edh, pdh, duelcommander,
-  pennydreadful, cbrawl.
-
-Sorting:
-  order:asc_FIELD / order:desc_FIELD (alias sort:) — direction required.
-  Fields: mv, name, power, toughness, rarity, color, ci, edhrec.
-
-Boolean:
-  A B         both (implicit AND)
-  A or B      either
-  -A  /  not A  negation
-  (A or B) C  grouping
-
-Colors can be letters (u, uw), words (blue, white, "blue white"), or brace
-form ({{W}}{{U}}). Bare words and quoted strings default to oracle-text search.
-
-Examples:
-  o:"enters the battlefield" t:creature c:u mv<=3
-  kw:flying (c:w or c:u) -t:artifact
-  f:competitivebrawl ci<=UR t:instant order:asc_edhrec
-  f:commander game:paper t:artifact mv<=2
-  banned:commander
-  c=wu t:instant
-  pow>=4 t:creature r:mythic
-"""
 
 
 # --- CLI dispatch ------------------------------------------------------
@@ -177,7 +124,7 @@ def _cmd_search_rules(args) -> int:
 def _cmd_search(args) -> int:
     query = " ".join(args.query).strip()
     if not query or query.lower() in ("help", "?"):
-        print(SEARCH_HELP)
+        print(SYNTAX_HELP)
         return 0
     try:
         page = svc.search(query, page=args.page, page_size=args.limit)

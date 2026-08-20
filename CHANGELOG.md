@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (the CLI's copy of the search syntax was documenting a language it didn't have)
+- **`search help` existed twice, in two versions, and they had drifted to 15 identical lines out of ~52.** The CLI's copy never mentioned that `n:` is a *substring* match — the exact trap that produced a false test failure earlier in this session, because `n:"Lightning Bolt"` also matches `Emeritus of Conflict // Lightning Bolt`. It also omitted the two meanings of `restricted:`, that `game:paper` is what drops the Arena-only Alchemy `A-` cards, and that `order:asc_edhrec` is most-played-first. Duplicated documentation isn't a style problem; it's documentation that lies about half the time.
+- The user-facing syntax reference is now `scryfall_search.SYNTAX_HELP`, living with the parser that implements it — so adding an operator and documenting it are one edit. The TUI appends the one paragraph that is true of it and not of the CLI (searches inside a deck being scoped to what the deck can play). The module docstring stays separate on purpose: it documents operator precedence and compiler behaviour, which is the implementer's reference, not the user's.
+- Every card name quoted in the help text is asserted to resolve, and every example query to compile.
+
 ### Changed (`mtg_oracle/app.py` → `mtg_oracle/tui/`)
 - **2,293 lines split six ways.** `tui/help.py` (the three help texts + `COMMANDS`), `tui/suggester.py` (autofill — the one TUI piece with logic worth testing alone), `tui/divider.py` (the drag handle), `tui/config.py` (persisted preferences), `tui/clipboard.py` (reading the system clipboard), and `tui/app.py` (the App itself, 1,675 lines). `python scripts/mtg_app.py` is unchanged; it now imports `mtg_oracle.tui`.
 - **The old module is gone rather than left as a shim.** There was exactly one real consumer and it moved in the same commit; a re-export would have let a stale import look like it still worked.
