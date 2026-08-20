@@ -107,12 +107,16 @@ def print_report(profiles, args) -> None:
           + " ".join(f"{v:>6.2f}" for v in mv))
 
     print("\n=== REACH (every role a card can fill, not just its primary) ===")
-    print(f"{'role':<26}{'primary':>8}{'reach':>7}{'diff':>7}")
+    print(f"{'role':<26}{'primary':>8}{'reach':>7}{'diff':>7}{'engines':>9}")
     for role in REPORT_ROLES:
         prim = st.mean([p.counts.get(role, 0) for p in profiles])
         reach = st.mean([sum(p.role_mv.get(role, {}).values()) for p in profiles])
+        eng = st.mean([p.engines.get(role, 0) for p in profiles])
         print(f"{roles.LABELS[role]:<26}{prim:>8.1f}{reach:>7.1f}"
-              f"{reach - prim:>+7.1f}")
+              f"{reach - prim:>+7.1f}{(f'{eng:.1f}' if eng else '-'):>9}")
+    print("  (engines = permanents that keep producing the effect rather than "
+          "resolving once;\n   a planeswalker that draws every turn is not "
+          "interchangeable with Memory Deluge)")
 
     label = "on the draw" if args.on_draw else "on the play"
     print(f"\n=== ON CURVE — role is playable on turn T, {label} ===")

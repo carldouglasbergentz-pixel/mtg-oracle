@@ -55,6 +55,12 @@ class RolesTestCase(unittest.TestCase):
         "Lightning Bolt", "Flame Slash", "Pyrokinesis", "Galvanic Discharge",
         "Magmatic Sinkhole", "Fire // Ice", "Brotherhood's End",
         "Back to Basics", "Blood Moon",
+        # Repeatable vs one-shot card advantage.
+        "Elminster", "Shorikai, Genesis Engine", "Faerie Mastermind",
+        "Consecrated Sphinx", "Narset, Parter of Veils", "Ledger Shredder",
+        "Thundertrap Trainer", "Elspeth, Storm Slayer", "Library of Alexandria",
+        "Castle Vantress", "Day of Judgment",
+        "Memory Deluge", "The Wandering Emperor",
     ]
 
     @classmethod
@@ -152,7 +158,8 @@ class TestPrimaryRoles(RolesTestCase):
 
     def test_nothing_lands_on_utility_by_accident(self):
         """Utility is the fallback, so an unexpected one means a missed rule."""
-        expected_utility = {"Teferi, Time Raveler", "Back to Basics", "Blood Moon"}
+        expected_utility = {"Teferi, Time Raveler", "Narset, Parter of Veils",
+                            "Back to Basics", "Blood Moon"}
         got = {n for n in self.NAMES if self.primary(n) == "utility"}
         self.assertEqual(got, expected_utility)
 
@@ -217,6 +224,81 @@ class TestEffectiveMana(RolesTestCase):
             c = self.cl(n).cost
             self.assertEqual(c.effective, c.printed, n)
             self.assertFalse(c.adjusted, n)
+
+
+class TestEngineDetection(RolesTestCase):
+    """Repeatable card advantage on a permanent, vs a spell that draws once.
+
+    Five planeswalkers that draw every turn is an engine count; fourteen
+    spells that draw is a resource count, and swapping one for the other is
+    not a neutral change.
+    """
+
+    ENGINES = ["Elminster", "Teferi, Hero of Dominaria",
+               "Jace, the Mind Sculptor", "Shorikai, Genesis Engine",
+               "Teferi, Time Raveler", "Narset, Parter of Veils",
+               "Faerie Mastermind", "Consecrated Sphinx",
+               "Wan Shi Tong, Librarian"]
+    ONE_SHOTS = ["Memory Deluge", "Brainstorm", "Fact or Fiction", "Stock Up",
+                 "Ancestral Recall", "Cryptic Command", "Dig Through Time"]
+
+    def test_permanents_that_draw_every_turn_are_engines(self):
+        for n in self.ENGINES:
+            cl = self.cl(n)
+            self.assertTrue(cl.engine, n)
+            self.assertIn("draw", cl.roles, n)
+
+    def test_spells_that_draw_once_are_not(self):
+        for n in self.ONE_SHOTS:
+            self.assertFalse(self.cl(n).engine, n)
+
+    def test_an_etb_draw_is_not_an_engine(self):
+        """`When this creature enters, ...` happens once."""
+        for n in ("Snapcaster Mage", "Thundertrap Trainer"):
+            self.assertFalse(self.cl(n).engine, n)
+
+    def test_planeswalkers_that_do_not_draw_are_not_engines(self):
+        for n in ("The Wandering Emperor", "Elspeth, Storm Slayer"):
+            self.assertFalse(self.cl(n).engine, n)
+
+    def test_a_cheap_permanent_that_repeats_is_advantage_not_a_cantrip(self):
+        """Faerie Mastermind costs two; the cost test is for spells only."""
+        cl = self.cl("Faerie Mastermind")
+        self.assertIn("draw", cl.roles)
+        self.assertNotIn("cantrip", cl.roles)
+
+    def test_connive_is_not_card_advantage(self):
+        """Ledger Shredder draws then discards — net zero."""
+        cl = self.cl("Ledger Shredder")
+        self.assertNotIn("draw", cl.roles)
+        self.assertFalse(cl.engine)
+
+    def test_cycling_draws_once_even_on_a_permanent(self):
+        """Shark Typhoon's cycling is a one-shot; recursion needs a second card."""
+        cl = self.cl("Shark Typhoon")
+        self.assertIn("draw", cl.roles)
+        self.assertFalse(cl.engine)
+
+    def test_lands_are_never_engines(self):
+        """Library of Alexandria draws every turn, but `land` is exclusive.
+
+        Counting a land in a spell role would double-count the slot and break
+        the density arithmetic. Documented limitation, asserted so it stays
+        deliberate.
+        """
+        for n in ("Library of Alexandria", "Castle Vantress"):
+            self.assertFalse(self.cl(n).engine, n)
+
+
+class TestSweeperIsAboutTheBattlefield(RolesTestCase):
+    def test_milling_a_library_is_not_mass_removal(self):
+        """Jace's -12 exiles a library; that is not a wrath."""
+        self.assertNotIn("sweeper", self.cl("Jace, the Mind Sculptor").roles)
+
+    def test_real_sweepers_still_match(self):
+        for n in ("Wrath of God", "Supreme Verdict", "Terminus", "Farewell",
+                  "Wrath of the Skies", "Day of Judgment", "Ondu Inversion"):
+            self.assertIn("sweeper", self.cl(n).roles, n)
 
 
 class TestDamageRemovalAndSplitCards(RolesTestCase):

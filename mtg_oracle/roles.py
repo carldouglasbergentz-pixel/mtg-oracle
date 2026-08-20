@@ -80,7 +80,10 @@ _COUNTER = re.compile(r"\bcounter target\b|\bcounter it\b|\bcounter that spell\b
 _SOFT_COUNTER = re.compile(r"return target spell to its owner's hand")
 
 _SWEEPER = re.compile(
-    r"\b(?:destroy|exile)\s+all\b"
+    # A sweeper clears the BATTLEFIELD. "Exile all cards from target player's
+    # library" is a mill effect, and matching it made Jace, the Mind
+    # Sculptor's -12 read as mass removal.
+    r"\b(?:destroy|exile)\s+all\b(?!\s+(?:cards\s+from|graveyards))"
     r"|\bput all creatures\b"
     r"|\breturn all\b"
     r"|\bdestroy each\b"
@@ -198,6 +201,44 @@ def is_land(card: dict) -> bool:
 #   transform  CR 712  — the back is reached by transforming, never by casting.
 #   meld       CR 727  — likewise.
 CASTABLE_SECOND_FACE = frozenset({"adventure", "omen", "modal_dfc", "split"})
+
+
+# A draw that happens again next turn, rather than once on resolution.
+# `-3: ... Draw a card` (loyalty), `{1}, {T}: Draw two cards` (activated), and
+# `Whenever you scry, ...` / `At the beginning of your upkeep` (recurring
+# triggers) all repeat. `When this creature enters, draw a card` does not —
+# that is an ETB, and treating it as an engine would make Snapcaster Mage a
+# card-advantage engine.
+_LOYALTY_ABILITY = re.compile(r"^[+−-]?\d+\s*:")
+# `{1}, {T}: Draw two cards` — a cost, then a colon. Bounded so a colon that
+# turns up later in a sentence cannot make prose look like an ability.
+_ACTIVATED = re.compile(r"^[^:]{0,40}:\s")
+_RECURRING_TRIGGER = re.compile(r"\bwhenever\b|\bat the beginning of\b", re.IGNORECASE)
+_ETB_ONLY = re.compile(r"\bwhen (?:this|[A-Z][^,]{0,40}) enters\b", re.IGNORECASE)
+
+
+def _is_engine(card: dict, has_draw: bool) -> bool:
+    """True when a permanent's card draw repeats rather than happening once."""
+    if not has_draw:
+        return False
+    front = front_type_line(card)
+    if any(t in front for t in ("Instant", "Sorcery")) or _is_land_word(front):
+        return False
+    if "Planeswalker" in front:
+        return True   # loyalty abilities are per-turn by construction
+    raw = card.get("oracle_text") or ""
+    # Find the clause that actually draws, and ask whether it repeats.
+    for line in raw.split(chr(10)):
+        low = _clean(line)
+        if not (_DRAW_MANY.search(low) or _DRAW_ONE.search(low)
+                or _TO_HAND.search(low)):
+            continue
+        if _ETB_ONLY.search(line) and not _RECURRING_TRIGGER.search(line):
+            continue
+        if (_LOYALTY_ABILITY.search(line) or _ACTIVATED.search(line)
+                or _RECURRING_TRIGGER.search(line)):
+            return True
+    return False
 
 
 def _has_printed_body(card: dict) -> bool:
@@ -469,6 +510,13 @@ class Classification:
     # `utility`. Surfaced by the CLI: on an unfamiliar deck it is the list of
     # cards whose classification deserves a human look.
     low_confidence: bool = False
+    # True for a permanent that keeps drawing cards, turn after turn, rather
+    # than once. Elminster and Teferi, Hero of Dominaria draw *every* turn;
+    # Memory Deluge draws twice, once. Both are card advantage and the role
+    # set says so — but they are not interchangeable when you are deciding how
+    # many you need, because five permanents that draw is an engine count and
+    # fourteen spells that draw is a resource count.
+    engine: bool = False
 
 
 # Curated judgement calls. Text alone cannot decide these, so they are
@@ -570,12 +618,21 @@ def classify(card: dict, x_value: int = X_VALUE) -> Classification:
     # This applies even when the card has other roles: a four-mana counter
     # that also draws is a two-for-one, and Cryptic Command is a third of
     # this archetype's card advantage precisely because of that mode.
-    if "cantrip" in derived:
+    #
+    # It does NOT apply to a permanent whose draw repeats. Faerie Mastermind
+    # costs two and draws a card every time an opponent overdraws, which is
+    # card advantage however cheap it is — the cost test only makes sense for
+    # a spell that resolves once.
+    repeats = _is_engine(card, "draw" in derived or "cantrip" in derived)
+    if "cantrip" in derived and not repeats:
         if cost.effective > CANTRIP_MAX_MANA:
             derived.discard("cantrip")
             derived.add("draw")
         else:
             derived.discard("draw")
+    elif repeats:
+        derived.add("draw")
+        derived.discard("cantrip")
 
     override = _override_for(name, card)
     if override:
@@ -586,7 +643,8 @@ def classify(card: dict, x_value: int = X_VALUE) -> Classification:
             cost = Cost(cost.printed, mv, reason or f"see OVERRIDES[{name!r}]",
                         cost.alternative, cost.alternative_reason)
         return Classification(name, primary, tuple(sorted(roles)), cost,
-                              "override", reason)
+                              "override", reason,
+                              engine=_is_engine(card, "draw" in roles))
 
     # Derived primary, by precedence. Planeswalkers are threats before they
     # are removal — nearly all of them can remove something, and nearly none
@@ -606,4 +664,5 @@ def classify(card: dict, x_value: int = X_VALUE) -> Classification:
 
     low = derived == {"utility"} and not is_land(card)
     return Classification(name, primary, tuple(sorted(derived)), cost,
-                          "derived", cost.reason, low_confidence=low)
+                          "derived", cost.reason, low_confidence=low,
+                          engine=_is_engine(card, "draw" in derived))

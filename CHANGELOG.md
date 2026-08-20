@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (repeatable card advantage is not the same as a spell that draws)
+- **`roles.Classification.engine`** — True for a permanent whose draw *repeats*, so five planeswalkers that draw every turn read as an engine count rather than blending into fourteen spells that draw once. Prompted by the user's observation that planeswalkers act as both threat and card advantage: they already did carry both roles, but the tool could not say that Elminster and Memory Deluge are not interchangeable.
+    - Derived, not listed: a loyalty ability, an activated ability, or a recurring trigger that draws counts; `When this creature enters, ...` does not, which is why Snapcaster Mage and Thundertrap Trainer are correctly excluded. Connive nets zero cards, so Ledger Shredder is not card advantage at all.
+    - Fixes a related misfire: the cantrip cost test demoted **Faerie Mastermind** to selection because it costs two. The cost test only makes sense for a spell that resolves once; a two-mana permanent that draws every turn is card advantage however cheap it is.
+    - `DeckProfile.engines` counts them per role, and the CLI's reach table has an `engines` column.
+    - Lands are deliberately never engines — Library of Alexandria does draw every turn, but the `land` role is exclusive and counting it in a spell role would double-count the slot. Asserted so the limitation stays deliberate.
+
+### Fixed (a mill effect read as mass removal)
+- **`Exile all cards from target player's library` matched the sweeper pattern**, so Jace, the Mind Sculptor's `-12` made him mass removal. A sweeper clears the *battlefield*; the pattern now excludes library and graveyard zones. Surfaced while checking how planeswalkers classify.
+
 ### Added (compare a deck against a reference set, and export it)
 - **`services.compare_decks()`** — one deck measured against a set of others. Verdicts are against the reference **range**, not the mean: being two cards off an average that spans nine is noise, while stepping outside a range nobody left is a choice worth knowing about. Reports per-role deltas, per-turn on-curve deltas, the nearest reference deck by role-density distance, cards the reference plays that this deck doesn't (ordered by how many lists play them), and cards only this deck plays.
     - `--compare DECK` in `scripts/analyse_archetype.py`, accepting a deck name or a `.txt` path. The subject is excluded from its own reference set — comparing a list to itself reports zero deviation and hides everything that matters.

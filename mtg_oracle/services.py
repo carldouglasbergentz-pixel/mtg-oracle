@@ -16,7 +16,7 @@ was right. Anything two interfaces both need lives here once.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from mtg_oracle import decks as d
@@ -310,6 +310,11 @@ class DeckProfile:
     rocks: int
     land_backs: int
     unresolved: tuple[str, ...] = ()
+    # Per role, how many of those cards are permanents that keep producing
+    # the effect rather than resolving once. Five planeswalkers that draw is
+    # an engine count; fourteen spells that draw is a resource count, and the
+    # two are not interchangeable when deciding how many you need.
+    engines: dict = field(default_factory=dict)
 
     @property
     def mana_sources(self) -> int:
@@ -356,6 +361,7 @@ def profile_deck(
 
     counts = {r: 0 for r in roles.ROLES}
     role_mv: dict[str, dict[int, int]] = {r: {} for r in roles.ROLES}
+    engines: dict[str, int] = {}
     curve: dict[int, int] = {}
     lands = rocks = land_backs = size = 0
 
@@ -385,12 +391,14 @@ def profile_deck(
         for role in cl.roles:
             if role in role_mv:
                 role_mv[role][mv] = role_mv[role].get(mv, 0) + qty
+                if cl.engine:
+                    engines[role] = engines.get(role, 0) + qty
 
     # Rocks are mana, not spells, for the draw maths: `probability.category_live`
     # takes them as their own group.
     lands -= 0
     return DeckProfile(name, size, counts, role_mv, curve,
-                       lands, rocks, land_backs, missing)
+                       lands, rocks, land_backs, missing, engines)
 
 
 def profile_decks(decks, **kw) -> list[DeckProfile]:
