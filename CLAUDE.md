@@ -76,6 +76,8 @@ It exists because the interfaces kept growing their own copies of the same use c
 
 Tests live in `tests/`, stdlib `unittest`, no new dependency: `python -m unittest discover tests`. The suites that need `data/mtg.db` skip themselves when it is absent.
 
+**Deck analysis** goes through `scripts/analyse_archetype.py`: densities, on-curve probabilities, most-played rankings, and `--compare <deck>` to measure one deck against a reference set. `--json` is the shape the LLM layer consumes. **Export** is `export` in the TUI (clipboard) or `deck export` in the CLI; it emits the section headers `deck_parser` reads, so export→import round-trips.
+
 ## Query patterns
 
 Most card / rule / combo / deck lookups have helpers in `mtg_oracle.queries` and `mtg_oracle.decks` — prefer those over hand-rolled SQL. For ad-hoc queries, the conventions are `COLLATE NOCASE` on names, `resolve_card_name()` for tolerant input, and `''` to escape apostrophes (`'Thassa''s Oracle'`). One emblematic shape:

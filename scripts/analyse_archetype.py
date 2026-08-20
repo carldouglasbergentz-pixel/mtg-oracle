@@ -12,6 +12,11 @@ the exact probability that each role is playable on each turn.
     python scripts/analyse_archetype.py --dir "docs/sample decklists-uw canlander" \
         --deck "My UW Deck" --folder "Canadian Highlander"
 
+    # compare ONE deck against the rest: where am I outside their ranges,
+    # which cards am I missing, and which do I play alone
+    python scripts/analyse_archetype.py --compare "My UW Deck"
+        --folder "Canadian Highlander" --dir "docs/sample decklists-uw canlander"
+
     # machine-readable, for the LLM layer or a spreadsheet
     python scripts/analyse_archetype.py --dir <path> --json > analysis.json
 
@@ -162,6 +167,138 @@ def read_db_deck(name: str, folder: str | None) -> dict:
     return {"name": deck["name"], "cards": cards, "files": [deck["name"]]}
 
 
+def read_subject(target: str, folder: str | None) -> dict:
+    """The deck under test — a .txt path or a deck in the collection."""
+    path = Path(target)
+    if path.suffix.lower() == ".txt":
+        if not path.is_file():
+            raise services.ServiceError(f"no such file: {target}")
+        parsed = parse_deckstring(path.read_bytes().decode("utf-8-sig"))
+        if not parsed:
+            raise services.ServiceError(f"no card lines in {target}")
+        cards: dict[str, int] = {}
+        for row in parsed:
+            if row["section"] == "sideboard":
+                continue
+            cards[row["name"]] = cards.get(row["name"], 0) + row["quantity"]
+        return {"name": path.stem, "cards": cards, "files": [path.stem]}
+    return read_db_deck(target, folder)
+
+
+def _arrow(delta: float) -> str:
+    if delta > 0:
+        return f"+{delta:g}"
+    return f"{delta:g}" if delta else "="
+
+
+def print_comparison(cmp, args) -> None:
+    """The comparison tables: ranges, curve deltas, and the card-level diff."""
+    subj, refs = cmp.subject, cmp.reference
+    n = len(refs)
+    print(f"\n\n{'=' * 76}")
+    print(f"COMPARISON — {subj.name!r} against {n} reference list(s)")
+    print("=" * 76)
+    if subj.size != 100:
+        print(f"  note: subject is {subj.size} cards; the draw maths still "
+              f"treats the deck as 100, so the unfilled slots count as blanks")
+
+    print(f"\n=== IN RANGE? (range, not mean — a range nobody left is the rule) ===")
+    print(f"{'role':<26}{'yours':>7}{'ref mean':>10}{'range':>10}{'delta':>8}   verdict")
+    order = {role: i for i, role in enumerate(REPORT_ROLES + ["land"])}
+    for r in sorted(cmp.roles, key=lambda r: order.get(r.role, 99)):
+        mark = {"under": "<-- BELOW every list", "over": "--> ABOVE every list",
+                "in": ""}[r.verdict]
+        print(f"{roles.LABELS[r.role]:<26}{r.subject:>7}{r.ref_mean:>10.1f}"
+              f"{f'{r.ref_min}-{r.ref_max}':>10}{_arrow(r.delta):>8}   {mark}")
+    m = cmp.mana_sources
+    print(f"{'MANA SOURCES':<26}{m.subject:>7}{m.ref_mean:>10.1f}"
+          f"{f'{m.ref_min}-{m.ref_max}':>10}{_arrow(m.delta):>8}   "
+          + {"under": "<-- BELOW every list", "over": "--> ABOVE every list",
+             "in": ""}[m.verdict])
+    mine_mv, ref_mv = cmp.avg_mv
+    print(f"{'avg effective MV':<26}{mine_mv:>7.2f}{ref_mv:>10.2f}"
+          f"{'':>10}{_arrow(round(mine_mv - ref_mv, 2)):>8}")
+
+    out = cmp.out_of_range
+    print(f"\n  {len(out)} role(s) outside the reference range"
+          + (f": {', '.join(roles.LABELS[r.role] for r in out)}" if out else
+             " — this deck sits inside the archetype on every axis"))
+
+    # A reference set spanning two archetypes has a mean that describes
+    # neither, so say so rather than letting the delta column imply there is
+    # one right answer to be closer to.
+    widest = max(cmp.roles, key=lambda r: r.ref_max - r.ref_min)
+    if widest.ref_max - widest.ref_min >= 6:
+        print(f"\n  CAUTION: the reference set spans {widest.ref_min}-"
+              f"{widest.ref_max} on {roles.LABELS[widest.role].lower()}, so it "
+              f"holds more than one\n  build and the mean above describes "
+              f"neither. Use the nearest-list line, or re-run\n  with only the "
+              f"lists you actually want to resemble.")
+
+    print(f"\n=== NEAREST REFERENCE LIST (role-density distance) ===")
+    for name, dist in cmp.nearest[:5]:
+        print(f"   {dist:>6.2f}  {name}")
+    print("   (lower is more alike; the axis with the widest spread in the "
+          "reference set dominates, which is the axis that defines the build)")
+
+    label = "on the draw" if args.on_draw else "on the play"
+    print(f"\n=== ON CURVE, yours minus the reference mean ({label}) ===")
+    print(f"{'role':<26}" + "".join(f"{'T'+str(t):>7}" for t in TURNS))
+    for role in REPORT_ROLES:
+        d = cmp.curve_delta.get(role, {})
+        cells = "".join(f"{d.get(t, 0)*100:>+6.0f}p" for t in TURNS)
+        print(f"{roles.LABELS[role]:<26}{cells}")
+    print("  (percentage points; + means this deck does it more often)")
+
+    if cmp.missing:
+        shown = [c for c in cmp.missing if c.n_lists > 1] or list(cmp.missing)
+        print(f"\n=== CARDS THE REFERENCE PLAYS THAT THIS DECK DOESN'T "
+              f"({len(cmp.missing)}) ===")
+        for role in REPORT_ROLES + ["land"]:
+            g = [c for c in shown if c.role == role]
+            if not g:
+                continue
+            print(f"\n  -- {roles.LABELS[role]}")
+            for c in g:
+                print(f"       {c.n_lists:>2}/{c.of_lists}  MV{c.mv:<3} {c.name}")
+        if len(shown) < len(cmp.missing):
+            print(f"\n  ({len(cmp.missing) - len(shown)} more played by exactly "
+                  f"one list — pass --min-share 0 and read the JSON for those)")
+
+    if cmp.unique:
+        print(f"\n=== CARDS ONLY THIS DECK PLAYS ({len(cmp.unique)}) ===")
+        print("  Not a criticism — this is where your build is its own thing.")
+        for c in cmp.unique:
+            print(f"       {roles.LABELS[c.role]:<26} MV{c.mv:<3} {c.name}")
+
+
+def comparison_json(cmp) -> dict:
+    return {
+        "subject": cmp.subject.name,
+        "reference": [p.name for p in cmp.reference],
+        "roles": [{"role": r.role, "label": roles.LABELS[r.role],
+                   "subject": r.subject, "ref_mean": r.ref_mean,
+                   "ref_min": r.ref_min, "ref_max": r.ref_max,
+                   "ref_median": r.ref_median, "delta": r.delta,
+                   "verdict": r.verdict} for r in cmp.roles],
+        "mana_sources": {"subject": cmp.mana_sources.subject,
+                         "ref_mean": cmp.mana_sources.ref_mean,
+                         "ref_min": cmp.mana_sources.ref_min,
+                         "ref_max": cmp.mana_sources.ref_max,
+                         "verdict": cmp.mana_sources.verdict},
+        "avg_mv": {"subject": cmp.avg_mv[0], "reference": cmp.avg_mv[1]},
+        "out_of_range": [r.role for r in cmp.out_of_range],
+        "nearest": [{"name": nm, "distance": d} for nm, d in cmp.nearest],
+        "curve_delta": {r: {str(t): v for t, v in d.items()}
+                        for r, d in cmp.curve_delta.items()},
+        "missing": [{"name": c.name, "role": c.role, "mv": c.mv,
+                     "n_lists": c.n_lists, "of_lists": c.of_lists,
+                     "share": round(c.share, 3)} for c in cmp.missing],
+        "unique": [{"name": c.name, "role": c.role, "mv": c.mv}
+                   for c in cmp.unique],
+    }
+
+
 def build_ranking(decks, n) -> dict:
     """card -> how many lists play it, per role, sorted by effective cost."""
     from mtg_oracle import queries as q
@@ -205,7 +342,13 @@ def main(argv=None) -> int:
                     help="folder of decklist .txt files (repeatable)")
     ap.add_argument("--deck", action="append", default=[],
                     help="a deck from your own collection (repeatable)")
-    ap.add_argument("--folder", help="folder the --deck lives in")
+    ap.add_argument("--folder", help="folder --deck and --compare live in")
+    ap.add_argument("--compare", metavar="DECK",
+                    help="measure this deck against everything else given; "
+                         "accepts a deck name from your collection or a .txt path")
+    ap.add_argument("--min-share", type=float, default=0.0, metavar="F",
+                    help="(--compare) only report missing cards played by at "
+                         "least this share of the reference set, e.g. 0.5")
     ap.add_argument("--keep-duplicates", action="store_true",
                     help="treat identical files as separate data points")
     ap.add_argument("--on-draw", action="store_true",
@@ -233,12 +376,37 @@ def main(argv=None) -> int:
             print(f"ERR {e}", file=sys.stderr)
             return 2
 
+    subject = None
+    if args.compare:
+        try:
+            subject = read_subject(args.compare, args.folder)
+        except services.ServiceError as e:
+            print(f"ERR {e}", file=sys.stderr)
+            return 2
+        # A deck cannot be its own reference: comparing a list to itself
+        # reports zero deviation and hides the ones that matter.
+        before = len(decks)
+        decks = [d_ for d_ in decks if d_["name"] != subject["name"]]
+        if len(decks) < before:
+            print(f"(excluded {subject['name']!r} from the reference set)",
+                  file=sys.stderr)
+        if not decks:
+            print("ERR --compare needs a reference set: add --dir or another "
+                  "--deck", file=sys.stderr)
+            return 2
+
     if not decks:
         print("nothing to analyse", file=sys.stderr)
         return 1
 
     profiles = services.profile_decks(decks, x_value=args.x_value)
     args.ranking, args.low_confidence = build_ranking(decks, len(profiles))
+
+    comparison = None
+    if subject is not None:
+        comparison = services.compare_decks(
+            subject, decks, turns=TURNS, on_play=not args.on_draw,
+            min_share=args.min_share, x_value=args.x_value)
 
     if args.json:
         print(json.dumps({
@@ -260,6 +428,7 @@ def main(argv=None) -> int:
                       for p in profiles],
             "ranking": args.ranking,
             "low_confidence": sorted(args.low_confidence),
+            "comparison": comparison_json(comparison) if comparison else None,
             "conventions": {
                 "x_value": args.x_value,
                 "delve_yard": roles.DELVE_YARD,
@@ -271,6 +440,8 @@ def main(argv=None) -> int:
         return 0
 
     print_report(profiles, args)
+    if comparison is not None:
+        print_comparison(comparison, args)
     return 0
 
 

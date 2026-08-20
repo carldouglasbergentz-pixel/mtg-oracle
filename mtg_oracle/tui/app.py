@@ -523,6 +523,7 @@ class MtgOracleApp(App):
             "show": self._cmd_show,
             "import": self._cmd_import,
             "paste": self._cmd_paste,
+            "export": self._cmd_export,
             "sync": self._cmd_sync,
             "copy": self._cmd_copy,
             "help": self._cmd_help,
@@ -1659,7 +1660,48 @@ class MtgOracleApp(App):
         self._write(r.render_import_result(self._cwd_deck, result))
         self._refresh_nav()
 
+    def _cmd_export(self, arg: str) -> None:
+        """The inverse of `paste`: the deck as a list you can paste elsewhere.
 
+        Clipboard by default, because the point is getting the deck into
+        Moxfield without a file in between.
+        """
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `export`)")
+            return
+        toks = arg.split()
+        front = "--front-face" in toks
+        grouped = "--grouped" in toks
+        path = " ".join(t for t in toks if not t.startswith("--")).strip()
+        try:
+            exported = svc.export_deck_text(
+                self._ref(), front_face=front, group_by_role=grouped,
+            )
+        except svc.ServiceError as e:
+            self._write(f"export: {e}")
+            return
+        if path:
+            try:
+                Path(path).write_text(exported.text, encoding="utf-8")
+            except OSError as e:
+                self._write(f"export: could not write {path!r}: {e}")
+                return
+            self._write(f"OK wrote {exported.cards} cards to {path}")
+            return
+        try:
+            self.copy_to_clipboard(exported.text)
+        except Exception as e:
+            self._write(f"export: clipboard write failed: {e}")
+            return
+        parts = ", ".join(f"{n} {k}" for k, n in exported.sections.items())
+        self._write(
+            f"OK copied {exported.cards} cards ({parts}) to the clipboard — "
+            f"paste into Moxfield, Archidekt, or a text file."
+        )
+        if front:
+            self._write("   two-faced names shortened to the front face")
+        if grouped:
+            self._write("   grouped by role with `//` headers (importers skip them)")
 
     def _write_combo_list(self, combos: list[dict], header: str) -> None:
         """A clickable, numbered combo list — `combo-info <N>` matches it."""

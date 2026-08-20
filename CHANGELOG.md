@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (compare a deck against a reference set, and export it)
+- **`services.compare_decks()`** — one deck measured against a set of others. Verdicts are against the reference **range**, not the mean: being two cards off an average that spans nine is noise, while stepping outside a range nobody left is a choice worth knowing about. Reports per-role deltas, per-turn on-curve deltas, the nearest reference deck by role-density distance, cards the reference plays that this deck doesn't (ordered by how many lists play them), and cards only this deck plays.
+    - `--compare DECK` in `scripts/analyse_archetype.py`, accepting a deck name or a `.txt` path. The subject is excluded from its own reference set — comparing a list to itself reports zero deviation and hides everything that matters.
+    - The distance metric is deliberately unnormalised: the role with the widest spread in a reference set is the axis that defines the build (for UW control, threats at 4–13), so letting it dominate is the point.
+    - When the reference set spans more than one build, the output says so and points at the nearest-list line, because a mean across two archetypes describes neither.
+- **`services.export_deck_text()`** plus `export` in the TUI and `deck export` in the CLI — the deck as a `N Card Name` list, clipboard by default because the point is getting it into Moxfield without a file in between. `export <path>` writes a file; `--front-face` shortens two-faced names; `--grouped` adds `//` role headers that importers skip.
+    - Full canonical Scryfall names are the default: unambiguous by construction, and accepted by every Scryfall-backed importer. `--front-face` deliberately does **not** shorten split cards — there is no card called `Fire`, only `Fire // Ice`.
+    - The section headers are the ones `deck_parser` already understands, so an exported deck re-imports into the same deck. That round-trip is asserted, including on basics (stacked, not repeated), modal DFCs and split cards.
+- 23 more tests, 84 total.
+
 ### Added (deck analysis: what a card does, and what it really costs)
 - **`mtg_oracle/roles.py`** — derives a card's functional roles (counterspell, sweeper, spot removal, cantrip, card advantage, threat, tutor, mana, utility) and its *effective* mana cost from oracle text, the same deterministic approach `tag_cards.py` takes to tags. **80% of a real archetype's cards classify from text alone**, which is the whole point: an analysis that only knows a hand-curated list of cards is useless the moment you point it at your own deck. `OVERRIDES` carries the 25 judgement calls text cannot settle, each with its reason, so what is a rule and what is an opinion stays visible.
     - Effective mana is the load-bearing part. Force of Will is not a five-drop, Dig Through Time is not an eight-drop, and any density analysis run on printed mana value is measuring the wrong deck. Conventions applied uniformly: free alternative costs → 0, Phyrexian → 0, evoke-that-exiles → 0, warp → the warp cost (CR 702.185a), delve → its coloured pips, `{X}` → X=2 (counted per `{X}`, so `{X}{X}{W}{W}{W}` at X=2 is seven), a cheaper second face → that face.

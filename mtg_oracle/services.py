@@ -417,3 +417,273 @@ def deck_profile_from_db(ref: DeckRef, **kw) -> DeckProfile:
             continue
         main[row["card_name"]] = main.get(row["card_name"], 0) + row["quantity"]
     return profile_deck(deck["name"], main, **kw)
+
+
+# --- comparing a deck against a reference set --------------------------
+
+@dataclass(frozen=True)
+class RoleDelta:
+    """One role's count in a deck, against what a reference set does."""
+    role: str
+    subject: int
+    ref_mean: float
+    ref_min: int
+    ref_max: int
+    ref_median: float
+
+    @property
+    def delta(self) -> float:
+        return round(self.subject - self.ref_mean, 1)
+
+    @property
+    def verdict(self) -> str:
+        """`under`, `in` or `over` — relative to the reference RANGE.
+
+        The range, not the mean: being two cards off an average that spans
+        nine cards is noise, while stepping outside the range is a choice
+        nobody in the reference set made.
+        """
+        if self.subject < self.ref_min:
+            return "under"
+        if self.subject > self.ref_max:
+            return "over"
+        return "in"
+
+
+@dataclass(frozen=True)
+class CardDiff:
+    """A card one side plays and the other doesn't."""
+    name: str
+    role: str
+    mv: int
+    n_lists: int
+    of_lists: int
+
+    @property
+    def share(self) -> float:
+        return self.n_lists / self.of_lists if self.of_lists else 0.0
+
+
+@dataclass(frozen=True)
+class Comparison:
+    """A deck measured against a reference set of decks.
+
+    Answers the three questions a deckbuilder actually has: am I inside the
+    ranges the reference set uses, where do my draw probabilities differ, and
+    which specific cards am I missing or playing alone.
+    """
+    subject: DeckProfile
+    reference: tuple[DeckProfile, ...]
+    roles: tuple[RoleDelta, ...]
+    mana_sources: RoleDelta
+    avg_mv: tuple[float, float]          # (subject, reference mean)
+    curve_delta: dict[str, dict[int, float]]
+    missing: tuple[CardDiff, ...]
+    unique: tuple[CardDiff, ...]
+    nearest: tuple[tuple[str, float], ...]
+
+    @property
+    def out_of_range(self) -> tuple[RoleDelta, ...]:
+        """The roles where this deck is outside every reference deck."""
+        return tuple(r for r in self.roles if r.verdict != "in")
+
+    def role(self, name: str) -> Optional[RoleDelta]:
+        return next((r for r in self.roles if r.role == name), None)
+
+
+def _profile_distance(a: DeckProfile, b: DeckProfile) -> float:
+    """Euclidean distance between two decks' role-density vectors.
+
+    Raw counts, deliberately unnormalised. The role with the widest spread in
+    a reference set is the axis that defines the build — for UW control that
+    is threats, 4 to 13 — so letting it dominate the distance is the point,
+    not a flaw to correct for.
+    """
+    return round(sum(
+        (a.counts.get(r, 0) - b.counts.get(r, 0)) ** 2 for r in roles.ROLES
+    ) ** 0.5, 2)
+
+
+def compare_decks(
+    subject: dict,
+    reference: list[dict],
+    *,
+    turns=range(1, 9),
+    on_play: bool = True,
+    min_share: float = 0.0,
+    x_value: int = roles.X_VALUE,
+) -> Comparison:
+    """Measure one deck against a set of others.
+
+    `subject` and each entry of `reference` are `{"name": str, "cards": {name: qty}}`
+    — the same shape `profile_decks` takes, so a decklist file and a deck from
+    the database compare without either being converted first.
+
+    `min_share` filters the `missing` list: 0.5 means "only cards half the
+    reference set plays". The default reports everything, because a card one
+    good list plays is still a lead.
+    """
+    if not reference:
+        raise ServiceError("nothing to compare against")
+
+    subj = profile_deck(subject["name"], subject["cards"], x_value=x_value)
+    refs = tuple(profile_decks(reference, x_value=x_value))
+    n = len(refs)
+
+    def stats(values):
+        srt = sorted(values)
+        mid = len(srt) // 2
+        median = srt[mid] if len(srt) % 2 else (srt[mid - 1] + srt[mid]) / 2
+        return sum(values) / len(values), min(values), max(values), median
+
+    role_deltas = []
+    for role in roles.ROLES:
+        mean, lo, hi, med = stats([p.counts.get(role, 0) for p in refs])
+        role_deltas.append(RoleDelta(role, subj.counts.get(role, 0),
+                                     round(mean, 1), lo, hi, med))
+    mean, lo, hi, med = stats([p.mana_sources for p in refs])
+    mana = RoleDelta("mana_sources", subj.mana_sources, round(mean, 1), lo, hi, med)
+
+    turns = list(turns)
+    curve_delta = {}
+    for role in roles.ROLES:
+        if role == "land":
+            continue
+        mine = subj.live_curve(role, turns, on_play)
+        theirs = [p.live_curve(role, turns, on_play) for p in refs]
+        curve_delta[role] = {
+            t: round(mine[t] - sum(c[t] for c in theirs) / n, 4) for t in turns
+        }
+
+    # --- card-level diff, which is the actionable half -----------------
+    subj_cards = set(subject["cards"])
+    counts: dict[str, int] = {}
+    for d_ in reference:
+        for name in d_["cards"]:
+            counts[name] = counts.get(name, 0) + 1
+
+    everything = sorted(set(counts) | subj_cards)
+    facts = q.get_card_facts(everything)
+
+    def describe(name, n_lists):
+        fact = facts.get(name)
+        if fact is None:
+            return CardDiff(name, "?", 99, n_lists, n)
+        cl = roles.classify(fact, x_value)
+        return CardDiff(fact["name"], cl.primary, cl.cost.effective, n_lists, n)
+
+    missing = [describe(name, c) for name, c in counts.items()
+               if name not in subj_cards and c / n >= min_share]
+    missing.sort(key=lambda c: (-c.n_lists, c.mv, c.name))
+    unique = [describe(name, 0) for name in subj_cards if name not in counts]
+    unique.sort(key=lambda c: (c.role, c.mv, c.name))
+
+    nearest = tuple(sorted(
+        ((p.name, _profile_distance(subj, p)) for p in refs),
+        key=lambda kv: kv[1]))
+
+    return Comparison(
+        subject=subj, reference=refs, roles=tuple(role_deltas),
+        mana_sources=mana,
+        avg_mv=(round(subj.avg_mv, 2),
+                round(sum(p.avg_mv for p in refs) / n, 2)),
+        curve_delta=curve_delta, missing=tuple(missing),
+        unique=tuple(unique), nearest=nearest,
+    )
+
+
+# --- exporting a deck --------------------------------------------------
+
+@dataclass(frozen=True)
+class DeckExport:
+    """A deck as plain text, plus what went into it."""
+    text: str
+    cards: int
+    rows: int
+    sections: dict[str, int]
+
+
+# Section headers `deck_parser` understands, so an exported deck re-imports
+# into the same deck. That round-trip is asserted in the tests.
+_EXPORT_ORDER = (("commander", "Commander"), ("main", "Deck"),
+                 ("sideboard", "Sideboard"))
+
+
+def export_deck_text(
+    ref: DeckRef,
+    *,
+    front_face: bool = False,
+    headers: bool = True,
+    group_by_role: bool = False,
+) -> DeckExport:
+    """A deck as a `N Card Name` list, ready to paste into a deck site.
+
+    Names are the full canonical Scryfall names by default, because those are
+    unambiguous by construction and every Scryfall-backed importer (Moxfield,
+    Archidekt) takes them. `front_face=True` shortens two-faced names to the
+    front face for sites that prefer it — **except split cards**, where the
+    front face is not a card name at all: there is no card called `Fire`, only
+    `Fire // Ice`.
+
+    `group_by_role` inserts `//` comment lines per role, which importers skip
+    and humans find readable.
+    """
+    if not ref:
+        raise ServiceError("no deck selected")
+    deck = d.get_deck(ref.deck, folder=ref.folder)
+    if not deck:
+        raise ServiceError(f"no deck named {ref.deck!r}")
+
+    buckets: dict[str, dict[str, int]] = {k: {} for k, _ in _EXPORT_ORDER}
+    for row in deck.get("cards", []):
+        if row.get("is_sideboard"):
+            section = "sideboard"
+        elif row.get("is_commander"):
+            section = "commander"
+        else:
+            section = "main"
+        name = row["card_name"]
+        buckets[section][name] = buckets[section].get(name, 0) + row["quantity"]
+
+    all_names = [n for b in buckets.values() for n in b]
+    facts = q.get_card_facts(all_names) if (front_face or group_by_role) else {}
+
+    def display(name: str) -> str:
+        if not front_face or " // " not in name:
+            return name
+        fact = facts.get(name)
+        # A split card's name is the whole `A // B`; shortening it produces a
+        # string that resolves to nothing.
+        if fact and (fact.get("layout") or "") == "split":
+            return name
+        return name.split(" // ", 1)[0]
+
+    lines: list[str] = []
+    counts: dict[str, int] = {}
+    for key, header in _EXPORT_ORDER:
+        entries = buckets[key]
+        if not entries:
+            continue
+        counts[key] = sum(entries.values())
+        if headers:
+            if lines:
+                lines.append("")
+            lines.append(header)
+        if group_by_role:
+            by_role: dict[str, list[str]] = {}
+            for name in entries:
+                fact = facts.get(name)
+                role = roles.classify(fact).primary if fact else "utility"
+                by_role.setdefault(role, []).append(name)
+            for role in roles.ROLES:
+                names = sorted(by_role.get(role, []))
+                if not names:
+                    continue
+                lines.append(f"// {roles.LABELS[role]} ({sum(entries[n] for n in names)})")
+                lines.extend(f"{entries[n]} {display(n)}" for n in names)
+        else:
+            lines.extend(f"{entries[n]} {display(n)}" for n in sorted(entries))
+
+    text = "\n".join(lines) + ("\n" if lines else "")
+    return DeckExport(text, sum(counts.values()),
+                      sum(len(b) for b in buckets.values()), counts)

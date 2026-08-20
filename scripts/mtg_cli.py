@@ -10,6 +10,7 @@ Subcommands:
     mtg_cli.py search-rules <text>
     mtg_cli.py search [--name X] [--tag Y] [--type Z] [--mana-ability] [--limit N]
     mtg_cli.py correction [--card X] [--topic Y]
+    mtg_cli.py deck export <name> [--to-file PATH]   # paste into Moxfield
 
 Output is human-readable, monospace-friendly ASCII (no unicode borders)
 so it renders cleanly on Windows consoles. All queries are read-only.
@@ -242,6 +243,16 @@ def _cmd_deck(args) -> int:
                 return 1
             print(_render_import_result(args.name, result))
             return 0
+        if action == "export":
+            ref = svc.DeckRef(deck=args.name, folder=args.folder)
+            exported = svc.export_deck_text(
+                ref, front_face=args.front_face, group_by_role=args.grouped)
+            if args.to_file:
+                Path(args.to_file).write_text(exported.text, encoding="utf-8")
+                print(f"OK wrote {exported.cards} cards to {args.to_file}")
+            else:
+                print(exported.text, end="")
+            return 0
         if action == "combos":
             combos = d.combos_in_deck(args.name, folder=args.folder)
             if args.json:
@@ -352,11 +363,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=_cmd_folder)
 
     sp = sub.add_parser("deck", help=(
-        "Manage decks: deck (show|new|delete|rename|move|add|remove|import) <name> ..."
+        "Manage decks: deck (show|new|delete|rename|move|add|remove|import|"
+        "export|combos) <name> ..."
     ))
     sp.add_argument(
         "action",
-        choices=["show", "new", "delete", "rename", "move", "add", "remove", "import", "combos"],
+        choices=["show", "new", "delete", "rename", "move", "add", "remove",
+                 "import", "export", "combos"],
     )
     sp.add_argument("name", help="Deck name.")
     sp.add_argument("--folder", help="Folder the deck lives in (disambiguates duplicates).")
@@ -371,6 +384,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--commander", action="store_true", help="(add) add as commander.")
     sp.add_argument("--sideboard", action="store_true", help="(add) add to sideboard.")
     sp.add_argument("--from-file", help="(import) read deckstring from this file.")
+    sp.add_argument("--to-file", help="(export) write the decklist here instead of stdout.")
+    sp.add_argument("--front-face", action="store_true",
+                    help="(export) shorten two-faced names to the front face "
+                         "(split cards keep their full name — 'Fire' is not a card).")
+    sp.add_argument("--grouped", action="store_true",
+                    help="(export) add `//` role headers; importers skip them.")
     sp.set_defaults(func=_cmd_deck)
 
     return p

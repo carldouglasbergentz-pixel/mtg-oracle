@@ -23,7 +23,7 @@ COMMANDS = [
     # Terminal-style navigation
     "cd", "pwd", "ls", "mkdir", "rmdir",
     "add", "remove", "show", "rename", "move",
-    "commander", "format", "points", "import", "paste",
+    "commander", "format", "points", "import", "paste", "export",
     # Maintenance
     "sync",
     # Misc
@@ -105,6 +105,12 @@ INSIDE A DECK (`/<folder>/<deck>/`)
                             append to current deck (Windows / macOS / Linux)
   import <filepath>         load a deckstring from a text file
                             (appended to the current deck)
+  export                    copy the deck to the clipboard as a `N Card Name`
+                            list — paste straight into Moxfield or Archidekt
+  export <filepath>         write that list to a file instead
+  export --front-face       shorten two-faced names to the front face
+                            (split cards keep `//`; `Fire` is not a card)
+  export --grouped          add `// role` headers; importers skip them
 
 Card-name resolution is tolerant of `/` vs ` // ` and front-face-only DFC
 names: `add fire/ice` resolves to the canonical `Fire // Ice`.
