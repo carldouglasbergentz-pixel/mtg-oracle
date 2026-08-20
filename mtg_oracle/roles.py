@@ -82,9 +82,20 @@ LABELS = {
 # `profile_deck` would count it as a rock and the on-curve model would hand
 # the deck a permanent extra mana from turn one onward. One-shot mana must
 # never look like a mana base.
-PRIMARY_ORDER = ("land", "ritual", "mana", "planeswalker", "sweeper", "counter",
-                 "discard", "spot", "tutor", "recursion", "threat", "burn",
-                 "draw", "cantrip", "utility")
+#
+# `mana` sits BELOW the answers, and that was a bug for a while. It used to be
+# second, so that a Mox or a dork won over whatever else it happened to do —
+# but Tagger tags the *drawback* too, and `land ramp` fires on Path to Exile
+# because the opponent gets the basic. Path to Exile, Erode and Emergency
+# Eject all read as mana sources, and so did Teferi, Hero of Dominaria and
+# three Chandras, whose `+1` untaps or makes mana. Nothing is played as a mana
+# source *and* as removal; you never cast Path for the land. Moving `mana`
+# under `spot` corrected eleven cards across 34 reference lists and broke
+# none: a real mana source has no answer role to lose to, so Sol Ring, the
+# Moxen and Birds of Paradise are untouched.
+PRIMARY_ORDER = ("land", "ritual", "planeswalker", "sweeper", "counter",
+                 "discard", "spot", "mana", "tutor", "recursion", "threat",
+                 "burn", "draw", "cantrip", "utility")
 
 # --- Scryfall Tagger labels ---------------------------------------------
 #

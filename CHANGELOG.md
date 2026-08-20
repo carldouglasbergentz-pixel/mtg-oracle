@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (`mana` outranked the answers, so Path to Exile was a mana source)
+- **`mana` sat second in `PRIMARY_ORDER`**, so that a Mox or a dork would win over whatever else it happened to do. But Tagger tags the *drawback* as well as the effect, and `land ramp` fires on **Path to Exile** because the opponent gets the basic. Path to Exile, Erode and Emergency Eject all classified as mana sources — as did **Teferi, Hero of Dominaria** and three Chandras, whose `+1` untaps lands or adds mana.
+    - Nothing is played as a mana source *and* as removal; nobody casts Path for the land. Moving `mana` below `spot` / `counter` / `sweeper` / `discard` corrected **eleven cards across 34 reference lists and broke none** — a real mana source has no answer role to lose to, so Sol Ring, the Moxen, Birds of Paradise and Utopia Sprawl are untouched. Measured before the change, not asserted after.
+    - It also fixes planeswalkers: `planeswalker` already outranked everything but `land`, `ritual` and `mana`, so a walker with a mana ability slipped past its own rule.
+    - Found while reviewing the user's Elminster deck card by card — the deck was reported as 8 removal / 3 mana sources when it is 10 removal / 0. `mana_sources` was overstated by the same 2.
+- 3 more tests, 193 total.
+
 ### Fixed (thirteen real decklists, four silent data-loss bugs)
 Every one of these was found by pointing the pipeline at 13 Elminster lists from mtgtop8 and Moxfield. All four are silent by nature — the parser returns a plausible deck, the count even looks right, and cards are simply gone.
 

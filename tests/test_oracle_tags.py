@@ -153,6 +153,9 @@ class OracleTagTestCase(unittest.TestCase):
         # Sanity anchors that must not move.
         "Counterspell", "Swords to Plowshares", "Brainstorm", "Wrath of God",
         "Sol Ring", "Island",
+        # Removal and planeswalkers that Tagger also calls ramp.
+        "Path to Exile", "Erode", "Teferi, Hero of Dominaria",
+        "Birds of Paradise",
     ]
 
     @classmethod
@@ -196,6 +199,26 @@ class TestTagsFillTheGaps(OracleTagTestCase):
             with self.subTest(card=name):
                 self.assertEqual(self.primary(name), "threat")
                 self.assertNotIn("recursion", self.roles(name))
+
+    def test_removal_that_ramps_the_OPPONENT_is_still_removal(self):
+        """Tagger tags the drawback too, and `land ramp` fires on Path to
+        Exile because the opponent gets the basic. With `mana` above `spot`,
+        the format's premier white removal spell was a mana source."""
+        for name in ("Path to Exile", "Erode"):
+            with self.subTest(card=name):
+                self.assertEqual(self.primary(name), "spot")
+                self.assertIn("mana", self.roles(name))  # the clause is real
+
+    def test_a_planeswalker_that_untaps_lands_is_still_a_threat(self):
+        """Teferi, Hero of Dominaria's `+1` untaps two lands. It read as a Mox."""
+        self.assertEqual(self.primary("Teferi, Hero of Dominaria"), "threat")
+
+    def test_a_real_mana_source_still_wins_its_primary(self):
+        """The inverse guard: moving `mana` down must not demote the Moxen."""
+        for name in ("Sol Ring", "Birds of Paradise", "Utopia Sprawl",
+                     "Sapphire Medallion"):
+            with self.subTest(card=name):
+                self.assertEqual(self.primary(name), "mana")
 
     def test_a_ritual_is_never_counted_as_a_mana_source(self):
         """Dark Ritual is tagged `adds multiple mana` as well as `ritual`.
