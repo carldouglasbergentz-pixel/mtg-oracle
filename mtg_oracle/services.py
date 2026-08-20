@@ -388,26 +388,28 @@ def profile_deck(
         if miracle and cl.cost.alternative is not None:
             cl = replace(cl, cost=replace(cl.cost, effective=cl.cost.alternative,
                                           reason=cl.cost.alternative_reason))
+        # A modal DFC with a land back is a land EVERYWHERE, not just in the
+        # mana count. The draw maths partitions the deck into lands, rocks and
+        # spells and a card can only sit in one bucket, so crediting the spell
+        # half to `role_mv` while `lands` also counted it made a role's total
+        # exceed the spell pile — `probability.category_live` raises on that,
+        # correctly. Consistency is forced here, not chosen: the model says
+        # Sink into Stupor is played as a land, so it is a land in the density
+        # table too, and `mana_sources` reports it separately (`39 lands, 42
+        # with MDFCs`) so the flexibility is still visible.
+        if roles.has_land_back(fact):
+            counts["land"] += qty
+            lands += qty
+            land_backs += qty
+            continue
+
         counts[cl.primary] += qty
         mv = cl.cost.effective
-        # Reach credits the spell half of a modal DFC. A Sink into Stupor is a
-        # counterspell you have when you need a counterspell — that is the
-        # whole reason to play a modal card — and leaving it out put `reach`
-        # BELOW `primary` in the report, which cannot be true of a number that
-        # counts every role a card can fill.
         for role in cl.roles:
             if role in role_mv:
                 role_mv[role][mv] = role_mv[role].get(mv, 0) + qty
                 if cl.engine:
                     engines[role] = engines.get(role, 0) + qty
-        # The mana base and the deck's mana curve treat it as a land instead,
-        # because that is how it is played most of the time. Letting the slot
-        # into `curve` as well would overstate how many real spells there are
-        # and drag the average mana value up with a card nobody hard-casts.
-        if roles.has_land_back(fact):
-            lands += qty
-            land_backs += qty
-            continue
         if cl.primary == "mana":
             rocks += qty
         curve[mv] = curve.get(mv, 0) + qty
@@ -584,21 +586,38 @@ def compare_decks(
         }
 
     # --- card-level diff, which is the actionable half -----------------
-    subj_cards = set(subject["cards"])
-    counts: dict[str, int] = {}
-    for d_ in reference:
-        for name in d_["cards"]:
-            counts[name] = counts.get(name, 0) + 1
-
-    everything = sorted(set(counts) | subj_cards)
+    #
+    # Keyed on the CANONICAL name, not the string the list happened to write.
+    # A two-faced card arrives in three forms — `Sink into Stupor`, `Sink into
+    # Stupor / Soporific Springs`, `Sink into Stupor // Soporific Springs` —
+    # and raw-string set arithmetic made those three different cards. The same
+    # card then appeared in `missing` AND `unique` at once, and `n_lists`
+    # undercounted it by however many lists spelled it the other way.
+    everything = sorted({n for d_ in reference for n in d_["cards"]}
+                        | set(subject["cards"]))
     facts = q.get_card_facts(everything)
     tags = q.get_oracle_tags(everything)
 
-    def describe(name, n_lists):
+    def canonical(name: str) -> str:
         fact = facts.get(name)
+        return fact["name"] if fact else name
+
+    subj_cards = {canonical(n) for n in subject["cards"]}
+    counts: dict[str, int] = {}
+    for d_ in reference:
+        # A set per list: two spellings of one card in one list is still one
+        # list playing it.
+        for name in {canonical(n) for n in d_["cards"]}:
+            counts[name] = counts.get(name, 0) + 1
+
+    canon_facts = {canonical(n): facts[n] for n in everything if n in facts}
+    canon_tags = {canonical(n): tags[n] for n in everything if n in tags}
+
+    def describe(name, n_lists):
+        fact = canon_facts.get(name)
         if fact is None:
             return CardDiff(name, "?", 99, n_lists, n)
-        cl = roles.classify(fact, x_value, tags=tags.get(name, ()))
+        cl = roles.classify(fact, x_value, tags=canon_tags.get(name, ()))
         return CardDiff(fact["name"], cl.primary, cl.cost.effective, n_lists, n)
 
     missing = [describe(name, c) for name, c in counts.items()

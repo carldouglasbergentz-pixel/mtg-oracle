@@ -118,13 +118,54 @@ class TestCompare(unittest.TestCase):
         with self.assertRaises(svc.ServiceError):
             svc.compare_decks(self.decks[0], [])
 
+    def test_a_card_is_never_both_missing_and_unique(self):
+        """Two-faced cards arrive in three spellings.
+
+        `Sink into Stupor`, `Sink into Stupor / Soporific Springs` and
+        `Sink into Stupor // Soporific Springs` are one card. Keying the diff
+        on the raw string made them three, so the same card was reported as
+        missing from the deck AND unique to it, and `n_lists` undercounted it
+        by however many lists spelled it the other way.
+        """
+        refs = [{"name": "a", "cards": {"Sink into Stupor": 1, "Island": 99}},
+                {"name": "b", "cards": {"Sink into Stupor / Soporific Springs": 1,
+                                        "Island": 99}}]
+        subject = {"name": "s",
+                   "cards": {"Sink into Stupor // Soporific Springs": 1,
+                             "Island": 99}}
+        cmp = svc.compare_decks(subject, refs)
+        missing = {c.name for c in cmp.missing}
+        unique = {c.name for c in cmp.unique}
+        self.assertEqual(missing & unique, set())
+        # Everyone plays it, so it belongs to neither list.
+        self.assertEqual(missing, set())
+        self.assertEqual(unique, set())
+
+    def test_n_lists_counts_spellings_as_one_card(self):
+        refs = [{"name": "a", "cards": {"Sink into Stupor": 1, "Island": 99}},
+                {"name": "b", "cards": {"Sink into Stupor / Soporific Springs": 1,
+                                        "Island": 99}}]
+        subject = {"name": "s", "cards": {"Island": 100}}
+        cmp = svc.compare_decks(subject, refs)
+        rows = [c for c in cmp.missing if c.name.startswith("Sink into Stupor")]
+        self.assertEqual(len(rows), 1, [c.name for c in cmp.missing])
+        self.assertEqual(rows[0].n_lists, 2)
+        self.assertEqual(rows[0].name, "Sink into Stupor // Soporific Springs")
+
+    def test_front_face_and_full_name_are_the_same_card(self):
+        """The front-face-only form is what most exports write."""
+        refs = [{"name": "a", "cards": {"Fire": 1, "Island": 99}}]
+        subject = {"name": "s", "cards": {"Fire // Ice": 1, "Island": 99}}
+        cmp = svc.compare_decks(subject, refs)
+        self.assertEqual(cmp.missing, ())
+        self.assertEqual(cmp.unique, ())
+
     def test_roles_covers_the_whole_taxonomy(self):
         cmp = svc.compare_decks(self.decks[0], self.decks[1:])
         self.assertEqual({r.role for r in cmp.roles}, set(R.ROLES))
         self.assertEqual(cmp.mana_sources.role, "mana_sources")
 
 
-@unittest.skipUnless(DB.exists(), "needs data/mtg.db")
 @unittest.skipUnless(DB.exists() and SAMPLES.is_dir(),
                      "needs data/mtg.db and the sample decklists")
 class TestProfileInvariants(unittest.TestCase):
@@ -160,6 +201,39 @@ class TestProfileInvariants(unittest.TestCase):
                     reach = sum(p.role_mv.get(role, {}).values())
                     self.assertGreaterEqual(reach, p.counts.get(role, 0))
 
+    def test_no_role_can_exceed_the_spell_pile(self):
+        """The hard constraint, from the draw maths rather than from taste.
+
+        `probability.category_live` partitions the deck into lands, rocks and
+        spells, so a card sits in exactly one bucket. Crediting a modal DFC's
+        spell half to `role_mv` while `lands` also counted it broke this and
+        raised ValueError mid-report. It was unasserted, which is why it
+        could break.
+        """
+        for p in self.profiles:
+            spells = p.size - p.lands - p.rocks
+            for role in R.ROLES:
+                if role == "land":
+                    continue
+                with self.subTest(deck=p.name, role=role):
+                    self.assertLessEqual(
+                        sum(p.role_mv.get(role, {}).values()), spells)
+
+    def test_a_modal_dfc_with_a_land_back_is_a_land_everywhere(self):
+        """One bucket, consistently: density, reach and the mana count.
+
+        `mana_sources` still reports the flexibility separately, so nothing
+        is hidden — it is just not counted twice.
+        """
+        deck = {"Sink into Stupor // Soporific Springs": 1, "Island": 39,
+                "Counterspell": 60}
+        p = svc.profile_deck("mdfc", deck)
+        self.assertEqual(p.land_backs, 1)
+        self.assertEqual(p.counts["land"], 40)
+        self.assertEqual(p.counts["counter"], 60)
+        self.assertEqual(sum(p.role_mv["counter"].values()), 60)
+        self.assertEqual(p.mana_sources, 40)
+
     def test_rituals_are_not_counted_as_permanent_mana(self):
         """`rocks` feeds the on-curve model as +1 mana every turn, forever."""
         for p in self.profiles:
@@ -167,6 +241,7 @@ class TestProfileInvariants(unittest.TestCase):
                 self.assertLessEqual(p.rocks, p.counts.get("mana", 0))
 
 
+@unittest.skipUnless(DB.exists(), "needs data/mtg.db")
 class TestExportRoundTrip(unittest.TestCase):
     """An exported deck must re-import into the same deck.
 
