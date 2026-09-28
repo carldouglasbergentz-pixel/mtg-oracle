@@ -250,6 +250,10 @@ CREATE TABLE IF NOT EXISTS decks (
     UNIQUE (folder_id, name) ON CONFLICT ABORT
 );
 CREATE INDEX IF NOT EXISTS idx_decks_folder ON decks(folder_id);
+-- The table's UNIQUE misses NULL folders and case variants; this doesn't.
+-- See scripts/migrate_unique_deck_names.py.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_decks_folder_name_nocase_unique
+    ON decks(COALESCE(folder_id, 0), name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS deck_cards (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -188,8 +188,8 @@ class TestNoRealNameIsDamaged(unittest.TestCase):
             conn.close()
         damaged = []
         for name in names_:
-            after = dp._SET_TAIL_RE.sub(
-                "", dp._FOIL_TAIL_RE.sub("", name)).strip()
+            after = dp._SET_TAIL_RE.sub("", dp._FOIL_TAIL_RE.sub(
+                "", dp._CATEGORY_TAIL_RE.sub("", name))).strip()
             if after != name:
                 damaged.append((name, after))
         self.assertEqual(damaged, [], f"{len(damaged)} names altered")
@@ -202,6 +202,32 @@ class TestNoRealNameIsDamaged(unittest.TestCase):
             conn.close()
         eaten = [n for n in names_ if dp._is_type_group(f"1 {n}")]
         self.assertEqual(eaten, [])
+
+
+class TestExporterShapes(unittest.TestCase):
+    """Headers and prefixes that used to be parsed as cards, or lost a section."""
+
+    def test_utf8_bom_is_ignored(self):
+        # PowerShell 5.1's Out-File writes one; str.strip() keeps it.
+        rows = parse_deckstring("﻿Commander\n1 Sol Ring")
+        self.assertEqual(rows, [{"name": "Sol Ring", "quantity": 1,
+                                 "section": "commander"}])
+
+    def test_header_with_count(self):
+        rows = parse_deckstring("Commander (1)\n1 Atraxa\nSideboard (2)\n2 Duress")
+        self.assertEqual([(r["name"], r["section"]) for r in rows],
+                         [("Atraxa", "commander"), ("Duress", "sideboard")])
+
+    def test_tokens_section_is_dropped(self):
+        self.assertEqual(names("Deck\n1 Island\nTokens\n1 Treasure"), ["Island"])
+
+    def test_inline_sideboard_prefix(self):
+        self.assertEqual(one("SB: 2 Duress"),
+                         {"name": "Duress", "quantity": 2, "section": "sideboard"})
+
+    def test_archidekt_category_suffix(self):
+        self.assertEqual(one("1x Sol Ring (c21) 263 [Ramp] ^Have,#37d67a^")["name"],
+                         "Sol Ring")
 
 
 if __name__ == "__main__":

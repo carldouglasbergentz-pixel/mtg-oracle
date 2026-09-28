@@ -983,6 +983,15 @@ def render_import_result(deck_name: str, result: dict) -> str:
         lines.append(f"WARNING {len(rejected)} card(s) rejected by deck rules:")
         for name, reason in rejected:
             lines.append(f"{INDENT}- {name}: {reason}")
+    maybeboard = result.get("maybeboard") or 0
+    if maybeboard:
+        lines.append(f"NOTE {maybeboard} maybeboard line(s) not loaded (no maybeboard in decks yet).")
+    format_set = result.get("format_set")
+    if format_set:
+        lines.append(
+            f"NOTE deck format auto-set to {format_set!r} because the list "
+            f"names a commander — its legality and singleton rules now apply."
+        )
     return "\n".join(lines)
 
 

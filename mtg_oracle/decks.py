@@ -9,12 +9,13 @@ front-face-only DFC names.
 from __future__ import annotations
 
 import datetime as dt
+import re
 import sqlite3
 from pathlib import Path
 from typing import Optional
 
 from mtg_oracle.queries import BUSY_TIMEOUT_S, RESTRICTED_MEANS_NO_COMMANDER
-from mtg_oracle.queries import resolve_card_name as _resolve_canonical
+from mtg_oracle.queries import resolve_card_name
 from mtg_oracle.queries import flag_template_vars as _flag_template_vars
 from mtg_oracle.queries import get_card_points as _get_card_points
 from mtg_oracle.queries import is_singleton_format as _is_singleton_format
@@ -25,12 +26,79 @@ DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
 # Phrase Wizards uses on cards that override singleton (Relentless Rats,
 # Shadowborn Apostle, Dragon's Approach, Persistent Petitioners, Rat Colony,
-# Slime Against Humanity, Hare Apparent, Templar Knight, Nazgûl, ...).
+# Slime Against Humanity, Hare Apparent, Templar Knight, ...).
 _UNLIMITED_PHRASE = "a deck can have any number of cards named"
+# The capped variant: Nazgûl ("up to nine"), Seven Dwarves ("up to seven").
+# Spelled out as a word on every printed card, hence the word table.
+_UP_TO_RE = re.compile(r"a deck can have up to (\w+) cards named")
+_NUMBER_WORDS = {
+    "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}
 
 
 class DeckError(ValueError):
     """Raised for deck-layer validation errors — surfaces to UI."""
+
+
+class CardNotFoundError(DeckError):
+    """A card name that resolves to nothing in the cards table."""
+
+
+class AmbiguousDeckError(DeckError):
+    """A deck name that matches decks in more than one folder.
+
+    `folders` lists where, each value usable as a `folder=` argument
+    (`UNSORTED` for a deck outside any folder).
+    """
+
+    def __init__(self, name: str, folders: list[str]):
+        self.folders = folders
+        super().__init__(
+            f"ambiguous deck name {name!r} — it exists in "
+            f"{', '.join(folders)}; pass a folder "
+            f"({UNSORTED!r} for a deck outside any folder)"
+        )
+
+
+# How to address "decks outside any folder". Every public function taking
+# `folder` reads it three ways:
+#     None / ""      any folder — the name alone must be unique
+#     UNSORTED       only decks with no folder
+#     "<name>"       only that folder
+# It is the same string every surface already displays for those decks, and
+# create_folder refuses it as a folder name so it can never mean both.
+UNSORTED = "(unsorted)"
+
+
+def is_unsorted(folder: Optional[str]) -> bool:
+    """True when `folder` names the decks outside any folder."""
+    return bool(folder) and folder.strip().lower() == UNSORTED
+
+
+def _assert_valid_name(name: str, kind: str) -> None:
+    """'/' separates folder and deck in every path surface (`cd F/D`,
+    `show F/D`), so a name containing one could never be addressed."""
+    if "/" in name:
+        raise DeckError(
+            f"{kind} name {name!r} contains '/', which separates folder and "
+            f"deck in a path (<folder>/<deck>) — pick another name"
+        )
+
+
+# Upper bound on one row's quantity. Well past any real deck (Relentless Rats
+# lists run ~40), and far below SQLite's INTEGER limit, which an unchecked
+# `99999999999999999999 Mountain` paste overflowed with a raw OverflowError.
+MAX_QUANTITY = 999
+
+
+class QuantityError(DeckError):
+    """A row quantity outside 1..MAX_QUANTITY. Not waived by `force`."""
+
+
+def _check_quantity(quantity: int) -> None:
+    if not 1 <= quantity <= MAX_QUANTITY:
+        raise QuantityError(f"quantity must be between 1 and {MAX_QUANTITY}")
 
 
 # --- Connection helpers ----------------------------------------------
@@ -58,19 +126,15 @@ def _now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-# --- Card-name resolution --------------------------------------------
-
-# Re-exported from queries.resolve_card_name so deck operations and the
-# card-lookup path share the exact same matching rules.
-resolve_card_name = _resolve_canonical
-
-
 # --- Folders ---------------------------------------------------------
 
 def create_folder(name: str) -> int:
     name = name.strip()
     if not name:
         raise DeckError("folder name required")
+    _assert_valid_name(name, "folder")
+    if is_unsorted(name):
+        raise DeckError(f"{UNSORTED!r} is reserved for decks outside any folder")
     conn = _rw()
     try:
         cur = conn.cursor()
@@ -106,7 +170,7 @@ def list_folders() -> list[dict]:
         unsorted = cur.fetchone()[0]
         if unsorted:
             rows.append({
-                "id": None, "name": "(unsorted)", "created_at": None,
+                "id": None, "name": UNSORTED, "created_at": None,
                 "format": None, "deck_count": unsorted,
             })
         return rows
@@ -140,6 +204,13 @@ def set_folder_format(
     because the folder is a default and not an authority.
     """
     fmt = (fmt or "").strip() or None
+    if is_unsorted(name) or not (name or "").strip():
+        # _folder_id reads both as "no folder", and the UPDATE below would
+        # then match nothing and report success.
+        raise DeckError(
+            "decks outside a folder have no folder default; set each "
+            "deck's own format instead"
+        )
     conn = _rw()
     try:
         cur = conn.cursor()
@@ -177,6 +248,20 @@ def delete_folder(name: str, force: bool = False) -> None:
                 f"folder {name!r} contains {n} deck(s); pass force=True or move them first"
             )
         if n and force:
+            cur.execute(
+                "SELECT d.name FROM decks d WHERE d.folder_id = ? AND EXISTS ("
+                "  SELECT 1 FROM decks u WHERE u.folder_id IS NULL"
+                "  AND u.name = d.name COLLATE NOCASE) "
+                "ORDER BY d.name COLLATE NOCASE",
+                (fid,),
+            )
+            clashes = [r[0] for r in cur.fetchall()]
+            if clashes:
+                raise DeckError(
+                    f"cannot move the decks in {name!r} to {UNSORTED}: "
+                    f"a deck there already has the name "
+                    f"{', '.join(repr(c) for c in clashes)}. Rename first."
+                )
             cur.execute("UPDATE decks SET folder_id = NULL WHERE folder_id = ?", (fid,))
         cur.execute("DELETE FROM deck_folders WHERE id = ?", (fid,))
         conn.commit()
@@ -185,7 +270,8 @@ def delete_folder(name: str, force: bool = False) -> None:
 
 
 def _folder_id(cur, name: Optional[str]) -> Optional[int]:
-    if not name:
+    """The folder's id, or None for "no folder" (None, "" or UNSORTED)."""
+    if not name or is_unsorted(name):
         return None
     cur.execute("SELECT id FROM deck_folders WHERE name = ? COLLATE NOCASE", (name,))
     row = cur.fetchone()
@@ -202,40 +288,87 @@ def create_deck(
     format: Optional[str] = None,
     description: Optional[str] = None,
 ) -> int:
-    name = name.strip()
-    if not name:
-        raise DeckError("deck name required")
+    """Create an empty deck. `folder` None, "" or UNSORTED: outside any folder."""
     conn = _rw()
     try:
-        cur = conn.cursor()
-        fid = _folder_id(cur, folder)
-        if format is None and fid is not None:
-            # Inherit the folder's default. This is the whole point of the
-            # folder format: a deck dropped into "Canadian Highlander" should
-            # get Canlander's rules without being told twice.
-            cur.execute("SELECT format FROM deck_folders WHERE id = ?", (fid,))
-            row = cur.fetchone()
-            format = (row["format"] if row else None) or None
-        try:
-            cur.execute(
-                """
-                INSERT INTO decks (folder_id, name, format, description, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (fid, name, format, description, _now(), _now()),
-            )
-        except sqlite3.IntegrityError:
-            raise DeckError(f"deck {name!r} already exists in folder {folder or '(unsorted)'}")
+        did = _create_deck(conn.cursor(), name, folder, format, description)
         conn.commit()
-        return cur.lastrowid
+        return did
     finally:
         conn.close()
 
 
+def _create_deck(
+    cur,
+    name: str,
+    folder: Optional[str],
+    format: Optional[str],
+    description: Optional[str],
+) -> int:
+    """`create_deck` on an open cursor; the caller commits."""
+    name = name.strip()
+    if not name:
+        raise DeckError("deck name required")
+    _assert_valid_name(name, "deck")
+    # Same normalisation as set_deck_format: a blank format is no format,
+    # never a stored '' that reads as "set" to some checks and not others.
+    format = (format or "").strip() or None
+    fid = _folder_id(cur, folder)
+    _assert_deck_name_free(cur, name, fid)
+    if format is None and fid is not None:
+        # Inherit the folder's default. This is the whole point of the
+        # folder format: a deck dropped into "Canadian Highlander" should
+        # get Canlander's rules without being told twice.
+        cur.execute("SELECT format FROM deck_folders WHERE id = ?", (fid,))
+        row = cur.fetchone()
+        format = (row["format"] if row else None) or None
+    try:
+        cur.execute(
+            """
+            INSERT INTO decks (folder_id, name, format, description, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (fid, name, format, description, _now(), _now()),
+        )
+    except sqlite3.IntegrityError:
+        # Only reachable in a race with another writer; the check above
+        # gives the same message first.
+        raise DeckError(_name_taken_message(cur, name, fid))
+    return cur.lastrowid
+
+
+def _assert_deck_name_free(
+    cur, name: str, fid: Optional[int], except_id: Optional[int] = None,
+) -> None:
+    """Raise unless no other deck in folder `fid` has this name, any case.
+
+    Checked here rather than left to the unique index, because the index
+    only exists once `migrate_unique_deck_names.py` has run, and its error
+    names an index rather than the deck.
+    """
+    cur.execute(
+        "SELECT 1 FROM decks WHERE folder_id IS ? AND name = ? COLLATE NOCASE "
+        "AND id IS NOT ?",
+        (fid, name, except_id),
+    )
+    if cur.fetchone():
+        raise DeckError(_name_taken_message(cur, name, fid))
+
+
+def _name_taken_message(cur, name: str, fid: Optional[int]) -> str:
+    where = UNSORTED
+    if fid is not None:
+        cur.execute("SELECT name FROM deck_folders WHERE id = ?", (fid,))
+        row = cur.fetchone()
+        where = f"folder {row[0]!r}" if row else where
+    return f"a deck named {name!r} already exists in {where}"
+
+
 def list_decks(folder: Optional[str] = None) -> list[dict]:
-    """List decks; optional folder filter. Returns deck + folder + card count
-    + commander_ci (sorted list of letters, [] for colorless commander, None
-    when no commander is set on the deck)."""
+    """List decks; optional folder filter (None: every deck, UNSORTED: decks
+    outside any folder). Returns deck + folder + card count + commander_ci
+    (sorted list of letters, [] for colorless commander, None when no
+    commander is set on the deck)."""
     conn = _ro()
     try:
         cur = conn.cursor()
@@ -247,7 +380,7 @@ def list_decks(folder: Optional[str] = None) -> list[dict]:
                        d.created_at, d.updated_at,
                        (SELECT name FROM deck_folders WHERE id = d.folder_id) AS folder,
                        (SELECT COALESCE(SUM(quantity), 0) FROM deck_cards dc WHERE dc.deck_id = d.id) AS card_count
-                FROM decks d WHERE d.folder_id = ?
+                FROM decks d WHERE d.folder_id IS ?
                 ORDER BY d.name COLLATE NOCASE
                 """,
                 (fid,),
@@ -272,37 +405,49 @@ def list_decks(folder: Optional[str] = None) -> list[dict]:
 
 
 def _deck_id(cur, name: str, folder: Optional[str] = None) -> int:
-    """Find a deck by name. If multiple decks share a name across folders,
-    raise unless `folder` disambiguates."""
+    """Find a deck by name, in `folder` (see UNSORTED for the three meanings).
+
+    Raises DeckError when there is no such deck or folder, and
+    AmbiguousDeckError when `folder` is None and several folders have one.
+    """
     if folder:
         fid = _folder_id(cur, folder)
         cur.execute(
-            "SELECT id FROM decks WHERE name = ? COLLATE NOCASE AND folder_id IS ?",
+            "SELECT d.id, f.name FROM decks d "
+            "LEFT JOIN deck_folders f ON f.id = d.folder_id "
+            "WHERE d.name = ? COLLATE NOCASE AND d.folder_id IS ?",
             (name, fid),
         )
     else:
         cur.execute(
-            "SELECT id, folder_id FROM decks WHERE name = ? COLLATE NOCASE",
+            "SELECT d.id, f.name FROM decks d "
+            "LEFT JOIN deck_folders f ON f.id = d.folder_id "
+            "WHERE d.name = ? COLLATE NOCASE "
+            "ORDER BY f.name IS NULL, f.name COLLATE NOCASE",
             (name,),
         )
     rows = cur.fetchall()
     if not rows:
         raise DeckError(f"deck not found: {name!r}")
     if len(rows) > 1:
-        raise DeckError(
-            f"ambiguous deck name {name!r} — exists in multiple folders; "
-            "disambiguate with a folder argument"
-        )
+        raise AmbiguousDeckError(name, [r[1] or UNSORTED for r in rows])
     return rows[0][0]
 
 
 def get_deck(name: str, folder: Optional[str] = None) -> Optional[dict]:
-    """Full deck with all cards + their type_line + mana_cost merged in."""
+    """Full deck with all cards + their type_line + mana_cost merged in.
+
+    None when there is no such deck (or no such folder). A name that matches
+    decks in several folders raises AmbiguousDeckError instead — "missing"
+    and "say which one" need different answers from the caller.
+    """
     conn = _ro()
     try:
         cur = conn.cursor()
         try:
             did = _deck_id(cur, name, folder)
+        except AmbiguousDeckError:
+            raise
         except DeckError:
             return None
         cur.execute(
@@ -367,37 +512,45 @@ def rename_deck(old_name: str, new_name: str, folder: Optional[str] = None) -> N
     new_name = new_name.strip()
     if not new_name:
         raise DeckError("new deck name required")
+    _assert_valid_name(new_name, "deck")
     conn = _rw()
     try:
         cur = conn.cursor()
         did = _deck_id(cur, old_name, folder)
+        cur.execute("SELECT folder_id FROM decks WHERE id = ?", (did,))
+        fid = cur.fetchone()[0]
+        # except_id: renaming `foo` to `Foo` is a case change, not a clash.
+        _assert_deck_name_free(cur, new_name, fid, except_id=did)
         try:
             cur.execute(
                 "UPDATE decks SET name = ?, updated_at = ? WHERE id = ?",
                 (new_name, _now(), did),
             )
         except sqlite3.IntegrityError:
-            raise DeckError(f"deck {new_name!r} already exists in the same folder")
+            raise DeckError(_name_taken_message(cur, new_name, fid))
         conn.commit()
     finally:
         conn.close()
 
 
 def move_deck(name: str, new_folder: Optional[str], folder: Optional[str] = None) -> None:
+    """Move a deck to `new_folder`; None, "" or UNSORTED moves it out of
+    every folder."""
     conn = _rw()
     try:
         cur = conn.cursor()
         did = _deck_id(cur, name, folder)
-        new_fid = _folder_id(cur, new_folder) if new_folder else None
+        new_fid = _folder_id(cur, new_folder)
+        cur.execute("SELECT name FROM decks WHERE id = ?", (did,))
+        stored_name = cur.fetchone()[0]
+        _assert_deck_name_free(cur, stored_name, new_fid, except_id=did)
         try:
             cur.execute(
                 "UPDATE decks SET folder_id = ?, updated_at = ? WHERE id = ?",
                 (new_fid, _now(), did),
             )
         except sqlite3.IntegrityError:
-            raise DeckError(
-                f"deck {name!r} already exists in folder {new_folder or '(unsorted)'}"
-            )
+            raise DeckError(_name_taken_message(cur, stored_name, new_fid))
         conn.commit()
     finally:
         conn.close()
@@ -411,10 +564,21 @@ def _is_basic_land(type_line: Optional[str]) -> bool:
     return "Basic" in type_line and "Land" in type_line
 
 
-def _allows_unlimited_copies(oracle_text: Optional[str]) -> bool:
-    if not oracle_text:
-        return False
-    return _UNLIMITED_PHRASE in oracle_text.lower()
+def _singleton_copy_limit(
+    type_line: Optional[str], oracle_text: Optional[str],
+) -> Optional[int]:
+    """Copies of this card a singleton format allows; None means no limit."""
+    if _is_basic_land(type_line):
+        return None
+    text = (oracle_text or "").lower()
+    if _UNLIMITED_PHRASE in text:
+        return None
+    m = _UP_TO_RE.search(text)
+    if m:
+        # An unknown number word falls back to singleton: rejecting a legal
+        # copy is loud and forceable, allowing an illegal one is silent.
+        return _NUMBER_WORDS.get(m.group(1), 1)
+    return 1
 
 
 def _deck_color_identity_inner(cur, did: int) -> Optional[list[str]]:
@@ -586,7 +750,6 @@ def _assert_legal_in_format(
     fmt_info: Optional[dict],
     *,
     is_commander: bool,
-    is_sideboard: bool,
     quantity: int,
     singleton: bool,
 ) -> None:
@@ -625,25 +788,27 @@ def _assert_legal_in_format(
                     f"Pass force=True to override."
                 )
         elif not singleton:
-            # Copy restriction (Vintage, Old School): one only. In a
-            # singleton format the singleton rule already caps it and gives
-            # the clearer message, so don't pre-empt it.
+            # Copy restriction (Vintage, Old School): one copy across main
+            # deck AND sideboard combined — unlike the singleton rule, which
+            # this project applies per section. In a singleton format the
+            # singleton rule already caps it and gives the clearer message,
+            # so don't pre-empt it.
             cur.execute(
                 "SELECT COALESCE(SUM(quantity), 0) FROM deck_cards "
-                "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE "
-                "  AND is_sideboard = ?",
-                (deck_id, canonical, int(is_sideboard)),
+                "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE",
+                (deck_id, canonical),
             )
             if cur.fetchone()[0] + quantity > 1:
                 raise DeckError(
-                    f"{canonical!r} is restricted in {label} (limit 1 copy). "
+                    f"{canonical!r} is restricted in {label} (limit 1 copy "
+                    f"across main deck and sideboard). "
                     f"Pass force=True to override."
                 )
 
 
 def _assert_points_fit(
-    deck_name: str,
-    folder: Optional[str],
+    cur,
+    did: int,
     canonical: str,
     fmt_info: Optional[dict],
     *,
@@ -660,6 +825,9 @@ def _assert_points_fit(
     deck — which is what a points cap applies to. Charging the sideboard
     against a main-deck total would let two 8-point sideboard cards both
     pass while the badge still read 2/10.
+
+    Runs on the caller's cursor: inside an import transaction, a fresh
+    connection would not see the rows loaded so far.
     """
     if is_sideboard:
         return
@@ -668,7 +836,7 @@ def _assert_points_fit(
     card_pts = _get_card_points(fmt_info["key"]).get(canonical)
     if not card_pts:
         return
-    spent = deck_points(deck_name, folder)
+    spent = _deck_points_inner(cur, did, fmt_info)
     already = spent["total"] if spent else 0
     budget = fmt_info["points_budget"]
     cost = card_pts * quantity
@@ -677,6 +845,34 @@ def _assert_points_fit(
             f"{canonical!r} costs {card_pts} point(s) in {fmt_info['label']}; "
             f"the deck is at {already}/{budget} and would go to "
             f"{already + cost}. Pass force=True to override."
+        )
+
+
+def _assert_can_be_added_as_commander(
+    cur, deck_id: int, canonical: str, quantity: int,
+) -> None:
+    """Raise DeckError unless this is a fresh, single commander copy."""
+    if quantity != 1:
+        raise DeckError(
+            f"a commander is a single card; cannot add {quantity}x "
+            f"{canonical!r} as commander. Pass force=True to override."
+        )
+    cur.execute(
+        "SELECT MAX(is_commander) FROM deck_cards "
+        "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE "
+        "  AND is_sideboard = 0",
+        (deck_id, canonical),
+    )
+    already = cur.fetchone()[0]
+    if already == 1:
+        raise DeckError(
+            f"{canonical!r} is already a commander of this deck. "
+            f"Pass force=True to override."
+        )
+    if already == 0:
+        raise DeckError(
+            f"{canonical!r} is already in the main deck; promote that copy "
+            f"to commander instead. Pass force=True to override."
         )
 
 
@@ -705,7 +901,6 @@ def add_card_to_deck(
     is_commander: bool = False,
     is_sideboard: bool = False,
     folder: Optional[str] = None,
-    resolve: bool = True,
     force: bool = False,
 ) -> str:
     """Returns the canonical card name that was added (helpful for echoing
@@ -725,120 +920,152 @@ def add_card_to_deck(
     - Singleton: in a singleton format (commander, canadian highlander, ...),
       a card already in the deck cannot be added again unless it's a basic
       land or its oracle text says "a deck can have any number of cards
-      named ...". Sideboard rows do not interact with singleton checks
-      against main-deck rows.
+      named ..."; "a deck can have up to N cards named ..." caps it at N.
+      Sideboard rows do not interact with singleton checks against
+      main-deck rows.
+    - Commander: `is_commander=True` adds exactly one copy, and is refused
+      when the card is already a commander or already in the main deck
+      (promote that copy with `set_commander` instead).
     """
-    if quantity < 1:
-        raise DeckError("quantity must be >= 1")
-    canonical = resolve_card_name(card_name) if resolve else card_name
-    if not canonical:
-        raise DeckError(f"card not found: {card_name!r}")
     conn = _rw()
     try:
         cur = conn.cursor()
         did = _deck_id(cur, deck_name, folder)
-
-        # Look up the card's metadata once for validation.
-        cur.execute(
-            "SELECT color_identity, type_line, oracle_text FROM cards "
-            "WHERE name = ? COLLATE NOCASE",
-            (canonical,),
+        canonical = _add_card(
+            cur, did, card_name, quantity=quantity, category=category,
+            is_commander=is_commander, is_sideboard=is_sideboard, force=force,
         )
-        meta = cur.fetchone()
-        card_ci = (meta["color_identity"] if meta else None) or ""
-        card_type = (meta["type_line"] if meta else None)
-        card_oracle = (meta["oracle_text"] if meta else None)
-
-        # CI validation (skipped for the commander itself — adding a
-        # commander defines the CI, it isn't checked against it).
-        if not force and not is_commander:
-            deck_ci = _deck_color_identity_inner(cur, did)
-            if deck_ci is not None:
-                card_letters = {ch for ch in card_ci.split(",") if ch}
-                allowed = set(deck_ci)
-                outside = sorted(card_letters - allowed)
-                if outside:
-                    deck_label = "{" + ",".join(deck_ci) + "}" if deck_ci else "{colorless}"
-                    raise DeckError(
-                        f"{canonical!r} has color identity "
-                        f"{{{','.join(sorted(card_letters))}}} which is outside "
-                        f"the deck's CI {deck_label} (offending: {','.join(outside)}). "
-                        f"Pass force=True to override."
-                    )
-
-        cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
-        fmt = cur.fetchone()["format"]
-        fmt_info = _resolve_format(fmt)
-        singleton = _is_singleton_format(fmt)
-
-        if not force:
-            _assert_legal_in_format(
-                cur, did, canonical, fmt_info,
-                is_commander=is_commander, is_sideboard=is_sideboard,
-                quantity=quantity, singleton=singleton,
-            )
-
-        # Singleton validation. Sideboard cards are validated against
-        # other sideboard rows; main vs. sideboard are independent.
-        # Runs BEFORE the points check: a duplicate pointed card deserves
-        # "you already have one" rather than a budget arithmetic error.
-        if (not force and not is_commander and singleton
-                and not _is_basic_land(card_type)
-                and not _allows_unlimited_copies(card_oracle)):
-            cur.execute(
-                """
-                SELECT COALESCE(SUM(quantity), 0) FROM deck_cards
-                WHERE deck_id = ? AND card_name = ? COLLATE NOCASE
-                  AND is_sideboard = ?
-                """,
-                (did, canonical, int(is_sideboard)),
-            )
-            current = cur.fetchone()[0]
-            if current + quantity > 1:
-                section = "sideboard" if is_sideboard else "main deck"
-                raise DeckError(
-                    f"singleton format ({fmt!r}): {canonical!r} would have "
-                    f"{current + quantity} copies in the {section} "
-                    f"(limit is 1; basics and 'any number' cards are exempt). "
-                    f"Pass force=True to override."
-                )
-
-        if not force:
-            _assert_points_fit(
-                deck_name, folder, canonical, fmt_info,
-                quantity=quantity, is_sideboard=is_sideboard,
-            )
-
-        # If the same (card, commander/sideboard) row already exists, merge qty.
-        cur.execute(
-            """
-            SELECT id, quantity FROM deck_cards
-            WHERE deck_id = ? AND card_name = ? COLLATE NOCASE
-              AND is_commander = ? AND is_sideboard = ?
-            """,
-            (did, canonical, int(is_commander), int(is_sideboard)),
-        )
-        existing = cur.fetchone()
-        if existing:
-            cur.execute(
-                "UPDATE deck_cards SET quantity = ? WHERE id = ?",
-                (existing["quantity"] + quantity, existing["id"]),
-            )
-        else:
-            cur.execute(
-                """
-                INSERT INTO deck_cards
-                  (deck_id, card_name, quantity, category, is_commander, is_sideboard, added_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (did, canonical, quantity, category,
-                 int(is_commander), int(is_sideboard), _now()),
-            )
-        cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
         conn.commit()
         return canonical
     finally:
         conn.close()
+
+
+def _add_card(
+    cur,
+    did: int,
+    card_name: str,
+    *,
+    quantity: int,
+    category: Optional[str],
+    is_commander: bool,
+    is_sideboard: bool,
+    force: bool,
+) -> str:
+    """`add_card_to_deck` on an open cursor; the caller commits.
+
+    Every check runs before the first write, so a DeckError leaves the
+    transaction exactly as it found it — which is what lets an import skip
+    a rejected row and carry on.
+    """
+    _check_quantity(quantity)
+    canonical = resolve_card_name(card_name)
+    if not canonical:
+        raise CardNotFoundError(f"card not found: {card_name!r}")
+    # Look up the card's metadata once for validation.
+    cur.execute(
+        "SELECT color_identity, type_line, oracle_text FROM cards "
+        "WHERE name = ? COLLATE NOCASE",
+        (canonical,),
+    )
+    meta = cur.fetchone()
+    card_ci = (meta["color_identity"] if meta else None) or ""
+    card_type = (meta["type_line"] if meta else None)
+    card_oracle = (meta["oracle_text"] if meta else None)
+
+    # CI validation (skipped for the commander itself — adding a
+    # commander defines the CI, it isn't checked against it).
+    if not force and not is_commander:
+        deck_ci = _deck_color_identity_inner(cur, did)
+        if deck_ci is not None:
+            card_letters = {ch for ch in card_ci.split(",") if ch}
+            allowed = set(deck_ci)
+            outside = sorted(card_letters - allowed)
+            if outside:
+                deck_label = "{" + ",".join(deck_ci) + "}" if deck_ci else "{colorless}"
+                raise DeckError(
+                    f"{canonical!r} has color identity "
+                    f"{{{','.join(sorted(card_letters))}}} which is outside "
+                    f"the deck's CI {deck_label} (offending: {','.join(outside)}). "
+                    f"Pass force=True to override."
+                )
+
+    cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
+    fmt = cur.fetchone()["format"]
+    fmt_info = _resolve_format(fmt)
+    singleton = _is_singleton_format(fmt)
+
+    if not force:
+        _assert_legal_in_format(
+            cur, did, canonical, fmt_info,
+            is_commander=is_commander,
+            quantity=quantity, singleton=singleton,
+        )
+
+    # A commander is one card, and not also a card in the 99 — in any
+    # format, since the flag itself is what makes this a commander deck.
+    # Checked before singleton so the message names the actual problem.
+    if not force and is_commander and not is_sideboard:
+        _assert_can_be_added_as_commander(cur, did, canonical, quantity)
+
+    # Singleton validation. Sideboard cards are validated against
+    # other sideboard rows; main vs. sideboard are independent.
+    # Runs BEFORE the points check: a duplicate pointed card deserves
+    # "you already have one" rather than a budget arithmetic error.
+    limit = _singleton_copy_limit(card_type, card_oracle)
+    if not force and singleton and limit is not None:
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(quantity), 0) FROM deck_cards
+            WHERE deck_id = ? AND card_name = ? COLLATE NOCASE
+              AND is_sideboard = ?
+            """,
+            (did, canonical, int(is_sideboard)),
+        )
+        current = cur.fetchone()[0]
+        if current + quantity > limit:
+            section = "sideboard" if is_sideboard else "main deck"
+            raise DeckError(
+                f"singleton format ({fmt!r}): {canonical!r} would have "
+                f"{current + quantity} copies in the {section} "
+                f"(limit is {limit}; basics and 'any number' cards are "
+                f"exempt). Pass force=True to override."
+            )
+
+    if not force:
+        _assert_points_fit(
+            cur, did, canonical, fmt_info,
+            quantity=quantity, is_sideboard=is_sideboard,
+        )
+
+    # If the same (card, commander/sideboard) row already exists, merge qty.
+    cur.execute(
+        """
+        SELECT id, quantity FROM deck_cards
+        WHERE deck_id = ? AND card_name = ? COLLATE NOCASE
+          AND is_commander = ? AND is_sideboard = ?
+        """,
+        (did, canonical, int(is_commander), int(is_sideboard)),
+    )
+    existing = cur.fetchone()
+    if existing:
+        _check_quantity(existing["quantity"] + quantity)
+        cur.execute(
+            "UPDATE deck_cards SET quantity = ? WHERE id = ?",
+            (existing["quantity"] + quantity, existing["id"]),
+        )
+    else:
+        cur.execute(
+            """
+            INSERT INTO deck_cards
+              (deck_id, card_name, quantity, category, is_commander, is_sideboard, added_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (did, canonical, quantity, category,
+             int(is_commander), int(is_sideboard), _now()),
+        )
+    cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+    return canonical
 
 
 def set_commander(
@@ -851,15 +1078,17 @@ def set_commander(
     """Promote a card to commander, or demote one with `unset=True`.
 
     Returns (canonical_name, action, format_set) where `action` is one of:
-        'promoted'   — existing main/sideboard row flipped to commander
+        'promoted'   — one copy of an existing main/sideboard row became
+                       the commander (any other copies stay in that row)
         'added'      — card wasn't in deck; inserted as a fresh commander row
-        'unchanged'  — card already a commander row with quantity 1
+        'unchanged'  — card is already a commander
         'demoted'    — commander row flipped back to main (unset path)
     `format_set` is the new deck format if it was auto-set as part of the
     call (e.g. 'commander'), or None when no format change happened.
 
     Promotion rules:
-    - Forces quantity to 1 and is_sideboard to 0 on the chosen row.
+    - Exactly one copy becomes the commander; a row holding more copies
+      keeps the rest (in the main deck or sideboard, where they were).
     - When multiple rows exist for the same card (rare, e.g. main + sideboard),
       the main-deck row is preferred.
     - Multiple commanders are allowed (Partner / Background / Friends Forever)
@@ -869,7 +1098,10 @@ def set_commander(
       on add) starts working immediately. An already-set format is left
       alone — the user knows what they're doing.
     - Format legality is checked on promote and add, with `force=True` to
-      override. A card can be perfectly legal in the 99 and still banned as
+      override, against the format the deck ends up with — so an unset
+      format is checked as 'commander'. A copy that enters the main deck
+      (fresh, or from the sideboard) is also charged against a points
+      budget. A card can be perfectly legal in the 99 and still banned as
       a commander (Duel Commander, Tiny Leaders), and promoting in place
       must not be a way around that. Demotion is never checked — removing a
       commander can't make a deck less legal.
@@ -905,9 +1137,9 @@ def set_commander(
             # different commander incoming).
             return canonical, "demoted", None
 
-        # Promotion: pick the best existing row to flip, preferring a clean
-        # main-deck row (is_sideboard=0). is_commander=1 rows sort first
-        # within is_sideboard=0 so we detect the "already commander" case.
+        # Promotion: pick the best existing row to take the commander from,
+        # preferring a main-deck row (is_sideboard=0). is_commander=1 rows
+        # sort first within is_sideboard=0 so we detect "already commander".
         cur.execute(
             "SELECT id, quantity, is_commander, is_sideboard FROM deck_cards "
             "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE "
@@ -915,32 +1147,38 @@ def set_commander(
             (did, canonical),
         )
         rows = cur.fetchall()
+        primary = rows[0] if rows else None
+
+        # Check against the format the deck will have when this call is done.
+        # An unset format becomes 'commander' below, and checking against the
+        # old NULL let a card banned in Commander into the command zone.
+        cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
+        fmt = cur.fetchone()["format"] or "commander"
 
         # Same legality gate `add` uses. Promoting a row in place used to
         # skip it entirely, which made `commander <card>` a way to put a
         # banned card in the command zone.
         if not force:
-            cur.execute("SELECT format FROM decks WHERE id = ?", (did,))
-            fmt = cur.fetchone()["format"]
             fmt_info = _resolve_format(fmt)
-            # quantity is the *delta*: promoting flips a row in place and adds
-            # no copy, so a restricted card already in a Vintage deck must not
-            # trip the one-copy check against itself.
+            # quantity is the *delta*: promoting moves a copy and adds none,
+            # so a restricted card already in a Vintage deck must not trip
+            # the one-copy check against itself.
             _assert_legal_in_format(
                 cur, did, canonical, fmt_info,
-                is_commander=True, is_sideboard=False,
+                is_commander=True,
                 quantity=0 if rows else 1,
                 singleton=_is_singleton_format(fmt),
             )
-            if not rows:
-                # Only a fresh insert changes the points total; promoting a
-                # card already in the deck is already paid for.
+            # Only a copy entering the main deck changes the points total: a
+            # fresh insert, or one taken from the sideboard, which
+            # deck_points never charged.
+            if primary is None or primary["is_sideboard"]:
                 _assert_points_fit(
-                    deck_name, folder, canonical, fmt_info,
+                    cur, did, canonical, fmt_info,
                     quantity=1, is_sideboard=False,
                 )
 
-        if not rows:
+        if primary is None:
             cur.execute(
                 "INSERT INTO deck_cards "
                 "(deck_id, card_name, quantity, is_commander, is_sideboard, added_at) "
@@ -952,20 +1190,32 @@ def set_commander(
             conn.commit()
             return canonical, "added", format_set
 
-        primary = rows[0]
-        if primary["is_commander"] and not primary["is_sideboard"] and primary["quantity"] == 1:
-            # Already a clean commander row — but format may still be NULL
-            # if the user manually inserted the row before this verb existed.
+        if primary["is_commander"] and not primary["is_sideboard"]:
+            # Already a commander — but format may still be NULL if the row
+            # was inserted before this verb existed.
             format_set = _auto_set_commander_format(cur, did)
             if format_set:
                 conn.commit()
             return canonical, "unchanged", format_set
-        cur.execute(
-            "UPDATE deck_cards "
-            "SET is_commander = 1, is_sideboard = 0, quantity = 1 "
-            "WHERE id = ?",
-            (primary["id"],),
-        )
+        if primary["quantity"] == 1:
+            cur.execute(
+                "UPDATE deck_cards SET is_commander = 1, is_sideboard = 0 "
+                "WHERE id = ?",
+                (primary["id"],),
+            )
+        else:
+            # One copy becomes the commander; the rest stay where they were.
+            # Flipping the whole row to quantity 1 silently deleted them.
+            cur.execute(
+                "UPDATE deck_cards SET quantity = quantity - 1 WHERE id = ?",
+                (primary["id"],),
+            )
+            cur.execute(
+                "INSERT INTO deck_cards "
+                "(deck_id, card_name, quantity, is_commander, is_sideboard, added_at) "
+                "VALUES (?, ?, 1, 1, 0, ?)",
+                (did, canonical, _now()),
+            )
         format_set = _auto_set_commander_format(cur, did)
         cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
         conn.commit()
@@ -1011,8 +1261,8 @@ def remove_card_from_deck(
     Returns (canonical_name, removed_count, remaining_count) so the TUI
     can echo a precise "OK removed Nx Card (M remaining)" message.
     """
-    if quantity is not None and quantity < 1:
-        raise DeckError("quantity must be >= 1")
+    if quantity is not None:
+        _check_quantity(quantity)
     card_name = resolve_card_name(card_name) or card_name
     conn = _rw()
     try:
@@ -1079,8 +1329,7 @@ def combos_in_deck(
     matched column shape (id is text in both, just with a `user-` prefix
     for user combos).
     """
-    if limit < 1 or limit > 500:
-        limit = 50
+    limit = max(1, min(limit, 500))
     conn = _ro()
     try:
         cur = conn.cursor()
@@ -1142,7 +1391,7 @@ def load_parsed_into_deck(
     folder: Optional[str] = None,
     force: bool = True,
 ) -> dict:
-    """Load parsed deckstring rows into an EXISTING deck.
+    """Load parsed deckstring rows into an EXISTING deck, all or nothing.
 
     `parsed` is a list of {name, quantity, section} dicts, where `section`
     is one of 'main', 'sideboard', 'commander', 'maybeboard'. Maybeboard
@@ -1153,47 +1402,21 @@ def load_parsed_into_deck(
     legitimate decks whose commander line happens to come after the
     non-commander cards.
 
-    Returns a summary: rows added, total copies added, names that didn't
-    resolve to a card, and rows the deck layer rejected. Nothing is ever
-    dropped silently.
+    Returns the summary `_load_rows` builds. Nothing is ever dropped
+    silently, and a structural failure rolls back every row.
     """
-    added = 0
-    copies = 0
-    unresolved: list[str] = []
-    rejected: list[tuple[str, str]] = []
-    for row in parsed:
-        if row["section"] == "maybeboard":
-            continue
-        try:
-            add_card_to_deck(
-                name,
-                row["name"],
-                quantity=row["quantity"],
-                is_commander=(row["section"] == "commander"),
-                is_sideboard=(row["section"] == "sideboard"),
-                folder=folder,
-                force=force,
-            )
-            added += 1
-            copies += row["quantity"]
-        except DeckError as e:
-            if "card not found" in str(e):
-                unresolved.append(row["name"])
-            elif force:
-                # With force=True every validation rule is skipped, so a
-                # DeckError here is structural — the deck vanished, the name
-                # is ambiguous. Collecting it would turn one real failure
-                # into N identical "rejected" lines and a success exit.
-                raise
-            else:
-                rejected.append((row["name"], str(e)))
-    return {
-        "added": added,
-        "copies": copies,
-        "unresolved": unresolved,
-        "rejected": rejected,
-        "total_input": len(parsed),
-    }
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, name, folder)
+        result = _load_rows(cur, did, parsed, force=force)
+        conn.commit()
+        return result
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def import_deck(
@@ -1202,6 +1425,81 @@ def import_deck(
     folder: Optional[str] = None,
     format: Optional[str] = None,
 ) -> dict:
-    """Create a new deck and load it from parsed rows."""
-    create_deck(name, folder=folder, format=format)
-    return load_parsed_into_deck(name, parsed, folder=folder)
+    """Create a new deck and load it from parsed rows, all or nothing.
+
+    The create and every row share one transaction: a failure part-way
+    used to leave a half-loaded deck behind, and the retry then failed on
+    "already exists".
+    """
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _create_deck(cur, name, folder, format, None)
+        result = _load_rows(cur, did, parsed, force=True)
+        conn.commit()
+        return result
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _load_rows(cur, did: int, parsed: list[dict], *, force: bool) -> dict:
+    """Add parsed rows to deck `did` on an open cursor; the caller commits.
+
+    Returns: rows added, copies added, names that didn't resolve, rows the
+    deck layer rejected, maybeboard rows skipped, input row count, and
+    `format_set` — 'commander' when the list had a commander and the deck
+    had no format, as `set_commander` does, else None.
+    """
+    added = 0
+    copies = 0
+    maybeboard = 0
+    commander_added = False
+    unresolved: list[str] = []
+    rejected: list[tuple[str, str]] = []
+    for row in parsed:
+        if row["section"] == "maybeboard":
+            maybeboard += 1
+            continue
+        is_commander = row["section"] == "commander"
+        try:
+            _add_card(
+                cur, did, row["name"],
+                quantity=row["quantity"], category=None,
+                is_commander=is_commander,
+                is_sideboard=(row["section"] == "sideboard"),
+                force=force,
+            )
+        except CardNotFoundError:
+            unresolved.append(row["name"])
+            continue
+        except QuantityError as e:
+            # The row's fault, not a structural failure — `force` does not
+            # waive it — so it is reported with the row.
+            rejected.append((row["name"], str(e)))
+            continue
+        except DeckError as e:
+            if force:
+                # With force=True every validation rule is skipped, so a
+                # DeckError here is structural. Collecting it would turn one
+                # real failure into N identical "rejected" lines.
+                raise
+            rejected.append((row["name"], str(e)))
+            continue
+        added += 1
+        copies += row["quantity"]
+        commander_added = commander_added or is_commander
+    # Same rule as set_commander: naming a commander is what makes a deck a
+    # Commander deck, and without a format none of its rules apply.
+    format_set = _auto_set_commander_format(cur, did) if commander_added else None
+    return {
+        "added": added,
+        "copies": copies,
+        "unresolved": unresolved,
+        "rejected": rejected,
+        "maybeboard": maybeboard,
+        "format_set": format_set,
+        "total_input": len(parsed),
+    }

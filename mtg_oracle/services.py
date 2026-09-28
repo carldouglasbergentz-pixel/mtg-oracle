@@ -210,9 +210,14 @@ def import_text_into_deck(ref: DeckRef, text: str) -> dict:
     """
     if not ref:
         raise ServiceError("no deck selected")
-    return d.load_parsed_into_deck(
-        ref.deck, _parse_or_fail(text), folder=ref.folder,
-    )
+    parsed = _parse_or_fail(text)
+    # A DeckError here is structural — the deck vanished, the name is
+    # ambiguous — and it is exactly what the user needs to read, but the
+    # interfaces only catch ServiceError: the TUI showed `ERR DeckError`.
+    try:
+        return d.load_parsed_into_deck(ref.deck, parsed, folder=ref.folder)
+    except d.DeckError as e:
+        raise ServiceError(str(e)) from e
 
 
 def create_deck_from_text(
@@ -221,9 +226,11 @@ def create_deck_from_text(
     """Create a new deck and fill it from a deckstring."""
     if not ref:
         raise ServiceError("no deck name given")
-    return d.import_deck(
-        ref.deck, _parse_or_fail(text), folder=ref.folder, format=format,
-    )
+    parsed = _parse_or_fail(text)
+    try:
+        return d.import_deck(ref.deck, parsed, folder=ref.folder, format=format)
+    except d.DeckError as e:
+        raise ServiceError(str(e)) from e
 
 
 def _parse_or_fail(text: str) -> list[dict]:
@@ -660,7 +667,10 @@ def deck_cards_for_analysis(ref: DeckRef) -> dict:
     `rank_cards` and `compare_decks` never need to know which one they got.
     Sideboard rows are dropped: the draw maths is about the 100 you shuffle.
     """
-    deck = d.get_deck(ref.deck, folder=ref.folder)
+    try:
+        deck = d.get_deck(ref.deck, folder=ref.folder)
+    except d.AmbiguousDeckError as e:
+        raise ServiceError(str(e)) from e
     if not deck:
         raise ServiceError(f"no deck named {ref.deck!r}")
     cards: dict[str, int] = {}
@@ -747,7 +757,10 @@ def export_deck_text(
     """
     if not ref:
         raise ServiceError("no deck selected")
-    deck = d.get_deck(ref.deck, folder=ref.folder)
+    try:
+        deck = d.get_deck(ref.deck, folder=ref.folder)
+    except d.AmbiguousDeckError as e:
+        raise ServiceError(str(e)) from e
     if not deck:
         raise ServiceError(f"no deck named {ref.deck!r}")
 

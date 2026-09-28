@@ -26,7 +26,10 @@ Section headers (case-insensitive):
     Commander / Commanders                -> 'commander'
     Companion                             -> 'companion' (treated as sideboard)
     Maybeboard / Maybe                    -> 'maybeboard'
-    Tokens                                -> ignored
+    Tokens                                -> ignored (its rows are dropped)
+
+A trailing count on a header (`Sideboard (15)`) is allowed, and so is an
+inline sideboard prefix (`SB: 2 Duress`) on a single card line.
 
 Default section is 'main'. A line "Sideboard" on its own switches the
 rest of the file to sideboard until another header appears.
@@ -52,7 +55,21 @@ _SECTION_ALIASES = {
     "maybeboard": "maybeboard",
     "maybe": "maybeboard",
     "maybe board": "maybeboard",
+    # Token lists are not deck contents. `Treasure` resolves to a real
+    # (front_card) row, so reading them as cards put tokens in the main deck.
+    "tokens": "tokens",
+    "token": "tokens",
 }
+
+# Moxfield and Archidekt write the section size after the header:
+# `Commander (1)`, `Sideboard (15)`.
+_HEADER_COUNT_RE = re.compile(r"\s*\(\d+\)\s*$")
+# MTGO / Forge inline sideboard marker.
+_INLINE_SB_RE = re.compile(r"^SB:\s*(.+)$", re.IGNORECASE)
+# Archidekt appends categories and colour tags after the set block:
+# `1x Sol Ring (c21) 263 [Ramp] ^Have,#37d67a^`. No card name contains
+# `[` or `^` (checked against the database), so the strip cannot eat a name.
+_CATEGORY_TAIL_RE = re.compile(r"\s*\[[^\]]*\](?:\s*\^[^^]*\^)?\s*$")
 
 # Set-code + collector number: " (XYZ)", " (XYZ) 123", " (XYZ) 123a".
 # Keep the set code block short (2-6 chars) so we don't eat parts of names
@@ -125,7 +142,7 @@ def _is_section_header(line: str) -> str | None:
     A section header is a line that, after lowercasing and stripping,
     matches one of the known aliases — with no digits / quantity words.
     """
-    s = line.strip().lower().rstrip(":").strip()
+    s = _HEADER_COUNT_RE.sub("", line.strip().lower()).rstrip(":").strip()
     if not s:
         return None
     if any(ch.isdigit() for ch in s):
@@ -157,7 +174,8 @@ def _parse_line(line: str) -> tuple[int, str] | None:
     line = line.strip()
     if not line:
         return None
-    # Strip trailing foil / set-code / collector metadata.
+    # Strip trailing category / foil / set-code / collector metadata.
+    line = _CATEGORY_TAIL_RE.sub("", line)
     line = _FOIL_TAIL_RE.sub("", line)
     line = _SET_TAIL_RE.sub("", line)
     line = line.strip()
@@ -191,6 +209,9 @@ def parse_deckstring(text: str) -> list[dict]:
     """
     rows: list[dict] = []
     section = "main"
+    # A UTF-8 BOM (Windows PowerShell's Out-File writes one) survives
+    # str.strip(), and turned the first line into an unresolvable name.
+    text = text.lstrip("\ufeff")
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
@@ -210,10 +231,16 @@ def parse_deckstring(text: str) -> list[dict]:
             if section == "commander":
                 section = "main"
             continue
+        if section == "tokens":
+            continue
+        row_section = section
+        inline_sb = _INLINE_SB_RE.match(line)
+        if inline_sb:
+            line, row_section = inline_sb.group(1), "sideboard"
         parsed = _parse_line(line)
         if parsed is None:
             # Silently skip unparseable lines; callers decide how to surface.
             continue
         qty, name = parsed
-        rows.append({"name": name, "quantity": qty, "section": section})
+        rows.append({"name": name, "quantity": qty, "section": row_section})
     return rows
