@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import db_sandbox  # noqa: E402
 from mtg_oracle import roles as R  # noqa: E402
 from mtg_oracle import services as svc  # noqa: E402
 from mtg_oracle.deck_parser import parse_deckstring  # noqa: E402
@@ -291,7 +292,8 @@ class TestExportRoundTrip(unittest.TestCase):
 
 @unittest.skipUnless(DB.exists(), "needs data/mtg.db")
 class TestExportAgainstARealDeck(unittest.TestCase):
-    """Uses a throwaway deck so it never touches the user's collection."""
+    """Writes a deck, so it runs against a copy of the database — a
+    create-then-delete on the real one still modified the user's file."""
 
     NAME = "__test_export__"
 
@@ -299,7 +301,7 @@ class TestExportAgainstARealDeck(unittest.TestCase):
     def setUpClass(cls):
         from mtg_oracle import decks as d
         cls.d = d
-        cls._cleanup()
+        db_sandbox.enter()
         d.create_deck(cls.NAME, format="canlander")
         for card, qty in (("Counterspell", 1), ("Island", 9),
                           ("Fire // Ice", 1),
@@ -309,15 +311,7 @@ class TestExportAgainstARealDeck(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls._cleanup()
-
-    @classmethod
-    def _cleanup(cls):
-        from mtg_oracle import decks as d
-        try:
-            d.delete_deck(cls.NAME)
-        except Exception:
-            pass
+        db_sandbox.leave()
 
     def test_exports_every_card_once(self):
         e = svc.export_deck_text(self.ref)
