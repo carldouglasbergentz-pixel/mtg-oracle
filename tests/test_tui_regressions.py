@@ -130,6 +130,17 @@ class TestNavRenderers(unittest.TestCase):
         self.assertNotIn("C:", r.render_analytics_compact(ANALYTICS).split(
             "pips")[1].split("\n")[0])
 
+    def test_history_times_are_shown_in_local_time(self):
+        """Stored UTC, printed local: 11:14Z read as 11:14 to someone at +2."""
+        from datetime import datetime, timezone
+        local = (datetime(2026, 9, 28, 11, 14, tzinfo=timezone.utc)
+                 .astimezone().strftime("%Y-%m-%d %H:%M"))
+        for stored in ("2026-09-28T11:14:03Z", "2026-09-28T11:14:03"):
+            body = r.render_deck_history([{"id": 1, "at": stored,
+                                           "action": "replace", "note": None,
+                                           "changes": []}])
+            self.assertIn(f"#1     {local}  replace", body, stored)
+
     def test_empty_combo_list_fits_too(self):
         body = r.render_deck_compact(_deck(), width=20, analytics=ANALYTICS,
                                      combos=[])
@@ -482,6 +493,134 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
                     self.assertTrue(last.startswith(f"{verb}: "), last)
                     self.assertIn(f"{name!r} contains '/'", last)
             self.assertIsNone(d.get_deck("UR/Delver"))
+
+    # --- replace / history / undo ----------------------------------------
+
+    def _contents(self, deck, folder="TUI Tests"):
+        from mtg_oracle import decks as d
+        return {c["card_name"]: c["quantity"]
+                for c in d.get_deck(deck, folder=folder)["cards"]}
+
+    def _fresh_deck(self, name):
+        from mtg_oracle import decks as d
+        d.create_deck(name, folder="TUI Tests")
+        for card, qty in (("Island", 3), ("Counterspell", 1)):
+            d.add_card_to_deck(name, card, quantity=qty, folder="TUI Tests",
+                               force=True)
+
+    def _clipboard(self, text):
+        import mtg_oracle.tui.app as app_module
+        return mock.patch.object(app_module, "read_clipboard", return_value=text)
+
+    async def test_paste_replace_applies_and_shows_the_diff(self):
+        self._fresh_deck("Replace Me")
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            await self.submit(pilot, app, "cd TUI Tests/Replace Me")
+            n = len(_out_lines(app))
+            with self._clipboard("2 Island\n1 Brainstorm\n"):
+                await self.submit(pilot, app, "paste --replace")
+            out = "\n".join(_out_lines(app)[n:])
+            self.assertIn("Replaced 'Replace Me'", out)
+            self.assertIn("Brainstorm", out)
+            self.assertEqual(self._contents("Replace Me"),
+                             {"Island": 2, "Brainstorm": 1})
+            # The side pane shows the new list.
+            self.assertIn("Brainstorm", "\n".join(_nav_lines(app)))
+
+    async def test_replace_stops_on_an_unknown_card_unless_forced(self):
+        self._fresh_deck("Replace Strict")
+        listing = "2 Island\n1 Notacard Xyzzy\n"
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            await self.submit(pilot, app, "cd TUI Tests/Replace Strict")
+            with self._clipboard(listing):
+                await self.submit(pilot, app, "paste --replace")
+            self.assertTrue(_out_lines(app)[-1].startswith("replace: "))
+            self.assertIn("Notacard Xyzzy", _out_lines(app)[-1])
+            self.assertEqual(self._contents("Replace Strict"),
+                             {"Island": 3, "Counterspell": 1})
+
+            # The same list from a file, forced: replaced without the card.
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "list with  two spaces.txt"
+                path.write_text(listing, encoding="utf-8")
+                n = len(_out_lines(app))
+                await self.submit(pilot, app,
+                                  f"import {path} --replace --force")
+            out = "\n".join(_out_lines(app)[n:])
+            self.assertIn("Replaced 'Replace Strict'", out)
+            self.assertIn("Notacard Xyzzy", out)  # listed as left out
+            self.assertEqual(self._contents("Replace Strict"), {"Island": 2})
+
+    async def test_history_and_undo_then_redo(self):
+        self._fresh_deck("Undo Me")
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            await self.submit(pilot, app, "cd TUI Tests/Undo Me")
+            with self._clipboard("1 Brainstorm\n"):
+                await self.submit(pilot, app, "paste --replace")
+            replaced = self._contents("Undo Me")
+
+            n = len(_out_lines(app))
+            await self.submit(pilot, app, "history")
+            out = "\n".join(_out_lines(app)[n:])
+            self.assertIn("revision(s), newest first:", out)
+            self.assertIn("replace", out)
+            await self.submit(pilot, app, "history 1")
+            self.assertIn("1 revision(s), newest first:", _out_lines(app))
+
+            n = len(_out_lines(app))
+            await self.submit(pilot, app, "undo")
+            self.assertIn("Undid #", "\n".join(_out_lines(app)[n:]))
+            self.assertEqual(self._contents("Undo Me"),
+                             {"Island": 3, "Counterspell": 1})
+            await self.submit(pilot, app, "undo")  # again: redo
+            self.assertEqual(self._contents("Undo Me"), replaced)
+
+            # Another deck's history, by path, from root.
+            await self.submit(pilot, app, "cd /")
+            n = len(_out_lines(app))
+            await self.submit(pilot, app, "history TUI Tests/Undo Me 2")
+            out = _out_lines(app)[n:]
+            self.assertIn("/TUI Tests/Undo Me", out)
+            self.assertIn("2 revision(s), newest first:", out)
+
+    async def test_replace_history_undo_usage(self):
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            for command, expected in (
+                ("paste --replace",
+                 "(use `cd <deck>` to enter a deck before `paste`)"),
+                ("import some.txt --replace",
+                 "(use `cd <deck>` to enter a deck before `import`)"),
+                ("undo", "(use `cd <deck>` to enter a deck before `undo`)"),
+            ):
+                await self.submit(pilot, app, command)
+                self.assertEqual(_out_lines(app)[-1], expected, command)
+            await self.submit(pilot, app, "history")
+            self.assertTrue(_out_lines(app)[-1].startswith("usage: history"))
+            await self.submit(pilot, app, "cd TUI Tests/Oracle Pile")
+            await self.submit(pilot, app, "paste --force")
+            self.assertEqual(_out_lines(app)[-1],
+                             "paste: --force only applies with --replace")
+
+    async def test_a_database_without_history_asks_for_sync(self):
+        """Until `sync` migrates it, the user's database has no revision
+        table; that must read as the usual hint, not a traceback."""
+        from mtg_oracle import decks as d
+        missing = sqlite3.OperationalError("no such table: deck_revisions")
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            await self.submit(pilot, app, "cd TUI Tests/Oracle Pile")
+            for command, target in (("history", "deck_history"),
+                                    ("undo", "undo_last_change")):
+                with mock.patch.object(d, target, side_effect=missing):
+                    await self.submit(pilot, app, command)
+                out = "\n".join(_out_lines(app)[-2:])
+                self.assertIn("ERR database: no such table: deck_revisions", out)
+                self.assertIn("Run `sync` to migrate it.", out)
+            self.assertTrue(app.is_running)
 
     async def test_clear_drops_the_output_panes_tickets(self):
         async with self.app().run_test(size=(160, 60)) as pilot:

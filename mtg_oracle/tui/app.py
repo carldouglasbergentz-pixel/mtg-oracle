@@ -602,6 +602,8 @@ class MtgOracleApp(App):
             "import": self._cmd_import,
             "paste": self._cmd_paste,
             "export": self._cmd_export,
+            "history": self._cmd_history,
+            "undo": self._cmd_undo,
             "sync": self._cmd_sync,
             "copy": self._cmd_copy,
             "help": self._cmd_help,
@@ -1883,25 +1885,30 @@ class MtgOracleApp(App):
             return
         self._write("usage: show <deck>  (or `cd <deck>` then `show`)")
 
+    _LOAD_FLAGS = ("--replace", "--force")
+
     def _cmd_import(self, arg: str) -> None:
-        arg = arg.strip()
-        if not arg:
-            self._write("usage: import <filepath>  (current deck)")
+        path, flags = self._take_flags(arg, self._LOAD_FLAGS)
+        if not path:
+            self._write("usage: import <filepath> [--replace [--force]]  "
+                        "(current deck)")
             return
-        if not self._cwd_deck:
-            self._write("(use `cd <deck>` to enter a deck before `import`)")
+        if not self._load_flags_ok("import", flags):
             return
         try:
-            text = Path(arg).read_text(encoding="utf-8")
+            text = Path(path).read_text(encoding="utf-8")
         except OSError as e:
-            self._write(f"import: could not read {arg!r}: {e}")
+            self._write(f"import: could not read {path!r}: {e}")
             return
-        self._import_text_into_current_deck(text)
+        self._load_text_into_current_deck(text, flags)
 
-    def _cmd_paste(self, _: str) -> None:
-        """Read deckstring from system clipboard and import into current deck."""
-        if not self._cwd_deck:
-            self._write("(use `cd <deck>` to enter a deck before `paste`)")
+    def _cmd_paste(self, arg: str) -> None:
+        """Read deckstring from system clipboard and load it into the deck."""
+        rest, flags = self._take_flags(arg, self._LOAD_FLAGS)
+        if rest:
+            self._write("usage: paste [--replace [--force]]  (current deck)")
+            return
+        if not self._load_flags_ok("paste", flags):
             return
         try:
             text = read_clipboard()
@@ -1911,15 +1918,109 @@ class MtgOracleApp(App):
         if not text or not text.strip():
             self._write("(clipboard is empty)")
             return
-        self._import_text_into_current_deck(text)
+        self._load_text_into_current_deck(text, flags)
 
-    def _import_text_into_current_deck(self, text: str) -> None:
+    @staticmethod
+    def _take_flags(arg: str, known: tuple[str, ...]) -> tuple[str, set[str]]:
+        """Split `--flag`s out of an argument, keeping the rest verbatim.
+
+        Split on single spaces, not whitespace runs, so a file path with a
+        double space inside survives the round trip.
+        """
+        toks = arg.split(" ")
+        flags = {t for t in toks if t in known}
+        rest = " ".join(t for t in toks if t not in known).strip()
+        return rest, flags
+
+    def _load_flags_ok(self, verb: str, flags: set[str]) -> bool:
+        if not self._cwd_deck:
+            self._write(f"(use `cd <deck>` to enter a deck before `{verb}`)")
+            return False
+        if "--force" in flags and "--replace" not in flags:
+            # Appending already loads every line verbatim; `--force` only
+            # means something for a replace, where an unknown card stops it.
+            self._write(f"{verb}: --force only applies with --replace")
+            return False
+        return True
+
+    def _load_text_into_current_deck(self, text: str, flags: set[str]) -> None:
+        """Append the list to the deck, or with `--replace` make the deck it."""
+        if "--replace" in flags:
+            try:
+                diff = svc.replace_deck_from_text(
+                    self._ref(), text, force="--force" in flags)
+            except svc.ServiceError as e:
+                self._write(f"replace: {e}")
+                return
+            self._write(r.render_deck_diff(diff))
+            self._refresh_nav()
+            return
         try:
             result = svc.import_text_into_deck(self._ref(), text)
         except svc.ServiceError as e:
             self._write(f"({e})")
             return
         self._write(r.render_import_result(self._cwd_deck, result))
+        self._refresh_nav()
+
+    _HISTORY_LIMIT = 20
+
+    def _cmd_history(self, arg: str) -> None:
+        """Recorded changes: `history [N]` here, or `history <deck> [N]`.
+
+        A database from before revisions existed has no history table; that
+        surfaces as `no such table`, which `_run_guarded` turns into the
+        "run `sync`" hint rather than a traceback.
+        """
+        arg = arg.strip()
+        limit = self._HISTORY_LIMIT
+        if arg.isascii() and arg.isdigit():
+            arg, limit = "", int(arg)
+        if not arg:
+            if not self._cwd_deck:
+                self._write("usage: history [N]  (inside a deck)  |  "
+                            "history <deck> [N]  |  history <folder>/<deck>")
+                return
+            ref: Optional[svc.DeckRef] = self._ref()
+        else:
+            # A trailing count — unless the whole argument names a deck, since
+            # deck names can end in a number as easily as card names can.
+            head, _, tail = arg.rpartition(" ")
+            if (head and tail.isascii() and tail.isdigit()
+                    and not self._names_a_deck(arg)):
+                arg, limit = head, int(tail)
+            ref = self._deck_ref(arg, "history")
+            if ref is None:
+                return
+        try:
+            revisions = d.deck_history(ref.deck, folder=ref.folder, limit=limit)
+        except d.DeckError as e:
+            self._write(f"history: {e}")
+            return
+        self._write(ref.path)
+        self._write(r.render_deck_history(revisions))
+
+    def _names_a_deck(self, text: str) -> bool:
+        try:
+            return self._find_deck(text) is not None
+        except d.AmbiguousDeckError:
+            return True
+
+    def _cmd_undo(self, arg: str) -> None:
+        """Revert the deck's latest recorded change; again, and it redoes."""
+        if arg.strip():
+            self._write("usage: undo   (reverts the latest change to the "
+                        "deck you are in; run it again to redo)")
+            return
+        if not self._cwd_deck:
+            self._write("(use `cd <deck>` to enter a deck before `undo`)")
+            return
+        try:
+            diff = d.undo_last_change(self._cwd_deck, folder=self._cwd_folder)
+        except d.DeckError as e:
+            self._write(f"undo: {e}")
+            return
+        self._write(r.render_deck_diff(diff))
         self._refresh_nav()
 
     def _cmd_export(self, arg: str) -> None:

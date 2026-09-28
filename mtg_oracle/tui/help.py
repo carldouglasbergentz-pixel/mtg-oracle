@@ -24,6 +24,7 @@ COMMANDS = [
     "cd", "pwd", "ls", "mkdir", "rmdir",
     "add", "remove", "show", "rename", "move",
     "commander", "format", "points", "import", "paste", "export",
+    "history", "undo",
     "profile", "compare",
     # Maintenance
     "sync",
@@ -115,6 +116,19 @@ INSIDE A DECK (`/<folder>/<deck>/`)
                             append to current deck (Windows / macOS / Linux)
   import <filepath>         load a deckstring from a text file
                             (appended to the current deck)
+  paste --replace           make the deck exactly the clipboard list, as one
+                            change, and show what was added / removed /
+                            changed. A card name it doesn't recognise stops
+                            it with nothing changed — add `--force` to
+                            replace without those cards
+  import <filepath> --replace [--force]
+                            the same, from a file
+  history [N]               the deck's last N recorded changes (default 20)
+  history <deck> [N]        another deck's, without `cd` (or
+                            <folder>/<deck>)
+  undo                      revert the latest change — add, remove,
+                            commander, paste, import or a replace. Running
+                            it again redoes it
   export                    copy the deck to the clipboard as a `N Card Name`
                             list — paste straight into Moxfield or Archidekt
   export <filepath>         write that list to a file instead
@@ -176,6 +190,8 @@ DECKS                                 (terminal-style: cd / ls / pwd / add / rem
   profile [<deck>]                    role densities, reach, and the odds each
                                       role is castable on each turn
   compare <deck>                      this deck against that one, head to head
+  history / undo                      recorded changes; undo reverts the latest
+                                      (`help decks` for replacing a whole list)
 
 MAINTENANCE
   sync [force]                        refresh data from Scryfall / Wizards / Spellbook
