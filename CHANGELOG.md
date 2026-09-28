@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Forge integration v1: export, AI substitutions, play, simulate, results)
+- **`forge export [<deck>]`** writes the deck as a Forge `.dck` (TUI, CLI, and a clickable `[-> forge]` in the nav pane's deck header).
+    - Names map to Forge's front-face spelling; Forge names split cards by their first half too.
+    - Cards Forge doesn't know stop the export unless `--force` is given.
+    - Cards Forge marks `AI:RemoveDeck:All` are named, with the suggestion to substitute them. City of Traitors is one: played on turn 1 with nothing to cast, then sacrificed to the next land.
+    - Commander decks go to Forge's `commander` folder. Forge ignores `-D` and absolute paths, so the folders are fixed.
+- **`forge sub add <card> -> <substitute>`** stores a Forge-only swap for a deck. Export then also writes `<deck> (AI).dck`, which the AI pilots in sims.
+    - The deck itself never changes.
+    - Substitutes are checked jointly against the deck's rules, as `add` would check them: colour identity, legality, singleton, points. The checks run through `decks.check_swaps`, which applies the swaps and rolls back. Ancient Tomb (1 point, deck at 10/10) and a second Dark Confidant are refused.
+- **`forge play`** opens Forge. **`forge sim <deck> <opponent> [N]`** runs AI vs AI in a background worker, stores every game (`forge_matches`) and keeps the full log in `data/forge_logs/`. **`forge results`** shows the record or the win matrix.
+- **Forge quirks handled:**
+    - Forge exits 0 when a deck fails to load, so success is judged by parsed games.
+    - When its clock stops a game, Forge reports player 1 as the winner; those games count as draws.
+    - Commander runs at 40 life, so it is a proxy, not Duel Commander.
+- **Ownership marker.** An exported `.dck` carries it, and export refuses to overwrite a file mtg-oracle didn't write, one written for another deck, or one edited in Forge. `--overwrite` replaces it.
+- **Security review** (`/security-review`): nothing met the bar. Hardening added anyway:
+    - Filenames lose cmd.exe's metacharacters as well as Windows' forbidden ones.
+    - A `.bat` / `.cmd` java launcher is refused, because cmd.exe would re-parse the arguments ("BatBadBut").
+- 54 more tests, including a real one-game sim in a sandboxed Forge.
+
 ### Added (replace a deck from a pasted list, with a change history and undo)
 - **`paste --replace` / `import <file> --replace` in the TUI, and `deck import --replace` in the CLI**, make an existing deck exactly the pasted list. Everything happens in one transaction, and the result is shown as a diff (`+1 Sea Gate Restoration`, `-1 Day of Judgment`, `Counterspell 1 -> 2`).
     - Rows whose quantity didn't change keep their category and date.
