@@ -20,12 +20,13 @@ import os
 import subprocess
 import sqlite3
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable, Optional
 
 from rich.style import Style
 from rich.text import Text
-from textual import work
+from textual import events, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
@@ -53,6 +54,13 @@ NAV_WIDTH = 52
 # Drag limits for the pane divider: neither pane may be squeezed to nothing.
 MIN_NAV_WIDTH = 24
 MIN_OUTPUT_WIDTH = 30
+
+
+def _clip(text: str, width: int) -> str:
+    """Cut a nav label to `width`, marked `..` like the renderer's names."""
+    if len(text) <= width:
+        return text
+    return text[:max(1, width - 2)] + ".."
 
 
 class MtgOracleApp(App):
@@ -108,9 +116,14 @@ class MtgOracleApp(App):
         Binding(":", "focus_cmd", "Command", show=True),
         Binding("escape", "unfocus_cmd", "Unfocus", show=False),
         Binding("ctrl+l", "clear_output", "Clear", show=True),
-        # Keyboard equivalent of dragging the divider.
-        Binding("ctrl+right", "widen_nav", "Widen pane", show=False),
-        Binding("ctrl+left", "narrow_nav", "Narrow pane", show=False),
+        # Keyboard equivalent of dragging the divider. `priority` because the
+        # command input — focused after every command and every click — binds
+        # these keys to word-jumping, and a focused widget's bindings win, so
+        # without it the resize only ever worked from a scrolled pane.
+        Binding("ctrl+right", "widen_nav", "Widen pane", show=False,
+                priority=True),
+        Binding("ctrl+left", "narrow_nav", "Narrow pane", show=False,
+                priority=True),
         # Shell-style history navigation while focused on the input.
         Binding("up", "history_prev", show=False),
         Binding("down", "history_next", show=False),
@@ -122,10 +135,15 @@ class MtgOracleApp(App):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        # The most recent list-of-combos response. Used by `combo-info <N>`
-        # so the user can refer to a result by list index instead of the
-        # opaque Spellbook id.
+        # The combo list `combo-info <N>` resolves against: the one the user
+        # last saw. Inside a deck that is the side pane's list, kept fresh as
+        # cards change — until an explicit `combo` / `combos <cards>` shows a
+        # different one, which must then survive the side pane's refreshes
+        # (an `add` used to swap it out from under the user's `combo-info 3`).
+        # Moving to another deck or folder hands it back to the side pane.
         self._last_combos: list[dict] = []
+        self._last_combos_explicit: bool = False
+        self._nav_location: tuple[Optional[str], Optional[str]] = (None, None)
 
         # Most recent search — powers pagination (next/prev/page) and the
         # `card <N>` expand shortcut. None until the first search.
@@ -203,18 +221,16 @@ class MtgOracleApp(App):
         log.write(HELP_TEXT)
         self._install_suggester()
         self._refresh_status()
-        self._refresh_nav()
         config = load_config()
-        # Restore the pane split before anything renders, so the compact deck
-        # view is built at the width it will actually be shown at.
+        # Restore the pane split before anything renders, so the nav is built
+        # at the width it will actually be shown at. Through `set_nav_width`
+        # so it is clamped: a split saved in a wider terminal otherwise
+        # squeezed the output pane to zero columns.
         saved_width = config.get("nav_width")
         if isinstance(saved_width, int):
-            try:
-                self.query_one("#nav", RichLog).styles.width = max(
-                    MIN_NAV_WIDTH, saved_width
-                )
-            except NoMatches:
-                pass
+            self.set_nav_width(saved_width, refresh=False, persist=False)
+        # After the first layout, when the pane can be measured.
+        self.call_after_refresh(self._refresh_nav)
         # Restore last-used theme (Ctrl+P palette → "Change theme") if any.
         saved_theme = config.get("theme")
         if saved_theme and saved_theme != self.theme:
@@ -281,6 +297,13 @@ class MtgOracleApp(App):
 
     def action_clear_output(self) -> None:
         self.query_one("#output", RichLog).clear()
+        # The cleared lines can't be clicked any more, so their tickets are
+        # dead weight; only the nav pane's live tickets survive.
+        nav_ids = set(self._nav_click_ids)
+        self._click_targets = {
+            ticket: target for ticket, target in self._click_targets.items()
+            if ticket in nav_ids
+        }
 
     # --- input handling --------------------------------------------
 
@@ -295,8 +318,17 @@ class MtgOracleApp(App):
         self._history_idx = -1
         self._history_pending = ""
         self._write(f"> {raw}")
+        self._run_guarded(self._dispatch, raw)
+
+    def _run_guarded(self, fn: Callable, *args) -> None:
+        """Run a command, turning any failure into an ERR line.
+
+        Typed commands and mouse clicks both come through here. Clicks used
+        to call the handlers bare, so a `database is locked` while a sync
+        was writing took the whole app down instead of printing one line.
+        """
         try:
-            self._dispatch(raw)
+            fn(*args)
         except sqlite3.OperationalError as e:
             # "no such column: games" means the DB predates this build. The
             # raw message is true but tells the user nothing they can act on.
@@ -351,9 +383,18 @@ class MtgOracleApp(App):
                            refresh=False, persist=False)
 
     def on_pane_divider_drag_ended(self, event: PaneDivider.DragEnded) -> None:
-        # Let go: now do the expensive part, once.
+        # Let go: now do the expensive part, once — after the layout pass, so
+        # the pane is measured at its new width (see `set_nav_width`).
         self._persist_nav_width()
-        self._refresh_nav()
+        self.call_after_refresh(self._refresh_nav)
+
+    def on_resize(self, event: events.Resize) -> None:
+        # A terminal shrunk mid-session would otherwise leave the nav at a
+        # width that squeezes the output pane out; re-clamp, don't persist —
+        # the saved split is still the right one for the bigger window.
+        # `event.size`, because `self.size` catches up only after a timer.
+        self.set_nav_width(self._nav_width(), persist=False,
+                           screen_width=event.size.width)
 
     def _nav_width(self) -> int:
         """Current pane width in columns, whatever set it."""
@@ -368,16 +409,19 @@ class MtgOracleApp(App):
 
     def set_nav_width(
         self, width: int, *, refresh: bool = True, persist: bool = True,
+        screen_width: Optional[int] = None,
     ) -> None:
         """Resize the left pane, clamped so neither pane can be squeezed out.
 
         `refresh` re-renders the pane contents, which the compact deck view
         needs because it truncates card names to the pane width — but it is
         the expensive half, so a drag turns it off until the mouse is
-        released.
+        released. `screen_width` overrides the terminal width the clamp is
+        measured against, for a resize that `self.size` hasn't caught up with.
         """
         nav = self.query_one("#nav", RichLog)
-        largest = max(MIN_NAV_WIDTH, self.size.width - MIN_OUTPUT_WIDTH)
+        total = screen_width if screen_width is not None else self.size.width
+        largest = max(MIN_NAV_WIDTH, total - MIN_OUTPUT_WIDTH)
         width = max(MIN_NAV_WIDTH, min(width, largest))
         if width == self._nav_width():
             return
@@ -385,7 +429,10 @@ class MtgOracleApp(App):
         if persist:
             self._persist_nav_width()
         if refresh:
-            self._refresh_nav()
+            # The new width reaches `content_region` only after the next
+            # layout pass. Rendering now measured the old pane, so every
+            # Ctrl+Left left rows two columns wider than the pane.
+            self.call_after_refresh(self._refresh_nav)
 
     def action_widen_nav(self) -> None:
         self.set_nav_width(self._nav_width() + 2)
@@ -448,6 +495,22 @@ class MtgOracleApp(App):
                 out.append("\n")
         return out
 
+    @staticmethod
+    def _combo_links_by_id(
+        links: list[r.LinkSpan], combos: list[dict],
+    ) -> list[r.LinkSpan]:
+        """Re-key `combo` spans from row number to Spellbook id.
+
+        Renderers label rows `[  N]` and report N, which is right for the
+        text; a click, though, can come long after `_last_combos` has moved
+        on, and then row 3 of an old list expanded row 3 of the new one.
+        """
+        return [
+            replace(span, args=(combos[span.args[0] - 1]["id"],))
+            if span.kind == "combo" else span
+            for span in links
+        ]
+
     def _write_linked(self, body: str, links: list[r.LinkSpan]) -> None:
         """Write a clickable block to the output pane."""
         if not links:
@@ -467,21 +530,33 @@ class MtgOracleApp(App):
             self.query_one("#cmd", Input).focus()
         except NoMatches:
             pass
-        kind, args = target
+        self._run_guarded(self._run_click, *target)
+
+    def _run_click(self, kind: str, args: tuple) -> None:
         if kind == "card":
             self._write(f"> card {args[0]}")
             self._cmd_card(args[0])
         elif kind == "combo":
+            # The ticket holds the Spellbook id, not a row number: the list a
+            # row number indexes changes under an old row in the scrollback.
             self._write(f"> combo-info {args[0]}")
-            self._cmd_combo_info(str(args[0]))
+            self._show_combo(args[0])
         elif kind == "deck":
+            # Straight from the ticket's (folder, deck), never re-parsed as a
+            # path: a path round-trip lost unsorted decks (no folder to put
+            # in it) and any name containing '/'.
             folder, deck = args
-            path = f"{folder}/{deck}" if folder else deck
-            self._write(f"> cd {path}")
-            self._cmd_cd(path)
+            folder = folder or d.UNSORTED
+            self._write(f"> cd {folder}/{deck}")
+            found = d.get_deck(deck, folder=folder)
+            if not found:
+                self._write(f"cd: no deck named {deck!r} in {folder!r}")
+                self._refresh_nav()
+                return
+            self._go(self._folder_of(found), found["name"])
         elif kind == "folder":
             self._write(f"> cd /{args[0]}")
-            self._cmd_cd(f"/{args[0]}")
+            self._go(args[0], None)
         elif kind == "root":
             self._write("> cd /")
             self._cmd_cd("/")
@@ -591,7 +666,7 @@ class MtgOracleApp(App):
             self._write("usage: combo <card>")
             return
         combos = q.find_combos_with_card(arg, limit=50)
-        self._last_combos = combos
+        self._set_last_combos(combos, explicit=True)
         # Auto-expand if there's only one result — the user clearly wants detail.
         if len(combos) == 1:
             full = q.get_combo(combos[0]["id"])
@@ -613,7 +688,8 @@ class MtgOracleApp(App):
             # Numbered, not id-keyed: the side pane already shows these as
             # [1]..[N] and `combo-info <N>` resolves against the same list,
             # so showing raw Spellbook ids here made the two panes disagree.
-            self._last_combos = combos
+            # The side pane's own list, so let its refreshes keep it current.
+            self._set_last_combos(combos, explicit=False)
             self._write_combo_list(
                 combos,
                 f"{len(combos)} combo(s) fully contained in {self._cwd_deck!r}:",
@@ -627,7 +703,7 @@ class MtgOracleApp(App):
             self._write("need at least 2 cards separated by ';'")
             return
         combos = q.find_combos_with_all(cards, limit=50)
-        self._last_combos = combos
+        self._set_last_combos(combos, explicit=True)
         if len(combos) == 1:
             full = q.get_combo(combos[0]["id"])
             if full:
@@ -652,11 +728,18 @@ class MtgOracleApp(App):
                 n = len(self._last_combos)
                 self._write(f"(no combo #{arg} in last list; valid range is 1..{n})")
                 return
-        combo = q.get_combo(arg)
+        self._show_combo(arg)
+
+    def _show_combo(self, combo_id: str) -> None:
+        combo = q.get_combo(combo_id)
         if not combo:
-            self._write(f"(combo not found: {arg})")
+            self._write(f"(combo not found: {combo_id})")
             return
         self._write(r.render_combo(combo))
+
+    def _set_last_combos(self, combos: list[dict], *, explicit: bool) -> None:
+        self._last_combos = combos
+        self._last_combos_explicit = explicit
 
     def _cmd_rule(self, arg: str) -> None:
         if not arg:
@@ -866,19 +949,20 @@ class MtgOracleApp(App):
                 if line:
                     self.call_from_thread(self._write, line)
             code = proc.wait()
-        except BaseException as e:
-            # Anything at all — a failure to spawn, a broken pipe, worker
-            # cancellation. Without this the flag below stayed True for the
-            # rest of the session and `sync` was permanently unavailable,
-            # with the child left running against the same database.
-            self.call_from_thread(
-                self._write, f"sync aborted: {type(e).__name__}: {e}"
-            )
+        except Exception as e:
+            # A failure to spawn, a broken pipe. Kill the child first — the
+            # report below can itself fail if the app is shutting down — and
+            # don't re-raise: a worker that raises takes the whole app down
+            # (`exit_on_error`), which is a worse outcome than a failed sync.
             if proc and proc.poll() is None:
                 proc.kill()
                 proc.wait()
-            raise
+            self.call_from_thread(
+                self._write, f"sync aborted: {type(e).__name__}: {e}"
+            )
         finally:
+            # Always, or the flag stays True and `sync` is unavailable for
+            # the rest of the session.
             self.call_from_thread(self._sync_finished, code)
 
     def _sync_finished(self, code: Optional[int]) -> None:
@@ -930,15 +1014,28 @@ class MtgOracleApp(App):
                 label, Style.from_meta({"@click": f"app.click_target({ticket})"})
             )
 
+        folder, deck = self._cwd_folder or "", self._cwd_deck or ""
+        # Fit the pane: `/`, ` <folder>`, ` / <deck>`. When both names are
+        # long each gets half the room; a short one lends the rest to the other.
+        room = max(8, self._nav_content_width()
+                   - 1 - (1 if folder else 0) - (3 if deck else 0))
+        folder_label = _clip(folder, max(room // 2, room - len(deck)))
+        deck_label = _clip(deck, room - len(folder_label))
+
         segment("/", "root", ())
-        if self._cwd_folder:
+        if folder:
             row.append(" ")
-            segment(self._cwd_folder, "folder", (self._cwd_folder,))
-        if self._cwd_deck:
+            # Unsorted decks are listed at root, so that is where their
+            # pseudo-folder segment leads.
+            if d.is_unsorted(folder):
+                segment(folder_label, "root", ())
+            else:
+                segment(folder_label, "folder", (folder,))
+        if deck:
             row.append(" / ")
             # The deck segment re-enters the deck: harmless, and it keeps the
             # whole path uniformly clickable rather than one dead tail.
-            segment(self._cwd_deck, "deck", (self._cwd_folder, self._cwd_deck))
+            segment(deck_label, "deck", (self._cwd_folder, deck))
         nav.write(row)
         nav.write("-" * 16)
 
@@ -961,6 +1058,15 @@ class MtgOracleApp(App):
         for ticket in self._nav_click_ids:
             self._click_targets.pop(ticket, None)
         self._nav_click_ids.clear()
+
+        # Entering a deck puts a new combo list in front of the user, so an
+        # explicit `combo` list from before stops pinning `combo-info <N>`.
+        # A folder or root shows no list, so it leaves the last one alone.
+        location = (self._cwd_folder, self._cwd_deck)
+        if location != self._nav_location:
+            self._nav_location = location
+            if self._cwd_deck:
+                self._last_combos_explicit = False
 
         self._write_breadcrumb(nav)
 
@@ -994,14 +1100,17 @@ class MtgOracleApp(App):
                 nav.write(f"(combos lookup error: {type(e).__name__}: {e})")
                 combos = None
             # Keep _last_combos in sync with what the side pane shows so
-            # `combo-info <N>` resolves the same numbered list the user sees.
-            if combos is not None:
+            # `combo-info <N>` resolves the same numbered list the user sees —
+            # unless an explicit `combo` command has shown a newer one.
+            if combos is not None and not self._last_combos_explicit:
                 self._last_combos = combos
             links: list[r.LinkSpan] = []
             body = r.render_deck_compact(
                 deck, width=self._nav_content_width(),
                 analytics=analytics, combos=combos, links=links,
             )
+            if combos is not None:
+                links = self._combo_links_by_id(links, combos)
             nav.write(self._linked_text(body, links, nav=True))
             return
 
@@ -1020,10 +1129,16 @@ class MtgOracleApp(App):
             (f["deck_count"] for f in folders if f["id"] is None), 0
         )
 
+        width = self._nav_content_width()
+
         def nav_link(
             prefix: str, label: str, kind: str, args: tuple, suffix: str = "",
         ) -> None:
             """Write one tree row with the label as a click target."""
+            # Fit the pane: the format suffix goes first, then the name is cut.
+            if len(prefix) + len(label) + len(suffix) > width:
+                suffix = ""
+            label = _clip(label, width - len(prefix))
             ticket = self._click_ticket(kind, args, nav=True)
             row = Text(prefix, no_wrap=True)
             row.append(label, Style.from_meta({"@click": f"app.click_target({ticket})"}))
@@ -1050,10 +1165,14 @@ class MtgOracleApp(App):
         if unsorted_count:
             nav.write("")
             nav.write("  (unsorted)")
-            unsorted = [
-                x for x in d.list_decks(folder=None)
-                if x.get("folder") is None
-            ]
+            try:
+                unsorted = [
+                    x for x in d.list_decks(folder=None)
+                    if x.get("folder") is None
+                ]
+            except Exception as e:
+                nav.write(f"    (error listing decks: {type(e).__name__}: {e})")
+                return
             for x in unsorted:
                 nav_link("    ", x["name"], "deck", (None, x["name"]))
 
@@ -1065,115 +1184,129 @@ class MtgOracleApp(App):
         # double-space (paste artifact, double-press) doesn't break a
         # COLLATE-NOCASE deck-name match.
         target = " ".join(arg.split())
-        if not target or target == "/":
-            self._cwd_folder = None
-            self._cwd_deck = None
-            self._refresh_status()
-            self._refresh_nav()
-            self._write(self._path_str())
+        if not target or target == "/" or d.is_unsorted(target):
+            # `cd (unsorted)` too: unsorted decks are listed at root.
+            self._go(None, None)
             return
         if target == "..":
-            if self._cwd_deck:
-                self._cwd_deck = None
-            elif self._cwd_folder:
-                self._cwd_folder = None
-            self._refresh_status()
-            self._refresh_nav()
-            self._write(self._path_str())
+            if self._cwd_deck and not d.is_unsorted(self._cwd_folder):
+                self._go(self._cwd_folder, None)
+            else:
+                self._go(None, None)
             return
 
-        # Path-style: `cd Modern/UR Murktide` or `cd /Modern/UR Murktide`
-        # is treated as an absolute jump from root regardless of cwd.
-        if "/" in target:
-            parts = [p for p in target.split("/") if p]
-            if len(parts) == 1:
-                # `cd /SoloName` — same as a bareword, but anchored to root.
-                self._cwd_folder = None
-                self._cwd_deck = None
-                target = parts[0]  # fall through to bareword handling
-            elif len(parts) == 2:
-                folder_name, deck_name = parts
-                # Resolve folder -> deck.
-                folders = d.list_folders()
-                fmatch = next(
-                    (f["name"] for f in folders
-                     if f["id"] is not None and f["name"].lower() == folder_name.lower()),
-                    None,
-                )
-                if fmatch is None:
-                    self._write(f"cd: no folder named {folder_name!r}")
-                    return
-                deck = d.get_deck(deck_name, folder=fmatch)
-                if not deck:
-                    self._write(f"cd: no deck named {deck_name!r} in {fmatch!r}")
-                    return
-                self._cwd_folder = fmatch
-                self._cwd_deck = deck["name"]
-                self._refresh_status()
-                self._refresh_nav()
-                self._on_entered_deck()
+        # Path-style: `cd Modern/UR Murktide`, `cd /Modern/UR Murktide` or
+        # `cd (unsorted)/Brew` is an absolute jump from root regardless of cwd.
+        anchored = "/" in target
+        if anchored:
+            parts = [p.strip() for p in target.split("/") if p.strip()]
+            if len(parts) == 2:
+                self._cd_path(*parts)
                 return
-            else:
+            if len(parts) != 1:
                 self._write("cd: paths support at most <folder>/<deck>")
                 return
-
-        # Inside a deck, only `..` and `/` are meaningful.
-        if self._cwd_deck:
+            # `cd /SoloName` — same as a bareword, but from root.
+            target = parts[0]
+        elif self._cwd_deck:
+            # Inside a deck, only `..`, `/` and absolute paths mean anything.
             self._write("(already inside a deck — use `cd ..` or `cd /`)")
             return
+        scope = None if anchored else self._cwd_folder
 
-        # 1) At root or in a folder: try folder first if at root.
-        if not self._cwd_folder:
-            folders = {
-                f["name"].lower(): f["name"]
-                for f in d.list_folders() if f["id"] is not None
-            }
-            if target.lower() in folders:
-                self._cwd_folder = folders[target.lower()]
-                self._refresh_status()
-                self._refresh_nav()
-                self._write(self._path_str())
+        # 1) At root, a folder of that name wins.
+        if scope is None:
+            folder = self._real_folder_named(target)
+            if folder:
+                self._go(folder, None)
                 return
 
-        # 2) Try a deck in the current scope (folder if set, else unsorted).
+        # 2) A deck: in the current folder, or — from root — in any folder,
+        # as long as the name is unique.
         try:
-            deck = d.get_deck(target, folder=self._cwd_folder)
-        except d.DeckError as e:
-            # Ambiguous — let the user disambiguate via path syntax.
-            self._write(f"cd: {e}")
+            deck = d.get_deck(target, folder=scope)
+        except d.AmbiguousDeckError as e:
+            self._write(self._ambiguity_hint("cd", target, e))
             return
         if deck:
-            self._cwd_folder = deck.get("folder")
-            self._cwd_deck = deck["name"]
-            self._refresh_status()
-            self._refresh_nav()
-            self._on_entered_deck()
+            self._go(self._folder_of(deck), deck["name"])
             return
+        where = scope or "(any folder)"
+        self._write(f"cd: no folder or deck named {target!r} in {where}")
 
-        # 3) From root only: look for the deck across ALL folders. If exactly
-        # one matches, jump there. If several, list them so the user can use
-        # `cd <folder>/<deck>` to disambiguate.
-        if not self._cwd_folder:
-            all_decks = d.list_decks()
-            matches = [x for x in all_decks if x["name"].lower() == target.lower()]
-            if len(matches) == 1:
-                m = matches[0]
-                self._cwd_folder = m.get("folder")
-                self._cwd_deck = m["name"]
-                self._refresh_status()
-                self._refresh_nav()
-                self._on_entered_deck()
+    def _cd_path(self, folder_name: str, deck_name: str) -> None:
+        """`cd <folder>/<deck>`, where `<folder>` may be `(unsorted)`."""
+        if d.is_unsorted(folder_name):
+            folder = d.UNSORTED
+        else:
+            folder = self._real_folder_named(folder_name)
+            if folder is None:
+                self._write(f"cd: no folder named {folder_name!r}")
                 return
-            if len(matches) > 1:
-                lines = [f"cd: {len(matches)} decks named {target!r} — use a folder path:"]
-                for m in matches:
-                    folder = m.get("folder") or "(unsorted)"
-                    lines.append(f"  cd {folder}/{m['name']}")
-                self._write("\n".join(lines))
-                return
+        deck = d.get_deck(deck_name, folder=folder)
+        if not deck:
+            self._write(f"cd: no deck named {deck_name!r} in {folder!r}")
+            return
+        self._go(folder, deck["name"])
 
-        scope = self._cwd_folder or "(any folder)"
-        self._write(f"cd: no folder or deck named {target!r} in {scope}")
+    def _go(self, folder: Optional[str], deck: Optional[str]) -> None:
+        """Move the cwd, redraw what depends on it, and say where we are."""
+        self._cwd_folder = folder
+        self._cwd_deck = deck
+        self._refresh_status()
+        self._refresh_nav()
+        if deck:
+            self._on_entered_deck()
+        else:
+            self._write(self._path_str())
+
+    @staticmethod
+    def _folder_of(deck: dict) -> str:
+        """The cwd folder for a deck the deck layer returned.
+
+        `d.UNSORTED` rather than None for a deck outside any folder: None
+        means "any folder" to the deck layer, so once a same-named deck
+        exists in a folder every later call from inside this one would be
+        ambiguous.
+        """
+        return deck.get("folder") or d.UNSORTED
+
+    @staticmethod
+    def _real_folder_named(name: str) -> Optional[str]:
+        """The stored spelling of the folder `name`, or None if there's none."""
+        return next(
+            (f["name"] for f in d.list_folders()
+             if f["id"] is not None and f["name"].lower() == name.lower()),
+            None,
+        )
+
+    @staticmethod
+    def _ambiguity_hint(verb: str, name: str, e: "d.AmbiguousDeckError") -> str:
+        """Several decks share a name: list the paths that pick each one."""
+        lines = [f"{verb}: {len(e.folders)} decks named {name!r} — "
+                 f"use a folder path:"]
+        lines.extend(f"  {verb} {folder}/{name}" for folder in e.folders)
+        return "\n".join(lines)
+
+    def _find_deck(self, text: str) -> Optional[dict]:
+        """A deck named on the command line, as `<deck>` or `<folder>/<deck>`.
+
+        A bare name is looked up in the current folder first, then anywhere
+        — the same scoping `cd` uses. Raises `d.AmbiguousDeckError` when the
+        name alone matches decks in several folders.
+        """
+        parts = [p.strip() for p in text.split("/") if p.strip()]
+        if len(parts) == 2:
+            deck = d.get_deck(parts[1], folder=parts[0])
+            if deck:
+                return deck
+            # Fall through: a deck created before '/' was refused may have
+            # one in its name.
+        if self._cwd_folder:
+            deck = d.get_deck(text, folder=self._cwd_folder)
+            if deck:
+                return deck
+        return d.get_deck(text)
 
     def _cmd_ls(self, arg: str) -> None:
         flag = arg.strip().lower()
@@ -1240,6 +1373,9 @@ class MtgOracleApp(App):
         if not deck:
             self._write(f"(deck disappeared: {self._cwd_deck!r})")
             self._cwd_deck = None
+            # There is no "inside (unsorted)" without a deck; that is root.
+            if d.is_unsorted(self._cwd_folder):
+                self._cwd_folder = None
             self._refresh_status()
             return
         links: list[r.LinkSpan] = []
@@ -1274,10 +1410,26 @@ class MtgOracleApp(App):
             return
         try:
             d.delete_folder(name)
-            self._write(f"OK removed folder {name!r}")
-            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"rmdir: {e}")
+            return
+        self._write(f"OK removed folder {name!r}")
+        # Standing in the folder you removed left every later command
+        # failing with `folder not found`; step out of it instead.
+        if self._same_name(name, self._cwd_folder):
+            self._cwd_folder = None
+            self._refresh_status()
+        self._refresh_nav()
+
+    @staticmethod
+    def _same_name(typed: str, current: Optional[str]) -> bool:
+        """Whether a typed deck/folder name means `current`.
+
+        The deck layer matches names `COLLATE NOCASE`, so the cwd has to
+        compare the same way — an exact `==` missed `rename foo; bar` typed
+        inside `Foo`, and the pane then reported the deck as disappeared.
+        """
+        return current is not None and typed.lower() == current.lower()
 
     def _cmd_rename(self, arg: str) -> None:
         if ";" not in arg:
@@ -1289,13 +1441,14 @@ class MtgOracleApp(App):
             return
         try:
             d.rename_deck(old, new, folder=self._cwd_folder)
-            self._write(f"OK renamed {old!r} -> {new!r}")
-            if self._cwd_deck == old:
-                self._cwd_deck = new
-                self._refresh_status()
-            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"rename: {e}")
+            return
+        self._write(f"OK renamed {old!r} -> {new!r}")
+        if self._same_name(old, self._cwd_deck):
+            self._cwd_deck = new
+            self._refresh_status()
+        self._refresh_nav()
 
     def _cmd_move(self, arg: str) -> None:
         if ";" not in arg:
@@ -1307,10 +1460,19 @@ class MtgOracleApp(App):
             return
         try:
             d.move_deck(name, folder or None, folder=self._cwd_folder)
-            self._write(f"OK moved {name!r} -> {folder or '(unsorted)'}")
-            self._refresh_nav()
         except d.DeckError as e:
             self._write(f"move: {e}")
+            return
+        self._write(f"OK moved {name!r} -> {folder or '(unsorted)'}")
+        # Moving the deck you are in leaves the cwd pointing at its old
+        # folder, where it no longer is; follow it.
+        if self._same_name(name, self._cwd_deck):
+            self._cwd_folder = (
+                d.UNSORTED if not folder or d.is_unsorted(folder)
+                else self._real_folder_named(folder) or folder
+            )
+            self._refresh_status()
+        self._refresh_nav()
 
     def _cmd_add(self, arg: str) -> None:
         """Context-aware create/add. Behavior depends on cwd:
@@ -1345,10 +1507,8 @@ class MtgOracleApp(App):
             self._write("usage: add [--force] <card> [<qty>]")
             return
         # Trailing integer quantity, e.g. `add Sol Ring 2`.
-        qty = 1
-        toks = arg.rsplit(None, 1)
-        if len(toks) == 2 and toks[1].isdigit():
-            arg, qty = toks[0], int(toks[1])
+        arg, parsed_qty = self._split_quantity(arg)
+        qty = 1 if parsed_qty is None else parsed_qty
         try:
             canonical = d.add_card_to_deck(
                 self._cwd_deck, arg, quantity=qty, folder=self._cwd_folder,
@@ -1360,6 +1520,21 @@ class MtgOracleApp(App):
         except d.DeckError as e:
             self._write(f"add: {e}")
 
+    @staticmethod
+    def _split_quantity(arg: str) -> tuple[str, Optional[int]]:
+        """`Sol Ring 2` -> ('Sol Ring', 2); a bare name -> (name, None).
+
+        Some cards end in a number — Spider-Man 2099, Pip-Boy 3000, Pain 101,
+        Naturalize 2 — and splitting those turned `add Pip-Boy 3000` into
+        3000 copies of a card called 'Pip-Boy'. So the whole argument is
+        tried as a card name first; `add Pain 101 2` still means two copies.
+        """
+        toks = arg.rsplit(None, 1)
+        if (len(toks) == 2 and toks[1].isascii() and toks[1].isdigit()
+                and q.resolve_card_name(arg) is None):
+            return toks[0], int(toks[1])
+        return arg, None
+
     def _add_deck_in_current_folder(self, arg: str) -> None:
         name = arg.strip()
         if not name:
@@ -1367,8 +1542,7 @@ class MtgOracleApp(App):
             return
         try:
             d.create_deck(name, folder=self._cwd_folder)
-            scope = f"/{self._cwd_folder}" if self._cwd_folder else "(unsorted)"
-            self._write(f"OK created deck {name!r} in {scope}")
+            self._write(f"OK created deck {name!r} in /{self._cwd_folder}")
             self._refresh_nav()
         except d.DeckError as e:
             self._write(f"add: {e}")
@@ -1395,10 +1569,7 @@ class MtgOracleApp(App):
             self._write("usage: remove <card> [<qty>]   (omit qty to remove all copies)")
             return
         # Trailing integer = quantity, mirroring `add <card> [<qty>]`.
-        qty: Optional[int] = None
-        toks = arg.rsplit(None, 1)
-        if len(toks) == 2 and toks[1].isdigit():
-            arg, qty = toks[0], int(toks[1])
+        arg, qty = self._split_quantity(arg)
         try:
             canonical, removed, remaining = d.remove_card_from_deck(
                 self._cwd_deck, arg, quantity=qty, folder=self._cwd_folder,
@@ -1623,15 +1794,16 @@ class MtgOracleApp(App):
         No argument profiles the deck you are in, like `export` and `points`.
         Naming one profiles that deck instead, without having to `cd` first.
         """
-        name = arg.strip() or self._cwd_deck
-        if not name:
+        name = arg.strip()
+        if not name and not self._cwd_deck:
             self._write("usage: profile [<deck>]   "
                         "(or `cd <deck>` first to profile the deck you are in)")
             return
-        folder = self._cwd_folder if name == self._cwd_deck else None
+        ref = self._ref() if not name else self._deck_ref(name, "profile")
+        if ref is None:
+            return
         try:
-            deck = svc.deck_cards_for_analysis(
-                svc.DeckRef(deck=name, folder=folder))
+            deck = svc.deck_cards_for_analysis(ref)
         except svc.ServiceError as e:
             self._write(f"profile: {e}")
             return
@@ -1659,13 +1831,19 @@ class MtgOracleApp(App):
             self._write("usage: compare <deck>   "
                         f"(measures {self._cwd_deck!r} against that deck)")
             return
-        if other == self._cwd_deck:
+        ref = self._deck_ref(other, "compare")
+        if ref is None:
+            return
+        # Compared by location, not by the typed string: `compare foo` from
+        # inside `Foo` is the same deck, and a same-named deck in another
+        # folder is a different one.
+        if ref.path.lower() == self._ref().path.lower():
             self._write("(a deck compared to itself deviates nowhere — "
                         "name a different one)")
             return
         try:
             subject = svc.deck_cards_for_analysis(self._ref())
-            reference = svc.deck_cards_for_analysis(svc.DeckRef(deck=other))
+            reference = svc.deck_cards_for_analysis(ref)
         except svc.ServiceError as e:
             self._write(f"compare: {e}")
             return
@@ -1673,11 +1851,27 @@ class MtgOracleApp(App):
                                 turns=self._ANALYSIS_TURNS)
         self._write(r.render_comparison(cmp, **self._analysis_kwargs()))
 
+    def _deck_ref(self, text: str, verb: str) -> Optional[svc.DeckRef]:
+        """`_find_deck` as a DeckRef, reporting a miss or an ambiguity."""
+        try:
+            deck = self._find_deck(text)
+        except d.AmbiguousDeckError as e:
+            self._write(self._ambiguity_hint(verb, text, e))
+            return None
+        if not deck:
+            self._write(f"{verb}: no deck named {text!r}")
+            return None
+        return svc.DeckRef(deck=deck["name"], folder=self._folder_of(deck))
+
     def _cmd_show(self, arg: str) -> None:
         target = arg.strip()
         if target:
-            # Explicit name overrides cwd. Look up in current folder scope.
-            deck = d.get_deck(target, folder=self._cwd_folder)
+            # Explicit name overrides cwd: the current folder first, then any.
+            try:
+                deck = self._find_deck(target)
+            except d.AmbiguousDeckError as e:
+                self._write(self._ambiguity_hint("show", target, e))
+                return
             if not deck:
                 self._write(f"(deck not found: {target})")
                 return
@@ -1775,7 +1969,7 @@ class MtgOracleApp(App):
         """A clickable, numbered combo list — `combo-info <N>` matches it."""
         links: list[r.LinkSpan] = []
         body = r.render_combo_list(combos, header, numbered=True, links=links)
-        self._write_linked(body, links)
+        self._write_linked(body, self._combo_links_by_id(links, combos))
 
 
 def run() -> None:

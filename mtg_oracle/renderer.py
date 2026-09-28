@@ -770,12 +770,48 @@ def render_deck(deck: dict, links: Optional[list[LinkSpan]] = None) -> str:
     return "\n".join(lines)
 
 
+def _clip(text: str, width: int) -> str:
+    """One nav row cut to `width`, marked `..` the way card names are."""
+    if len(text) <= width:
+        return text
+    return text[:max(1, width - 2)] + ".."
+
+
+def _pack(parts: list[str], width: int, sep: str, indent: str = "") -> list[str]:
+    """Join `parts` into as few rows as fit `width`, never splitting a part.
+
+    `lands: 35 (36 with MDFC)` broken across two rows reads as two facts, so a
+    part that doesn't fit moves to the next row whole; only a part wider than
+    the pane on its own gets clipped. When everything fits on one row the
+    result is exactly `sep.join(parts)`.
+    """
+    rows: list[str] = []
+    current = ""
+    for part in parts:
+        candidate = current + sep + part if current else part
+        if current and len(candidate) > width:
+            rows.append(current)
+            current = indent + part
+        else:
+            current = candidate
+    if current:
+        rows.append(current)
+    return [_clip(row, width) for row in rows]
+
+
+def _prose(text: str, width: int) -> list[str]:
+    """A sentence-like nav row, word-wrapped under a two-space hang."""
+    return textwrap.wrap(text, width=width, subsequent_indent="  ",
+                         break_long_words=True) or [""]
+
+
 def render_analytics_compact(analytics: dict, width: int = 48) -> str:
     """Compact analytics block for the left navigation pane.
 
     Sections: mana-value summary, mana curve histogram (0/1/2/3/4/5/6+),
     colored-pip count for non-lands (WUBRG), mana sources for lands
-    (WUBRG + C). Width-aware: pip / source rows collapse to one line.
+    (WUBRG + C). Width-aware: at the default width every section is one or
+    two rows; a narrower pane reflows them rather than overflowing.
     """
     curve = analytics["mana_curve"]
     nonland = analytics["nonland_count"]
@@ -795,22 +831,51 @@ def render_analytics_compact(analytics: dict, width: int = 48) -> str:
     lines: list[str] = []
     lines.append("ANALYTICS")
     lines.append("-" * min(width, 9))
-    lines.append(f"avg MV: {mv_avg:.2f}   non-lands: {nonland}   lands: {land_str}")
+    lands = [f"lands: {land_str}"]
+    if len(lands[0]) > width and mdfc:
+        # The MDFC count is the part worth keeping whole, so it gets a row.
+        lands = [f"lands: {land}", f"({land_total} with MDFC)"]
+    lines.extend(_pack([f"avg MV: {mv_avg:.2f}", f"non-lands: {nonland}",
+                        *lands], width, sep="   "))
     lines.append("")
     buckets = ("0", "1", "2", "3", "4", "5", "6+")
-    lines.append("curve  " + "  ".join(f"{b:>2}" for b in buckets))
-    lines.append("       " + "  ".join(f"{curve[i]:>2}" for i in range(7)))
+    heads = "curve  " + "  ".join(f"{b:>2}" for b in buckets)
+    counts = "       " + "  ".join(f"{curve[i]:>2}" for i in range(7))
+    if max(len(heads), len(counts)) <= width:
+        lines.extend([heads, counts])
+    else:
+        # Too narrow for the label column: the label takes its own row and
+        # the columns close up to one space, which fits the narrowest pane.
+        lines.append("curve")
+        lines.append(_clip(" ".join(f"{b:>2}" for b in buckets), width))
+        lines.append(_clip(" ".join(f"{curve[i]:>2}" for i in range(7)), width))
+
+    def labelled(label: str, gap: str, parts: list[str]) -> list[str]:
+        row = label + gap + " ".join(parts)
+        if len(row) <= width:
+            return [row]
+        return _pack([label, *parts], width, sep=" ", indent="  ")
 
     if pip_total > 0:
-        present = " ".join(f"{c}:{pips[c]}" for c in "WUBRG" if pips[c])
         lines.append("")
-        lines.append(f"pips ({pip_total}):    {present}")
+        lines.extend(labelled(f"pips ({pip_total}):", "    ",
+                              # `C` is {C} in a cost — counted in the total,
+                              # so listed too. `.get`: older analytics dicts
+                              # have no C bucket.
+                              [f"{c}:{pips.get(c, 0)}" for c in "WUBRGC"
+                               if pips.get(c, 0)]))
 
     if land_total > 0:
-        present = " ".join(f"{c}:{sources[c]}" for c in "WUBRGC" if sources[c])
-        lines.append(f"sources ({land_total}): {present}")
+        lines.extend(labelled(f"sources ({land_total}):", " ",
+                              [f"{c}:{sources[c]}" for c in "WUBRGC" if sources[c]]))
 
     return "\n".join(lines)
+
+
+# Below this many columns left for card names, the combo row header drops its
+# `(N cards)` count: a header that fills the row pushes every card name onto
+# continuation lines, which is harder to read than a missing count.
+_COMBO_NAME_ROOM = 12
 
 
 def render_combos_compact(
@@ -820,25 +885,32 @@ def render_combos_compact(
 ) -> str:
     """Numbered combo list for the left navigation pane.
 
-    Shape mirrors `_render_numbered_combo_list` (so `combo-info <N>` still
-    works against `_last_combos`) but laid out narrower for the side pane.
-    Each combo gets a header line plus its card list wrapping at ' + '.
+    Shape mirrors `render_combo_list(numbered=True)` — the same `[  N]`
+    labels, recorded as `combo` links carrying the row number — but laid out
+    narrower for the side pane. Each combo gets a header line plus its card
+    list wrapping at ' + '.
     """
-    if not combos:
-        return "COMBOS\n" + "-" * min(width, 6) + "\n  (no combos fully contained in this deck)"
     lines = ["COMBOS", "-" * min(width, 6)]
-    lines.append(f"{len(combos)} combo(s) — `combo-info <N>` to expand")
+    if not combos:
+        lines.extend(_prose("  (no combos fully contained in this deck)", width))
+        return "\n".join(lines)
+    lines.extend(_pack([f"{len(combos)} combo(s) —", "`combo-info <N>`",
+                        "to expand"], width, sep=" "))
     for i, c in enumerate(combos, 1):
         cards_str = c.get("cards") or c.get("combo_name") or ""
         ci = c.get("color_identity") or "-"
         plus = "+" if c.get("has_template_vars") else ""
         index_label = f"[{i:>3}]"
         header = f"  {index_label} {ci:<5} ({c['card_count']}{plus} cards) "
+        if width - len(header) < _COMBO_NAME_ROOM:
+            header = f"  {index_label} {ci} "
         row = wrap_combo_row(header, cards_str, row_width=width)
         # A wrapped row spans several lines; the index only exists on the
         # first, so record the link before extending past it.
         first_line_no = len(lines)
-        lines.extend(row.split("\n"))
+        # A single card name longer than the pane still can't be broken at
+        # ' + ', so clip it; the label at columns 2-7 always survives.
+        lines.extend(_clip(line, width) for line in row.split("\n"))
         if links is not None:
             links.append(LinkSpan(first_line_no, 2, 2 + len(index_label),
                                   "combo", (i,)))
@@ -858,6 +930,9 @@ def render_deck_compact(
     and Combos sections at the bottom. The optional sections are rendered
     inline rather than written separately so the whole side pane refreshes
     atomically when a card is added / removed.
+
+    No row is wider than `width`: the pane doesn't wrap, so an overlong row
+    is silently cut off at the border.
     """
     name_w = max(8, width - 6)  # `  NNx ` prefix takes 5–6 chars
 
@@ -875,17 +950,20 @@ def render_deck_compact(
     # the rows and leaving them to wonder.
     no_format_hint = None if deck.get("format") else "no format — see `format`"
 
-    name_line = deck.get("name") or "(deck)"
-    if len(name_line) > width:
-        name_line = name_line[:width - 2] + ".."
+    name_line = _clip(deck.get("name") or "(deck)", width)
 
-    lines: list[str] = [name_line, " / ".join(bits)]
+    # Every element of `lines` must be exactly one physical row: LinkSpan line
+    # numbers index into it, and a multi-line sub-render appended as a single
+    # element shifted every link below it — the combo numbers landed on the
+    # analytics rows.
+    lines: list[str] = [name_line]
+    lines.extend(_pack(bits, width, sep=" / "))
     badges = [b for b in (_ci_badge(deck.get("commander_ci")),
                           _points_badge(deck.get("points"))) if b]
     if badges:
-        lines.append(" ".join(badges))
+        lines.extend(_pack(badges, width, sep=" "))
     if no_format_hint:
-        lines.append(no_format_hint)
+        lines.extend(_prose(no_format_hint, width))
     lines.append("=" * min(width, len(name_line)))
 
     commanders: list[dict] = []
@@ -930,7 +1008,9 @@ def render_deck_compact(
     for bucket, cards in ordered:
         subtotal = sum(c["quantity"] for c in cards)
         lines.append("")
-        lines.append(f"{bucket} ({subtotal})")
+        # A user-named category can be any length, and the count is the
+        # useful half — so it is the name that gets cut, not the count.
+        lines.append(_name_with_points(bucket, subtotal, width))
         for c in cards:
             qty = c["quantity"]
             pts = points_by_card.get((c["card_name"] or "").lower())
@@ -942,11 +1022,14 @@ def render_deck_compact(
         lines.append("")
         lines.append("POINTS")
         lines.append("-" * min(width, 6))
-        lines.append(render_points(points, width=width))
+        # `_points_headline` joins its three facts with three spaces; split on
+        # that so a narrow pane stacks them instead of cutting `(0 left)` off.
+        lines.extend(_pack(_points_headline(points).split("   "), width, sep="   "))
+        lines.extend(render_points(points, headline=False, width=width).split("\n"))
 
     if analytics is not None:
         lines.append("")
-        lines.append(render_analytics_compact(analytics, width=width))
+        lines.extend(render_analytics_compact(analytics, width=width).split("\n"))
     if combos is not None:
         lines.append("")
         # The combo block renders standalone, so its link line numbers are

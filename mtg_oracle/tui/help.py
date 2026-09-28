@@ -49,6 +49,7 @@ NAVIGATION (works anywhere)
   cd <deck>                 from root, jumps directly into a deck if its
                             name is unique across all folders
   cd <folder>/<deck>        explicit path (disambiguates ambiguous names)
+  cd (unsorted)/<deck>      a deck outside any folder, by path
   cd ..                     up one level
   cd /                      go to root
 
@@ -61,6 +62,9 @@ AT ROOT (`/`)
   mkdir <name>              create folder
   rmdir <name>              delete an empty folder
   show <deck>               render a deck without entering it
+                            (`show`, `profile` and `compare` also take
+                            <folder>/<deck>; a bare name is looked up in
+                            the current folder first, then in any folder)
 
 FOLDER DEFAULT FORMAT (`/<folder>/`)
   format                    show this folder's default format
@@ -83,8 +87,12 @@ INSIDE A DECK (`/<folder>/<deck>/`)
                             left panel, live-updated as you edit)
   show                      render the full deck to the right pane
                             (useful if you want to scroll / copy it out)
-  add <card> [<qty>]        add card (qty defaults to 1)
-  add --force <card>        bypass commander-CI and singleton checks
+  add <card> [<qty>]        add card (qty defaults to 1). A name that ends
+                            in a number is read as that card first:
+                            `add Pain 101` adds Pain 101; `add Pain 101 2`
+                            adds two of it
+  add --force <card>        bypass the deck's rules: commander CI,
+                            format legality, singleton and points
   remove <card> [<qty>]     remove qty copies; omit qty to remove all
   commander <card>          promote a card to commander (adds it if
                             missing, flips is_commander on existing
@@ -100,7 +108,8 @@ INSIDE A DECK (`/<folder>/<deck>/`)
   format --unset            clear it; no format rules apply
   points                    points spent / budget, in formats that have a
                             points list (Canadian Highlander). Pointed
-                            cards are marked `<3p>` in `show`.
+                            cards show their points after the name, as
+                            `Card Name (3)`, in `show` and the left pane.
   combos                    list Spellbook combos fully contained here
   paste                     read deckstring from system clipboard and
                             append to current deck (Windows / macOS / Linux)
@@ -120,6 +129,8 @@ INSIDE A DECK (`/<folder>/<deck>/`)
   compare <deck>            this deck against that one, head to head:
                             role counts, curve deltas, and which cards
                             each plays that the other does not
+
+Folder and deck names can't contain `/` — it separates them in a path.
 
 Card-name resolution is tolerant of `/` vs ` // ` and front-face-only DFC
 names: `add fire/ice` resolves to the canonical `Fire // Ice`.
@@ -186,14 +197,15 @@ Mouse:
     a card name anywhere                 -> its full profile, right pane
     a combo's [ N ] row number           -> expands that combo
   Drag the `|` divider between the panes to resize them (Ctrl+Left /
-  Ctrl+Right does the same). The split is remembered next launch.
+  Ctrl+Right does the same, even while typing). The split is remembered
+  next launch.
   Everything is still reachable by typing; the mouse is a shortcut, not a
   second interface. Shift+drag still selects text.
 
 Typing:
   Autofill suggestions appear as gray text after your command (prefix match).
-  Tab or Right Arrow accepts the suggestion. Inside a deck, `remove` completes
-  from the cards actually in that deck.
+  Right Arrow (with the cursor at the end) accepts the suggestion. Inside a
+  deck, `remove` completes from the cards actually in that deck.
   Up / Down  cycle through previously submitted commands (shell-style).
 
 Keys:
@@ -202,6 +214,7 @@ Keys:
   Up / Down    previous / next command in history
   Esc          unfocus
   Ctrl+L       clear
+  Ctrl+Left / Ctrl+Right   narrow / widen the left pane
   Ctrl+P       command palette (e.g. change theme — remembered next launch)
   Ctrl+Q       quit
   Shift+drag   bypass mouse capture to select text (then Ctrl+Shift+C to copy)

@@ -17,11 +17,15 @@ CONFIG_PATH = REPO_ROOT / "data" / "config.json"
 
 
 def load_config() -> dict:
+    # `utf-8-sig` because PowerShell 5.1 writes a BOM, and plain `utf-8`
+    # rejected the file as invalid JSON — which read as "no settings", so the
+    # next save silently replaced it. `ValueError` covers both bad JSON and a
+    # file that isn't UTF-8 at all, which used to crash the app on startup.
     try:
-        with open(CONFIG_PATH, encoding="utf-8") as f:
+        with open(CONFIG_PATH, encoding="utf-8-sig") as f:
             data = json.load(f)
             return data if isinstance(data, dict) else {}
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    except (OSError, ValueError):
         return {}
 
 

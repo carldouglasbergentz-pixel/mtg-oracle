@@ -18,9 +18,16 @@ def read_clipboard() -> str:
     """
     if sys.platform.startswith("win"):
         # Get-Clipboard is built into PowerShell on every modern Windows.
+        # A piped PowerShell writes in the console's OEM codepage, which
+        # Python then decodes as cp1252: `Lim-Dûl's Vault` arrived as
+        # `Lim-D–l's Vault` and was skipped as not found. Pin both ends to
+        # UTF-8. `-Raw` keeps the text as one string instead of a line array.
         out = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", "Get-Clipboard"],
-            capture_output=True, text=True, timeout=5,
+            ["powershell", "-NoProfile", "-Command",
+             "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+             "Get-Clipboard -Raw"],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=5,
         )
         if out.returncode == 0:
             return out.stdout
