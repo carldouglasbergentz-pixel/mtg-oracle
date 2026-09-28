@@ -25,6 +25,14 @@ DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 BUSY_TIMEOUT_S = 15.0
 
 
+def like_literal(value: str) -> str:
+    """`value` with LIKE's wildcards taken literally — `%` and `_` in a
+    card name or search term must not match everything. Use with
+    `LIKE ? ESCAPE '!'`; not backslash, which would need escaping again in
+    every Python and SQL literal on the way."""
+    return value.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+
+
 # --- Format legality ----------------------------------------------------
 
 # The keys Scryfall's `legalities` object uses, i.e. the values that can
@@ -293,9 +301,13 @@ _LIGATURE_MAP = str.maketrans({
 })
 
 
-# Apostrophes — straight, curly, backtick — get stripped so users don't have
-# to type them ("lim-duls vault" matches "Lim-Dûl's Vault").
-_APOSTROPHE_DROP = str.maketrans({"'": None, "’": None, "‘": None, "`": None})
+# Apostrophes and quotes — straight, curly, backtick — get stripped so users
+# don't have to type them ("lim-duls vault" matches "Lim-Dûl's Vault",
+# "kongming, sleeping dragon" matches 'Kongming, "Sleeping Dragon"').
+_APOSTROPHE_DROP = str.maketrans({
+    "'": None, "’": None, "‘": None, "`": None,
+    '"': None, "“": None, "”": None,
+})
 
 
 def _ascii_fold(s: str) -> str:
@@ -306,7 +318,7 @@ def _ascii_fold(s: str) -> str:
         "Lórien Revealed"  -> "lorien revealed"
         "Æther Vial"       -> "aether vial"
         "Lim-Dûl's Vault"  -> "lim-duls vault"
-        "Kongming, Sleeping Dragon" matches "Kongming, 'Sleeping Dragon'"
+        'Kongming, "Sleeping Dragon"' -> "kongming, sleeping dragon"
     """
     if not s:
         return ""
@@ -365,26 +377,19 @@ def resolve_card_name(raw: str) -> Optional[str]:
 
         # 3) Front-face-only DFC: try `<name> // %` prefix.
         cur.execute(
-            "SELECT name FROM cards WHERE name LIKE ? COLLATE NOCASE "
+            "SELECT name FROM cards WHERE name LIKE ? ESCAPE '!' COLLATE NOCASE "
             "ORDER BY LENGTH(name) LIMIT 1",
-            (f"{name} // %",),
+            (f"{like_literal(name)} // %",),
         )
         row = cur.fetchone()
         if row:
             return row[0]
 
-        # 4) ASCII fold-down fallback: linear scan, ~30-50 ms over 34k names.
-        # Scoped only to cards whose first ASCII letter matches the input,
-        # which keeps it fast in practice.
+        # 4) ASCII fold-down fallback: linear scan over every name. No SQL
+        # first-letter prefilter — SQLite's LOWER() is ASCII-only, so one
+        # never matched 'Éomer' for input 'eomer'.
         target = _ascii_fold(name)
-        first = target[:1]
-        if first.isalpha():
-            cur.execute(
-                "SELECT name FROM cards WHERE LOWER(SUBSTR(name, 1, 1)) IN (?, ?)",
-                (first, first.upper()),
-            )
-        else:
-            cur.execute("SELECT name FROM cards")
+        cur.execute("SELECT name FROM cards")
         for (cn,) in cur.fetchall():
             if _ascii_fold(cn) == target:
                 return cn
@@ -400,6 +405,12 @@ def resolve_card_name(raw: str) -> Optional[str]:
 
 
 # --- Connection --------------------------------------------------------
+
+def _clamp_limit(limit: int, maximum: int) -> int:
+    """Clamp a caller's page size. Resetting an oversized one to a small
+    default instead made rows past it unreachable by paging."""
+    return max(1, min(limit, maximum))
+
 
 def _connect() -> sqlite3.Connection:
     """Open a read-only connection to the knowledge-base DB."""
@@ -618,28 +629,47 @@ def get_card(
             "SELECT c.id, c.color_identity, c.name AS combo_name, "
             "(SELECT COUNT(*) FROM combo_cards WHERE combo_id=c.id) AS card_count, "
             "(SELECT GROUP_CONCAT(card_name, ' + ') "
-            " FROM combo_cards WHERE combo_id=c.id) AS cards "
+            " FROM combo_cards WHERE combo_id=c.id) AS cards, "
+            "'spellbook' AS source "
             "FROM combos c JOIN combo_cards cc ON cc.combo_id = c.id "
             "WHERE cc.card_name = ?" + ci_where + " "
-            "ORDER BY card_count ASC, c.id "
+            "UNION ALL "
+            "SELECT c.id, c.color_identity, c.name AS combo_name, "
+            "(SELECT COUNT(*) FROM user_combo_cards WHERE combo_id=c.id) AS card_count, "
+            "(SELECT GROUP_CONCAT(card_name, ' + ') "
+            " FROM user_combo_cards WHERE combo_id=c.id) AS cards, "
+            "'user' AS source "
+            "FROM user_combos c JOIN user_combo_cards cc ON cc.combo_id = c.id "
+            "WHERE cc.card_name = ? COLLATE NOCASE" + ci_where + " "
+            "ORDER BY card_count ASC, id "
             "LIMIT 10",
-            tuple([canonical] + ci_params),
+            tuple([canonical] + ci_params + [canonical] + ci_params),
         )
-        card["combos"] = _rows_to_dicts(cur.fetchall())
+        card["combos"] = flag_template_vars(_rows_to_dicts(cur.fetchall()), cur)
         card["combos_filtered_by_ci"] = (
             "".join(restrict_to_ci) if restrict_to_ci else "C"
         ) if restrict_to_ci is not None else None
 
         cur.execute(
             "SELECT id, topic, correct_claim, source FROM corrections "
-            "WHERE relates_to LIKE ? COLLATE NOCASE ORDER BY added_at DESC",
-            (f"%{canonical}%",),
+            f"WHERE {_RELATES_TO_NAMES} ORDER BY added_at DESC",
+            (_relates_to_pattern(canonical),),
         )
         card["corrections"] = _rows_to_dicts(cur.fetchall())
 
         return card
     finally:
         conn.close()
+
+
+# `relates_to` is a JSON array of names. Matching the quoted element keeps a
+# short name from matching inside a longer one ('Strangle' in
+# 'Strangleroot Geist'), which a bare substring match did.
+_RELATES_TO_NAMES = "relates_to LIKE ? ESCAPE '!' COLLATE NOCASE"
+
+
+def _relates_to_pattern(name: str) -> str:
+    return f"%{like_literal(json.dumps(name, ensure_ascii=False))}%"
 
 
 def get_rulings(card_name: str) -> list[dict]:
@@ -652,7 +682,7 @@ def get_rulings(card_name: str) -> list[dict]:
         cur.execute(
             "SELECT date, text FROM rulings WHERE card_name = ? COLLATE NOCASE "
             "ORDER BY date",
-            (card_name,),
+            (resolve_card_name(card_name) or card_name,),
         )
         return _rows_to_dicts(cur.fetchall())
     finally:
@@ -666,8 +696,8 @@ def find_combos_with_card(card_name: str, limit: int = 25) -> list[dict]:
     Card-name match is case-insensitive. Includes user-curated combos."""
     if not card_name:
         return []
-    if limit < 1 or limit > 500:
-        limit = 25
+    card_name = resolve_card_name(card_name) or card_name
+    limit = _clamp_limit(limit, 500)
     conn = _connect()
     try:
         cur = conn.cursor()
@@ -702,10 +732,16 @@ def find_combos_with_all(card_names: list[str], limit: int = 25) -> list[dict]:
     Card-name matches are case-insensitive. Combos are returned ordered
     by card count (smallest first).
     """
+    # Resolve, then dedupe case-insensitively: HAVING compares against the
+    # number of names, so a repeated name made every combo unreachable.
+    unique: dict[str, str] = {}
+    for raw in card_names:
+        name = resolve_card_name(raw) or raw
+        unique.setdefault(name.casefold(), name)
+    card_names = list(unique.values())
     if not card_names:
         return []
-    if limit < 1 or limit > 500:
-        limit = 25
+    limit = _clamp_limit(limit, 500)
     placeholders = ",".join("?" * len(card_names))
     conn = _connect()
     try:
@@ -821,6 +857,14 @@ def get_combo(combo_id: str) -> Optional[dict]:
 
 # --- Rules --------------------------------------------------------------
 
+def rule_sort_key(rule_number: str) -> tuple:
+    """Natural order for CR numbers: '702.2' < '702.10' < '702.10a'."""
+    return tuple(
+        (0, int(part), "") if part.isdigit() else (1, 0, part.lower())
+        for part in re.findall(r"[0-9]+|[A-Za-z]+", rule_number or "")
+    )
+
+
 def get_rule(rule_number: str) -> Optional[dict]:
     """Return a rule by rule_number (case-insensitive on the letter suffix),
     plus its immediate child rules."""
@@ -841,11 +885,13 @@ def get_rule(rule_number: str) -> Optional[dict]:
         canonical = rule["rule_number"]
 
         cur.execute(
-            "SELECT rule_number, text FROM rules WHERE parent_rule = ? "
-            "ORDER BY rule_number",
+            "SELECT rule_number, text FROM rules WHERE parent_rule = ?",
             (canonical,),
         )
-        rule["children"] = _rows_to_dicts(cur.fetchall())
+        rule["children"] = sorted(
+            _rows_to_dicts(cur.fetchall()),
+            key=lambda r: rule_sort_key(r["rule_number"]),
+        )
 
         return rule
     finally:
@@ -856,18 +902,22 @@ def search_rules(pattern: str, limit: int = 25) -> list[dict]:
     """Search rules text for a substring (case-insensitive)."""
     if not pattern:
         return []
-    if limit < 1 or limit > 200:
-        limit = 25
+    limit = _clamp_limit(limit, 200)
     conn = _connect()
     try:
         cur = conn.cursor()
+        # Sorted in Python before the limit: rule numbers need a natural
+        # sort, and SQL's text order puts 702.10 before 702.2.
         cur.execute(
             "SELECT rule_number, section_title, text FROM rules "
-            "WHERE text LIKE ? COLLATE NOCASE "
-            "ORDER BY rule_number LIMIT ?",
-            (f"%{pattern}%", limit),
+            "WHERE text LIKE ? ESCAPE '!' COLLATE NOCASE",
+            (f"%{like_literal(pattern)}%",),
         )
-        return _rows_to_dicts(cur.fetchall())
+        rows = sorted(
+            _rows_to_dicts(cur.fetchall()),
+            key=lambda r: rule_sort_key(r["rule_number"]),
+        )
+        return rows[:limit]
     finally:
         conn.close()
 
@@ -893,14 +943,13 @@ def get_corrections(
 
     When all three are None, returns the most recent corrections overall.
     """
-    if limit < 1 or limit > 200:
-        limit = 25
+    limit = _clamp_limit(limit, 200)
 
     clauses: list[str] = []
     params: list = []
     if card:
-        clauses.append("relates_to LIKE ?")
-        params.append(f"%{card}%")
+        clauses.append(_RELATES_TO_NAMES)
+        params.append(_relates_to_pattern(card))
     if topic:
         clauses.append("(topic LIKE ? OR incorrect_claim LIKE ?)")
         params.append(f"%{topic}%")

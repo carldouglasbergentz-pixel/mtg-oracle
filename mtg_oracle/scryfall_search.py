@@ -93,6 +93,7 @@ from typing import Any, Iterator, Optional
 from mtg_oracle.queries import (
     BUSY_TIMEOUT_S,       # wait out a running sync
     LEGALITY_FORMATS,     # for SYNTAX_HELP's format list
+    like_literal,         # user input with % and _ taken literally
     normalize_format,     # 'Competitive Brawl' -> 'competitivebrawl'
 )
 
@@ -224,7 +225,9 @@ def tokenize(s: str) -> Iterator[tuple]:
                 yield ("MINUS", "-")
                 i += 1
                 continue
-            # Otherwise fall through into word parsing (shouldn't really happen).
+            # A bare '-' used to fall through as a bareword and search oracle
+            # text for a hyphen, silently narrowing `t:goblin -`.
+            raise SearchError(f"dangling '-' at col {i}")
         if ch == '"':
             end = s.find('"', i + 1)
             if end == -1:
@@ -257,6 +260,10 @@ def tokenize(s: str) -> Iterator[tuple]:
                 yield ("OR", ident)
             elif lc == "not":
                 yield ("NOT", ident)
+            elif lc == "and":
+                # Juxtaposition already means AND; Scryfall accepts the
+                # explicit word too. As a bareword it became `o:and`.
+                continue
             elif ident:
                 yield ("BAREWORD", ident)
             continue
@@ -452,15 +459,16 @@ def _numeric_op(field_sql: str, op: str, value: str) -> tuple[str, list]:
     return f"{field_sql} {sql_op} ?", [n]
 
 
-def _digits_only(col: str) -> str:
-    """SQL predicate: this TEXT column holds nothing but digits.
+def _integer_only(col: str) -> str:
+    """SQL predicate: this TEXT column holds a plain integer, optionally negative.
 
     `GLOB '[0-9]*'` only pins the FIRST character, so '1+*' passed the old
     guard and CAST('1+*' AS INTEGER) is 1 — Tarmogoyf silently matched
-    `pow<=1`. Requiring every character to be a digit is the real test.
-    NULL columns compare to NULL and are filtered out either way.
+    `pow<=1`. Requiring every character to be a digit is the real test;
+    one leading '-' is allowed because Spinal Parasite is -1/-1.
     """
-    return f"(c.{col} <> '' AND c.{col} NOT GLOB '*[^0-9]*')"
+    digits = f"(CASE WHEN c.{col} LIKE '-%' THEN substr(c.{col}, 2) ELSE c.{col} END)"
+    return f"({digits} <> '' AND {digits} NOT GLOB '*[^0-9]*')"
 
 
 def _pt_op(col: str, op: str, value: str) -> tuple[str, list]:
@@ -472,11 +480,19 @@ def _pt_op(col: str, op: str, value: str) -> tuple[str, list]:
         n = int(value)
     except ValueError:
         raise SearchError(f"expected integer for {col} {op} comparison, got {value!r}")
-    sql_op = {"!=": "!=", ">": ">", "<": "<", ">=": ">=", "<=": "<="}[op]
+    sql_op = {"!=": "!=", ">": ">", "<": "<", ">=": ">=", "<=": "<="}.get(op)
+    if sql_op is None:
+        raise SearchError(f"unsupported op {op!r} on {col}")
     return (
-        f"({_digits_only(col)} AND CAST(c.{col} AS INTEGER) {sql_op} ?)",
+        f"({_integer_only(col)} AND CAST(c.{col} AS INTEGER) {sql_op} ?)",
         [n],
     )
+
+
+def _contains(value: str) -> str:
+    """LIKE pattern for "contains value" with the user's % and _ taken
+    literally — `n:_____` otherwise matched every name of five letters or more."""
+    return f"%{like_literal(value)}%"
 
 
 def compile_term(t: Term) -> tuple[str, list]:
@@ -490,11 +506,11 @@ def compile_term(t: Term) -> tuple[str, list]:
     if field == "o":
         if op not in (":", "="):
             raise SearchError(f"oracle text supports only ':' or '=', got {op!r}")
-        return "c.oracle_text LIKE ? COLLATE NOCASE", [f"%{val}%"]
+        return "c.oracle_text LIKE ? ESCAPE '!' COLLATE NOCASE", [_contains(val)]
     if field == "t":
         if op not in (":", "="):
             raise SearchError(f"type line supports only ':' or '=', got {op!r}")
-        return "c.type_line LIKE ? COLLATE NOCASE", [f"%{val}%"]
+        return "c.type_line LIKE ? ESCAPE '!' COLLATE NOCASE", [_contains(val)]
     if field == "n":
         # `=` means "exactly" everywhere else in this language (c=, ci=), so
         # it means exact name here too. Substring is `n:`. Without this,
@@ -504,7 +520,7 @@ def compile_term(t: Term) -> tuple[str, list]:
             return "c.name = ? COLLATE NOCASE", [val]
         if op != ":":
             raise SearchError(f"name supports only ':' or '=', got {op!r}")
-        return "c.name LIKE ? COLLATE NOCASE", [f"%{val}%"]
+        return "c.name LIKE ? ESCAPE '!' COLLATE NOCASE", [_contains(val)]
     if field == "kw":
         if op not in (":", "="):
             raise SearchError(f"kw supports only ':' or '='")
@@ -600,7 +616,9 @@ def compile_ast(node) -> tuple[str, list]:
         return compile_term(node)
     if isinstance(node, Not):
         inner, params = compile_ast(node.expr)
-        return f"NOT ({inner})", params
+        # A comparison against a NULL column is NULL, and NOT NULL is still
+        # NULL — so `-pow>=4` dropped every non-creature. Unknown is "no match".
+        return f"NOT COALESCE(({inner}), 0)", params
     if isinstance(node, And):
         parts = [compile_ast(e) for e in node.exprs]
         sql = "(" + " AND ".join(p[0] for p in parts) + ")"
@@ -623,8 +641,10 @@ def compile_ast(node) -> tuple[str, list]:
 # Matches `order:asc_FIELD`, `order:desc_FIELD`, `sort:asc_FIELD`, etc.
 # The token must be word-bounded (start of string, or after whitespace) so
 # it doesn't collide with substrings like `disorder:foo` or `o:"order:..."`.
+# Quoted strings are matched first and passed through untouched, so
+# `o:"x order:asc_mv"` searches for that text rather than sorting.
 _ORDER_TOKEN_RE = re.compile(
-    r"(?:^|\s)(?:order|sort)[:=]([a-zA-Z_]+)(?=\s|$)",
+    r'"[^"]*"|(?:^|(?<=\s))(?:order|sort)[:=]([a-zA-Z_]+)(?=\s|$)',
     re.IGNORECASE,
 )
 
@@ -647,8 +667,8 @@ _SORT_FIELD_SQL = {
     "color": "COALESCE(c.colors, '')",
     # ci sort is by *number of colors* in the color identity — useful for
     # going from mono to multicolor (or vice-versa) within a result set.
-    "ci": "LENGTH(COALESCE(c.color_identity, '')) - "
-          "(LENGTH(REPLACE(COALESCE(c.color_identity, ''), ',', '')))",
+    "ci": "CASE WHEN COALESCE(c.color_identity, '') = '' THEN 0 ELSE "
+          "LENGTH(c.color_identity) - LENGTH(REPLACE(c.color_identity, ',', '')) + 1 END",
     # EDHREC popularity rank: 1 = most played. `order:asc_edhrec` is
     # "most popular first", which is what you want when browsing
     # candidates for a deck. NULL (unranked) sorts last as usual.
@@ -667,6 +687,8 @@ def _extract_order(query: str) -> tuple[str, list[tuple[str, str]]]:
     """
     orders: list[tuple[str, str]] = []
     def _capture(m: re.Match) -> str:
+        if m.group(1) is None:
+            return m.group(0)
         spec = m.group(1).lower()
         if "_" not in spec:
             raise SearchError(
@@ -704,7 +726,7 @@ def _build_order_by(orders: list[tuple[str, str]]) -> str:
             # Numeric when digits-only ('3'), NULL otherwise ('*', '1+*') —
             # and NULLs are forced to sort last just below.
             expr = (
-                f"CASE WHEN {_digits_only(col)} "
+                f"CASE WHEN {_integer_only(col)} "
                 f"THEN CAST(c.{col} AS REAL) END"
             )
         elif field in _SORT_FIELD_SQL:
@@ -739,8 +761,7 @@ def _compile_where_or_all(cleaned_query: str) -> tuple[str, list]:
 
 
 def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
-    if limit < 1 or limit > 1000:
-        limit = 50
+    limit = max(1, min(limit, 1000))
     if offset < 0:
         offset = 0
     cleaned, orders = _extract_order(query)
