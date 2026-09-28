@@ -224,6 +224,14 @@ class TestMigration(unittest.TestCase):
             conn.close()
 
     def test_runs_clean_on_the_real_database_copy(self):
+        # The live database may already carry the index (sync self-heals it),
+        # so remove it from the copy to exercise the migration itself.
+        conn = sqlite3.connect(_copy)
+        try:
+            conn.execute("DROP INDEX IF EXISTS idx_decks_folder_name_nocase_unique")
+            conn.commit()
+        finally:
+            conn.close()
         with mock.patch.object(migration, "DB_PATH", _copy):
             out, _ = self._run()
         self.assertIn("Migration applied", out)

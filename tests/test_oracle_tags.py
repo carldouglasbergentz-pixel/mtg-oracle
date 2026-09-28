@@ -191,7 +191,10 @@ class TestTagsFillTheGaps(OracleTagTestCase):
     CASES = {
         "Thoughtseize": "discard", "Hymn to Tourach": "discard",
         "Duress": "discard", "Grief": "discard",
-        "Lava Spike": "burn", "Flame Rift": "burn",
+        # Lava Spike left this live-data list on 2026-09-28, when Tagger
+        # labelled it `spot removal`; the rule it tested is pinned with frozen
+        # tags in TestTagsReplaceRatherThanUnion.
+        "Flame Rift": "burn",
         "High Tide": "ritual", "Turnabout": "ritual", "Dark Ritual": "ritual",
         "Utopia Sprawl": "mana", "Wild Growth": "mana",
         "Sapphire Medallion": "mana",
@@ -252,8 +255,16 @@ class TestTagsReplaceRatherThanUnion(OracleTagTestCase):
         text roles back in would re-add `spot`, which is the wrong answer for
         a card that cannot point at a creature.
         """
-        self.assertNotIn("spot", self.roles("Lava Spike"))
-        self.assertEqual(self.cl("Lava Spike").source, "tagged")
+        # Frozen tags, not the live ones: this tests the replace-not-union
+        # rule, and Tagger's own labels for Lava Spike changed upstream on
+        # 2026-09-28 (it gained `spot removal`), which is a data question.
+        tags = frozenset({"burn player", "burn planeswalker",
+                          "burn with set's mechanic", "lightning bolt redux",
+                          "single target instant/sorcery"})
+        verdict = R.classify(self.facts["Lava Spike"], tags=tags)
+        self.assertNotIn("spot", verdict.roles)
+        self.assertEqual(verdict.primary, "burn")
+        self.assertEqual(verdict.source, "tagged")
 
     def test_a_bolt_is_removal_that_can_also_go_upstairs(self):
         self.assertEqual(self.roles("Lightning Bolt"), {"spot", "burn"})
