@@ -90,10 +90,16 @@ class TestTagMapping(unittest.TestCase):
         self.assertEqual(R.roles_from_tags(["regrowth-creature"]), {"recursion"})
         self.assertEqual(R.roles_from_tags(["regrowth-self"]), set())
 
-    def test_every_vetoed_role_is_a_real_role(self):
-        for label, implied in R.TAG_SUPPRESS.items():
-            for role in implied:
-                self.assertIn(role, R.ROLES, f"{label} vetoes {role}")
+    def test_every_silenced_label_is_a_recursion_label(self):
+        """TAG_SUPPRESS silences labels, not roles — see its comment.
+
+        A typo would silence nothing; a label outside the recursion family
+        would silently take an unrelated role from the card.
+        """
+        for label, silenced in R.TAG_SUPPRESS.items():
+            for other in silenced:
+                self.assertEqual(R.roles_from_tags([other]), {"recursion"},
+                                 f"{label} silences {other}")
 
     def test_every_mapped_role_is_a_real_role(self):
         """A typo in the tables would silently drop the role in `counts`."""
@@ -207,7 +213,10 @@ class TestTagsFillTheGaps(OracleTagTestCase):
         for name in ("Path to Exile", "Erode"):
             with self.subTest(card=name):
                 self.assertEqual(self.primary(name), "spot")
-                self.assertIn("mana", self.roles(name))  # the clause is real
+                # The ramp is the opponent's (`donate rampant growth`), so it
+                # is not a secondary role either: it put Path in the tutor and
+                # mana-source reach counts.
+                self.assertEqual(self.roles(name), {"spot"})
 
     def test_a_planeswalker_that_untaps_lands_is_still_a_threat(self):
         """Teferi, Hero of Dominaria's `+1` untaps two lands. It read as a Mox."""

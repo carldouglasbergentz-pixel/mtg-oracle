@@ -38,12 +38,23 @@ def cards_seen(turn: int, on_play: bool = True) -> int:
     return OPENING_HAND + turn - (1 if on_play else 0)
 
 
+def _clamp_seen(seen: int, deck_size: int) -> int:
+    """You cannot look at more cards than the deck has.
+
+    A small deck on a late turn asks for more cards than exist, and
+    `comb(deck_size, seen)` is then 0 — a division by zero in every formula
+    below. Having seen the whole deck is the true state of affairs.
+    """
+    return max(0, min(seen, deck_size))
+
+
 def hold_any(n_hits: int, seen: int, deck_size: int = 100) -> float:
     """P(at least one of `n_hits` cards among `seen` drawn).
 
     The plain hypergeometric complement. This is the ceiling on any
     on-curve number: you cannot cast what you have not drawn.
     """
+    seen = _clamp_seen(seen, deck_size)
     if n_hits <= 0 or seen <= 0:
         return 0.0
     misses = deck_size - n_hits
@@ -54,6 +65,7 @@ def hold_any(n_hits: int, seen: int, deck_size: int = 100) -> float:
 
 def hold_at_least(n_hits: int, k: int, seen: int, deck_size: int = 100) -> float:
     """P(at least `k` of `n_hits` cards among `seen` drawn)."""
+    seen = _clamp_seen(seen, deck_size)
     if k <= 0:
         return 1.0
     if n_hits < k or seen < k:
@@ -88,6 +100,7 @@ def category_live(
     conditional probability of holding a card cheap enough is exact given
     that split.
     """
+    seen = _clamp_seen(seen, deck_size)
     n_mana = n_lands + n_rocks
     n_spells = deck_size - n_mana
     total_cat = sum(mv_counts.values())

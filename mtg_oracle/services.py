@@ -16,7 +16,6 @@ was right. Anything two interfaces both need lives here once.
 """
 from __future__ import annotations
 
-from collections import Counter
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
@@ -323,6 +322,9 @@ class DeckProfile:
     # an engine count; fourteen spells that draw is a resource count, and the
     # two are not interchangeable when deciding how many you need.
     engines: dict = field(default_factory=dict)
+    # The category each role's live curve draws from — `role_mv` minus the
+    # rocks, except for `mana` itself. See `live_curve`.
+    on_curve_mv: dict = field(default_factory=dict)
 
     @property
     def mana_sources(self) -> int:
@@ -330,23 +332,34 @@ class DeckProfile:
         return self.lands + self.rocks
 
     @property
-    def spells(self) -> int:
-        return self.size - self.lands
-
-    @property
     def avg_mv(self) -> float:
         total = sum(self.curve.values())
         return (sum(mv * n for mv, n in self.curve.items()) / total) if total else 0.0
 
+    # `deck_size` is the deck's own size, never probability's 100-card
+    # default: a 60-card list modelled as 100 read its turn-one odds at half
+    # their true value, and a list over 100 cards raised.
     def live_curve(self, role: str, turns=range(1, 9), on_play: bool = True):
-        """P(this deck can play `role` on each turn). See `probability`."""
+        """P(this deck can play `role` on each turn). See `probability`.
+
+        `category_live` partitions the deck into lands, rocks and the rest,
+        and a card may sit in only one pile — a rock passed as a rock AND as
+        a category card is two cards. So a rock powers every other role's
+        curve and is never part of one: Mind Stone's draw is in `role_mv`
+        (reach) but not in the draw curve. For `mana` itself the rocks ARE
+        the category, so they join the spell pile and no rock pays for
+        another — conservative by the rare rock-into-rock line.
+        """
+        n_rocks = 0 if role == "mana" else self.rocks
         return probability.curve(
-            self.role_mv.get(role, {}), self.lands, self.rocks, turns, on_play)
+            self.on_curve_mv.get(role, {}), self.lands, n_rocks, turns, on_play,
+            deck_size=self.size)
 
     def ceiling(self, role: str, turns=range(1, 9), on_play: bool = True):
         """The same, ignoring mana — the upper bound the mana base caps."""
         return probability.ceiling(
-            sum(self.role_mv.get(role, {}).values()), turns, on_play)
+            sum(self.role_mv.get(role, {}).values()), turns, on_play,
+            deck_size=self.size)
 
 
 def profile_deck(
@@ -377,6 +390,7 @@ def profile_deck(
 
     counts = {r: 0 for r in roles.ROLES}
     role_mv: dict[str, dict[int, int]] = {r: {} for r in roles.ROLES}
+    on_curve_mv: dict[str, dict[int, int]] = {r: {} for r in roles.ROLES}
     engines: dict[str, int] = {}
     curve: dict[int, int] = {}
     lands = rocks = land_backs = size = 0
@@ -412,20 +426,21 @@ def profile_deck(
 
         counts[cl.primary] += qty
         mv = cl.cost.effective
+        is_rock = cl.primary == "mana"
         for role in cl.roles:
             if role in role_mv:
                 role_mv[role][mv] = role_mv[role].get(mv, 0) + qty
                 if cl.engine:
                     engines[role] = engines.get(role, 0) + qty
-        if cl.primary == "mana":
+                # One pile per card — see `DeckProfile.live_curve`.
+                if not is_rock or role == "mana":
+                    on_curve_mv[role][mv] = on_curve_mv[role].get(mv, 0) + qty
+        if is_rock:
             rocks += qty
         curve[mv] = curve.get(mv, 0) + qty
 
-    # Rocks are mana, not spells, for the draw maths: `probability.category_live`
-    # takes them as their own group.
-    lands -= 0
     return DeckProfile(name, size, counts, role_mv, curve,
-                       lands, rocks, land_backs, missing, engines)
+                       lands, rocks, land_backs, missing, engines, on_curve_mv)
 
 
 def profile_decks(decks, **kw) -> list[DeckProfile]:
@@ -437,21 +452,6 @@ def profile_decks(decks, **kw) -> list[DeckProfile]:
         else:
             out.append(profile_deck(d[0], d[1], **kw))
     return out
-
-
-def deck_profile_from_db(ref: DeckRef, **kw) -> DeckProfile:
-    """Classify a deck that lives in the user's own deck list."""
-    if not ref:
-        raise ServiceError("no deck selected")
-    deck = d.get_deck(ref.deck, folder=ref.folder)
-    if not deck:
-        raise ServiceError(f"no deck named {ref.deck!r}")
-    main = {}
-    for row in deck.get("cards", []):
-        if row.get("is_sideboard"):
-            continue
-        main[row["card_name"]] = main.get(row["card_name"], 0) + row["quantity"]
-    return profile_deck(deck["name"], main, **kw)
 
 
 # --- comparing a deck against a reference set --------------------------
@@ -526,6 +526,44 @@ class Comparison:
         return next((r for r in self.roles if r.role == name), None)
 
 
+def _canonical_index(names):
+    """Resolve every spelling to one card: `(canonical, facts, tags)`.
+
+    A two-faced card arrives in three forms — `Sink into Stupor`, `Sink into
+    Stupor / Soporific Springs`, `Sink into Stupor // Soporific Springs` —
+    and keying on the raw string made those three different cards. The same
+    card then appeared in `missing` AND `unique` at once, and a list count
+    undercounted it by however many lists spelled it the other way.
+
+    `canonical(name)` is the stored card name, or the input for a name that
+    doesn't resolve; `facts` and `tags` are keyed by that canonical name.
+    """
+    everything = sorted(set(names))
+    facts = q.get_card_facts(everything)
+    tags = q.get_oracle_tags(everything)
+
+    def canonical(name: str) -> str:
+        fact = facts.get(name)
+        return fact["name"] if fact else name
+
+    canon_facts = {canonical(n): facts[n] for n in everything if n in facts}
+    canon_tags = {canonical(n): tags[n] for n in everything if n in tags}
+    return canonical, canon_facts, canon_tags
+
+
+def _lists_playing(decks, canonical) -> dict[str, int]:
+    """How many of `decks` play each card, by canonical name.
+
+    A set per list: two spellings of one card in one list is still one list
+    playing it.
+    """
+    counts: dict[str, int] = {}
+    for deck in decks:
+        for name in {canonical(n) for n in deck["cards"]}:
+            counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
 def _profile_distance(a: DeckProfile, b: DeckProfile) -> float:
     """Euclidean distance between two decks' role-density vectors.
 
@@ -594,31 +632,12 @@ def compare_decks(
 
     # --- card-level diff, which is the actionable half -----------------
     #
-    # Keyed on the CANONICAL name, not the string the list happened to write.
-    # A two-faced card arrives in three forms — `Sink into Stupor`, `Sink into
-    # Stupor / Soporific Springs`, `Sink into Stupor // Soporific Springs` —
-    # and raw-string set arithmetic made those three different cards. The same
-    # card then appeared in `missing` AND `unique` at once, and `n_lists`
-    # undercounted it by however many lists spelled it the other way.
-    everything = sorted({n for d_ in reference for n in d_["cards"]}
-                        | set(subject["cards"]))
-    facts = q.get_card_facts(everything)
-    tags = q.get_oracle_tags(everything)
-
-    def canonical(name: str) -> str:
-        fact = facts.get(name)
-        return fact["name"] if fact else name
-
+    # Keyed on the CANONICAL name, not the string the list happened to write
+    # — see `_canonical_index`.
+    canonical, canon_facts, canon_tags = _canonical_index(
+        [n for d_ in [subject, *reference] for n in d_["cards"]])
     subj_cards = {canonical(n) for n in subject["cards"]}
-    counts: dict[str, int] = {}
-    for d_ in reference:
-        # A set per list: two spellings of one card in one list is still one
-        # list playing it.
-        for name in {canonical(n) for n in d_["cards"]}:
-            counts[name] = counts.get(name, 0) + 1
-
-    canon_facts = {canonical(n): facts[n] for n in everything if n in facts}
-    canon_tags = {canonical(n): tags[n] for n in everything if n in tags}
+    counts = _lists_playing(reference, canonical)
 
     def describe(name, n_lists):
         fact = canon_facts.get(name)
@@ -658,8 +677,6 @@ class DeckExport:
     sections: dict[str, int]
 
 
-# Section headers `deck_parser` understands, so an exported deck re-imports
-# into the same deck. That round-trip is asserted in the tests.
 def deck_cards_for_analysis(ref: DeckRef) -> dict:
     """A stored deck reduced to `{"name", "cards"}` — what the analysis takes.
 
@@ -694,19 +711,22 @@ def rank_cards(decks, role_order=None) -> tuple[dict, set[str]]:
     mana base is measured by `profile_deck` instead. Lives here rather than in
     `analytics` because it needs two data calls, which is the test for what
     belongs in this layer.
+
+    Cards are keyed on their canonical name, exactly as in `compare_decks`:
+    `Fire // Ice` in one list and `Fire/Ice` in another is one card played by
+    two lists, not two cards played by one each.
     """
     order = list(role_order) if role_order is not None else list(roles.ROLES)
     n = len(decks)
     if not n:
         return {r: [] for r in order}, set()
-    all_names = sorted({name for d in decks for name in d["cards"]})
-    facts = q.get_card_facts(all_names)
-    tags = q.get_oracle_tags(all_names)
-    played = Counter(name for d in decks for name in d["cards"])
+    canonical, facts, tags = _canonical_index(
+        [name for deck in decks for name in deck["cards"]])
+    played = _lists_playing(decks, canonical)
 
     out: dict[str, list] = {r: [] for r in order}
     low: set[str] = set()
-    for name in all_names:
+    for name in sorted(played):
         fact = facts.get(name)
         if fact is None or roles.is_land(fact):
             continue
@@ -732,6 +752,8 @@ def rank_cards(decks, role_order=None) -> tuple[dict, set[str]]:
     return out, low
 
 
+# Section headers `deck_parser` understands, so an exported deck re-imports
+# into the same deck. That round-trip is asserted in the tests.
 _EXPORT_ORDER = (("commander", "Commander"), ("main", "Deck"),
                  ("sideboard", "Sideboard"))
 

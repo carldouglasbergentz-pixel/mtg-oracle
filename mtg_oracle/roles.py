@@ -124,6 +124,14 @@ TAG_EXACT_ROLES = {
     "alternate win condition": ("threat",),
     "cantrip": ("cantrip",),
     "discard": ("discard",),
+    # A card that returns itself is a resilient threat, not a recursion
+    # effect — see TAG_SUPPRESS. Listed here so the `reanimate` / `regrowth`
+    # prefixes cannot claim them.
+    "reanimate-self": (),
+    "regrowth-self": (),
+    # Lotus Petal and Lion's Eye Diamond sacrifice themselves for mana: one
+    # shot, like Dark Ritual. As `mana` they became permanent rocks.
+    "mana egg": ("ritual",),
     "ramp": ("mana",),
     "land ramp": ("mana",),
     "multi land ramp": ("mana",),
@@ -177,37 +185,89 @@ TAG_PREFIX_ROLES = (
 )
 
 
-# Labels that veto a role for the whole card, applied after everything else.
+# Labels that silence OTHER labels on the same card — which is why this has
+# to see the whole tag set.
 #
-# A card that returns ITSELF is a resilient threat, not a recursion effect —
-# and the veto has to see the whole tag set to know that. Gravecrawler carries
-# `reanimate-self` AND `reanimate-cast`; suppressing only the first label
-# would leave the second to make a recursive one-drop into a recursion spell,
-# which is how Rakdos aggro came out with ten of them. Chainer, Nightmare
-# Adept has `reanimate-cast` and no `-self`, and stays a recursion engine.
+# A card that returns ITSELF is a resilient threat, not a recursion effect.
+# Gravecrawler carries `reanimate-self` AND `reanimate-cast`, and with a
+# `-self` label present `reanimate-cast` / `reanimate-face-down` describe the
+# card coming back, not an effect on others — left alone they made a
+# recursive one-drop into a recursion spell, which is how Rakdos aggro came
+# out with ten of them. Only those ambiguous labels are silenced: one that
+# names another card (`reanimate-creature` on The Scarab God) is a recursion
+# engine that happens to be resilient too. An earlier version vetoed the
+# `recursion` role card-wide and took it from The Scarab God and Sue.
+_SELF_AMBIGUOUS = ("reanimate-cast", "reanimate-face-down")
 TAG_SUPPRESS = {
-    "reanimate-self": ("recursion",),
-    "regrowth-self": ("recursion",),
+    "reanimate-self": _SELF_AMBIGUOUS,
+    "regrowth-self": _SELF_AMBIGUOUS,
 }
+
+# When a card is removal, Tagger also tags what it hands the OPPONENT: Path to
+# Exile is `land ramp` and `tutor-land-basic` because its victim fetches a
+# basic. On a `spot` card that Tagger also marks `donate rampant growth` —
+# "the land goes to someone else" — those labels are dropped when they are
+# the only source of the role. The donate label is the evidence: without it
+# the ramp is usually the caster's own (Deathsprout, Binding the Old Gods,
+# Sylvan Primordial), and 38 such cards would have lost a real role.
+_REMOVAL_DRAWBACK_EVIDENCE = "donate rampant growth"
+_REMOVAL_DRAWBACK_EXACT = frozenset({"land ramp", "multi land ramp"})
+_REMOVAL_DRAWBACK_PREFIX = "tutor-land-"
+_REMOVAL_DRAWBACK_ROLES = ("mana", "tutor")
+
+
+def _is_removal_drawback(label: str) -> bool:
+    return (label in _REMOVAL_DRAWBACK_EXACT
+            or label.startswith(_REMOVAL_DRAWBACK_PREFIX))
+
+
+def _label_roles(label: str) -> Optional[tuple[str, ...]]:
+    """The roles one label implies, or None when the label is not recognised."""
+    # Membership, not truthiness: an empty tuple is a deliberate "this label
+    # means no role", and must stop the prefix rules from firing.
+    if label in TAG_EXACT_ROLES:
+        return TAG_EXACT_ROLES[label]
+    for prefix, implied in TAG_PREFIX_ROLES:
+        if label.startswith(prefix):
+            return implied
+    return None
+
+
+def tag_verdict(tags) -> tuple[set[str], bool]:
+    """`(roles, recognised)` for a set of Scryfall Tagger labels.
+
+    `recognised` is True when at least one label is one this module knows —
+    even if it deliberately implies no role. That is what separates "Tagger
+    says this card does nothing we count" (`utility`, from the tags) from
+    "Tagger only has flavour labels for it" (fall back to the text rules).
+    """
+    labels = {t.lower() for t in tags or ()}
+    silenced: set[str] = set()
+    for label in labels:
+        silenced.update(TAG_SUPPRESS.get(label, ()))
+
+    recognised = False
+    sources: dict[str, set[str]] = {}
+    for label in labels:
+        implied = _label_roles(label)
+        if implied is None:
+            continue
+        recognised = True
+        if label in silenced:
+            continue
+        for role in implied:
+            sources.setdefault(role, set()).add(label)
+
+    if "spot" in sources and _REMOVAL_DRAWBACK_EVIDENCE in labels:
+        for role in _REMOVAL_DRAWBACK_ROLES:
+            if role in sources and all(map(_is_removal_drawback, sources[role])):
+                del sources[role]
+    return set(sources), recognised
 
 
 def roles_from_tags(tags) -> set[str]:
     """The roles a set of Scryfall Tagger labels implies. {} when none apply."""
-    found: set[str] = set()
-    vetoed: set[str] = set()
-    for tag in tags or ():
-        label = tag.lower()
-        vetoed.update(TAG_SUPPRESS.get(label, ()))
-        # Membership, not truthiness: an empty tuple is a deliberate "this
-        # label means no role", and must stop the prefix rules from firing.
-        if label in TAG_EXACT_ROLES:
-            found.update(TAG_EXACT_ROLES[label])
-            continue
-        for prefix, implied in TAG_PREFIX_ROLES:
-            if label.startswith(prefix):
-                found.update(implied)
-                break
-    return found - vetoed
+    return tag_verdict(tags)[0]
 
 
 # --- text patterns ------------------------------------------------------
@@ -390,7 +450,23 @@ _LOYALTY_ABILITY = re.compile(r"^[+−-]?\d+\s*:")
 # turns up later in a sentence cannot make prose look like an ability.
 _ACTIVATED = re.compile(r"^[^:]{0,40}:\s")
 _RECURRING_TRIGGER = re.compile(r"\bwhenever\b|\bat the beginning of\b", re.IGNORECASE)
+# `Draw a card at the beginning of the next turn's upkeep` (Mishra's Bauble)
+# is a delayed trigger: it fires once.
+_DELAYED_TRIGGER = re.compile(r"\bat the beginning of (?:the|your) next\b", re.IGNORECASE)
 _ETB_ONLY = re.compile(r"\bwhen (?:this|[A-Z][^,]{0,40}) enters\b", re.IGNORECASE)
+
+
+def _sacrifices_itself(cost: str, card: dict) -> bool:
+    """True when an activation cost sacrifices the card that carries it.
+
+    `{1}, {T}, Sacrifice Mind Stone: Draw a card` can be activated once; an
+    activated ability only repeats when the permanent survives paying for it.
+    """
+    faces = _faces(card)
+    name = (faces[0].get("name") if faces else None) or card.get("name") or ""
+    name = _FACE_SPLIT.split(name, 1)[0].strip()
+    names = r"this\b" + (r"|" + re.escape(name) if name else "")
+    return re.search(r"\bsacrifice (?:" + names + r")", cost, re.IGNORECASE) is not None
 
 
 def _is_engine(card: dict, has_draw: bool) -> bool:
@@ -409,10 +485,13 @@ def _is_engine(card: dict, has_draw: bool) -> bool:
         if not (_DRAW_MANY.search(low) or _DRAW_ONE.search(low)
                 or _TO_HAND.search(low)):
             continue
-        if _ETB_ONLY.search(line) and not _RECURRING_TRIGGER.search(line):
+        recurring = _RECURRING_TRIGGER.search(_DELAYED_TRIGGER.sub(" ", line))
+        if _ETB_ONLY.search(line) and not recurring:
             continue
-        if (_LOYALTY_ABILITY.search(line) or _ACTIVATED.search(line)
-                or _RECURRING_TRIGGER.search(line)):
+        activated = _ACTIVATED.search(line)
+        if activated and _sacrifices_itself(activated.group(0), card):
+            continue
+        if _LOYALTY_ABILITY.search(line) or activated or recurring:
             return True
     return False
 
@@ -489,10 +568,13 @@ CANTRIP_MAX_MANA = 2
 # generic mana only, so the floor is the coloured pips.
 DELVE_YARD = 6
 
-_FREE_ALT = re.compile(
-    r"rather than pay this spell's mana cost"
-    r"|rather than pay its mana cost"
-)
+# The alternative cost is the clause in front of "rather than pay ...", and
+# it is priced, not assumed free: Bringer of the Blue Dawn's is {W}{U}{B}{R}{G}
+# and a Borderpost's is {1} plus a land. Only "this spell's" — every card
+# that says "rather than pay ITS mana cost" (Bolas's Citadel, Xander's Pact)
+# grants the cost to some other spell.
+_ALT_COST = re.compile(r"([^.]*?)\brather than pay this spell's mana cost")
+_SYMBOLS = re.compile(r"\{[^}]+\}")
 _EVOKE_FREE = re.compile(r"evoke\s*[—-]\s*exile", re.IGNORECASE)
 # A cost is a run of brace symbols, so capture them all: `warp {1}{U}` is two
 # mana, and stopping at the first `}` prices it as one.
@@ -501,8 +583,29 @@ _EVOKE_COST = re.compile(r"evoke\s*" + _COST_RUN, re.IGNORECASE)
 _DELVE = re.compile(r"\bdelve\b", re.IGNORECASE)
 _MIRACLE = re.compile(r"\bmiracle\s*" + _COST_RUN, re.IGNORECASE)
 _WARP = re.compile(r"\bwarp\s*" + _COST_RUN, re.IGNORECASE)
-# Phyrexian mana can always be paid with life, so it costs no mana at all.
-_PHYREXIAN_ONLY = re.compile(r"^(?:\{[WUBRGC]/P\})+$", re.IGNORECASE)
+# Phyrexian mana can always be paid with life, so each such symbol costs no
+# mana: Gitaxian Probe is free and Dismember is one mana.
+_PHYREXIAN = re.compile(r"\{[WUBRGC](?:/[WUBRG])?/P\}", re.IGNORECASE)
+
+
+def _is_aftermath(face: dict) -> bool:
+    """CR 702.127a: an aftermath half is cast only from the graveyard."""
+    return (face.get("oracle_text") or "").lstrip().lower().startswith("aftermath")
+
+
+def _alternative_cost(text: str) -> Optional[tuple[int, str]]:
+    """The cheapest "rather than pay this spell's mana cost" option, priced.
+
+    `text` is cleaned oracle text. Returns `(mana, symbols)`, where a clause
+    with no mana symbols (pitch a card, pay life, return lands) is 0.
+    """
+    best = None
+    for m in _ALT_COST.finditer(text):
+        symbols = "".join(_SYMBOLS.findall(m.group(1))).upper()
+        mv = _face_mana_value(symbols) or 0
+        if best is None or mv < best[0]:
+            best = (mv, symbols)
+    return best
 
 
 @dataclass(frozen=True)
@@ -557,10 +660,11 @@ def effective_mana(card: dict, x_value: int = X_VALUE) -> Cost:
     def out(eff, reason):
         return Cost(printed, eff, reason, alt, alt_reason)
 
-    if _PHYREXIAN_ONLY.match(cost_str.strip()):
-        return out(0, "Phyrexian mana — payable with life")
-    if _FREE_ALT.search(text):
-        return out(0, "free alternative cost")
+    alt_cost = _alternative_cost(text)
+    if alt_cost is not None and alt_cost[0] < printed:
+        mv, symbols = alt_cost
+        return out(mv, "free alternative cost" if mv == 0
+                   else f"alternative cost {symbols}")
     if _EVOKE_FREE.search(card.get("oracle_text") or ""):
         return out(0, "evoke — exile a card")
 
@@ -576,11 +680,17 @@ def effective_mana(card: dict, x_value: int = X_VALUE) -> Cost:
         if mv is not None and mv < printed:
             return out(mv, f"evoke {e.group(1)}")
 
-    # A second face you may cast from hand, if it is cheaper.
+    # A second face you may cast from hand, if it is cheaper. A split card's
+    # printed mana value is the SUM of its halves, so the front half is a
+    # candidate too — and an aftermath half is not, because it is cast only
+    # from the graveyard: Consign // Oblivion is a two-mana spell, not five.
     if layout in CASTABLE_SECOND_FACE:
         faces = _faces(card)
+        candidates = faces if layout == "split" else faces[1:]
         cheapest = None
-        for face in faces[1:]:
+        for face in candidates:
+            if _is_aftermath(face):
+                continue
             mv = _face_mana_value(face.get("mana_cost") or "")
             if mv is None:
                 continue
@@ -599,6 +709,12 @@ def effective_mana(card: dict, x_value: int = X_VALUE) -> Cost:
         if eff < printed:
             return out(eff, f"delve with {DELVE_YARD} cards in the yard")
 
+    # Only the front face's cost: the other face of a two-faced card has its
+    # own symbols and is priced above, if it is castable at all.
+    n_phyrexian = len(_PHYREXIAN.findall(_FACE_SPLIT.split(cost_str, 1)[0]))
+    life = " — Phyrexian mana paid with life" if n_phyrexian else ""
+    base = max(0, printed - n_phyrexian)
+
     n_x = x_count(cost_str)
     if n_x:
         # X=0 is a real mode for a creature that has a printed body: Wan Shi
@@ -607,11 +723,15 @@ def effective_mana(card: dict, x_value: int = X_VALUE) -> Cost:
         # it at X=2 prices a card the deck never has to pay for. A base 0/0
         # (Walking Ballista, Hangarback Walker) dies at X=0 and is excluded.
         if "Creature" in front_type_line(card) and _has_printed_body(card):
-            return out(printed, "{X} creature with a printed body — X=0 is castable")
+            return out(base, "{X} creature with a printed body — X=0 is castable"
+                       + life)
         # Entreat the Angels is {X}{X}{W}{W}{W}: two X's, so X=2 costs seven.
-        return out(printed + x_each * n_x,
-                   f"{{X}} at X={x_each}" + (f" (×{n_x})" if n_x > 1 else ""))
+        return out(base + x_each * n_x,
+                   f"{{X}} at X={x_each}" + (f" (×{n_x})" if n_x > 1 else "")
+                   + life)
 
+    if n_phyrexian:
+        return out(base, "Phyrexian mana — payable with life")
     return out(printed, "")
 
 
@@ -646,7 +766,7 @@ def _role_text(card: dict) -> str:
     parts = [faces[0].get("oracle_text") or ""]
     if (card.get("layout") or "") in CASTABLE_SECOND_FACE:
         for f in faces[1:]:
-            if not _is_land_word(f.get("type_line")):
+            if not _is_land_word(f.get("type_line")) and not _is_aftermath(f):
                 parts.append(f.get("oracle_text") or "")
     return _clean(" ".join(parts))
 
@@ -844,10 +964,14 @@ def classify(card: dict, x_value: int = X_VALUE, tags=()) -> Classification:
     """
     name = card.get("name") or card.get("card_name") or "?"
     cost = effective_mana(card, x_value)
-    tagged = roles_from_tags(tags)
-    if tagged:
+    tagged, recognised = tag_verdict(tags)
+    # A recognised label that implies no role (`regrowth-self` alone, on
+    # Angelic Destiny) is still Tagger's answer: `utility`, from the tags.
+    # Falling through to the text rules there re-derived the very roles the
+    # tags had withheld, and flagged a tagged card as low confidence.
+    if recognised:
         structural = {r for r in derive_roles(card) if r in ("threat", "land")}
-        derived = tagged | structural
+        derived = (tagged | structural) or {"utility"}
         source = "tagged"
     else:
         derived = derive_roles(card)
