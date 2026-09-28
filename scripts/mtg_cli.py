@@ -16,6 +16,10 @@ Subcommands:
     mtg_cli.py deck import <name> --replace [--force]  # existing deck := the list
     mtg_cli.py deck history <name> [--limit N] | deck undo <name>
     mtg_cli.py deck export <name> [--to-file PATH]     # paste into Moxfield
+    mtg_cli.py forge export <deck> [--force] [--overwrite]  # .dck for Forge
+    mtg_cli.py forge sub add|remove|list <deck> [--card C] [--with S]
+    mtg_cli.py forge play | forge results [<deck>]
+    mtg_cli.py forge sim <deck> <opponent> [--games N] [--no-ai-variant]
 
 `--json` is a global flag and goes before the subcommand:
     mtg_cli.py --json card "Sol Ring"
@@ -27,6 +31,7 @@ are read-only; the `deck` and `folder` commands write to your decks.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sqlite3
 import sys
@@ -418,6 +423,120 @@ def _cmd_folder(args) -> int:
     return 2
 
 
+# --- Forge -----------------------------------------------------------------
+
+def _print_json(value) -> None:
+    if dataclasses.is_dataclass(value):
+        value = dataclasses.asdict(value)
+    print(json.dumps(value, indent=2, default=str))
+
+
+def _cmd_forge(args) -> int:
+    """Dispatch for `forge <action> ...`. Everything real lives in services."""
+    ref = svc.DeckRef(deck=getattr(args, "name", None), folder=args.folder)
+    try:
+        if args.action == "export":
+            out = svc.forge_export(ref, force=args.force, overwrite=args.overwrite)
+            _print_json(out) if args.json else print(r.render_forge_export(out))
+        elif args.action == "sub":
+            return _forge_sub(args, ref)
+        elif args.action == "play":
+            pid = svc.forge_play()
+            _print_json({"pid": pid}) if args.json else print(
+                f"OK Forge is starting (pid {pid}); exported decks are under "
+                f"Constructed / Commander in its deck lists.")
+        elif args.action == "sim":
+            ref_b = svc.DeckRef(deck=args.opponent, folder=args.opponent_folder)
+            out = svc.forge_sim(ref, ref_b, games=args.games,
+                                use_ai_variant=not args.no_ai_variant,
+                                overwrite=args.overwrite)
+            _print_json(out) if args.json else print(r.render_forge_sim(out))
+        elif args.action == "results":
+            out = svc.forge_results(ref if ref else None)
+            _print_json(out) if args.json else print(r.render_forge_results(out))
+        return 0
+    except svc.ForgeUnknownCardsError as e:
+        if args.json:
+            _print_json({"error": str(e), "unknown": e.unknown})
+        else:
+            print(f"forge {args.action}: {e}")
+        return 2
+    except svc.ServiceError as e:
+        print(f"forge {args.action}: {e}")
+        return 2
+
+
+def _forge_sub(args, ref) -> int:
+    if args.sub_action == "list":
+        subs = svc.forge_substitutions(ref)
+        _print_json(subs) if args.json else print(
+            r.render_forge_substitutions(args.name, subs))
+        return 0
+    if not args.card:
+        print(f"forge sub {args.sub_action}: --card is required")
+        return 2
+    if args.sub_action == "add":
+        if not args.substitute:
+            print("forge sub add: --with is required")
+            return 2
+        out = svc.forge_add_substitution(ref, args.card, args.substitute)
+        replaced = f" (was {out['replaced']})" if out["replaced"] else ""
+        _print_json(out) if args.json else print(
+            f"OK {out['deck']}: the AI copy plays {out['substitute']} "
+            f"for {out['card']}{replaced}")
+        return 0
+    out = svc.forge_remove_substitution(ref, args.card)
+    _print_json(out) if args.json else print(
+        f"OK {out['deck']}: {out['card']} no longer substituted "
+        f"(was {out['substitute']})")
+    return 0
+
+
+def _add_forge_parser(sub) -> None:
+    sp = sub.add_parser(
+        "forge", help="Playtest in Forge: export, AI substitutions, play, sim, results.")
+    actions = sp.add_subparsers(dest="action", required=True)
+
+    def deck_args(p, required=True):
+        if required:
+            p.add_argument("name", help="Deck name.")
+        else:
+            p.add_argument("name", nargs="?", help="Deck name (optional).")
+        p.add_argument("--folder", help="Folder the deck lives in.")
+
+    p = actions.add_parser("export", help="Write <deck>.dck (and its AI copy) "
+                                          "into Forge's decks folder.")
+    deck_args(p)
+    p.add_argument("--force", action="store_true",
+                   help="export even if Forge lacks some cards (they are left out)")
+    p.add_argument("--overwrite", action="store_true",
+                   help="replace a .dck mtg-oracle didn't write, or one edited in Forge")
+
+    p = actions.add_parser("sub", help="AI substitutions: sub add|remove|list <deck>.")
+    p.add_argument("sub_action", choices=["add", "remove", "list"])
+    deck_args(p)
+    p.add_argument("--card", help="(add/remove) the card in the deck")
+    p.add_argument("--with", dest="substitute",
+                   help="(add) what the AI copy plays instead")
+
+    p = actions.add_parser("play", help="Open Forge's own GUI.")
+    p.set_defaults(name=None, folder=None)
+
+    p = actions.add_parser("sim", help="AI vs AI: <deck> against <opponent>.")
+    deck_args(p)
+    p.add_argument("opponent", help="The opposing deck.")
+    p.add_argument("--opponent-folder", help="Folder the opponent lives in.")
+    p.add_argument("--games", type=int, default=3, help="games to play (default 3)")
+    p.add_argument("--no-ai-variant", action="store_true",
+                   help="play the decks as built, ignoring substitutions")
+    p.add_argument("--overwrite", action="store_true",
+                   help="replace .dck files mtg-oracle didn't write")
+
+    p = actions.add_parser("results", help="Stored sim records: one deck, or the matrix.")
+    deck_args(p, required=False)
+    sp.set_defaults(func=_cmd_forge)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mtg", description=__doc__)
     p.add_argument("--json", action="store_true", help="Emit JSON instead of formatted text.")
@@ -535,6 +654,7 @@ def build_parser() -> argparse.ArgumentParser:
                          "its name exists in more than one.")
     sp.set_defaults(func=_cmd_deck)
 
+    _add_forge_parser(sub)
     return p
 
 

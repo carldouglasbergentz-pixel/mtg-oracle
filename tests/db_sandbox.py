@@ -18,12 +18,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mtg_oracle import decks, queries, scryfall_search
+from mtg_oracle import decks, forge_data, queries, scryfall_search
 
 REAL_DB = Path(__file__).parent.parent / "data" / "mtg.db"
 
 # Every module that opens the database by its own DB_PATH.
-_MODULES = (queries, decks, scryfall_search)
+_MODULES = (queries, decks, scryfall_search, forge_data)
 _saved: dict = {}
 _tmpdir = None
 

@@ -15,6 +15,10 @@ tools/forge/
 # User preferences (theme, etc.) — per-machine, not source
 data/config.json
 
+# Forge integration: full sim logs, and the card index cached per Forge version
+data/forge_logs/
+data/forge_card_index.*
+
 # Generated spreadsheets / dumps from scripts/export_*.py
 data/exports/
 

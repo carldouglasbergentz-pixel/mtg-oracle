@@ -1324,6 +1324,66 @@ def remove_card_from_deck(
         conn.close()
 
 
+def check_swaps(
+    deck_name: str,
+    swaps: list[tuple[str, str]],
+    folder: Optional[str] = None,
+) -> list[tuple[str, str]]:
+    """Would the deck pass `add`'s rules with these cards swapped out?
+
+    `swaps` is [(card in the deck, substitute)]. Returns them as canonical
+    names; raises DeckError naming the first swap that breaks a rule.
+
+    A dry run, not a second copy of the rules: every card being swapped out
+    is deleted, each substitute goes back in through `_add_card` with the
+    same quantities and sections — so CI, legality, commander, singleton and
+    the points budget are judged exactly as `add` judges them, against the
+    deck as it would be — and the transaction is rolled back. All swaps are
+    applied together, because two substitutes can break singleton or the
+    budget only jointly.
+    """
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, deck_name, folder)
+        planned: list[tuple[str, str, list]] = []
+        for card, substitute in swaps:
+            in_deck = resolve_card_name(card) or card
+            cur.execute(
+                "SELECT card_name, quantity, is_commander, is_sideboard "
+                "FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE",
+                (did, in_deck))
+            rows = [dict(r) for r in cur.fetchall()]
+            if not rows:
+                raise DeckError(f"card not in deck: {card!r}")
+            canonical_sub = resolve_card_name(substitute)
+            if not canonical_sub:
+                raise CardNotFoundError(f"card not found: {substitute!r}")
+            if canonical_sub.casefold() == rows[0]["card_name"].casefold():
+                raise DeckError(f"{canonical_sub!r} cannot substitute for itself")
+            planned.append((rows[0]["card_name"], canonical_sub, rows))
+        for card, _sub, _rows in planned:
+            cur.execute("DELETE FROM deck_cards WHERE deck_id = ? "
+                        "AND card_name = ? COLLATE NOCASE", (did, card))
+        for card, sub, rows in planned:
+            for row in rows:
+                try:
+                    _add_card(cur, did, sub, quantity=row["quantity"],
+                              category=None,
+                              is_commander=bool(row["is_commander"]),
+                              is_sideboard=bool(row["is_sideboard"]),
+                              force=False)
+                except DeckError as e:
+                    # A substitution has no force switch; don't offer one.
+                    reason = str(e).replace(" Pass force=True to override.", "")
+                    raise DeckError(f"{sub} for {card}: {reason}") from e
+        return [(card, sub) for card, sub, _rows in planned]
+    finally:
+        # Nothing here is ever kept: the swap exists only in the AI copy.
+        conn.rollback()
+        conn.close()
+
+
 def combos_in_deck(
     deck_name: str,
     folder: Optional[str] = None,

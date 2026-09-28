@@ -1,0 +1,38 @@
+Error handling registered!
+14:24:03 [INFO ] GuiBase: ##########################################
+14:24:03 [INFO ] GuiBase: APP: Forge v.2.0.14-SNAPSHOT-08.08
+14:24:03 [INFO ] GuiBase: Java: 25 (Oracle Corporation)
+14:24:03 [INFO ] GuiBase: OS: Windows 11 10.0 amd64
+14:24:03 [INFO ] GuiBase: RAM: 4096 MB max, 24 CPUs
+14:24:03 [INFO ] GuiBase: ##########################################
+Language 'en-US' loaded successfully.
+(ThreadUtil first call): Running with priority 5
+Read cards: 33617 archived files in 0 ms (25 parts) using thread pool
+Read cards: 836 files in 0 ms (8 parts) using thread pool
+Simulation mode
+Ai(1)-Izzet Delver vs Ai(2)-Blue Moon - three games of Constructed
+Stopping slow match as draw
+Game Outcome: Turn 3
+Game Outcome: Ai(1)-Izzet Delver has won because all opponents have lost
+Game Outcome: Ai(2)-Blue Moon has won because all opponents have lost
+Match Result: Ai(1)-Izzet Delver: 1 Ai(2)-Blue Moon: 0 
+
+Game Result: Game 1 ended in 1063 ms. Ai(1)-Izzet Delver has won!
+
+Petty Theft Did not have activator set in SpellAbilityRestriction.canPlay()
+Stopping slow match as draw
+Game Outcome: Turn 3
+Game Outcome: Ai(1)-Izzet Delver has won because all opponents have lost
+Game Outcome: Ai(2)-Blue Moon has won because all opponents have lost
+Match Result: Ai(1)-Izzet Delver: 2 Ai(2)-Blue Moon: 0 
+
+Game Result: Game 2 ended in 1002 ms. Ai(1)-Izzet Delver has won!
+
+Stopping slow match as draw
+Game Outcome: Turn 5
+Game Outcome: Ai(1)-Izzet Delver has won because all opponents have lost
+Game Outcome: Ai(2)-Blue Moon has won because all opponents have lost
+Match Result: Ai(1)-Izzet Delver: 3 Ai(2)-Blue Moon: 0 
+
+Game Result: Game 3 ended in 1002 ms. Ai(1)-Izzet Delver has won!
+

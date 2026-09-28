@@ -1480,3 +1480,98 @@ def render_comparison(cmp, *, role_labels: dict, role_order: list,
             lines.append(f"       {role_labels.get(c.role, c.role):<{ROLE_COL}} "
                          f"MV{c.mv:<3} {c.name}")
     return "\n".join(lines)
+
+
+# --- Forge ----------------------------------------------------------------
+# Each takes a services.Forge* value duck-typed, never imported.
+
+def render_forge_export(export) -> str:
+    """What `forge export` wrote and what it wants the user to act on."""
+    lines = [f"Exported {export.deck!r} for Forge ({export.game_type}):",
+             f"{INDENT}{export.path}"]
+    if export.ai_path:
+        swaps = ", ".join(f"{card} -> {sub}" for card, sub in export.substitutions)
+        lines.append(f"{INDENT}{export.ai_path}  (AI copy: {swaps})")
+    if export.unknown:
+        lines.append(f"WARNING {len(export.unknown)} card(s) unknown to Forge "
+                     f"were left out:")
+        lines.extend(f"{INDENT}- {name}" for name in export.unknown)
+    if export.ai_unplayable:
+        lines.append(f"WARNING Forge's AI can't play {len(export.ai_unplayable)} "
+                     f"card(s); give each a substitute with `forge sub add`:")
+        lines.extend(f"{INDENT}- {name}" for name in export.ai_unplayable)
+    if export.ai_situational:
+        lines.append("NOTE the AI plays these only situationally:")
+        lines.extend(f"{INDENT}- {name} ({flag})"
+                     for name, flag in export.ai_situational)
+    lines.extend(f"NOTE {note}" for note in export.notes)
+    return "\n".join(lines)
+
+
+def render_forge_substitutions(deck_name: str, subs: list[dict]) -> str:
+    """`forge_data.list_substitutions` rows for one deck."""
+    if not subs:
+        return f"(no Forge substitutions in {deck_name!r})"
+    width = max(len(s["card_name"]) for s in subs)
+    lines = [f"Forge AI substitutions in {deck_name!r} ({len(subs)}):"]
+    lines.extend(f"{INDENT}{s['card_name']:<{width}}  ->  {s['substitute']}"
+                 for s in subs)
+    return "\n".join(lines)
+
+
+def _record(wins: int, losses: int, draws: int) -> str:
+    return f"{wins}-{losses}" + (f"-{draws}" if draws else "")
+
+
+def render_forge_sim(result) -> str:
+    """One sim run: the score, then each game."""
+    def label(name, ai):
+        return f"{name} (AI copy)" if ai else name
+
+    a = label(result.deck_a, result.ai_variant_a)
+    b = label(result.deck_b, result.ai_variant_b)
+    lines = [f"{a}  {result.wins_a} - {result.wins_b}  {b}"
+             + (f"   ({result.draws} draw{'s' if result.draws != 1 else ''})"
+                if result.draws else ""),
+             f"{INDENT}{len(result.games)} game(s), {result.game_type}, "
+             f"Forge {result.forge_version}"]
+    for g in result.games:
+        winner = {"a": result.deck_a, "b": result.deck_b}.get(g["winner"], "draw")
+        turns = f"turn {g['turns']}" if g.get("turns") else "turn ?"
+        clock = "  (stopped by Forge's clock)" if g.get("clock_draw") else ""
+        lines.append(f"{INDENT}game {g['game_no']:>2}: {winner:<28} {turns:<8} "
+                     f"{g['duration_ms'] / 1000:5.1f}s{clock}")
+    lines.extend(f"NOTE {note}" for note in result.notes)
+    lines.append(f"{INDENT}log: {result.log_path}")
+    return "\n".join(lines)
+
+
+def render_forge_results(results) -> str:
+    """Per-matchup records for one deck, or a win matrix for all of them.
+
+    Matrix cells are the row deck's record against the column deck,
+    wins-losses[-draws]; columns are numbered to keep the table narrow.
+    """
+    if not results.records:
+        return "(no Forge sims recorded yet)"
+    if results.focus:
+        width = max(len(r.opponent) for r in results.records)
+        lines = [f"Forge record for {results.focus!r}:"]
+        for r in results.records:
+            turns = f"  avg turn {r.avg_turns}" if r.avg_turns else ""
+            lines.append(f"{INDENT}vs {r.opponent:<{width}}  "
+                         f"{_record(r.wins, r.losses, r.draws):>7}  "
+                         f"({r.games} game(s)){turns}")
+        return "\n".join(lines)
+    cells = {(r.deck, r.opponent): _record(r.wins, r.losses, r.draws)
+             for r in results.records}
+    names = results.decks
+    width = max(len(n) for n in names) + 5
+    cell = max([7] + [len(v) for v in cells.values()]) + 1
+    lines = ["Forge win matrix (row vs column, wins-losses[-draws]):",
+             " " * width + "".join(f"{i + 1:>{cell}}" for i in range(len(names)))]
+    for i, row in enumerate(names):
+        head = f"{i + 1:>2}. {row}"[:width - 1]
+        lines.append(f"{head:<{width}}" + "".join(
+            f"{cells.get((row, col), '.'):>{cell}}" for col in names))
+    return "\n".join(lines)

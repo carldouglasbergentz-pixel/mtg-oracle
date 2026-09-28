@@ -69,8 +69,9 @@ Four of them, and the direction of dependency is one-way:
 
 | module | owns | may import |
 |---|---|---|
-| `queries` / `decks` / `scryfall_search` | SQL, one concept each (reads / deck writes / the search language) | each other |
-| `renderer` / `analytics` / `probability` / `roles` | plain-text presentation and pure computation over dicts | nothing from this project |
+| `queries` / `decks` / `scryfall_search` / `forge_data` | SQL, one concept each (reads / deck writes / the search language / Forge substitutions and games) | each other |
+| `forge_client` | the external Forge install: config, card index, `.dck` files, the Java subprocess | `forge_format` only |
+| `renderer` / `analytics` / `probability` / `roles` / `forge_format` | plain-text presentation and pure computation over dicts (and Forge's file / output formats) | nothing from this project |
 | `services` | **use cases** — one function per user intent | the data modules |
 | `tui/` + `scripts/*.py` | argument syntax, widgets, printing | services + renderer |
 
@@ -91,6 +92,8 @@ Tests live in `tests/`, stdlib `unittest`, no new dependency: `python -m unittes
 A comparison against **one** reference deck renders as a head-to-head, not a range report: the range verdicts exist to say "nobody in the reference set went there", and with one list the range is a point, so every difference would read as stepping outside it.
 
 **Export** is `export` in the TUI (clipboard) or `deck export` in the CLI; it emits the section headers `deck_parser` reads, so export→import round-trips.
+
+**Forge** (the playtest engine, `tools/forge/`, git-ignored) is `forge export | sub | play | sim | results` in the CLI, over `services.forge_*`. `forge_format` is pure (`.dck` text, sim-output parsing, filename sanitising), `forge_client` owns the install and the subprocess, `forge_data` the `forge_substitutions` / `forge_matches` tables. What isn't obvious from the code: **Forge names every multi-face card by its front face** (`Fire // Ice` is `Fire` in a `.dck`), so names go through `forge_format.forge_card_name`. **`sim` only reads decks from Forge's own decks folder** — `%APPDATA%\Forge\decks\constructed`, or `...\commander` with `-f Commander`; `-D` and absolute `-d` paths are ignored — so export writes there (`data/config.json` key `forge`), and a test that must not touch it runs Forge in a temp directory with `res/` linked and its own `forge.profile.properties` (`tests/test_forge.py`). **Every `.dck` we write carries an ownership marker** in `Description=` (deck id + a digest of the card sections); `forge_client.write_deck` refuses a file without it, one for another deck, or one edited in Forge since. And **a substitution changes only the `<deck> (AI).dck` copy**, validated by `decks.check_swaps` — a rolled-back dry run through `add`'s own rules, never a second copy of them. Forge's clock-stopped games print a win for player 1; `parse_sim_output` counts them as draws.
 
 ## Query patterns
 

@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import migrate_add_corrections
 import migrate_add_custom_formats
 import migrate_add_deck_history
+import migrate_add_forge
 import migrate_add_decks
 import migrate_add_folder_format
 import migrate_add_legalities
@@ -47,6 +48,8 @@ MIGRATIONS = (
     migrate_add_folder_format,
     migrate_unique_deck_names,
     migrate_add_deck_history,
+    # Forge tables reference decks.
+    migrate_add_forge,
     # card_tags must exist before its key can be fixed; the fix re-tags
     # from cards, so it also needs the card columns above.
     migrate_add_tags,

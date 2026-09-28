@@ -17,9 +17,13 @@ was right. Anything two interfaces both need lives here once.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Optional
 
 from mtg_oracle import decks as d
+from mtg_oracle import forge_client as fc
+from mtg_oracle import forge_data as fd
+from mtg_oracle import forge_format as ff
 from mtg_oracle import probability
 from mtg_oracle import queries as q
 from mtg_oracle import roles
@@ -857,3 +861,364 @@ def export_deck_text(
     text = "\n".join(lines) + ("\n" if lines else "")
     return DeckExport(text, sum(counts.values()),
                       sum(len(b) for b in buckets.values()), counts)
+
+
+# --- Forge -------------------------------------------------------------
+#
+# Playtesting in Forge: export decks as .dck files, give Forge's AI playable
+# substitutes for cards it can't pilot, run AI-vs-AI sims and keep the
+# results. The files and processes are forge_client's, the formats
+# forge_format's, the rows forge_data's; these functions decide and compose.
+
+COMMANDER_NOTE = (
+    "Forge plays Commander at 40 life, with 21 commander damage lethal — not "
+    "Duel Commander's 20 life. Read these games as a Commander proxy.")
+_WINNER = {1: "a", 2: "b", None: "draw"}
+
+
+class ForgeUnknownCardsError(ServiceError):
+    """Export refused: the deck names cards Forge doesn't have."""
+
+    def __init__(self, deck: str, unknown: list[str]):
+        self.deck = deck
+        self.unknown = unknown
+        super().__init__(
+            f"{len(unknown)} card(s) in {deck!r} are unknown to Forge: "
+            f"{', '.join(unknown)}. Substitute them (`forge sub add`), or "
+            f"re-run with --force to leave them out.")
+
+
+@dataclass(frozen=True)
+class ForgeExport:
+    """What `forge_export` wrote, and what the user should know about it."""
+    deck: str
+    deck_id: int
+    game_type: str                      # 'constructed' | 'commander'
+    path: Path                          # <deck>.dck
+    ai_path: Optional[Path]             # <deck> (AI).dck, with substitutions
+    unknown: list[str]                  # left out (only with force)
+    ai_unplayable: list[str]            # AI:RemoveDeck:All, no substitute
+    ai_situational: list[tuple[str, str]]  # (card, flag): played situationally
+    substitutions: list[tuple[str, str]]   # (card, substitute) applied
+    notes: list[str] = field(default_factory=list)
+
+
+def _forge_install(config: Optional[fc.ForgeConfig]) -> fc.ForgeInstall:
+    try:
+        return fc.validate(config or fc.load_config())
+    except fc.ForgeError as e:
+        raise ServiceError(str(e)) from e
+
+
+def _forge_deck(ref: DeckRef, *, require_cards: bool = True) -> dict:
+    if not ref:
+        raise ServiceError("no deck given")
+    try:
+        deck = d.get_deck(ref.deck, folder=ref.folder)
+    except d.AmbiguousDeckError as e:
+        raise ServiceError(str(e)) from e
+    if not deck:
+        raise ServiceError(f"no deck named {ref.deck!r}")
+    if require_cards and not deck["cards"]:
+        raise ServiceError(f"{deck['name']!r} is empty")
+    return deck
+
+
+def _game_type(deck: dict) -> str:
+    """Commander when the deck has a commander row; Forge can't run a
+    Commander game without one, whatever `decks.format` says."""
+    return ("commander" if any(c["is_commander"] for c in deck["cards"])
+            else "constructed")
+
+
+def _forge_rows(rows: list[dict], index: dict) -> tuple[list[dict], list[str]]:
+    """Rows renamed to Forge's exact spelling; plus the names Forge lacks."""
+    out, unknown = [], set()
+    for row in rows:
+        front = ff.forge_card_name(row["card_name"])
+        known = index.get(front.casefold())
+        if known:
+            out.append({**row, "card_name": known["name"]})
+        else:
+            unknown.add(front)
+    return out, sorted(unknown, key=str.casefold)
+
+
+def _export_deck(install: fc.ForgeInstall, deck: dict, index: dict, *,
+                 force: bool, overwrite: bool) -> ForgeExport:
+    game_type = _game_type(deck)
+    rows = deck["cards"]
+    in_deck = {r["card_name"].casefold() for r in rows}
+    subs, notes = [], []
+    for s in fd.list_substitutions(deck["id"]):
+        if s["card_name"].casefold() in in_deck:
+            subs.append((s["card_name"], s["substitute"]))
+        else:
+            notes.append(f"substitution for {s['card_name']} skipped: the "
+                         f"card is no longer in the deck")
+    subbed = {card.casefold() for card, _ in subs}
+
+    forge_rows, unknown = _forge_rows(rows, index)
+    ai_rows, ai_unknown = _forge_rows(
+        ff.apply_substitutions(rows, dict(subs)), index)
+    unknown_all = sorted(set(unknown) | set(ai_unknown), key=str.casefold)
+    if unknown_all and not force:
+        raise ForgeUnknownCardsError(deck["name"], unknown_all)
+
+    unplayable, situational = [], []
+    for row in rows:
+        entry = index.get(ff.forge_card_name(row["card_name"]).casefold())
+        flag = entry["ai"] if entry else None
+        name = row["card_name"]
+        if flag == "All" and name.casefold() not in subbed:
+            unplayable.append(name)
+        elif flag == "Random" or (flag == "NonCommander"
+                                  and game_type == "constructed"):
+            situational.append((name, flag))
+
+    try:
+        path = fc.write_deck(install.config, deck["name"], deck["id"],
+                             ff.dck_sections(forge_rows), game_type,
+                             overwrite=overwrite)
+        ai_path = None
+        if subs:
+            ai_path = fc.write_deck(install.config, f"{deck['name']} (AI)",
+                                    deck["id"], ff.dck_sections(ai_rows),
+                                    game_type, overwrite=overwrite)
+    except (fc.ForgeError, OSError) as e:
+        raise ServiceError(str(e)) from e
+    if game_type == "commander":
+        notes.append(COMMANDER_NOTE)
+    return ForgeExport(
+        deck=deck["name"], deck_id=deck["id"], game_type=game_type,
+        path=path, ai_path=ai_path, unknown=unknown_all,
+        ai_unplayable=sorted(set(unplayable), key=str.casefold),
+        ai_situational=sorted(set(situational), key=lambda s: s[0].casefold()),
+        substitutions=subs, notes=notes)
+
+
+def forge_export(ref: DeckRef, *, force: bool = False, overwrite: bool = False,
+                 config: Optional[fc.ForgeConfig] = None) -> ForgeExport:
+    """Write the deck as `<deck>.dck` (and `<deck> (AI).dck`) for Forge.
+
+    Refuses (ForgeUnknownCardsError) when Forge lacks a card, unless
+    `force`, which leaves those cards out. Cards Forge's AI can't play at
+    all come back in `ai_unplayable` — the fix is a substitution, which
+    only the AI copy uses. `overwrite` replaces a .dck we didn't write.
+    """
+    install = _forge_install(config)
+    deck = _forge_deck(ref)
+    return _export_deck(install, deck, fc.load_card_index(install),
+                        force=force, overwrite=overwrite)
+
+
+def forge_play(*, config: Optional[fc.ForgeConfig] = None) -> int:
+    """Open Forge's own GUI, detached. Returns the process id."""
+    install = _forge_install(config)
+    try:
+        return fc.launch_gui(install)
+    except OSError as e:
+        raise ServiceError(f"could not start Forge: {e}") from e
+
+
+# --- AI substitutions ---
+
+def forge_substitutions(ref: DeckRef) -> list[dict]:
+    """The deck's substitutions: [{card_name, substitute, added_at}]."""
+    return fd.list_substitutions(_forge_deck(ref, require_cards=False)["id"])
+
+
+def forge_add_substitution(ref: DeckRef, card: str, substitute: str, *,
+                           config: Optional[fc.ForgeConfig] = None) -> dict:
+    """Have the deck's AI copy play `substitute` wherever the deck has `card`.
+
+    Judged as a real `add` would judge it, against the deck with every
+    substitution applied (`decks.check_swaps`): the substitute must fit the
+    commander's colour identity, be legal in the format, not already be in
+    a singleton deck, and keep the points budget. Forge must know it, and
+    its AI must be able to play it.
+
+    Returns {deck, card, substitute, replaced}; `replaced` is the substitute
+    this one replaced, or None.
+    """
+    install = _forge_install(config)
+    deck = _forge_deck(ref)
+    target = (q.resolve_card_name(card) or card).casefold()
+    others = [(s["card_name"], s["substitute"])
+              for s in fd.list_substitutions(deck["id"])
+              if s["card_name"].casefold() != target]
+    try:
+        checked = d.check_swaps(deck["name"], others + [(card, substitute)],
+                                folder=deck["folder"])
+    except d.DeckError as e:
+        raise ServiceError(str(e)) from e
+    card_name, sub_name = checked[-1]
+    known = fc.load_card_index(install).get(ff.forge_card_name(sub_name).casefold())
+    if not known:
+        raise ServiceError(f"{sub_name!r} is unknown to Forge {install.version}")
+    if known["ai"] == "All":
+        raise ServiceError(f"Forge's AI can't play {sub_name!r} either "
+                           f"(AI:RemoveDeck:All); pick another substitute")
+    replaced = fd.set_substitution(deck["id"], card_name, sub_name)
+    return {"deck": deck["name"], "card": card_name, "substitute": sub_name,
+            "replaced": replaced}
+
+
+def forge_remove_substitution(ref: DeckRef, card: str) -> dict:
+    """Drop one substitution. Returns {deck, card, substitute}."""
+    deck = _forge_deck(ref, require_cards=False)
+    removed = fd.remove_substitution(deck["id"], q.resolve_card_name(card) or card)
+    if removed is None:
+        raise ServiceError(f"no substitution for {card!r} in {deck['name']!r}")
+    return {"deck": deck["name"], "card": card, "substitute": removed}
+
+
+# --- sims and results ---
+
+@dataclass(frozen=True)
+class ForgeSimResult:
+    match_id: str
+    deck_a: str
+    deck_b: str
+    ai_variant_a: bool
+    ai_variant_b: bool
+    game_type: str
+    games: list[dict]           # {game_no, winner 'a'|'b'|'draw', turns, duration_ms, clock_draw}
+    wins_a: int
+    wins_b: int
+    draws: int
+    log_path: Path
+    forge_version: str
+    notes: list[str] = field(default_factory=list)
+
+
+def forge_sim(ref_a: DeckRef, ref_b: DeckRef, games: int = 1, *,
+              use_ai_variant: bool = True, overwrite: bool = False,
+              config: Optional[fc.ForgeConfig] = None) -> ForgeSimResult:
+    """Export both decks, have Forge's AI play them `games` times, store it.
+
+    Uses each deck's AI copy when it has one, unless `use_ai_variant` is
+    False. A deck with cards Forge lacks is refused rather than simulated
+    without them. Both decks must be the same game type: a Commander deck
+    can't play a constructed one in Forge.
+    """
+    if not 1 <= games <= fc.MAX_GAMES:
+        raise ServiceError(f"games must be between 1 and {fc.MAX_GAMES}")
+    install = _forge_install(config)
+    deck_a, deck_b = _forge_deck(ref_a), _forge_deck(ref_b)
+    index = fc.load_card_index(install)
+    export_a = _export_deck(install, deck_a, index, force=False, overwrite=overwrite)
+    export_b = (export_a if deck_b["id"] == deck_a["id"] else
+                _export_deck(install, deck_b, index, force=False, overwrite=overwrite))
+    if export_a.game_type != export_b.game_type:
+        raise ServiceError(
+            f"{deck_a['name']!r} is a {export_a.game_type} deck and "
+            f"{deck_b['name']!r} a {export_b.game_type} one; Forge can only "
+            f"play two of the same kind")
+    use_a = use_ai_variant and export_a.ai_path is not None
+    use_b = use_ai_variant and export_b.ai_path is not None
+    try:
+        run = fc.run_sim(install,
+                         export_a.ai_path if use_a else export_a.path,
+                         export_b.ai_path if use_b else export_b.path,
+                         games=games, game_type=export_a.game_type)
+    except fc.ForgeError as e:
+        raise ServiceError(str(e)) from e
+
+    match = ff.parse_sim_output(run.stdout)
+    if not match.games:
+        reasons = ff.sim_errors(run.stdout + "\n" + run.stderr)[:3]
+        raise ServiceError(
+            f"Forge played no games ({'; '.join(reasons) or 'no reason given'}). "
+            f"Full output: {run.log_path}")
+    rows = [{"game_no": g.game_no, "winner": _WINNER[g.winner],
+             "turns": g.turns, "duration_ms": g.duration_ms,
+             "clock_draw": g.clock_draw} for g in match.games]
+    fd.record_games(
+        match_id=run.match_id, deck_a=deck_a["name"], deck_b=deck_b["name"],
+        deck_a_id=deck_a["id"], deck_b_id=deck_b["id"],
+        ai_variant_a=use_a, ai_variant_b=use_b, game_type=export_a.game_type,
+        forge_version=install.version, log_path=str(run.log_path), games=rows)
+
+    notes = []
+    if len(rows) != games:
+        notes.append(f"Forge reported {len(rows)} of {games} games; "
+                     f"see {run.log_path}")
+    clock = sum(1 for g in match.games if g.clock_draw)
+    if clock:
+        notes.append(f"{clock} game(s) hit Forge's 120 s clock and count as "
+                     f"draws (Forge itself reports them as wins for "
+                     f"{deck_a['name']})")
+    for export in (export_a, export_b) if export_b is not export_a else (export_a,):
+        if export.ai_unplayable:
+            notes.append(f"Forge's AI can't play {', '.join(export.ai_unplayable)} "
+                         f"in {export.deck}; `forge sub add` gives it a substitute")
+    if export_a.game_type == "commander":
+        notes.append(COMMANDER_NOTE)
+    return ForgeSimResult(
+        match_id=run.match_id, deck_a=deck_a["name"], deck_b=deck_b["name"],
+        ai_variant_a=use_a, ai_variant_b=use_b, game_type=export_a.game_type,
+        games=rows, wins_a=match.wins[1], wins_b=match.wins[2],
+        draws=match.draws, log_path=run.log_path,
+        forge_version=install.version, notes=notes)
+
+
+@dataclass(frozen=True)
+class MatchupRecord:
+    """One deck's record against one opponent, over every stored game."""
+    deck: str
+    opponent: str
+    games: int
+    wins: int
+    losses: int
+    draws: int
+    avg_turns: Optional[float]   # over decided games
+
+
+@dataclass(frozen=True)
+class ForgeResults:
+    focus: Optional[str]          # the deck asked about, or None for all
+    records: list[MatchupRecord]  # both orientations when focus is None
+    decks: list[str]              # every deck that appears, sorted
+
+
+def forge_results(ref: Optional[DeckRef] = None) -> ForgeResults:
+    """Win records from every stored sim, for one deck or as a matrix.
+
+    Games are keyed by the deck names as they were run; a match of B
+    against A counts toward A against B. The AI copy and the deck itself
+    are the same deck here — the per-game rows keep which one played.
+    """
+    focus = _forge_deck(ref, require_cards=False) if ref else None
+    tallies: dict[tuple[str, str], list] = {}
+    for row in fd.game_rows(focus["id"] if focus else None):
+        sides = (("a", row["deck_a"], row["deck_a_id"], row["deck_b"]),
+                 ("b", row["deck_b"], row["deck_b_id"], row["deck_a"]))
+        for side, name, deck_id, opponent in sides:
+            if focus and deck_id != focus["id"]:
+                continue
+            if focus:
+                name = focus["name"]
+            tally = tallies.setdefault((name, opponent), [0, 0, 0, 0, []])
+            tally[0] += 1
+            if row["winner"] == "draw":
+                tally[3] += 1
+            elif row["winner"] == side:
+                tally[1] += 1
+            else:
+                tally[2] += 1
+            if row["winner"] != "draw" and row["turns"]:
+                tally[4].append(row["turns"])
+            if row["deck_a_id"] is not None and row["deck_a_id"] == row["deck_b_id"]:
+                break  # a mirror is one game, counted from deck A's side
+    records = [
+        MatchupRecord(deck=deck, opponent=opp, games=t[0], wins=t[1],
+                      losses=t[2], draws=t[3],
+                      avg_turns=round(sum(t[4]) / len(t[4]), 1) if t[4] else None)
+        for (deck, opp), t in sorted(tallies.items(),
+                                     key=lambda kv: (kv[0][0].casefold(),
+                                                     kv[0][1].casefold()))]
+    names = sorted({r.deck for r in records} | {r.opponent for r in records},
+                   key=str.casefold)
+    return ForgeResults(focus=focus["name"] if focus else None,
+                        records=records, decks=names)

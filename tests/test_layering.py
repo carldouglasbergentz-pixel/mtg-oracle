@@ -24,10 +24,16 @@ PKG = Path(__file__).parent.parent / "mtg_oracle"
 # primitives; a renderer that could reach for the database would start
 # answering questions instead of formatting answers, and `roles` deciding what
 # a card does from a DB lookup would make its verdicts untestable offline.
-PURE = ("renderer", "analytics", "probability", "roles", "deck_parser")
+PURE = ("renderer", "analytics", "probability", "roles", "deck_parser",
+        "forge_format")
 
 # The data modules, which may import each other but not the layers above.
-DATA = ("queries", "decks", "scryfall_search")
+DATA = ("queries", "decks", "scryfall_search", "forge_data")
+
+# External integrations: they drive a tool outside the project (Forge),
+# and know its formats through a pure module, never the database or the
+# layers above. What they may import, exactly.
+INTEGRATIONS = {"forge_client": {"forge_format"}}
 
 
 def project_imports(path: Path) -> set[str]:
@@ -98,6 +104,17 @@ class TestDataLayerStaysBelowServices(unittest.TestCase):
                 forbidden = project_imports(path) & {"services", "tui", "renderer"}
                 self.assertEqual(forbidden, set(),
                                  f"{name}.py imports {forbidden} from above it")
+
+
+class TestIntegrationsStayNarrow(unittest.TestCase):
+    def test_integrations_import_only_their_format_module(self):
+        """forge_client runs Java and writes files; if it could reach decks or
+        queries, "export" would grow a second copy of the deck rules."""
+        for name, allowed in INTEGRATIONS.items():
+            with self.subTest(module=name):
+                found = project_imports(PKG / f"{name}.py")
+                self.assertLessEqual(found, allowed,
+                                     f"{name}.py imports {found - allowed}")
 
 
 class TestServicesMayComposeDataButNotPresent(unittest.TestCase):

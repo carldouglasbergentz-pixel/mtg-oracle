@@ -295,6 +295,41 @@ CREATE TABLE IF NOT EXISTS deck_changes (
     qty_after INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_deck_changes_revision ON deck_changes(revision_id);
+
+-- Forge: per-deck AI substitutions, and one row per simulated game. See
+-- scripts/migrate_add_forge.py.
+CREATE TABLE IF NOT EXISTS forge_substitutions (
+    id INTEGER PRIMARY KEY,
+    deck_id INTEGER NOT NULL
+        REFERENCES decks(id) ON DELETE CASCADE,
+    card_name TEXT NOT NULL,
+    substitute TEXT NOT NULL,
+    added_at TEXT NOT NULL,
+    UNIQUE (deck_id, card_name COLLATE NOCASE)
+);
+
+CREATE TABLE IF NOT EXISTS forge_matches (
+    id INTEGER PRIMARY KEY,
+    match_id TEXT NOT NULL,
+    played_at TEXT NOT NULL,
+    deck_a TEXT NOT NULL,
+    deck_b TEXT NOT NULL,
+    deck_a_id INTEGER REFERENCES decks(id) ON DELETE SET NULL,
+    deck_b_id INTEGER REFERENCES decks(id) ON DELETE SET NULL,
+    ai_variant_a INTEGER NOT NULL DEFAULT 0 CHECK (ai_variant_a IN (0, 1)),
+    ai_variant_b INTEGER NOT NULL DEFAULT 0 CHECK (ai_variant_b IN (0, 1)),
+    game_type TEXT NOT NULL
+        CHECK (game_type IN ('constructed', 'commander')),
+    game_no INTEGER NOT NULL,
+    winner TEXT NOT NULL CHECK (winner IN ('a', 'b', 'draw')),
+    turns INTEGER,
+    duration_ms INTEGER,
+    forge_version TEXT,
+    log_path TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_forge_matches_match ON forge_matches(match_id);
+CREATE INDEX IF NOT EXISTS idx_forge_matches_deck_a ON forge_matches(deck_a_id);
+CREATE INDEX IF NOT EXISTS idx_forge_matches_deck_b ON forge_matches(deck_b_id);
 """
 
 
