@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (whole-codebase review, 2026-09-28 — about 70 findings, each reproduced before it was fixed)
+Five parallel reviewers covered queries and search, decks and the parser, services and analysis, the renderer and TUI, and scripts/sync. Every finding below was reproduced against `data/mtg.db` or a copy of it. 193 → 381 tests.
+
+- **Search language.**
+    - `-pow>=4` dropped every card whose power is NULL: `NOT (NULL)` is NULL. Negation is now `NOT COALESCE(…, 0)`.
+    - `pow!3` crashed with a raw KeyError.
+    - A bare `and` became `o:and`, and a dangling `-` searched oracle text for a hyphen.
+    - User `%` / `_` were LIKE wildcards: `n:_____` matched 35,112 cards. They are now escaped (`queries.like_literal`, `ESCAPE '!'`).
+    - `order:` was extracted from inside quoted values.
+    - Negative P/T never matched (Spinal Parasite).
+    - `order:*_ci` counted commas, so colourless and mono tied.
+    - A limit over 1000 reset to 50, so paging could never reach rows 51+. It is now clamped, here and in five `queries` helpers.
+- **Name tolerance and lookups.**
+    - The ASCII fold never found names starting with a non-ASCII letter (`eomer` → Éomer). SQLite's `LOWER()` is ASCII-only, so the first-letter prefilter is gone.
+    - Double quotes are optional (Kongming, "Sleeping Dragon").
+    - `get_rulings`, `find_combos_with_card` and `find_combos_with_all` skipped `resolve_card_name`. The last also returned nothing when a name was repeated.
+    - `get_card` attached corrections by raw substring ('Strangle' got Strangleroot Geist's). It now matches the quoted JSON element.
+    - `get_card`'s embedded combos lacked user combos and the `+` template flag.
+    - Rule numbers sort naturally: 702.2 before 702.10.
+- **Import and parser.**
+    - A UTF-8 BOM broke the first line.
+    - `Commander (1)` / `Sideboard (15)` headers, `SB:` prefixes, Archidekt `[Category] ^tag^` suffixes and the `Tokens` section were read as cards.
+    - Maybeboard rows are now reported, not silently dropped.
+    - Quantities are bounded at 1–999 (`99999999999999999999 Mountain` overflowed SQLite).
+    - **Import is one transaction.** One bad row used to leave a half-loaded deck. A list with a Commander section auto-sets the format, as `set_commander` does.
+- **Deck rules.**
+    - `set_commander` checked legality before auto-setting the format, so a commander banned in Commander got in.
+    - "Up to N cards named" (Nazgûl, Seven Dwarves) failed the singleton check.
+    - Vintage restricted is one copy across main and sideboard combined.
+    - A card could be added as commander twice, or while already in the 99.
+    - Promoting a sideboard card to commander dodged the points budget.
+    - `set_commander` silently deleted extra copies.
+- **Deck names are unique per folder, case-insensitively** (`migrate_unique_deck_names`).
+    - `decks.UNSORTED` addresses decks outside a folder. It is a different question from "any folder", and conflating the two made unsorted decks unreachable.
+    - `get_deck` raises `AmbiguousDeckError` instead of returning None.
+    - `/` is refused in folder and deck names.
+    - The TUI's `cd`, deck clicks, `show`, `profile` and `compare` use real paths (`cd (unsorted)/X`).
+- **Analysis model** (changes the numbers in reports).
+    - Alternative costs are priced: Baleful Mastery 4→2, not 0.
+    - Split cards cost their cheapest castable half; aftermath halves are not castable from hand.
+    - Phyrexian symbols are subtracted: Dismember 3→1.
+    - Self-sacrificing and next-upkeep draws are not engines (the Baubles, Mind Stone).
+    - The `-self` veto silences only the ambiguous labels, so The Scarab God keeps recursion.
+    - A recognised tag with no role gives `utility` from the tags, instead of falling through to the text rules.
+    - `mana egg` is `ritual`, so Lotus Petal is not a rock.
+    - Path to Exile is `spot` only.
+    - Rocks sat in two piles, which double-counted them and could raise in `category_live`.
+    - Every deck was modelled as 100 cards: a 60-card deck showed 0.21 on T1 instead of 0.39.
+    - Hybrid, twobrid and Phyrexian pips are counted, and `{C}` has a bucket.
+    - Mana sources parse only `Add` clauses. Any-colour lands and fetches count, clipped to the deck's colours. Without a commander, those colours are the union of every card's colour identity, so deliberate off-colour duals, e.g. for Prismatic Ending, still count.
+    - `rank_cards` merged spellings of one card.
+- **TUI.**
+    - Nav combo links pointed at the wrong lines.
+    - Combo tickets now carry the Spellbook id, not a list index.
+    - An exception in a click handler or the sync worker killed the app.
+    - `paste` garbled non-ASCII on Windows (OEM codepage).
+    - `config.json` with a BOM was read as empty and then overwritten.
+    - Names ending in a number were split (`add Pip-Boy 3000`).
+    - Ctrl+←/→ never fired while typing.
+    - The saved nav width was restored unclamped.
+    - The cwd went stale after rename, move and rmdir.
+    - Nav rows overflowed the measured width.
+    - Help text had drifted.
+    - Output tickets leaked past `clear`.
+- **Sync and scripts.**
+    - A non-card printing (`front_card`) with a real card's name overwrote it: Blink, No Way Out and 7 more were colourless "Card"s passing every `ci<=` filter. Name collisions keep the entry that is legal somewhere.
+    - Numbered glossary lines became rules 1–5, and all 277 `Example:` lines were dropped, along with 119.1d, 606.5 and 704.5aa.
+    - A source's `sys.exit` stopped the whole orchestrator.
+    - An `"unknown"` HEAD marker made combos skip forever.
+    - `--only` ran sources in typed order.
+    - The self-heal list missed four migrations, and `migrate_fix_card_tags_pk` dropped the NOCASE index.
+    - Retired custom formats and more stale tables are cleaned.
+    - CLI: `deck remove --sideboard` was silently ignored, `deck move` without `--new-folder` moved to unsorted, and `deck add --commander` bypassed `set_commander`.
+    - `analyse_archetype` could compare a deck with itself.
+- **Tests no longer write to the user's database.** `test_compare_export` created and deleted a deck in `data/mtg.db`. Deck-writing suites now run on `tests/db_sandbox.py`'s copy.
+- **Not yet applied to the live database** (see `docs/project-plan.md`): the cards and rules re-ingest, the prune, and correction #11's JSON rewrite.
+
 ### Fixed (`mana` outranked the answers, so Path to Exile was a mana source)
 - **`mana` sat second in `PRIMARY_ORDER`**, so that a Mox or a dork would win over whatever else it happened to do. But Tagger tags the *drawback* as well as the effect, and `land ramp` fires on **Path to Exile** because the opponent gets the basic. Path to Exile, Erode and Emergency Eject all classified as mana sources — as did **Teferi, Hero of Dominaria** and three Chandras, whose `+1` untaps lands or adds mana.
     - Nothing is played as a mana source *and* as removal; nobody casts Path for the land. Moving `mana` below `spot` / `counter` / `sweeper` / `discard` corrected **eleven cards across 34 reference lists and broke none** — a real mana source has no answer role to lose to, so Sol Ring, the Moxen, Birds of Paradise and Utopia Sprawl are untouched. Measured before the change, not asserted after.
