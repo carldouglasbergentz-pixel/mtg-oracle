@@ -84,6 +84,9 @@ Five parallel reviewers covered queries and search, decks and the parser, servic
 - **Tests no longer write to the user's database.** `test_compare_export` created and deleted a deck in `data/mtg.db`. Deck-writing suites now run on `tests/db_sandbox.py`'s copy.
 - **Applied to the live database** on 2026-09-28: the cards and rules re-ingest (which also brought in CR 20260925), the prune of 266 `front_card` rows, and correction #11's JSON rewrite.
 - **Corrections match a card's face names.** A correction written as 'Emeritus of Ideation' now reaches 'Emeritus of Ideation // Ancestral Recall'.
+- **Face burn is burn, whatever Tagger's `spot removal` says.** The 2026-09-28 Tagger export added `spot removal` to 522 cards, including damage that can only reach players and planeswalkers. Lava Spike's primary became `spot`. `spot` is now dropped when `spot removal` is its only source, every damage label is `burn player` / `burn planeswalker`, and the oracle text cannot damage, destroy, exile or fight a creature. That covers 60 cards.
+    - The text is needed because `burn planeswalker` also labels bites: Bite Down, Kabira Takedown and Flourishing Grapple deal damage to "target creature or planeswalker", and all keep `spot`.
+    - The text is only ever a veto here. It never adds a role to a tagged card.
 - **Tests no longer assert upstream tag data they don't own.** Tagger labelled Lava Spike `spot removal` in the 2026-09-28 export, so the replace-not-union rule is now pinned with frozen tags. The migration test drops the index from its copy before exercising it.
 
 ### Fixed (`mana` outranked the answers, so Path to Exile was a mana source)

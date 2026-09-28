@@ -216,6 +216,38 @@ _REMOVAL_DRAWBACK_PREFIX = "tutor-land-"
 _REMOVAL_DRAWBACK_ROLES = ("mana", "tutor")
 
 
+# Tagger's `spot removal` also covers damage that can only go to a player or
+# a planeswalker (added to 522 cards in the 2026-09-28 export). Lava Spike,
+# Flame Jet and Boros Charm are a clock, not an answer to a creature. The tags
+# alone cannot tell them apart from a bite: `burn planeswalker` also labels
+# "target creature or planeswalker" (Kabira Takedown, Bite Down). So the text
+# is consulted here, and only as a veto — it can take `spot` away when nothing
+# in it can damage, destroy, exile or fight a creature, never add a role.
+_FACE_ONLY_BURN = frozenset({"burn player", "burn planeswalker", "burn player-each"})
+_HITS_A_CREATURE = re.compile(
+    r"\bdamage\b[^.]*?\bto (?:any target|each creature|"
+    r"(?:up to \w+ )?(?:other |another )?target (?:\w+ )?creature)"
+    # A bite names its target in one sentence and deals the damage "to that
+    # permanent" in the next (Flourishing Grapple, The Bears of Littjara).
+    r"|\btarget (?:\w+ )?creature or (?:planeswalker|player)\b"
+    r"|\bfights?\b"
+    r"|\b(?:destroy|exile)\b[^.]*\bcreature"
+    r"|target creature deals damage",
+    re.IGNORECASE,
+)
+
+
+def _spot_is_face_burn(tags, text: str) -> bool:
+    """True when `spot` comes only from `spot removal` on a card whose damage
+    can only reach players and planeswalkers."""
+    labels = {t.lower() for t in tags or ()}
+    spot_labels = {l for l in labels if "spot" in (_label_roles(l) or ())}
+    burn_labels = {l for l in labels if "burn" in (_label_roles(l) or ())}
+    return (spot_labels == {"spot removal"}
+            and bool(burn_labels) and burn_labels <= _FACE_ONLY_BURN
+            and not _HITS_A_CREATURE.search(text or ""))
+
+
 def _is_removal_drawback(label: str) -> bool:
     return (label in _REMOVAL_DRAWBACK_EXACT
             or label.startswith(_REMOVAL_DRAWBACK_PREFIX))
@@ -965,6 +997,8 @@ def classify(card: dict, x_value: int = X_VALUE, tags=()) -> Classification:
     name = card.get("name") or card.get("card_name") or "?"
     cost = effective_mana(card, x_value)
     tagged, recognised = tag_verdict(tags)
+    if "spot" in tagged and _spot_is_face_burn(tags, _role_text(card)):
+        tagged.discard("spot")
     # A recognised label that implies no role (`regrowth-self` alone, on
     # Angelic Destiny) is still Tagger's answer: `utility`, from the tags.
     # Falling through to the text rules there re-derived the very roles the

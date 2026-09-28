@@ -143,7 +143,9 @@ class OracleTagTestCase(unittest.TestCase):
         "Thoughtseize", "Hymn to Tourach", "Duress", "Grief",
         # Burn at a face vs. burn that happens to be able to go there.
         "Lava Spike", "Flame Rift", "Lightning Bolt", "Fireblast",
-        "Eidolon of the Great Revel",
+        "Eidolon of the Great Revel", "Flame Jet", "Boros Charm",
+        # Bites: `burn planeswalker` + `spot removal`, and real removal.
+        "Bite Down", "Flourishing Grapple", "Kabira Takedown // Kabira Plateau",
         # Rituals and mana that no text rule caught.
         "High Tide", "Turnabout", "Dark Ritual",
         "Utopia Sprawl", "Wild Growth", "Sapphire Medallion",
@@ -191,10 +193,7 @@ class TestTagsFillTheGaps(OracleTagTestCase):
     CASES = {
         "Thoughtseize": "discard", "Hymn to Tourach": "discard",
         "Duress": "discard", "Grief": "discard",
-        # Lava Spike left this live-data list on 2026-09-28, when Tagger
-        # labelled it `spot removal`; the rule it tested is pinned with frozen
-        # tags in TestTagsReplaceRatherThanUnion.
-        "Flame Rift": "burn",
+        "Lava Spike": "burn", "Flame Rift": "burn",
         "High Tide": "ritual", "Turnabout": "ritual", "Dark Ritual": "ritual",
         "Utopia Sprawl": "mana", "Wild Growth": "mana",
         "Sapphire Medallion": "mana",
@@ -245,6 +244,33 @@ class TestTagsFillTheGaps(OracleTagTestCase):
         for name, want in self.CASES.items():
             with self.subTest(card=name):
                 self.assertEqual(self.primary(name), want)
+
+
+class TestFaceBurnIsNotRemoval(OracleTagTestCase):
+    """Tagger's `spot removal` also labels damage that only reaches players
+    and planeswalkers (2026-09-28 export). Those cards are a clock."""
+
+    def test_face_only_burn_is_burn(self):
+        for name in ("Lava Spike", "Flame Jet", "Boros Charm"):
+            with self.subTest(card=name):
+                self.assertIn("spot removal", self.tags[name])
+                self.assertNotIn("spot", self.roles(name))
+                self.assertEqual(self.primary(name), "burn")
+
+    def test_a_bite_is_still_removal(self):
+        # `burn planeswalker` labels "target creature or planeswalker" too,
+        # which is why the text has the last word here.
+        for name in ("Bite Down", "Flourishing Grapple",
+                     "Kabira Takedown // Kabira Plateau"):
+            with self.subTest(card=name):
+                self.assertIn("spot", self.roles(name))
+
+    def test_burn_that_can_hit_a_creature_is_removal(self):
+        self.assertEqual(self.primary("Lightning Bolt"), "spot")
+
+    def test_the_veto_needs_the_spot_removal_label_to_be_alone(self):
+        tags = frozenset({"spot removal", "burn player", "burn creature"})
+        self.assertIn("spot", R.classify(self.facts["Lava Spike"], tags=tags).roles)
 
 
 class TestTagsReplaceRatherThanUnion(OracleTagTestCase):
