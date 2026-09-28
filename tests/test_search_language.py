@@ -123,6 +123,20 @@ class TestCardProfile(unittest.TestCase):
         self.assertTrue(geist)
         self.assertFalse(strangle & geist)
 
+    def test_corrections_match_a_face_name(self):
+        # Correction #11 names 'Emeritus of Ideation'; the card's canonical
+        # name is 'Emeritus of Ideation // Ancestral Recall'.
+        conn = sqlite3.connect(DB)
+        try:
+            face_rows = conn.execute(
+                "SELECT COUNT(*) FROM corrections "
+                "WHERE relates_to LIKE '%\"Emeritus of Ideation\"%'").fetchone()[0]
+        finally:
+            conn.close()
+        if not face_rows:
+            self.skipTest("no correction names Emeritus of Ideation by its face")
+        self.assertTrue(q.get_card("Emeritus of Ideation")["corrections"])
+
     def test_embedded_combos_carry_the_template_flag(self):
         combos = q.get_card("Ashnod's Altar")["combos"]
         self.assertTrue(combos)

@@ -650,10 +650,15 @@ def get_card(
             "".join(restrict_to_ci) if restrict_to_ci else "C"
         ) if restrict_to_ci is not None else None
 
+        # A correction names a card the way people say it — often one face
+        # ('Emeritus of Ideation' for 'Emeritus of Ideation // Ancestral
+        # Recall') — so the full name and each face all count as a match.
+        names = [canonical] + (canonical.split(" // ") if " // " in canonical else [])
         cur.execute(
             "SELECT id, topic, correct_claim, source FROM corrections "
-            f"WHERE {_RELATES_TO_NAMES} ORDER BY added_at DESC",
-            (_relates_to_pattern(canonical),),
+            "WHERE " + " OR ".join([_RELATES_TO_NAMES] * len(names)) + " "
+            "ORDER BY added_at DESC",
+            [_relates_to_pattern(n) for n in names],
         )
         card["corrections"] = _rows_to_dicts(cur.fetchall())
 
