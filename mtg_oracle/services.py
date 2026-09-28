@@ -232,6 +232,22 @@ def create_deck_from_text(
         raise ServiceError(str(e)) from e
 
 
+def replace_deck_from_text(ref: DeckRef, text: str, *, force: bool = False) -> dict:
+    """Make an existing deck hold exactly this deckstring, as one revision.
+
+    Returns `decks.replace_deck_contents`' diff. An unresolved card name
+    aborts with ServiceError and changes nothing, unless `force`.
+    """
+    if not ref:
+        raise ServiceError("no deck selected")
+    parsed = _parse_or_fail(text)
+    try:
+        return d.replace_deck_contents(ref.deck, parsed, folder=ref.folder,
+                                       force=force)
+    except d.DeckError as e:
+        raise ServiceError(str(e)) from e
+
+
 def _parse_or_fail(text: str) -> list[dict]:
     parsed = parse_deckstring(text)
     if not parsed:

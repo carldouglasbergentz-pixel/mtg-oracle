@@ -13,8 +13,6 @@ Run:
     python scripts/sync.py --only cards rules   # subset
 """
 import argparse
-import contextlib
-import io
 import sqlite3
 import sys
 import time
@@ -23,52 +21,16 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 import load_custom_formats
-import migrate_add_corrections
-import migrate_add_custom_formats
-import migrate_add_decks
-import migrate_add_folder_format
-import migrate_add_legalities
-import migrate_add_mana_cost
-import migrate_add_nocase_indexes
-import migrate_add_oracle_id
-import migrate_add_oracle_tags
-import migrate_add_scryfall_fields
-import migrate_add_tags
-import migrate_add_user_combos
-import migrate_fix_card_tags_pk
-import migrate_unique_deck_names
+import self_heal
 import sync_cards
 import sync_combos
 import sync_oracle_tags
 import sync_rules
 import tag_cards
 
-# Every migration, in dependency order, so any database back to the very
-# first schema reaches the current one: tests/test_scripts_regressions.py
-# replays the initial commit's schema through this list. All are idempotent
-# (ALTER / CREATE only when missing) and silent when there's nothing to do,
-# so they run on every invocation.
-SELF_HEAL_MIGRATIONS = (
-    # sync_state and the columns every card ingest writes.
-    migrate_add_oracle_id,
-    migrate_add_mana_cost,
-    migrate_add_scryfall_fields,
-    migrate_add_legalities,
-    migrate_add_custom_formats,
-    # decks before the two that widen it.
-    migrate_add_decks,
-    migrate_add_folder_format,
-    migrate_unique_deck_names,
-    # card_tags must exist before its key can be fixed; the fix re-tags
-    # from cards, so it also needs the card columns above.
-    migrate_add_tags,
-    migrate_fix_card_tags_pk,
-    migrate_add_corrections,
-    migrate_add_user_combos,
-    migrate_add_oracle_tags,
-    # Last: it indexes columns the migrations above may have just created.
-    migrate_add_nocase_indexes,
-)
+# The migration list lives in self_heal, which the app and the CLI also run
+# on start. Named here too so tests can patch the list sync.main runs.
+SELF_HEAL_MIGRATIONS = self_heal.MIGRATIONS
 
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 
@@ -263,27 +225,12 @@ def main() -> None:
     selected = [key for key in SOURCES if key in wanted]
 
     # Self-heal schema before any sync runs, so a database created by an
-    # older init_db.py still has every table the pipeline writes to.
-    # Each migration announces itself only when it actually changed
-    # something — a dozen "already up to date" lines every run is noise.
-    failures = []
-    if DB_PATH.exists():
-        for migration in SELF_HEAL_MIGRATIONS:
-            buf = io.StringIO()
-            try:
-                with contextlib.redirect_stdout(buf):
-                    migration.main()
-            except (Exception, SystemExit) as e:
-                # One migration refusing (migrate_unique_deck_names exits on
-                # duplicate deck names, and leaves the user to rename them)
-                # must not block the card sync. The run still ends in FAIL.
-                print(buf.getvalue().rstrip())
-                print(f"ERR migration {migration.__name__} failed: "
-                      f"{e if isinstance(e, Exception) else f'exit status {e.code}'}")
-                failures.append(migration.__name__)
-                continue
-            if "Migration applied" in buf.getvalue():
-                print(buf.getvalue().rstrip())
+    # older init_db.py still has every table the pipeline writes to. A
+    # migration that refuses must not block the card sync; the run still
+    # ends in FAIL.
+    reports, failures = self_heal.run(SELF_HEAL_MIGRATIONS, db_path=DB_PATH)
+    for report in reports:
+        print(report)
 
     pre: Optional[dict] = None
     if DB_PATH.exists():

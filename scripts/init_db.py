@@ -270,6 +270,31 @@ CREATE TABLE IF NOT EXISTS deck_cards (
 CREATE INDEX IF NOT EXISTS idx_deck_cards_deck ON deck_cards(deck_id);
 CREATE INDEX IF NOT EXISTS idx_deck_cards_card ON deck_cards(card_name);
 CREATE INDEX IF NOT EXISTS idx_deck_cards_card_nocase ON deck_cards(card_name COLLATE NOCASE);
+
+-- One user action that changed a deck's contents = one revision; its
+-- deck_changes rows are the per-(card, section) quantity diff. See
+-- scripts/migrate_add_deck_history.py.
+CREATE TABLE IF NOT EXISTS deck_revisions (
+    id INTEGER PRIMARY KEY,
+    deck_id INTEGER NOT NULL
+        REFERENCES decks(id) ON DELETE CASCADE,
+    at TEXT NOT NULL,
+    action TEXT NOT NULL,
+    note TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_deck_revisions_deck ON deck_revisions(deck_id);
+
+CREATE TABLE IF NOT EXISTS deck_changes (
+    id INTEGER PRIMARY KEY,
+    revision_id INTEGER NOT NULL
+        REFERENCES deck_revisions(id) ON DELETE CASCADE,
+    card_name TEXT NOT NULL,
+    section TEXT NOT NULL
+        CHECK (section IN ('main', 'sideboard', 'commander')),
+    qty_before INTEGER NOT NULL,
+    qty_after INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_deck_changes_revision ON deck_changes(revision_id);
 """
 
 

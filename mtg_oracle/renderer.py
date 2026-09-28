@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import textwrap
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 
 BOX_H = "-"
@@ -1075,6 +1076,99 @@ def render_import_result(deck_name: str, result: dict) -> str:
             f"NOTE deck format auto-set to {format_set!r} because the list "
             f"names a commander — its legality and singleton rules now apply."
         )
+    return "\n".join(lines)
+
+
+def _change_line(change: dict) -> str:
+    """`+2 Brazen Borrower`, `-1 Opt`, `Counterspell 1 -> 2`, with the
+    section marked unless it is the main deck."""
+    before, after = change["before"], change["after"]
+    if not before:
+        text = f"+{after} {change['card']}"
+    elif not after:
+        text = f"-{before} {change['card']}"
+    else:
+        text = f"{change['card']} {before} -> {after}"
+    if change["section"] != "main":
+        text += f" [{change['section']}]"
+    return text
+
+
+def _change_summary(changes: list[dict]) -> str:
+    added = sum(1 for c in changes if not c["before"])
+    removed = sum(1 for c in changes if not c["after"])
+    return f"+{added} -{removed} ~{len(changes) - added - removed}"
+
+
+def render_deck_diff(diff: dict) -> str:
+    """A replace or undo result (`decks.replace_deck_contents` /
+    `decks.undo_last_change`): what changed, then anything left out."""
+    changes = diff.get("added", []) + diff.get("removed", []) + diff.get("changed", [])
+    order = {"commander": 0, "main": 1, "sideboard": 2}
+    changes.sort(key=lambda c: (order.get(c["section"], 1), c["card"].lower()))
+    deck = diff.get("deck", "?")
+    if diff.get("action") == "undo":
+        undone = diff.get("undone") or {}
+        head = (f"Undid #{undone.get('id')} ({undone.get('action')}) "
+                f"on {deck!r}")
+    else:
+        head = f"Replaced {deck!r}"
+    if not changes:
+        lines = [f"{head}: no changes — the deck already matches."]
+    else:
+        lines = [f"{head}: {_change_summary(changes)} "
+                 f"(revision #{diff.get('revision_id')})"]
+        lines.extend(f"{INDENT}{_change_line(c)}" for c in changes)
+    unresolved = diff.get("unresolved") or []
+    if unresolved:
+        lines.append(f"WARNING {len(unresolved)} card(s) not found and left out:")
+        lines.extend(f"{INDENT}- {name}" for name in unresolved)
+    rejected = diff.get("rejected") or []
+    if rejected:
+        lines.append(f"WARNING {len(rejected)} line(s) rejected; those cards "
+                     f"keep their current quantity:")
+        lines.extend(f"{INDENT}- {name}: {reason}" for name, reason in rejected)
+    maybeboard = diff.get("maybeboard") or 0
+    if maybeboard:
+        lines.append(f"NOTE {maybeboard} maybeboard line(s) not loaded "
+                     f"(no maybeboard in decks yet).")
+    if diff.get("format_set"):
+        lines.append(f"NOTE deck format auto-set to {diff['format_set']!r} "
+                     f"because the list names a commander.")
+    return "\n".join(lines)
+
+
+def _local_time(iso: str) -> str:
+    """A stored UTC timestamp as local `YYYY-MM-DD HH:MM`.
+
+    Revisions are stored in UTC, and printing that raw put a change made at
+    13:14 at 11:14. A timestamp with no offset is UTC by the same convention;
+    one that doesn't parse is shown as stored rather than hidden.
+    """
+    if not iso:
+        return ""
+    try:
+        at = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return iso.replace("T", " ")[:16]
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return at.astimezone().strftime("%Y-%m-%d %H:%M")
+
+
+def render_deck_history(revisions: list[dict]) -> str:
+    """`decks.deck_history` output, newest first, each revision's changes
+    indented under it."""
+    if not revisions:
+        return "(no recorded changes)"
+    lines = [f"{len(revisions)} revision(s), newest first:"]
+    for rev in revisions:
+        changes = rev.get("changes") or []
+        when = _local_time(rev.get("at") or "")
+        note = f"  {rev['note']}" if rev.get("note") else ""
+        lines.append(f"#{rev['id']:<5} {when}  {rev['action']:<8} "
+                     f"{_change_summary(changes)}{note}")
+        lines.extend(f"{INDENT * 3}{_change_line(c)}" for c in changes)
     return "\n".join(lines)
 
 

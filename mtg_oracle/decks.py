@@ -931,10 +931,12 @@ def add_card_to_deck(
     try:
         cur = conn.cursor()
         did = _deck_id(cur, deck_name, folder)
+        before = _snapshot(cur, did)
         canonical = _add_card(
             cur, did, card_name, quantity=quantity, category=category,
             is_commander=is_commander, is_sideboard=is_sideboard, force=force,
         )
+        _record_revision(cur, did, "add", before, note=canonical)
         conn.commit()
         return canonical
     finally:
@@ -1113,6 +1115,7 @@ def set_commander(
     try:
         cur = conn.cursor()
         did = _deck_id(cur, deck_name, folder)
+        before = _snapshot(cur, did)
 
         if unset:
             cur.execute(
@@ -1131,6 +1134,7 @@ def set_commander(
                 (row["id"],),
             )
             cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+            _record_revision(cur, did, "demote", before, note=canonical)
             conn.commit()
             # Demotion never touches `format` — preserves the user's intent
             # (the deck might still be a commander deck, just with a
@@ -1187,6 +1191,7 @@ def set_commander(
             )
             format_set = _auto_set_commander_format(cur, did)
             cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+            _record_revision(cur, did, "promote", before, note=canonical)
             conn.commit()
             return canonical, "added", format_set
 
@@ -1218,6 +1223,7 @@ def set_commander(
             )
         format_set = _auto_set_commander_format(cur, did)
         cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+        _record_revision(cur, did, "promote", before, note=canonical)
         conn.commit()
         return canonical, "promoted", format_set
     finally:
@@ -1268,6 +1274,7 @@ def remove_card_from_deck(
     try:
         cur = conn.cursor()
         did = _deck_id(cur, deck_name, folder)
+        before = _snapshot(cur, did)
 
         # Sum current copies across all rows for this card (main + sideboard
         # + commander; rare to have multiple but possible). Decrement is
@@ -1310,6 +1317,7 @@ def remove_card_from_deck(
                     )
                     to_remove = 0
         cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+        _record_revision(cur, did, "remove", before, note=card_name)
         conn.commit()
         return card_name, removed, remaining
     finally:
@@ -1409,7 +1417,7 @@ def load_parsed_into_deck(
     try:
         cur = conn.cursor()
         did = _deck_id(cur, name, folder)
-        result = _load_rows(cur, did, parsed, force=force)
+        result = _load_rows(cur, did, parsed, force=force, action="load")
         conn.commit()
         return result
     except BaseException:
@@ -1435,7 +1443,7 @@ def import_deck(
     try:
         cur = conn.cursor()
         did = _create_deck(cur, name, folder, format, None)
-        result = _load_rows(cur, did, parsed, force=True)
+        result = _load_rows(cur, did, parsed, force=True, action="import")
         conn.commit()
         return result
     except BaseException:
@@ -1445,14 +1453,19 @@ def import_deck(
         conn.close()
 
 
-def _load_rows(cur, did: int, parsed: list[dict], *, force: bool) -> dict:
+def _load_rows(
+    cur, did: int, parsed: list[dict], *, force: bool, action: str,
+) -> dict:
     """Add parsed rows to deck `did` on an open cursor; the caller commits.
 
     Returns: rows added, copies added, names that didn't resolve, rows the
-    deck layer rejected, maybeboard rows skipped, input row count, and
+    deck layer rejected, maybeboard rows skipped, input row count,
     `format_set` — 'commander' when the list had a commander and the deck
-    had no format, as `set_commander` does, else None.
+    had no format, as `set_commander` does, else None — and `revision_id`,
+    the one history revision the whole list became (None if nothing
+    changed).
     """
+    before = _snapshot(cur, did)
     added = 0
     copies = 0
     maybeboard = 0
@@ -1494,7 +1507,9 @@ def _load_rows(cur, did: int, parsed: list[dict], *, force: bool) -> dict:
     # Same rule as set_commander: naming a commander is what makes a deck a
     # Commander deck, and without a format none of its rules apply.
     format_set = _auto_set_commander_format(cur, did) if commander_added else None
+    revision_id, _ = _record_revision(cur, did, action, before)
     return {
+        "revision_id": revision_id,
         "added": added,
         "copies": copies,
         "unresolved": unresolved,
@@ -1503,3 +1518,334 @@ def _load_rows(cur, did: int, parsed: list[dict], *, force: bool) -> dict:
         "format_set": format_set,
         "total_input": len(parsed),
     }
+
+
+# --- Change history, replace and undo --------------------------------
+#
+# One user action that changes a deck's contents is one `deck_revisions`
+# row, and its `deck_changes` rows are the quantity diff per (card_name,
+# section). Every content write snapshots the deck first and records the
+# diff in the same transaction, so history can never disagree with the deck.
+# Rename, move and format changes are not content and are not logged.
+
+SECTIONS = ("commander", "main", "sideboard")
+
+
+class UnresolvedCardsError(DeckError):
+    """A replace list naming cards that resolve to nothing. `names` lists
+    them; nothing was changed."""
+
+    def __init__(self, names: list[str]):
+        self.names = names
+        super().__init__(
+            f"{len(names)} card name(s) not found, so nothing was replaced: "
+            f"{', '.join(names)}. Fix them, or re-run with --force to "
+            f"replace without them."
+        )
+
+
+def _section_of(is_commander, is_sideboard) -> str:
+    # Sideboard wins, as in the export: a sideboard row flagged commander is
+    # not in the command zone.
+    if is_sideboard:
+        return "sideboard"
+    return "commander" if is_commander else "main"
+
+
+def _snapshot(cur, did: int) -> dict[tuple[str, str], int]:
+    """{(card_name, section): quantity} for every row of the deck."""
+    cur.execute(
+        "SELECT card_name, is_commander, is_sideboard, quantity "
+        "FROM deck_cards WHERE deck_id = ?",
+        (did,),
+    )
+    state: dict[tuple[str, str], int] = {}
+    for row in cur.fetchall():
+        key = (row["card_name"],
+               _section_of(row["is_commander"], row["is_sideboard"]))
+        state[key] = state.get(key, 0) + row["quantity"]
+    return state
+
+
+def _change_order(key: tuple[str, str]) -> tuple[int, str]:
+    return SECTIONS.index(key[1]), key[0].lower()
+
+
+def _record_revision(
+    cur, did: int, action: str, before: dict, note: Optional[str] = None,
+) -> tuple[Optional[int], list[dict]]:
+    """Diff the deck against `before` and store it as one revision.
+
+    Returns (revision_id, changes). A write that changed nothing records
+    nothing and returns (None, []) — history holds no empty revisions.
+    """
+    after = _snapshot(cur, did)
+    changes = [
+        {"card": key[0], "section": key[1],
+         "before": before.get(key, 0), "after": after.get(key, 0)}
+        for key in sorted(set(before) | set(after), key=_change_order)
+        if before.get(key, 0) != after.get(key, 0)
+    ]
+    if not changes:
+        return None, []
+    cur.execute(
+        "INSERT INTO deck_revisions (deck_id, at, action, note) "
+        "VALUES (?, ?, ?, ?)",
+        (did, _now(), action, note),
+    )
+    revision_id = cur.lastrowid
+    cur.executemany(
+        "INSERT INTO deck_changes "
+        "(revision_id, card_name, section, qty_before, qty_after) "
+        "VALUES (?, ?, ?, ?, ?)",
+        [(revision_id, c["card"], c["section"], c["before"], c["after"])
+         for c in changes],
+    )
+    return revision_id, changes
+
+
+_SECTION_WHERE = {
+    "sideboard": "is_sideboard = 1",
+    "commander": "is_commander = 1 AND is_sideboard = 0",
+    "main": "is_commander = 0 AND is_sideboard = 0",
+}
+
+
+def _set_section_quantity(
+    cur, did: int, card_name: str, section: str, quantity: int,
+) -> None:
+    """Make (card, section) hold exactly `quantity` copies.
+
+    An existing row keeps its id, category and added_at; duplicate rows for
+    the same key collapse into the first. Quantity 0 deletes them all.
+    """
+    cur.execute(
+        f"SELECT id FROM deck_cards WHERE deck_id = ? "
+        f"AND card_name = ? COLLATE NOCASE AND {_SECTION_WHERE[section]} "
+        f"ORDER BY id",
+        (did, card_name),
+    )
+    ids = [r["id"] for r in cur.fetchall()]
+    keep = ids[:1] if quantity else []
+    for row_id in ids:
+        if row_id not in keep:
+            cur.execute("DELETE FROM deck_cards WHERE id = ?", (row_id,))
+    if keep:
+        cur.execute("UPDATE deck_cards SET quantity = ? WHERE id = ?",
+                    (quantity, keep[0]))
+    elif quantity:
+        cur.execute(
+            "INSERT INTO deck_cards (deck_id, card_name, quantity, "
+            "is_commander, is_sideboard, added_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (did, card_name, quantity, int(section == "commander"),
+             int(section == "sideboard"), _now()),
+        )
+
+
+def _split_changes(changes: list[dict]) -> dict:
+    return {
+        "added": [c for c in changes if c["before"] == 0],
+        "removed": [c for c in changes if c["after"] == 0],
+        "changed": [c for c in changes if c["before"] and c["after"]],
+    }
+
+
+def _deck_name(cur, did: int) -> str:
+    cur.execute("SELECT name FROM decks WHERE id = ?", (did,))
+    return cur.fetchone()["name"]
+
+
+def replace_deck_contents(
+    name: str,
+    parsed: list[dict],
+    folder: Optional[str] = None,
+    force: bool = False,
+) -> dict:
+    """Make an existing deck hold exactly the parsed list, as one revision.
+
+    `parsed` is `deck_parser.parse_deckstring` output. The list is applied
+    verbatim — no legality, CI, singleton or points checks, as for import.
+    Maybeboard rows are skipped and counted. A row with a bad quantity is
+    reported in `rejected` and its card keeps its current quantity. Rows
+    whose quantity is unchanged are not touched, so they keep their
+    category and added_at. If the list names a commander and the deck has
+    no format, the format becomes 'commander', as on import.
+
+    A name that resolves to no card aborts the whole replace with
+    UnresolvedCardsError, and nothing changes; `force=True` replaces anyway
+    without those names.
+
+    Returns {deck, action: 'replace', revision_id (None when the deck
+    already matched), added, removed, changed — lists of {card, section,
+    before, after} — unresolved, rejected, maybeboard, format_set}.
+    """
+    target: dict[tuple[str, str], int] = {}
+    keep_current: set[tuple[str, str]] = set()
+    unresolved: list[str] = []
+    rejected: list[tuple[str, str]] = []
+    maybeboard = 0
+    for row in parsed:
+        if row["section"] == "maybeboard":
+            maybeboard += 1
+            continue
+        section = row["section"] if row["section"] in SECTIONS else "main"
+        canonical = resolve_card_name(row["name"])
+        if not canonical:
+            unresolved.append(row["name"])
+            continue
+        key = (canonical, section)
+        try:
+            _check_quantity(row["quantity"])
+            _check_quantity(target.get(key, 0) + row["quantity"])
+        except QuantityError as e:
+            rejected.append((row["name"], str(e)))
+            keep_current.add(key)
+            continue
+        target[key] = target.get(key, 0) + row["quantity"]
+    if unresolved and not force:
+        raise UnresolvedCardsError(unresolved)
+
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, name, folder)
+        before = _snapshot(cur, did)
+        # Deck rows spell names as stored; match the list to them without
+        # regard to case so a stored spelling never reads as a swap.
+        stored = {card.lower(): card for card, _ in before}
+        target = {(stored.get(card.lower(), card), section): qty
+                  for (card, section), qty in target.items()}
+        keep_current = {(stored.get(card.lower(), card), section)
+                        for card, section in keep_current}
+        for key in set(before) | set(target):
+            if key in keep_current:
+                continue
+            if before.get(key, 0) != target.get(key, 0):
+                _set_section_quantity(cur, did, key[0], key[1],
+                                      target.get(key, 0))
+        names_commander = any(section == "commander" for _, section in target)
+        format_set = (_auto_set_commander_format(cur, did)
+                      if names_commander else None)
+        revision_id, changes = _record_revision(cur, did, "replace", before)
+        if changes:
+            cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?",
+                        (_now(), did))
+        result = {
+            "deck": _deck_name(cur, did),
+            "action": "replace",
+            "revision_id": revision_id,
+            **_split_changes(changes),
+            "unresolved": unresolved,
+            "rejected": rejected,
+            "maybeboard": maybeboard,
+            "format_set": format_set,
+        }
+        conn.commit()
+        return result
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def undo_last_change(name: str, folder: Optional[str] = None) -> dict:
+    """Revert the deck's most recent revision, recording that as a revision.
+
+    The undo is itself a revision (action 'undo'), so undoing an undo
+    re-applies the change — it works as redo. Only contents are restored: a
+    format that an import or `set_commander` auto-set stays set, because
+    format changes are not part of the history.
+
+    Raises DeckError when the deck has no history, or when its contents no
+    longer match what the latest revision recorded (a change made outside
+    the history, e.g. by an older build) — undoing then would overwrite it.
+
+    Returns {deck, action: 'undo', revision_id, undone: {id, action, at,
+    note}, added, removed, changed}, the lists shaped as in
+    `replace_deck_contents`.
+    """
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, name, folder)
+        cur.execute(
+            "SELECT id, action, at, note FROM deck_revisions "
+            "WHERE deck_id = ? ORDER BY id DESC LIMIT 1",
+            (did,),
+        )
+        latest = cur.fetchone()
+        if latest is None:
+            raise DeckError(
+                f"nothing to undo: deck {_deck_name(cur, did)!r} has no "
+                f"recorded changes"
+            )
+        cur.execute(
+            "SELECT card_name, section, qty_before, qty_after "
+            "FROM deck_changes WHERE revision_id = ?",
+            (latest["id"],),
+        )
+        changes = cur.fetchall()
+        before = _snapshot(cur, did)
+        drifted = [c["card_name"] for c in changes
+                   if before.get((c["card_name"], c["section"]), 0)
+                   != c["qty_after"]]
+        if drifted:
+            raise DeckError(
+                f"cannot undo revision #{latest['id']}: the deck no longer "
+                f"matches it ({', '.join(drifted)} changed since)"
+            )
+        for c in changes:
+            _set_section_quantity(cur, did, c["card_name"], c["section"],
+                                  c["qty_before"])
+        revision_id, inverse = _record_revision(
+            cur, did, "undo", before,
+            note=f"undo of #{latest['id']} ({latest['action']})")
+        cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?",
+                    (_now(), did))
+        result = {
+            "deck": _deck_name(cur, did),
+            "action": "undo",
+            "revision_id": revision_id,
+            "undone": dict(latest),
+            **_split_changes(inverse),
+        }
+        conn.commit()
+        return result
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def deck_history(
+    name: str, folder: Optional[str] = None, limit: int = 20,
+) -> list[dict]:
+    """The deck's revisions, newest first: [{id, at, action, note,
+    changes: [{card, section, before, after}]}]."""
+    limit = max(1, min(limit, 500))
+    conn = _ro()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, name, folder)
+        cur.execute(
+            "SELECT id, at, action, note FROM deck_revisions "
+            "WHERE deck_id = ? ORDER BY id DESC LIMIT ?",
+            (did, limit),
+        )
+        revisions = [dict(r) for r in cur.fetchall()]
+        for rev in revisions:
+            cur.execute(
+                "SELECT card_name, section, qty_before, qty_after "
+                "FROM deck_changes WHERE revision_id = ?",
+                (rev["id"],),
+            )
+            rows = [{"card": c["card_name"], "section": c["section"],
+                     "before": c["qty_before"], "after": c["qty_after"]}
+                    for c in cur.fetchall()]
+            rev["changes"] = sorted(
+                rows, key=lambda c: _change_order((c["card"], c["section"])))
+        return revisions
+    finally:
+        conn.close()

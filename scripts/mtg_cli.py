@@ -13,6 +13,8 @@ Subcommands:
     mtg_cli.py folders | decks [--folder F] | folder new|delete <name>
     mtg_cli.py deck <action> <name> [--folder F] ...   # `deck -h` for flags
     mtg_cli.py deck import <name> --from-file PATH     # or pipe text on stdin
+    mtg_cli.py deck import <name> --replace [--force]  # existing deck := the list
+    mtg_cli.py deck history <name> [--limit N] | deck undo <name>
     mtg_cli.py deck export <name> [--to-file PATH]     # paste into Moxfield
 
 `--json` is a global flag and goes before the subcommand:
@@ -258,7 +260,13 @@ def _cmd_deck(args) -> int:
             tail = f" ({remaining} remaining)" if remaining else ""
             print(f"OK removed {removed}x {canonical}{tail}")
             return 0
+        if action == "import" and args.replace:
+            return _replace_from_text(args)
         if action == "import":
+            if args.force:
+                print("deck import: --force only applies with --replace "
+                      "(a new deck's import already loads the list verbatim)")
+                return 2
             ref = svc.DeckRef(deck=args.name, folder=args.folder)
             try:
                 result = svc.create_deck_from_text(
@@ -295,6 +303,21 @@ def _cmd_deck(args) -> int:
                 deck=args.against, folder=args.against_folder))
             cmp = svc.compare_decks(deck, [other], turns=turns)
             print(r.render_comparison(cmp, **fmt))
+            return 0
+        if action == "history":
+            revisions = d.deck_history(args.name, folder=args.folder,
+                                       limit=args.limit or 20)
+            if args.json:
+                print(json.dumps(revisions, indent=2, default=str))
+            else:
+                print(r.render_deck_history(revisions))
+            return 0
+        if action == "undo":
+            diff = d.undo_last_change(args.name, folder=args.folder)
+            if args.json:
+                print(json.dumps(diff, indent=2, default=str))
+            else:
+                print(r.render_deck_diff(diff))
             return 0
         if action == "combos":
             combos = d.combos_in_deck(args.name, folder=args.folder)
@@ -340,6 +363,27 @@ def _add_commander(args) -> int:
     }[action])
     if format_set:
         print(f"   deck format auto-set to {format_set!r}")
+    return 0
+
+
+def _replace_from_text(args) -> int:
+    """`deck import <name> --replace`: the existing deck becomes exactly the
+    list, as one revision `deck undo` can revert."""
+    if args.format:
+        print("deck import --replace: --format does not apply; the deck keeps "
+              "its own (use `deck new` / `format` to change it)")
+        return 2
+    ref = svc.DeckRef(deck=args.name, folder=args.folder)
+    try:
+        diff = svc.replace_deck_from_text(
+            ref, _read_deck_source(args), force=args.force)
+    except svc.ServiceError as e:
+        print(f"deck import --replace: {e}")
+        return 1
+    if args.json:
+        print(json.dumps(diff, indent=2, default=str))
+    else:
+        print(r.render_deck_diff(diff))
     return 0
 
 
@@ -440,12 +484,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("deck", help=(
         "Manage decks: deck (show|new|delete|rename|move|add|remove|import|"
-        "export|profile|compare|combos) <name> ..."
+        "export|profile|compare|combos|history|undo) <name> ..."
     ))
     sp.add_argument(
         "action",
         choices=["show", "new", "delete", "rename", "move", "add", "remove",
-                 "import", "export", "profile", "compare", "combos"],
+                 "import", "export", "profile", "compare", "combos",
+                 "history", "undo"],
     )
     sp.add_argument("name", help="Deck name.")
     sp.add_argument("--folder", help="Folder the deck lives in (disambiguates duplicates).")
@@ -465,6 +510,14 @@ def build_parser() -> argparse.ArgumentParser:
                     help="(add) add as commander, or promote a copy already in the deck.")
     sp.add_argument("--sideboard", action="store_true", help="(add) add to sideboard.")
     sp.add_argument("--from-file", help="(import) read deckstring from this file.")
+    sp.add_argument("--replace", action="store_true",
+                    help="(import) make an EXISTING deck exactly this list, as "
+                         "one revision `deck undo` reverts.")
+    sp.add_argument("--force", action="store_true",
+                    help="(import --replace) replace even when some names are "
+                         "not found, leaving them out.")
+    sp.add_argument("--limit", type=int, default=None,
+                    help="(history) revisions to show, newest first (default 20).")
     sp.add_argument("--to-file", help="(export) write the decklist here instead of stdout.")
     sp.add_argument("--front-face", action="store_true",
                     help="(export) shorten two-faced names to the front face "

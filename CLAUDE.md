@@ -18,7 +18,7 @@ own decks. The Textual TUI in `mtg_oracle.tui` is the primary interface;
 
 ## Schema (data/mtg.db)
 
-Tables: `cards`, `card_legalities`, `rulings`, `rules`, `combos` + `combo_cards` / `combo_results` / `combo_prerequisites` / `combo_steps`, `card_tags`, `card_abilities`, `decks` + `deck_folders` + `deck_cards`, `corrections`, `sync_state`. Read `scripts/init_db.py` for the full column list; only the non-obvious semantics belong here:
+Tables: `cards`, `card_legalities`, `rulings`, `rules`, `combos` + `combo_cards` / `combo_results` / `combo_prerequisites` / `combo_steps`, `card_tags`, `card_abilities`, `decks` + `deck_folders` + `deck_cards` + `deck_revisions` / `deck_changes`, `corrections`, `sync_state`. Read `scripts/init_db.py` for the full column list; only the non-obvious semantics belong here:
 
 - **`cards.color_identity`** — CSV (`B,G`), spans both faces, drives commander filtering. DFC/split/flip names combine faces with ` // `; per-face data lives in `card_faces` JSON.
 - **`combos.color_identity`** — contiguous letters (`WBG`, `GU`), unlike `cards.color_identity` which is comma-separated. Match accordingly.
@@ -34,6 +34,7 @@ Tables: `cards`, `card_legalities`, `rulings`, `rules`, `combos` + `combo_cards`
 - **`cards` rows are never pruned.** `sync_cards.py` upserts on `name`; a card whose name stops appearing upstream keeps its old row with NULL Scryfall columns, and a NULL `color_identity` reads as colorless — which leaks into every `ci<=` filter. `scripts/prune_stale_cards.py` is the cleanup (dry run by default).
 - **Deck names are unique per folder, case-insensitively** (`idx_decks_folder_name_nocase_unique` on `(COALESCE(folder_id, 0), name COLLATE NOCASE)`). `folder=None` in `decks` means *any* folder; `decks.UNSORTED` means *only* decks outside a folder — they are different questions, and conflating them made unsorted decks unreachable. `get_deck` raises `AmbiguousDeckError` (with `.folders`) rather than returning None when a name matches in several folders.
 - **`deck_cards.is_commander`** — drives format-aware behavior (see below). Multiple rows allowed for Partner / Background / Friends Forever. ON DELETE CASCADE from `decks`.
+- **`deck_revisions` + `deck_changes`** — per-deck content history: **one user action = one revision** (add, remove, promote, demote, import, load, replace, undo — an import of 100 cards is one), and its `deck_changes` rows are the quantity diff per `(card_name, section)`, written in the same transaction as the change. No-ops record nothing; rename / move / format are not content and are not logged. `decks.undo_last_change` applies the latest revision's inverse and records that as an `undo` revision, so undo of undo is redo. Both cascade from `decks`.
 - **`sync_state`** — keyed on `source` with `updated_at` upstream marker (timestamp / ETag / release date).
 
 Card-name lookups should go through `mtg_oracle.queries.resolve_card_name()`, which handles case, `/` vs ` // `, DFC front-face-only names, and missing diacritics / apostrophes / ligatures. Raw SQL on names should also use `COLLATE NOCASE`.
