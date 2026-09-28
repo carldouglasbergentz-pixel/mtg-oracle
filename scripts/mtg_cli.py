@@ -33,6 +33,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+import self_heal  # noqa: E402 — scripts/ sibling
 from mtg_oracle import queries as q
 from mtg_oracle.scryfall_search import SYNTAX_HELP
 from mtg_oracle import decks as d
@@ -539,6 +541,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    # Heal the database the data layer actually uses, so a new build's
+    # tables exist before the first write. Reports go to stderr: stdout may
+    # be --json for another program.
+    reports, _failures = self_heal.run(db_path=q.DB_PATH)
+    for report in reports:
+        print(report, file=sys.stderr)
     try:
         return args.func(args)
     except FileNotFoundError as e:

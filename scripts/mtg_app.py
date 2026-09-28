@@ -21,6 +21,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+sys.path.insert(0, str(Path(__file__).parent))
+import self_heal  # noqa: E402 — scripts/ sibling
+
 try:
     from mtg_oracle.tui import run
 except ModuleNotFoundError as e:
@@ -35,4 +38,12 @@ except ModuleNotFoundError as e:
 
 
 if __name__ == "__main__":
+    # Bring the database to this build's schema before the app opens it, so
+    # a build that adds a table doesn't leave deck edits failing until the
+    # user thinks to run `sync`. Printed before Textual takes the screen, so
+    # it is still in the scrollback after the app exits.
+    from mtg_oracle import queries
+    reports, _failures = self_heal.run(db_path=queries.DB_PATH)
+    for report in reports:
+        print(report, file=sys.stderr)
     run()
