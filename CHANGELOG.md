@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (replace a deck from a pasted list, with a change history and undo)
+- **`paste --replace` / `import <file> --replace` in the TUI, and `deck import --replace` in the CLI**, make an existing deck exactly the pasted list. Everything happens in one transaction, and the result is shown as a diff (`+1 Sea Gate Restoration`, `-1 Day of Judgment`, `Counterspell 1 -> 2`).
+    - Rows whose quantity didn't change keep their category and date.
+    - **An unrecognised name stops the whole replace, and nothing changes**; `--force` applies it without that card. The first real use caught `Meduseld, Golden Hall of Edoras`, which is the LOTR printing name of Castle Ardenvale that Moxfield exported. The safeguard exists so that a typo can't delete a card from the deck.
+    - An empty paste can't wipe a deck.
+    - Moxfield stays the one place decks are edited. There is no API bridge: Moxfield has no public API, and its private one sits behind a support-issued user agent and Cloudflare.
+- **Every content change is a revision** (`deck_revisions` + `deck_changes`): add, remove, commander promote and demote, import, load and replace. One user action is one revision, so a 100-card import is one. `history [N]` / `deck history` shows them newest first, in local time.
+- **`undo` / `deck undo`** reverts the latest revision and records that as a revision too, so running it twice redoes. It refuses when the deck has changed outside the history since.
+- 44 more tests.
+
+### Added (the app and CLI heal the schema on start)
+- **The deck-history migration exposed a gap.** Every deck edit, not just the new commands, failed with `no such table: deck_revisions` until the user ran `sync`, because only `sync.py` ran the migrations.
+    - The list now lives in `scripts/self_heal.py`, and `mtg_app.py` and `mtg_cli.py` run it before opening the database.
+    - When the schema is current it costs about 5 ms, measured.
+    - Reports go to stderr, so a `--json` consumer's stdout stays clean.
+- **`self_heal.run()` heals only the database it is given, or each migration's own path.** A test that points the data layer at a copy heals the copy, never the real file.
+
 ### Fixed (whole-codebase review, 2026-09-28 — about 70 findings, each reproduced before it was fixed)
 Five parallel reviewers covered queries and search, decks and the parser, services and analysis, the renderer and TUI, and scripts/sync. Every finding below was reproduced against `data/mtg.db` or a copy of it. 193 → 381 tests.
 
