@@ -3,9 +3,14 @@ data/mtg.db
 data/mtg.db-journal
 data/mtg.db-wal
 data/mtg.db-shm
+# Manual snapshots taken before risky writes
+data/backups/
 
 # Bulk source/raw data (fetched on demand by sync_*.py)
 data/raw/
+
+# Forge release (GPL-3, ~300 MB) — an external tool, unpacked locally, never vendored
+tools/forge/
 
 # User preferences (theme, etc.) — per-machine, not source
 data/config.json
