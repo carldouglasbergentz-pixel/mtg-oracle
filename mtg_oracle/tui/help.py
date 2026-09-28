@@ -24,7 +24,7 @@ COMMANDS = [
     "cd", "pwd", "ls", "mkdir", "rmdir",
     "add", "remove", "show", "rename", "move",
     "commander", "format", "points", "import", "paste", "export",
-    "history", "undo",
+    "history", "undo", "forge",
     "profile", "compare",
     # Maintenance
     "sync",
@@ -163,6 +163,53 @@ filters are shown above the results; `cd ..` searches the full pool.
 """
 
 
+FORGE_HELP = """\
+Forge is the playtest engine (tools/forge/). mtg-oracle writes your decks as
+Forge .dck files, has Forge's AI play them against each other, and keeps the
+results. Decks are named as everywhere else: <deck>, or <folder>/<deck> when
+the name is in more than one folder.
+
+  forge export [<deck>]     write <deck>.dck into Forge's decks folder (the
+                            deck you are in, if you name none). Inside a
+                            deck, clicking `[-> forge]` in the left pane's
+                            header does the same
+    --force                 export even though Forge lacks some cards; they
+                            are left out, and listed
+    --overwrite             replace a .dck mtg-oracle didn't write, or one
+                            edited in Forge since. A hand-made file with the
+                            deck's name is refused until you pass this
+  forge sub add <card> -> <substitute>
+                            (inside a deck) the AI copy plays <substitute>
+                            wherever the deck has <card>
+  forge sub remove <card>   (inside a deck) drop that substitution
+  forge sub list [<deck>]   a deck's substitutions
+  forge play                open Forge's own window; exported decks are
+                            under Constructed / Commander in its lists
+  forge sim <opponent> [N]  (inside a deck) Forge's AI plays this deck
+                            against <opponent>, N games (default 3). Runs in
+                            the background — about 6 s, plus 2-8 s a game —
+                            and the result lands in the output pane
+  forge sim <deck>; <opponent> [N]
+                            the same, from anywhere
+    --no-ai-variant         play the decks as built, ignoring substitutions
+  forge results [<deck>]    stored records for a deck (the one you are in,
+                            or the one named); at root, the whole win matrix
+
+THE AI COPY
+  Forge's AI can't play some cards at all; `forge export` lists them. A
+  substitution never changes your deck: export writes a second file,
+  `<deck> (AI).dck`, with the substitutes swapped in, and that copy is what
+  the AI pilots in `forge sim` whenever the deck has substitutions. A
+  substitute has to pass the rules `add` would apply — colour identity,
+  legality, singleton, points.
+
+COMMANDER
+  A deck with a commander is exported and simmed as Commander, and Forge
+  plays Commander at 40 life with 21 commander damage lethal. That is not
+  Duel Commander (20 life), so read those games as a Commander proxy.
+"""
+
+
 HELP_TEXT = """\
 MTG Oracle - local knowledge base
 
@@ -201,9 +248,13 @@ MAINTENANCE
   clear                               clear the output pane
   quit                                exit
 
+FORGE                                 (playtest decks in the Forge engine)
+  forge export | sub | play | sim | results     see `help forge`
+
 MORE HELP
   help decks                          the deck / folder filesystem model, in full
   help search                         Scryfall-style search syntax and examples
+  help forge                          exporting to Forge, AI copies, sims, results
 
 Mouse:
   Clickable, in both panes — they underline when you hover:
@@ -243,4 +294,5 @@ HELP_TOPICS = {
     "decks": DECK_HELP,
     "deck": DECK_HELP,
     "search": SEARCH_HELP,
+    "forge": FORGE_HELP,
 }

@@ -873,6 +873,11 @@ def render_analytics_compact(analytics: dict, width: int = 48) -> str:
     return "\n".join(lines)
 
 
+# The nav deck header's clickable "export this deck to Forge" control. ASCII,
+# like the rest of the pane, and short enough for the narrowest one.
+FORGE_EXPORT_TOKEN = "[-> forge]"
+
+
 # Below this many columns left for card names, the combo row header drops its
 # `(N cards)` count: a header that fills the row pushes every card name onto
 # continuation lines, which is harder to read than a missing count.
@@ -957,7 +962,20 @@ def render_deck_compact(
     # numbers index into it, and a multi-line sub-render appended as a single
     # element shifted every link below it — the combo numbers landed on the
     # analytics rows.
-    lines: list[str] = [name_line]
+    lines: list[str] = []
+    # The export-to-Forge control: right-aligned on the name row when both
+    # fit, else on a row of its own so the name keeps its full width. Always
+    # shown — whether Forge is installed is the click's question, not the
+    # render's (nothing that touches the filesystem belongs in a render).
+    token = FORGE_EXPORT_TOKEN
+    if len(name_line) + 1 + len(token) <= width:
+        lines.append(name_line + " " * (width - len(name_line) - len(token)) + token)
+    else:
+        lines.extend([name_line, token.rjust(width)])
+    if links is not None:
+        links.append(LinkSpan(len(lines) - 1, len(lines[-1]) - len(token),
+                              len(lines[-1]), "forge_export",
+                              (deck.get("folder"), deck.get("name"))))
     lines.extend(_pack(bits, width, sep=" / "))
     badges = [b for b in (_ci_badge(deck.get("commander_ci")),
                           _points_badge(deck.get("points"))) if b]

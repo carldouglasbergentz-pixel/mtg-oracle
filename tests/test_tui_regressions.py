@@ -87,6 +87,22 @@ class TestNavRenderers(unittest.TestCase):
                 self.assertEqual(lines[span.line][span.start:span.end],
                                  f"[{span.args[0]:>3}]", width)
 
+    def test_forge_export_control_lands_on_its_token(self):
+        """On the name row when both fit, on its own row otherwise — and the
+        span covers exactly the token either way."""
+        for width, own_row in ((20, True), (48, True), (80, False)):
+            lines, links = self.render(width)
+            spans = [s for s in links if s.kind == "forge_export"]
+            self.assertEqual(len(spans), 1, width)
+            span = spans[0]
+            self.assertEqual(lines[span.line][span.start:span.end],
+                             r.FORGE_EXPORT_TOKEN, width)
+            self.assertEqual(span.line, 1 if own_row else 0, width)
+            self.assertEqual(span.args, ("Canadian Highlander", _deck()["name"]))
+        # A short name shares its row even in the narrowest pane.
+        lines, links = self.render(20, name="Short")
+        self.assertEqual(lines[0], "Short     [-> forge]")
+
     def test_card_links_still_cover_their_names(self):
         lines, links = self.render(48)
         for span in links:
@@ -621,6 +637,249 @@ class TestApp(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("ERR database: no such table: deck_revisions", out)
                 self.assertIn("Run `sync` to migrate it.", out)
             self.assertTrue(app.is_running)
+
+    # --- Forge ----------------------------------------------------------
+    #
+    # No Forge runs: the install check, card index and config are stubbed,
+    # `.dck` files go to a temp decks folder, and `run_sim` returns a
+    # recorded Forge output. The services themselves run for real.
+
+    FORGE_CARDS = {"Thassa's Oracle": None, "Demonic Consultation": "All",
+                   "Tainted Pact": None, "Island": None, "Brainstorm": None,
+                   "Swamp": None}
+
+    def _fake_forge(self, run_sim=None):
+        """Patch forge_client for one test; returns the temp decks folder."""
+        from mtg_oracle import forge_client as fc
+        tmp = Path(tempfile.mkdtemp(prefix="mtg-oracle-forge-"))
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, ignore_errors=True))
+        config = fc.ForgeConfig(
+            install_dir=tmp / "forge", decks_dir=tmp / "decks" / "constructed",
+            commander_decks_dir=tmp / "decks" / "commander")
+        install = fc.ForgeInstall(config=config, jar=tmp / "forge.jar",
+                                  java="java", version="test")
+        index = {n.casefold(): {"name": n, "ai": f}
+                 for n, f in self.FORGE_CARDS.items()}
+        patches = [mock.patch.object(fc, "validate", return_value=install),
+                   mock.patch.object(fc, "load_config", return_value=config),
+                   mock.patch.object(fc, "load_card_index",
+                                     side_effect=lambda *_a, **_k: index)]
+        if run_sim is not None:
+            patches.append(mock.patch.object(fc, "run_sim", **run_sim))
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        return tmp
+
+    @classmethod
+    def _forge_decks(cls):
+        from mtg_oracle import decks as d
+        if getattr(cls, "_forge_made", False):
+            return
+        d.create_deck("Forge Pile", folder="TUI Tests")
+        for card, qty in (("Thassa's Oracle", 1), ("Demonic Consultation", 1),
+                          ("Island", 5)):
+            d.add_card_to_deck("Forge Pile", card, quantity=qty,
+                               folder="TUI Tests", force=True)
+        d.create_deck("Forge Foe", folder="TUI Tests")
+        for card, qty in (("Brainstorm", 1), ("Island", 6)):
+            d.add_card_to_deck("Forge Foe", card, quantity=qty,
+                               folder="TUI Tests", force=True)
+        cls._forge_made = True
+
+    def _sim_run(self, tmp, fixture="constructed_q_3games.txt"):
+        from mtg_oracle import forge_client as fc
+        stdout = (Path(__file__).parent / "fixtures" / "forge" / fixture
+                  ).read_text(encoding="utf-8")
+        return fc.SimRun(match_id=f"tui-{fixture}", stdout=stdout, stderr="",
+                         returncode=0, log_path=tmp / "sim.log")
+
+    async def test_forge_export_and_substitutions(self):
+        self._forge_decks()
+        tmp = self._fake_forge()
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            await self.submit(pilot, app, "cd TUI Tests/Forge Pile")
+            n = len(_out_lines(app))
+            await self.submit(pilot, app, "forge export")
+            out = "\n".join(_out_lines(app)[n:])
+            self.assertIn("Exported 'Forge Pile' for Forge (constructed):", out)
+            self.assertIn("Forge's AI can't play 1 card(s)", out)
+            self.assertTrue((tmp / "decks" / "constructed" / "Forge Pile.dck").exists())
+
+            await self.submit(pilot, app,
+                              "forge sub add Demonic Consultation -> Tainted Pact")
+            self.assertEqual(_out_lines(app)[-1],
+                             "OK Forge Pile: the AI copy plays Tainted Pact "
+                             "for Demonic Consultation")
+            n = len(_out_lines(app))
+            await self.submit(pilot, app, "forge sub list")
+            out = "\n".join(_out_lines(app)[n:])
+            self.assertIn("Forge AI substitutions in 'Forge Pile' (1):", out)
+            self.assertIn("Demonic Consultation  ->  Tainted Pact", out)
+            # Export now writes the AI copy too.
+            await self.submit(pilot, app, "forge export")
+            self.assertTrue(
+                (tmp / "decks" / "constructed" / "Forge Pile (AI).dck").exists())
+
+            await self.submit(pilot, app, "forge sub remove Demonic Consultation")
+            self.assertEqual(_out_lines(app)[-1],
+                             "OK Forge Pile: Demonic Consultation no longer "
+                             "substituted (was Tainted Pact)")
+            # A missing separator is a usage error, not a guess.
+            await self.submit(pilot, app, "forge sub add Island Swamp")
+            self.assertEqual(_out_lines(app)[-1],
+                             "usage: forge sub add <card> -> <substitute>")
+
+    async def test_forge_export_refuses_a_hand_made_file_until_overwrite(self):
+        """The user's spike-era .dck files carry no ownership marker, so the
+        first export trips on them; the message has to say the way out."""
+        self._forge_decks()
+        tmp = self._fake_forge()
+        target = tmp / "decks" / "constructed" / "Forge Foe.dck"
+        target.parent.mkdir(parents=True)
+        target.write_text("[metadata]\nName=Forge Foe\n[Main]\n1 Island\n",
+                          encoding="utf-8")
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            await self.submit(pilot, app, "forge export TUI Tests/Forge Foe")
+            self.assertTrue(_out_lines(app)[-1].startswith("forge export: "))
+            self.assertIn("--overwrite", _out_lines(app)[-1])
+            n = len(_out_lines(app))
+            await self.submit(pilot, app,
+                              "forge export TUI Tests/Forge Foe --overwrite")
+            self.assertIn("Exported 'Forge Foe' for Forge",
+                          "\n".join(_out_lines(app)[n:]))
+
+    async def test_nav_forge_click_exports_that_deck(self):
+        from textual.widgets import RichLog
+        self._forge_decks()
+        tmp = self._fake_forge()
+        target = tmp / "decks" / "constructed" / "Forge Pile.dck"
+        target.parent.mkdir(parents=True)
+        hand_made = "[metadata]\nName=Forge Pile\n[Main]\n1 Island\n"
+        target.write_text(hand_made, encoding="utf-8")
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            await self.submit(pilot, app, "cd TUI Tests/Forge Pile")
+            ticket = self.ticket_for(app, "forge_export",
+                                     ("TUI Tests", "Forge Pile"))
+            segments = [seg.text for strip in app.query_one("#nav", RichLog).lines
+                        for seg in strip
+                        if seg.style and seg.style.meta.get("@click")
+                        == f"app.click_target({ticket})"]
+            self.assertEqual(segments, ["[-> forge]"])
+
+            # A hand-made file is refused with the hint, never overwritten.
+            n = len(_out_lines(app))
+            await app.run_action(f"click_target({ticket})")
+            await pilot.pause()
+            out = _out_lines(app)[n:]
+            self.assertEqual(out[0], "> forge export TUI Tests/Forge Pile")
+            self.assertTrue(out[-1].startswith("forge export: "))
+            self.assertIn("--overwrite", out[-1])
+            self.assertEqual(target.read_text(encoding="utf-8"), hand_made)
+
+            target.unlink()
+            n = len(_out_lines(app))
+            await app.run_action(f"click_target({ticket})")
+            await pilot.pause()
+            self.assertIn("Exported 'Forge Pile' for Forge (constructed):",
+                          "\n".join(_out_lines(app)[n:]))
+            self.assertTrue(target.exists())
+
+    async def test_forge_sim_runs_in_a_worker_and_records_results(self):
+        self._forge_decks()
+        tmp = self._fake_forge()
+        from mtg_oracle import forge_client as fc
+        started = []
+
+        def fake_run(*_a, **kw):
+            started.append(kw)
+            return self._sim_run(tmp)
+
+        with mock.patch.object(fc, "run_sim", side_effect=fake_run):
+            async with self.app().run_test(size=(160, 60)) as pilot:
+                app = pilot.app
+                await self.submit(pilot, app, "cd TUI Tests/Forge Pile")
+                n = len(_out_lines(app))
+                await self.submit(pilot, app, "forge sim Forge Foe 3")
+                self.assertTrue(_out_lines(app)[n + 1].startswith(
+                    "Simulating 'Forge Pile' vs 'Forge Foe', 3 game(s)"))
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                out = "\n".join(_out_lines(app)[n:])
+                self.assertIn("3 game(s), constructed, Forge test", out)
+                self.assertFalse(app._forge_sim_running)
+                self.assertEqual(started[0]["games"], 3)
+
+                n = len(_out_lines(app))
+                await self.submit(pilot, app, "forge results")
+                out = "\n".join(_out_lines(app)[n:])
+                self.assertIn("Forge record for 'Forge Pile':", out)
+                self.assertIn("vs Forge Foe", out)
+                # At root: the matrix.
+                await self.submit(pilot, app, "cd /")
+                n = len(_out_lines(app))
+                await self.submit(pilot, app, "forge results")
+                self.assertIn("Forge win matrix", "\n".join(_out_lines(app)[n:]))
+                # From anywhere, with `;`.
+                n = len(_out_lines(app))
+                await self.submit(pilot, app,
+                                  "forge sim TUI Tests/Forge Foe; Forge Pile 1")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                self.assertIn("Simulating 'Forge Foe' vs 'Forge Pile', 1 game(s)",
+                              "\n".join(_out_lines(app)[n:]))
+
+    async def test_a_failing_forge_sim_is_reported_and_the_app_survives(self):
+        from mtg_oracle import forge_client as fc
+        self._forge_decks()
+        self._fake_forge()
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            await self.submit(pilot, app, "cd TUI Tests/Forge Pile")
+            for failure, expected in (
+                (fc.ForgeError("java was not found"),
+                 "forge sim: java was not found"),
+                (RuntimeError("boom"), "forge sim: RuntimeError: boom"),
+            ):
+                with mock.patch.object(fc, "run_sim", side_effect=failure):
+                    await self.submit(pilot, app, "forge sim Forge Foe")
+                    await app.workers.wait_for_complete()
+                    await pilot.pause()
+                self.assertTrue(app.is_running)
+                self.assertFalse(app._forge_sim_running)
+                self.assertEqual(_out_lines(app)[-1], expected)
+
+    async def test_forge_usage_outside_a_deck(self):
+        async with self.app().run_test(size=(160, 60)) as pilot:
+            app = pilot.app
+            for command, expected in (
+                ("forge export",
+                 "(forge export: name a deck, or `cd <deck>` first)"),
+                ("forge sub add Island -> Swamp",
+                 "(use `cd <deck>` to enter a deck before `forge sub add`)"),
+                ("forge sub remove Island",
+                 "(use `cd <deck>` to enter a deck before `forge sub remove`)"),
+                ("forge sub list",
+                 "(forge sub list: name a deck, or `cd <deck>` first)"),
+                ("forge sim Forge Foe",
+                 "(forge sim: `cd <deck>` first, or "
+                 "`forge sim <deck>; <opponent> [N]`)"),
+                ("forge export No Such Deck",
+                 "forge export: no deck named 'No Such Deck'"),
+            ):
+                await self.submit(pilot, app, command)
+                self.assertEqual(_out_lines(app)[-1], expected, command)
+            await self.submit(pilot, app, "forge")
+            self.assertIn("usage: forge export [<deck>] [--force] [--overwrite]",
+                          _out_lines(app))
+            n = len(_out_lines(app))
+            await self.submit(pilot, app, "help forge")
+            text = "\n".join(_out_lines(app)[n:])
+            self.assertIn("(AI).dck", text)
+            self.assertIn("40 life", text)
 
     async def test_clear_drops_the_output_panes_tickets(self):
         async with self.app().run_test(size=(160, 60)) as pilot:

@@ -173,6 +173,8 @@ class MtgOracleApp(App):
         # True while the background sync worker is alive, so a second
         # `sync` gets a clear message instead of two competing writers.
         self._sync_running: bool = False
+        # Same guard for a Forge sim, which runs in a worker for as long.
+        self._forge_sim_running: bool = False
 
         # Mouse click targets. The `@click` meta in a Rich style is a string
         # parsed by Textual's action parser, and card names are full of
@@ -329,16 +331,21 @@ class MtgOracleApp(App):
         """
         try:
             fn(*args)
-        except sqlite3.OperationalError as e:
+        except Exception as e:
+            self._write(f"ERR {self._describe_error(e)}")
+
+    @staticmethod
+    def _describe_error(e: Exception) -> str:
+        """An unexpected failure as one line the user can act on."""
+        if isinstance(e, sqlite3.OperationalError):
             # "no such column: games" means the DB predates this build. The
             # raw message is true but tells the user nothing they can act on.
             hint = ""
             if "no such column" in str(e) or "no such table" in str(e):
                 hint = ("\n   Your database predates this version of the app. "
                         "Run `sync` to migrate it.")
-            self._write(f"ERR database: {e}{hint}")
-        except Exception as e:
-            self._write(f"ERR {type(e).__name__}: {e}")
+            return f"database: {e}{hint}"
+        return f"{type(e).__name__}: {e}"
 
     # --- history navigation ---------------------------------------
 
@@ -560,6 +567,14 @@ class MtgOracleApp(App):
         elif kind == "root":
             self._write("> cd /")
             self._cmd_cd("/")
+        elif kind == "forge_export":
+            # Exactly `forge export <folder>/<deck>`, minus the re-parse: the
+            # ticket already knows which deck. Never with --overwrite — a
+            # hand-made .dck is refused with the hint, as when typed.
+            folder, deck = args
+            folder = folder or d.UNSORTED
+            self._write(f"> forge export {folder}/{deck}")
+            self._export_to_forge(svc.DeckRef(deck=deck, folder=folder))
 
     # --- command dispatch ------------------------------------------
 
@@ -604,6 +619,7 @@ class MtgOracleApp(App):
             "export": self._cmd_export,
             "history": self._cmd_history,
             "undo": self._cmd_undo,
+            "forge": self._cmd_forge,
             "sync": self._cmd_sync,
             "copy": self._cmd_copy,
             "help": self._cmd_help,
@@ -628,7 +644,7 @@ class MtgOracleApp(App):
             return
         body = HELP_TOPICS.get(topic)
         if body is None:
-            known = ", ".join(sorted({"decks", "search"}))
+            known = ", ".join(sorted({"decks", "search", "forge"}))
             self._write(f"(no help topic {topic!r}; try: {known} — or bare `help`)")
             return
         self._write(body)
@@ -1983,12 +1999,8 @@ class MtgOracleApp(App):
                 return
             ref: Optional[svc.DeckRef] = self._ref()
         else:
-            # A trailing count — unless the whole argument names a deck, since
-            # deck names can end in a number as easily as card names can.
-            head, _, tail = arg.rpartition(" ")
-            if (head and tail.isascii() and tail.isdigit()
-                    and not self._names_a_deck(arg)):
-                arg, limit = head, int(tail)
+            arg, count = self._split_trailing_count(arg)
+            limit = limit if count is None else count
             ref = self._deck_ref(arg, "history")
             if ref is None:
                 return
@@ -1999,6 +2011,18 @@ class MtgOracleApp(App):
             return
         self._write(ref.path)
         self._write(r.render_deck_history(revisions))
+
+    def _split_trailing_count(self, text: str) -> tuple[str, Optional[int]]:
+        """`<deck> 5` -> ('<deck>', 5); anything else -> (text, None).
+
+        Not when the whole text names a deck: deck names can end in a number
+        as easily as card names can.
+        """
+        head, _, tail = text.rpartition(" ")
+        if (head and tail.isascii() and tail.isdigit()
+                and not self._names_a_deck(text)):
+            return head.strip(), int(tail)
+        return text, None
 
     def _names_a_deck(self, text: str) -> bool:
         try:
@@ -2065,6 +2089,182 @@ class MtgOracleApp(App):
             self._write("   two-faced names shortened to the front face")
         if grouped:
             self._write("   grouped by role with `//` headers (importers skip them)")
+
+    # --- Forge ------------------------------------------------------
+
+    _FORGE_USAGE = (
+        "usage: forge export [<deck>] [--force] [--overwrite]\n"
+        "       forge sub add <card> -> <substitute>   (inside a deck)\n"
+        "       forge sub remove <card>                 (inside a deck)\n"
+        "       forge sub list [<deck>]\n"
+        "       forge play\n"
+        "       forge sim <opponent> [N]   |   forge sim <deck>; <opponent> [N]\n"
+        "       forge results [<deck>]\n"
+        "  (`help forge` for the whole story)"
+    )
+    # What the CLI defaults to; a sim is slow, so a small default.
+    _FORGE_SIM_GAMES = 3
+
+    def _cmd_forge(self, arg: str) -> None:
+        action, _, rest = arg.strip().partition(" ")
+        handler = {
+            "export": self._forge_export,
+            "sub": self._forge_sub,
+            "play": self._forge_play,
+            "sim": self._forge_sim,
+            "results": self._forge_results,
+        }.get(action.lower())
+        if handler is None:
+            self._write(self._FORGE_USAGE)
+            return
+        try:
+            handler(rest.strip())
+        except svc.ServiceError as e:
+            # Missing install / jar / java, unknown cards, a .dck we didn't
+            # write: all ServiceError, all phrased for the user already.
+            self._write(f"forge {action.lower()}: {e}")
+
+    def _forge_ref(self, text: str, verb: str) -> Optional[svc.DeckRef]:
+        """The deck a forge command names, or the one you are in."""
+        if text:
+            return self._deck_ref(text, verb)
+        if not self._cwd_deck:
+            self._write(f"({verb}: name a deck, or `cd <deck>` first)")
+            return None
+        return self._ref()
+
+    def _forge_export(self, rest: str) -> None:
+        name, flags = self._take_flags(rest, ("--force", "--overwrite"))
+        ref = self._forge_ref(name, "forge export")
+        if ref is None:
+            return
+        self._export_to_forge(ref, force="--force" in flags,
+                              overwrite="--overwrite" in flags)
+
+    def _export_to_forge(self, ref: svc.DeckRef, *, force: bool = False,
+                         overwrite: bool = False) -> None:
+        """The one export path, for the typed command and the nav click."""
+        try:
+            export = svc.forge_export(ref, force=force, overwrite=overwrite)
+        except svc.ServiceError as e:
+            self._write(f"forge export: {e}")
+            return
+        self._write(r.render_forge_export(export))
+
+    def _forge_sub(self, rest: str) -> None:
+        action, _, body = rest.partition(" ")
+        action, body = action.lower(), body.strip()
+        if action == "list":
+            ref = self._forge_ref(body, "forge sub list")
+            if ref is None:
+                return
+            self._write(r.render_forge_substitutions(
+                ref.deck, svc.forge_substitutions(ref)))
+            return
+        if action not in ("add", "remove"):
+            self._write(self._FORGE_USAGE)
+            return
+        if not self._cwd_deck:
+            self._write(f"(use `cd <deck>` to enter a deck before "
+                        f"`forge sub {action}`)")
+            return
+        if action == "remove":
+            if not body:
+                self._write("usage: forge sub remove <card>")
+                return
+            out = svc.forge_remove_substitution(self._ref(), body)
+            self._write(f"OK {out['deck']}: {out['card']} no longer "
+                        f"substituted (was {out['substitute']})")
+            return
+        # `->` rather than `;` or `,`: card names carry commas and
+        # apostrophes, never an arrow.
+        card, arrow, substitute = body.partition("->")
+        card, substitute = card.strip(), substitute.strip()
+        if not arrow or not card or not substitute:
+            self._write("usage: forge sub add <card> -> <substitute>")
+            return
+        out = svc.forge_add_substitution(self._ref(), card, substitute)
+        replaced = f" (was {out['replaced']})" if out["replaced"] else ""
+        self._write(f"OK {out['deck']}: the AI copy plays {out['substitute']} "
+                    f"for {out['card']}{replaced}")
+
+    def _forge_play(self, rest: str) -> None:
+        if rest:
+            self._write("usage: forge play")
+            return
+        pid = svc.forge_play()
+        self._write(f"OK Forge is starting (pid {pid}); exported decks are "
+                    f"under Constructed / Commander in its deck lists.")
+
+    def _forge_sim(self, rest: str) -> None:
+        body, flags = self._take_flags(rest, ("--no-ai-variant", "--overwrite"))
+        if ";" in body:
+            first, _, body = body.partition(";")
+            ref_a = self._deck_ref(first.strip(), "forge sim")
+            if ref_a is None:
+                return
+        elif self._cwd_deck:
+            ref_a = self._ref()
+        else:
+            self._write("(forge sim: `cd <deck>` first, or "
+                        "`forge sim <deck>; <opponent> [N]`)")
+            return
+        opponent, games = self._split_trailing_count(body.strip())
+        if not opponent:
+            self._write("usage: forge sim <opponent> [N]   |   "
+                        "forge sim <deck>; <opponent> [N]")
+            return
+        ref_b = self._deck_ref(opponent, "forge sim")
+        if ref_b is None:
+            return
+        if self._forge_sim_running:
+            self._write("(a Forge sim is already running — wait for it to finish)")
+            return
+        games = self._FORGE_SIM_GAMES if games is None else games
+        self._forge_sim_running = True
+        self._write(
+            f"Simulating {ref_a.deck!r} vs {ref_b.deck!r}, {games} game(s) in "
+            f"Forge — roughly {6 + 5 * games} s. The app stays usable; the "
+            f"result lands here.")
+        self._run_forge_sim(ref_a, ref_b, games,
+                            use_ai_variant="--no-ai-variant" not in flags,
+                            overwrite="--overwrite" in flags)
+
+    # Its own group: `exclusive` on the sync worker cancels other workers in
+    # the same group, and a sim must not cancel a sync or be cancelled by one.
+    @work(thread=True, group="forge", exit_on_error=False)
+    def _run_forge_sim(self, ref_a: svc.DeckRef, ref_b: svc.DeckRef,
+                       games: int, *, use_ai_variant: bool,
+                       overwrite: bool) -> None:
+        """Worker body: the sim blocks for seconds per game, so never on the
+        UI thread. Whatever happens, one line comes back and the flag clears —
+        the lesson of the sync worker, where a re-raise killed the app."""
+        text = "forge sim: stopped without a result"
+        try:
+            result = svc.forge_sim(ref_a, ref_b, games=games,
+                                   use_ai_variant=use_ai_variant,
+                                   overwrite=overwrite)
+            text = r.render_forge_sim(result)
+        except svc.ServiceError as e:
+            text = f"forge sim: {e}"
+        except Exception as e:
+            text = f"forge sim: {self._describe_error(e)}"
+        finally:
+            self.call_from_thread(self._forge_sim_finished, text)
+
+    def _forge_sim_finished(self, text: str) -> None:
+        self._forge_sim_running = False
+        self._write(text)
+
+    def _forge_results(self, rest: str) -> None:
+        if rest:
+            ref = self._deck_ref(rest, "forge results")
+            if ref is None:
+                return
+        else:
+            # Inside a deck: that deck's record. At root: the whole matrix.
+            ref = self._ref() if self._cwd_deck else None
+        self._write(r.render_forge_results(svc.forge_results(ref)))
 
     def _write_combo_list(self, combos: list[dict], header: str) -> None:
         """A clickable, numbered combo list — `combo-info <N>` matches it."""
