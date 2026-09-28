@@ -136,18 +136,17 @@ def sync(force: bool = False) -> None:
         print(f"ERR Database not found at {DB_PATH}. Run init_db.py first.")
         sys.exit(1)
     if not FORMATS_DIR.exists():
+        # A missing directory reads as a broken checkout, not as "retire every
+        # format", so nothing is removed. An empty one does remove them.
         print(f"-- formats: no {FORMATS_DIR.name}/ directory, nothing to load")
         return
 
     paths = sorted(FORMATS_DIR.glob("*.json"))
-    if not paths:
-        print(f"-- formats: no .json files in {FORMATS_DIR.name}/, nothing to load")
-        return
-
     specs = [load_definition(p) for p in paths]  # validate all before writing
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+    removed = _remove_retired(cur, {spec["format"] for spec in specs})
     total = 0
     for spec, path in zip(specs, paths):
         n = _upsert(cur, spec)
@@ -173,6 +172,36 @@ def sync(force: bool = False) -> None:
     )
     conn.commit()
     conn.close()
+    for fmt, deck_count in removed:
+        in_use = (f" — {deck_count} deck(s) still name it and now get no "
+                  f"format rules" if deck_count else "")
+        print(f"OK removed format {fmt!r}: its file is gone from "
+              f"{FORMATS_DIR.name}/{in_use}")
+
+
+def _remove_retired(cur: sqlite3.Cursor, keep: set[str]) -> list[tuple[str, int]]:
+    """Delete formats whose JSON file is gone. Returns (format, decks using it).
+
+    The files are the source of truth, and a format that outlived its file
+    kept charging points forever. Points are deleted explicitly rather than
+    through ON DELETE CASCADE, which only fires with foreign_keys enabled.
+    """
+    cur.execute("SELECT format, aliases FROM custom_formats")
+    retired = sorted((fmt, aliases) for fmt, aliases in cur.fetchall()
+                     if fmt not in keep)
+    removed = []
+    for fmt, aliases in retired:
+        # A deck may have been given any alias ('canlander'), not the key.
+        names = [fmt, *json.loads(aliases or "[]")]
+        cur.execute(
+            "SELECT COUNT(*) FROM decks WHERE LOWER(TRIM(format)) IN (%s)"
+            % ", ".join("?" * len(names)),
+            [n.lower() for n in names],
+        )
+        removed.append((fmt, cur.fetchone()[0]))
+        cur.execute("DELETE FROM custom_format_points WHERE format = ?", (fmt,))
+        cur.execute("DELETE FROM custom_formats WHERE format = ?", (fmt,))
+    return removed
 
 
 if __name__ == "__main__":

@@ -10,8 +10,9 @@ Python `set`, so *which* category survived depended on set iteration order:
 The fix is (card_name, tag, category).
 
 `card_tags` is 100% derived from the `cards` table and is wiped and rebuilt
-on every `sync.py --only tags`, so this rebuilds the table and immediately
-re-runs the tagger — no data can be lost.
+on every `sync.py --only tags`, so this rebuilds the table and re-runs the
+tagger in the same transaction — no data can be lost. sync.py runs it as a
+self-heal migration.
 
 Safe to run multiple times: it checks the existing PK first and exits early
 when the schema is already correct.
@@ -38,6 +39,14 @@ CREATE TABLE card_tags (
     FOREIGN KEY (card_name) REFERENCES cards(name)
 )
 """
+
+# Every index init_db.py declares on card_tags. DROP TABLE takes them all,
+# and the NOCASE one is what keeps name lookups off a full scan.
+INDEXES = (
+    "CREATE INDEX idx_card_tags_tag ON card_tags(tag)",
+    "CREATE INDEX idx_card_tags_category ON card_tags(category)",
+    "CREATE INDEX idx_card_tags_card_nocase ON card_tags(card_name COLLATE NOCASE)",
+)
 
 
 def _pk_columns(cur: sqlite3.Cursor) -> list[str]:
@@ -68,20 +77,25 @@ def main() -> None:
     before = cur.execute("SELECT COUNT(*) FROM card_tags").fetchone()[0]
     print(f"-> Rebuilding card_tags (PK {tuple(pk)} -> "
           f"('card_name', 'tag', 'category')); {before:,} rows will be regenerated")
-    cur.execute("DROP TABLE card_tags")
-    cur.execute(NEW_TABLE)
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_card_tags_tag ON card_tags(tag)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_card_tags_category ON card_tags(category)")
-    conn.commit()
-    conn.close()
-
-    # Repopulate straight away — the table is derived data, and leaving it
-    # empty would silently break every `kw:` / tag query until the next sync.
-    tag_cards.sync()
-
-    conn = sqlite3.connect(DB_PATH)
-    after = conn.execute("SELECT COUNT(*) FROM card_tags").fetchone()[0]
-    conn.close()
+    # One transaction for drop, create and refill: the table is derived data,
+    # and a crash between the steps used to leave it empty, silently breaking
+    # every `kw:` / tag query until the next sync. The explicit BEGIN matters —
+    # sqlite3 only opens a transaction implicitly before DML, so the DROP and
+    # CREATE would otherwise each commit on their own.
+    try:
+        cur.execute("BEGIN")
+        cur.execute("DROP TABLE card_tags")  # drops its indexes with it
+        cur.execute(NEW_TABLE)
+        for index_sql in INDEXES:
+            cur.execute(index_sql)
+        tag_cards.retag(conn)
+        after = cur.execute("SELECT COUNT(*) FROM card_tags").fetchone()[0]
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
     print(f"OK Migration applied: {before:,} -> {after:,} tag rows "
           f"({after - before:+,} recovered)")
 

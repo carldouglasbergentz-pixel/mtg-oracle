@@ -59,13 +59,33 @@ def read_dir(path: Path, keep_duplicates: bool) -> list[dict]:
             if row["section"] == "sideboard":
                 continue
             cards[row["name"]] = cards.get(row["name"], 0) + row["quantity"]
-        key = f.stem if keep_duplicates else hashlib.md5(raw).hexdigest()
+        digest = hashlib.md5(raw).hexdigest()
+        key = f.stem if keep_duplicates else digest
         if key in seen:
             seen[key]["files"].append(f.stem)
+            seen[key]["paths"].append(f.resolve())
             continue
-        seen[key] = {"name": f.stem, "cards": cards, "files": [f.stem]}
+        seen[key] = {"name": f.stem, "cards": cards, "files": [f.stem],
+                     "digest": digest, "paths": [f.resolve()]}
         order.append(key)
     return [seen[k] for k in order]
+
+
+def is_same_deck(reference: dict, subject: dict, keep_duplicates: bool) -> bool:
+    """Whether a reference entry is the --compare subject itself.
+
+    Not by name: collapsed duplicates keep the *first* file's stem, so a
+    subject identical to an earlier file slipped through and was compared
+    against itself, while a collection deck named like some unrelated file's
+    stem knocked that file out. Files match by resolved path — or by content,
+    unless --keep-duplicates says identical files are separate data points.
+    Collection decks match only collection decks, by name.
+    """
+    if "db_deck" in subject:
+        return reference.get("db_deck") == subject["db_deck"]
+    if subject["paths"][0] in reference.get("paths", ()):
+        return True
+    return not keep_duplicates and reference.get("digest") == subject["digest"]
 
 
 def print_report(profiles, args) -> None:
@@ -82,9 +102,15 @@ def print_report(profiles, args) -> None:
 
 
 def read_db_deck(name: str, folder: str | None) -> dict:
-    """One of the user's own decks, in the same shape as a decklist file."""
-    return services.deck_cards_for_analysis(
+    """One of the user's own decks, in the same shape as a decklist file.
+
+    `db_deck` is the identity `is_same_deck` matches on; every --deck and
+    --compare shares one --folder, so the canonical name is enough.
+    """
+    deck = services.deck_cards_for_analysis(
         services.DeckRef(deck=name, folder=folder))
+    deck["db_deck"] = deck["name"].casefold()
+    return deck
 
 
 def read_subject(target: str, folder: str | None) -> dict:
@@ -93,7 +119,8 @@ def read_subject(target: str, folder: str | None) -> dict:
     if path.suffix.lower() == ".txt":
         if not path.is_file():
             raise services.ServiceError(f"no such file: {target}")
-        parsed = parse_deckstring(path.read_bytes().decode("utf-8-sig"))
+        raw = path.read_bytes()
+        parsed = parse_deckstring(raw.decode("utf-8-sig"))
         if not parsed:
             raise services.ServiceError(f"no card lines in {target}")
         cards: dict[str, int] = {}
@@ -101,7 +128,9 @@ def read_subject(target: str, folder: str | None) -> dict:
             if row["section"] == "sideboard":
                 continue
             cards[row["name"]] = cards.get(row["name"], 0) + row["quantity"]
-        return {"name": path.stem, "cards": cards, "files": [path.stem]}
+        return {"name": path.stem, "cards": cards, "files": [path.stem],
+                "digest": hashlib.md5(raw).hexdigest(),
+                "paths": [path.resolve()]}
     return read_db_deck(target, folder)
 
 
@@ -195,7 +224,8 @@ def main(argv=None) -> int:
         # A deck cannot be its own reference: comparing a list to itself
         # reports zero deviation and hides the ones that matter.
         before = len(decks)
-        decks = [d_ for d_ in decks if d_["name"] != subject["name"]]
+        decks = [d_ for d_ in decks
+                 if not is_same_deck(d_, subject, args.keep_duplicates)]
         if len(decks) < before:
             print(f"(excluded {subject['name']!r} from the reference set)",
                   file=sys.stderr)

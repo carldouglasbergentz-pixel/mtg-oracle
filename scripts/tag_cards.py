@@ -263,8 +263,21 @@ def sync(force: bool = False) -> None:
         sys.exit(1)
 
     conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+    try:
+        retag(conn)
+        conn.commit()
+    finally:
+        conn.close()
 
+
+def retag(conn: sqlite3.Connection) -> None:
+    """Wipe and rebuild both tables on `conn` without committing.
+
+    Split from `sync` so migrate_fix_card_tags_pk can rebuild the table and
+    refill it in one transaction: a crash in between must not leave every
+    `kw:` query answering from an empty table.
+    """
+    cur = conn.cursor()
     print("-> Wiping existing card_tags + card_abilities")
     cur.execute("DELETE FROM card_tags")
     cur.execute("DELETE FROM card_abilities")
@@ -294,14 +307,14 @@ def sync(force: bool = False) -> None:
         ability_buffer,
     )
 
-    # card_tags is keyed (card_name, tag), so a token that is both a subtype
-    # and a keyword on the same card (e.g. 'saga') only keeps one row. Report
-    # what the table actually holds rather than what we tried to insert.
+    # Report what the table actually holds rather than what we tried to
+    # insert: on a database still carrying the old (card_name, tag) key, a
+    # token that is both a subtype and a keyword ('saga') keeps only one row
+    # until migrate_fix_card_tags_pk runs (sync.py self-heals it), and the
+    # note below is the only place that shows up.
     stored_tags = cur.execute("SELECT COUNT(*) FROM card_tags").fetchone()[0]
     stored_abilities = cur.execute("SELECT COUNT(*) FROM card_abilities").fetchone()[0]
     _set_sync_state(cur, stored_tags, stored_abilities)
-    conn.commit()
-    conn.close()
 
     collapsed = len(tag_buffer) - stored_tags
     note = f" ({collapsed:,} duplicate tag rows collapsed)" if collapsed else ""

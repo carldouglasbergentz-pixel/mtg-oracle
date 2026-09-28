@@ -2,7 +2,7 @@
 
 Each individual sync script records its own `sync_state` entry and is
 idempotent — so this runner is safe to schedule as a daily/weekly cron
-job. Use `--force` to re-ingest all four regardless of upstream change.
+job. Use `--force` to re-ingest every source regardless of upstream change.
 
 After every run a `=== changelog ===` section summarizes what actually
 changed in the database: added / removed / modified rows per source.
@@ -25,28 +25,44 @@ sys.path.insert(0, str(Path(__file__).parent))
 import load_custom_formats
 import migrate_add_corrections
 import migrate_add_custom_formats
+import migrate_add_decks
 import migrate_add_folder_format
 import migrate_add_legalities
+import migrate_add_mana_cost
 import migrate_add_nocase_indexes
+import migrate_add_oracle_id
 import migrate_add_oracle_tags
 import migrate_add_scryfall_fields
 import migrate_add_tags
 import migrate_add_user_combos
+import migrate_fix_card_tags_pk
+import migrate_unique_deck_names
 import sync_cards
 import sync_combos
 import sync_oracle_tags
 import sync_rules
 import tag_cards
 
-# Every migration whose tables/columns the sync pipeline itself needs.
-# All are idempotent (ALTER / CREATE only when missing) and silent when
-# there's nothing to do, so they run on every invocation.
+# Every migration, in dependency order, so any database back to the very
+# first schema reaches the current one: tests/test_scripts_regressions.py
+# replays the initial commit's schema through this list. All are idempotent
+# (ALTER / CREATE only when missing) and silent when there's nothing to do,
+# so they run on every invocation.
 SELF_HEAL_MIGRATIONS = (
+    # sync_state and the columns every card ingest writes.
+    migrate_add_oracle_id,
+    migrate_add_mana_cost,
     migrate_add_scryfall_fields,
     migrate_add_legalities,
     migrate_add_custom_formats,
+    # decks before the two that widen it.
+    migrate_add_decks,
     migrate_add_folder_format,
+    migrate_unique_deck_names,
+    # card_tags must exist before its key can be fixed; the fix re-tags
+    # from cards, so it also needs the card columns above.
     migrate_add_tags,
+    migrate_fix_card_tags_pk,
     migrate_add_corrections,
     migrate_add_user_combos,
     migrate_add_oracle_tags,
@@ -171,7 +187,8 @@ def _fmt_signed(n: int) -> str:
     return f"{n:+,}" if n else "   0"
 
 
-def _print_changelog(diff: dict) -> None:
+def _print_changelog(diff: dict, failures: list[str],
+                     notes: dict[str, list[str]]) -> None:
     """Render the diff in a fixed-width terminal-style table."""
     def mod_str(v):
         return _fmt_signed(v) if v is not None else "   -"
@@ -198,8 +215,16 @@ def _print_changelog(diff: dict) -> None:
         for k in ("cards", "rules", "combos")
     ) or any(diff[k]["net"]
              for k in ("rulings", "tags", "abilities", "points", "oracletags"))
-    if not touched:
+    if not touched and failures:
+        # An empty diff next to a failed source means "nothing landed", not
+        # "upstream had nothing new" — saying the latter hides the failure.
+        print(f"\n  (no changes recorded - {len(failures)} source(s) failed: "
+              f"{', '.join(failures)})")
+    elif not touched:
         print("\n  (no changes - all sources already up to date)")
+    for key, lines in notes.items():
+        for line in lines:
+            print(f"  {key}: {line}")
     print()
     print("  note: `cards.total` counts cards with a Scryfall oracle_id;")
     print("        rulings/tags/abilities/points/oracletags use wipe-and-rebuild,")
@@ -231,17 +256,32 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    selected = args.only or list(SOURCES.keys())
+    # SOURCES order, not command-line order: oracletags, tags and formats
+    # resolve names against the cards table, so `--only tags cards` must
+    # still run cards first. The set also drops a source named twice.
+    wanted = set(args.only or SOURCES)
+    selected = [key for key in SOURCES if key in wanted]
 
     # Self-heal schema before any sync runs, so a database created by an
     # older init_db.py still has every table the pipeline writes to.
     # Each migration announces itself only when it actually changed
-    # something — four "already up to date" lines every run is noise.
+    # something — a dozen "already up to date" lines every run is noise.
+    failures = []
     if DB_PATH.exists():
         for migration in SELF_HEAL_MIGRATIONS:
             buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                migration.main()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    migration.main()
+            except (Exception, SystemExit) as e:
+                # One migration refusing (migrate_unique_deck_names exits on
+                # duplicate deck names, and leaves the user to rename them)
+                # must not block the card sync. The run still ends in FAIL.
+                print(buf.getvalue().rstrip())
+                print(f"ERR migration {migration.__name__} failed: "
+                      f"{e if isinstance(e, Exception) else f'exit status {e.code}'}")
+                failures.append(migration.__name__)
+                continue
             if "Migration applied" in buf.getvalue():
                 print(buf.getvalue().rstrip())
 
@@ -251,13 +291,24 @@ def main() -> None:
         pre = _snapshot_state(conn)
         conn.close()
 
-    failures = []
+    # A source may return a list of changelog lines for what only its ingest
+    # can see (sync_cards: name collisions). The others return None.
+    notes: dict[str, list[str]] = {}
     for key in selected:
         label, sync_fn = SOURCES[key]
         print(f"\n### {key}: {label} ###")
         started = time.time()
         try:
-            sync_fn(force=args.force)
+            source_notes = sync_fn(force=args.force)
+            if source_notes:
+                notes[key] = list(source_notes)
+        except SystemExit as e:
+            # The sync_*.py scripts also run standalone, where `sys.exit(1)`
+            # after an ERR line is the right exit. Here it would skip every
+            # later source, the changelog and the FAIL summary.
+            print(f"ERR {key} failed (exit status {e.code})")
+            failures.append(key)
+            continue
         except Exception as e:
             print(f"ERR {key} failed: {e}")
             failures.append(key)
@@ -268,7 +319,7 @@ def main() -> None:
         conn = sqlite3.connect(DB_PATH)
         post = _snapshot_state(conn)
         conn.close()
-        _print_changelog(_diff_state(pre, post))
+        _print_changelog(_diff_state(pre, post), failures, notes)
 
     _print_sync_state()
 

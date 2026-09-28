@@ -130,13 +130,15 @@ def sync(force: bool = False) -> None:
         etag, last_mod = "", ""
 
     # ETag strings include surrounding quotes; keep as-is — we just compare.
-    upstream_marker = etag or last_mod or "unknown"
+    # Empty when HEAD failed or sent neither header: then we cannot tell
+    # whether upstream moved, so we must not skip.
+    upstream_marker = etag or last_mod
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
     local_marker = _get_sync_state(cur, "spellbook_variants")
-    if local_marker == upstream_marker and not force:
+    if upstream_marker and local_marker == upstream_marker and not force:
         print(f"-- combos: up to date ({upstream_marker}), skipping")
         conn.close()
         return
@@ -184,7 +186,12 @@ def sync(force: bool = False) -> None:
         if count % 1000 == 0:
             print(f"   ...{count:,} combos processed")
 
-    _set_sync_state(cur, "spellbook_variants", upstream_marker, count)
+    # With no upstream marker, keep the previous one rather than storing a
+    # placeholder: a stored "unknown" matched the next failed HEAD and made
+    # every later run skip. The data just ingested is at least as new as the
+    # old marker, so matching it later is still a correct skip.
+    stored_marker = upstream_marker or local_marker or ""
+    _set_sync_state(cur, "spellbook_variants", stored_marker, count)
     conn.commit()
     conn.close()
 

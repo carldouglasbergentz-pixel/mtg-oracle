@@ -2,7 +2,7 @@
 
 `sync_cards.py` upserts keyed on `cards.name` and never prunes, so any row
 whose name stopped appearing upstream lingers forever with whatever columns
-existed when it was first written. Two groups accumulated:
+existed when it was first written. Three groups accumulated:
 
   1. 84 malformed double-name rows from an early sync bug
      ('Birds of Paradise // Birds of Paradise', 'Command Tower // Command
@@ -10,6 +10,8 @@ existed when it was first written. Two groups accumulated:
      column are NULL.
   2. A handful of retired Alchemy rebalances that kept an `oracle_id` from
      an older export but never got `color_identity` / `mana_value`.
+  3. Memorabilia `front_card` faces ('Counters', 'Cats', ...), written
+     before sync_cards learned to skip that layout.
 
 They are not harmless. A NULL `color_identity` is treated as colorless,
 so `search ci<=w` inside a mono-white commander deck happily returns
@@ -25,9 +27,18 @@ Run:
 """
 import argparse
 import sqlite3
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+from sync_cards import SKIPPED_LAYOUTS  # noqa: E402
+
 DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
+
+# Every table keyed on a card name, cleaned before the card row itself so
+# nothing is left pointing at a card that no longer exists.
+DERIVED_TABLES = ("rulings", "card_tags", "card_abilities", "card_legalities",
+                  "card_oracle_tags", "custom_format_points")
 
 # A row is stale when the current export has never written its
 # Scryfall-derived columns. Each of these getters in sync_cards.py returns
@@ -40,10 +51,18 @@ DB_PATH = Path(__file__).parent.parent / "data" / "mtg.db"
 # the clause before the next ingest would mark the entire table stale — see
 # `_usable_clauses`. Without that guard this script was one `--yes` away
 # from deleting all 35k cards.
+#
+# The layout clause is the other kind of stale: a row whose columns are all
+# filled, but by an entry the ingest now skips as not-a-card (memorabilia
+# `front_card` faces such as "Counters" or "Vehicles"). No export will ever
+# rewrite it, so nothing else would notice it. The layouts are literals from
+# sync_cards, never user input.
 STALE_CLAUSES = [
     ("oracle_id", "oracle_id IS NULL"),
     ("color_identity", "color_identity IS NULL"),
     ("games", "games IS NULL"),
+    ("layout", "layout IN (%s)" % ", ".join(
+        f"'{layout}'" for layout in sorted(SKIPPED_LAYOUTS))),
 ]
 
 # Refuse to act if the "stale" set is implausibly large. Stale rows are
@@ -147,10 +166,12 @@ def main() -> None:
         return
 
     names = [r[0] for r in prunable]
-    # Delete derived rows first so no orphans are left behind. rulings /
-    # card_tags / card_abilities all key on card_name.
     deleted = {}
-    for table in ("rulings", "card_tags", "card_abilities", "card_legalities"):
+    for table in DERIVED_TABLES:
+        cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                    (table,))
+        if not cur.fetchone():
+            continue  # an older schema; self-heal creates it on the next sync
         cur.executemany(
             f"DELETE FROM {table} WHERE card_name = ?", [(n,) for n in names]
         )

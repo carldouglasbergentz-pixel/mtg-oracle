@@ -38,12 +38,21 @@ CR_URL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Order matters — most specific first. Mirrors scripts/ingest_rules.py.
+# Order matters — most specific first. Every real rule number starts with a
+# three-digit top-level number (100-9xx). A bare `\d+` also matched the
+# glossary's numbered senses ("1. Text on an object that explains...") and
+# stored them as rules 1-5, which is why the digits are pinned rather than
+# the parse being cut off at a "Glossary" heading whose wording could change.
+#
+# The optional periods and the two-letter suffix are upstream's own
+# irregularities, each of which silently dropped a rule: `119.1d.`,
+# `606.5 If ...` (no period) and `704.5aa` (past 704.5z) all exist.
 RULE_PATTERNS = [
-    re.compile(r"^(\d+\.\d+[a-z])\s+(.*)"),   # 100.1a
-    re.compile(r"^(\d+\.\d+)\.\s+(.*)"),      # 100.1.
-    re.compile(r"^(\d+)\.\s+(.*)"),           # 100.
+    re.compile(r"^(\d{3}\.\d+[a-z]{1,2})\.?\s+(.*)"),   # 100.1a, 704.5aa
+    re.compile(r"^(\d{3}\.\d+)\.?\s+(.*)"),             # 100.1.
+    re.compile(r"^(\d{3})\.\s+(.*)"),                   # 100.
 ]
+EXAMPLE_PREFIX = "Example:"
 SECTION_PATTERN = re.compile(r"^(\d)\.\s+([A-Z][A-Za-z ,'\-]+?)\s*$")
 
 
@@ -86,10 +95,21 @@ def parse_rules_text(text: str) -> list[tuple[str, Optional[str], Optional[str],
     rule body), then the actual rules. TOC entries match the top-level rule
     pattern but carry only a short title — when we later encounter the real
     `100. General` rule, it simply overwrites the TOC entry via the PK.
-    Glossary/credits sections at the end do not match any pattern and are skipped.
+
+    `Example:` lines and indented continuation paragraphs are appended to the
+    rule directly above them — dropping them lost 277 examples. They only
+    attach to an unbroken run of rule / example / continuation lines, so one
+    in the glossary (definitions are plain lines, which break the run) can
+    never be glued onto the last rule of section 9.
+
+    The glossary and credits after the rules match no rule pattern (see
+    RULE_PATTERNS for why their numbered senses no longer do) and are skipped.
     """
-    rules: list[tuple[str, Optional[str], Optional[str], str]] = []
+    rules: list[list] = []
     current_section: Optional[str] = None
+    # Index in `rules` of the rule an Example: line would belong to, or None
+    # when the previous line was neither a rule nor an example.
+    attach_to: Optional[int] = None
 
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -99,6 +119,7 @@ def parse_rules_text(text: str) -> list[tuple[str, Optional[str], Optional[str],
         section_match = SECTION_PATTERN.match(line)
         if section_match:
             current_section = section_match.group(2).strip()
+            attach_to = None
             continue
 
         for pat in RULE_PATTERNS:
@@ -106,15 +127,26 @@ def parse_rules_text(text: str) -> list[tuple[str, Optional[str], Optional[str],
             if m:
                 rule_number = m.group(1)
                 rule_text = m.group(2).strip()
-                rules.append((rule_number, _compute_parent(rule_number), current_section, rule_text))
+                rules.append([rule_number, _compute_parent(rule_number),
+                              current_section, rule_text])
+                attach_to = len(rules) - 1
                 break
+        else:
+            # An indented line is the rule above wrapping onto a second
+            # paragraph (205.4c, 509.1b); it keeps the run going.
+            continues = line.startswith(EXAMPLE_PREFIX) or raw_line[:1].isspace()
+            if continues and attach_to is not None:
+                rules[attach_to][3] += "\n" + line
+            else:
+                attach_to = None
 
-    return rules
+    return [tuple(rule) for rule in rules]
 
 
 def _compute_parent(rule_number: str) -> Optional[str]:
-    if re.match(r"^\d+\.\d+[a-z]$", rule_number):
-        return rule_number[:-1]
+    subrule = re.match(r"^(\d+\.\d+)[a-z]{1,2}$", rule_number)
+    if subrule:
+        return subrule.group(1)  # 704.5aa belongs to 704.5, not 704.5a
     if re.match(r"^\d+\.\d+$", rule_number):
         return rule_number.split(".")[0]
     return None

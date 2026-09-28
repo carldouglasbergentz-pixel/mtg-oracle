@@ -122,7 +122,9 @@ def sync(force: bool = False) -> None:
         print(f"ERR Could not read {BULK_INDEX}: {e}")
         sys.exit(1)
 
-    upstream_marker = meta.get("updated_at") or "unknown"
+    # Empty when the descriptor has no `updated_at`: then we cannot tell
+    # whether upstream moved, so the skip check below must not fire.
+    upstream_marker = meta.get("updated_at") or ""
     # `jsonl_download_uri`, not `download_uri` — same as the cards export.
     # Scryfall retired the uncompressed field.
     uri = meta.get("jsonl_download_uri")
@@ -133,7 +135,8 @@ def sync(force: bool = False) -> None:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
-    if _get_sync_state(cur, SOURCE) == upstream_marker and not force:
+    local_marker = _get_sync_state(cur, SOURCE)
+    if upstream_marker and local_marker == upstream_marker and not force:
         print(f"-- oracle tags: up to date ({upstream_marker}), skipping")
         conn.close()
         return
@@ -170,7 +173,9 @@ def sync(force: bool = False) -> None:
         )
         rows += len(taggings)
 
-    _set_sync_state(cur, SOURCE, upstream_marker, rows)
+    # No marker: keep the previous one instead of a placeholder that the
+    # next marker-less run would match and skip on (see sync_combos.py).
+    _set_sync_state(cur, SOURCE, upstream_marker or local_marker or "", rows)
     conn.commit()
     matched = len(by_card) - unmatched
     conn.close()

@@ -27,7 +27,11 @@ def main() -> None:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     changes = []
-    if not _col_exists(cur, "deck_folders", "format"):
+    # PRAGMA table_info on a missing table returns no rows, which read as
+    # "column missing" and sent an ALTER at a table that isn't there. The
+    # table is migrate_add_decks' job; this one only widens it.
+    cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='deck_folders'")
+    if cur.fetchone() and not _col_exists(cur, "deck_folders", "format"):
         cur.execute("ALTER TABLE deck_folders ADD COLUMN format TEXT")
         changes.append("deck_folders.format")
     conn.commit()

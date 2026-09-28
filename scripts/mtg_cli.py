@@ -8,12 +8,19 @@ Subcommands:
     mtg_cli.py combo-info <combo_id>          # full combo detail
     mtg_cli.py rule <rule_number>
     mtg_cli.py search-rules <text>
-    mtg_cli.py search [--name X] [--tag Y] [--type Z] [--mana-ability] [--limit N]
+    mtg_cli.py search <query> [--limit N] [--page N]   # `search help` for syntax
     mtg_cli.py correction [--card X] [--topic Y]
-    mtg_cli.py deck export <name> [--to-file PATH]   # paste into Moxfield
+    mtg_cli.py folders | decks [--folder F] | folder new|delete <name>
+    mtg_cli.py deck <action> <name> [--folder F] ...   # `deck -h` for flags
+    mtg_cli.py deck import <name> --from-file PATH     # or pipe text on stdin
+    mtg_cli.py deck export <name> [--to-file PATH]     # paste into Moxfield
+
+`--json` is a global flag and goes before the subcommand:
+    mtg_cli.py --json card "Sol Ring"
 
 Output is human-readable, monospace-friendly ASCII (no unicode borders)
-so it renders cleanly on Windows consoles. All queries are read-only.
+so it renders cleanly on Windows consoles. Card, rule and combo lookups
+are read-only; the `deck` and `folder` commands write to your decks.
 """
 from __future__ import annotations
 
@@ -216,9 +223,18 @@ def _cmd_deck(args) -> int:
             print(f"OK renamed to {args.new_name!r}")
             return 0
         if action == "move":
+            # Not in _DECK_REQUIRED_FLAGS because "" is a valid value there
+            # (move to unsorted). A forgotten flag used to mean the same
+            # thing and silently pulled the deck out of its folder.
+            if args.new_folder is None:
+                print('deck move: --new-folder is required '
+                      '(--new-folder "" for unsorted)')
+                return 2
             d.move_deck(args.name, args.new_folder, folder=args.folder)
             print(f"OK moved {args.name!r} -> {args.new_folder or '(unsorted)'}")
             return 0
+        if action == "add" and args.commander:
+            return _add_commander(args)
         if action == "add":
             qty = args.qty if args.qty is not None else 1
             canonical = d.add_card_to_deck(
@@ -229,6 +245,13 @@ def _cmd_deck(args) -> int:
             print(f"OK {qty}x {canonical}")
             return 0
         if action == "remove":
+            if args.sideboard or args.commander:
+                # remove_card_from_deck has no section argument: it takes
+                # main-deck copies first. Honouring the flag by ignoring it
+                # removed the very copies the user meant to keep.
+                print("deck remove: --sideboard / --commander are not supported; "
+                      "remove takes main-deck copies first, then sideboard")
+                return 2
             canonical, removed, remaining = d.remove_card_from_deck(
                 args.name, args.card, quantity=args.qty, folder=args.folder,
             )
@@ -268,7 +291,8 @@ def _cmd_deck(args) -> int:
                 _, low = svc.rank_cards([deck], order)
                 print(r.render_profile([profile], low_confidence=low, **fmt))
                 return 0
-            other = svc.deck_cards_for_analysis(svc.DeckRef(deck=args.against))
+            other = svc.deck_cards_for_analysis(svc.DeckRef(
+                deck=args.against, folder=args.against_folder))
             cmp = svc.compare_decks(deck, [other], turns=turns)
             print(r.render_comparison(cmp, **fmt))
             return 0
@@ -295,10 +319,36 @@ def _cmd_deck(args) -> int:
     return 2
 
 
+def _add_commander(args) -> int:
+    """`deck add --commander` goes through set_commander, as the TUI's
+    `commander` verb does. add_card_to_deck with is_commander=True skipped
+    what set_commander owns: promoting a copy already in the deck instead of
+    adding a second row, forcing quantity 1, and auto-setting the format.
+    Raises DeckError for _cmd_deck to report."""
+    if args.sideboard:
+        print("deck add: --commander and --sideboard are mutually exclusive")
+        return 2
+    if args.qty not in (None, 1):
+        print("deck add: a commander is always 1 copy; drop --qty")
+        return 2
+    canonical, action, format_set = d.set_commander(
+        args.name, args.card, folder=args.folder)
+    print({
+        "promoted":  f"OK {canonical} promoted to commander",
+        "added":     f"OK {canonical} added as commander",
+        "unchanged": f"OK {canonical} is already a commander (no change)",
+    }[action])
+    if format_set:
+        print(f"   deck format auto-set to {format_set!r}")
+    return 0
+
+
 def _read_deck_source(args) -> str:
-    """Pick the deck source: --from-file, positional file path, or stdin."""
+    """Pick the deck source: --from-file, or text piped on stdin."""
     if args.from_file:
-        return Path(args.from_file).read_text(encoding="utf-8")
+        # utf-8-sig: Notepad saves UTF-8 with a BOM, and a BOM glued to the
+        # first line hides a section header like `Commander`.
+        return Path(args.from_file).read_text(encoding="utf-8-sig")
     if not sys.stdin.isatty():
         return sys.stdin.read()
     raise d.DeckError("need --from-file PATH (or pipe text on stdin)")
@@ -399,15 +449,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.add_argument("name", help="Deck name.")
     sp.add_argument("--folder", help="Folder the deck lives in (disambiguates duplicates).")
-    sp.add_argument("--format", help="Informational format tag (commander, modern, ...).")
+    sp.add_argument("--format", help=(
+        "(new/import) the deck's format: commander, duel, canlander, ... "
+        "It switches on legality, singleton and points checks. Defaults to "
+        "the folder's format."))
     sp.add_argument("--new-name", help="(rename) the new deck name.")
-    sp.add_argument("--new-folder", help="(move) target folder; empty -> (unsorted).")
+    sp.add_argument("--new-folder",
+                    help='(move, required) target folder; "" -> (unsorted).')
     sp.add_argument("--card", help="(add/remove) card name.")
     sp.add_argument(
         "--qty", type=int, default=None,
         help="(add) quantity, default 1. (remove) copies to take, default all.",
     )
-    sp.add_argument("--commander", action="store_true", help="(add) add as commander.")
+    sp.add_argument("--commander", action="store_true",
+                    help="(add) add as commander, or promote a copy already in the deck.")
     sp.add_argument("--sideboard", action="store_true", help="(add) add to sideboard.")
     sp.add_argument("--from-file", help="(import) read deckstring from this file.")
     sp.add_argument("--to-file", help="(export) write the decklist here instead of stdout.")
@@ -420,6 +475,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help="(compare) the deck to measure this one against. "
                          "For a whole reference set of lists, use "
                          "scripts/analyse_archetype.py --dir instead.")
+    sp.add_argument("--against-folder", metavar="FOLDER",
+                    help="(compare) folder the --against deck lives in, when "
+                         "its name exists in more than one.")
     sp.set_defaults(func=_cmd_deck)
 
     return p

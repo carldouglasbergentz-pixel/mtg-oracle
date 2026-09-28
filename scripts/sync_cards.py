@@ -283,15 +283,48 @@ def _toughness(card: dict):
     return None
 
 
-def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
+# Layouts that are not game cards. Tokens and emblems add noise without
+# rulings value; `front_card` is the display face of a memorabilia product
+# (all 291 in the 2026-08 export are legal nowhere), and it shares names
+# with real cards — "Blink", "Heroes for Hire" — which it used to overwrite.
+# Planes, schemes and vanguards stay: they are real casual-variant cards, and
+# their one real collision (No Way Out) is settled by `_entry_rank`.
+SKIPPED_LAYOUTS = frozenset({
+    "art_series", "emblem", "token", "double_faced_token", "front_card",
+})
+
+# Set types whose entries lose a name collision against any other printing.
+# Not skipped outright: `funny` holds 174 cards legal somewhere (Unfinity's
+# black-bordered ones), and `memorabilia` holds one-off real cards such as
+# Shichifukujin Dragon that exist under no other name.
+NOVELTY_SET_TYPES = frozenset({"funny", "memorabilia"})
+
+
+def _entry_rank(card: dict) -> tuple[bool, bool]:
+    """Which of two export entries sharing a name is the real card.
+
+    Legal somewhere beats legal nowhere; a regular set beats a novelty one.
+    `cards` is keyed on name, so only one entry can hold the row, and the
+    upsert used to hand it to whichever came last in the file: Unquenchable
+    Fury became a memorabilia Sorcery and No Way Out a Plane.
+    """
+    legal = any(s != "not_legal" for s in (card.get("legalities") or {}).values())
+    return legal, card.get("set_type") not in NOVELTY_SET_TYPES
+
+
+def ingest_cards(conn: sqlite3.Connection, path: Path) -> tuple[int, int]:
+    """Upsert every game card in the export. Returns (cards, name collisions)."""
     print(f"-> Parsing {path.name}")
     cur = conn.cursor()
     count = 0
+    # name -> rank of the entry currently holding that row in this ingest.
+    written: dict[str, tuple[bool, bool]] = {}
+    collisions = 0
+    skipped_layouts = 0
     # Legalities are a full snapshot per sync — ban lists change, so a
     # stale `banned` row is worse than no row. Wipe and rebuild.
     cur.execute("DELETE FROM card_legalities")
     legality_rows: list[tuple[str, str, str]] = []
-    legality_total = 0
 
     def flush_legalities() -> None:
         """Write and clear the buffer, so it never grows with the export.
@@ -300,7 +333,6 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
         them all would reintroduce exactly the memory growth the switch to
         streaming JSONL removed.
         """
-        nonlocal legality_total
         if not legality_rows:
             return
         cur.executemany(
@@ -308,18 +340,29 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
             "VALUES (?, ?, ?)",
             legality_rows,
         )
-        legality_total += len(legality_rows)
         legality_rows.clear()
     for card in _iter_jsonl(path):
-        # Scryfall oracle-cards includes tokens, emblems, art series, etc.
-        # Skip non-playable layouts that add noise without rulings value.
         layout = card.get("layout", "")
-        if layout in {"art_series", "emblem", "token", "double_faced_token"}:
+        if layout in SKIPPED_LAYOUTS:
+            skipped_layouts += 1
             continue
 
         name = card.get("name")
         if not name:
             continue
+
+        rank = _entry_rank(card)
+        if name in written:
+            collisions += 1
+            if rank <= written[name]:
+                continue
+            # The better entry arrived second: it takes the row, and the
+            # loser's legalities go too, so nothing of it survives as a union.
+            flush_legalities()
+            cur.execute("DELETE FROM card_legalities WHERE card_name = ?", (name,))
+        else:
+            count += 1
+        written[name] = rank
 
         faces = card.get("card_faces")
         faces_json = json.dumps(faces, ensure_ascii=False) if faces else None
@@ -370,18 +413,21 @@ def ingest_cards(conn: sqlite3.Connection, path: Path) -> int:
             ),
         )
         legality_rows.extend(_legality_rows(name, card))
-        count += 1
         if len(legality_rows) >= 20_000:
             flush_legalities()
 
     flush_legalities()
     conn.commit()
-    formats = cur.execute(
-        "SELECT COUNT(DISTINCT format) FROM card_legalities"
-    ).fetchone()[0]
-    print(f"OK Upserted {count:,} cards")
+    formats, legality_total = cur.execute(
+        "SELECT COUNT(DISTINCT format), COUNT(*) FROM card_legalities"
+    ).fetchone()
+    print(f"OK Upserted {count:,} cards "
+          f"({skipped_layouts:,} non-card entries skipped)")
+    if collisions:
+        print(f"   {collisions:,} export entries shared a name with another; "
+              f"kept the printing that is legal somewhere")
     print(f"OK Ingested {legality_total:,} legality rows across {formats} formats")
-    return count
+    return count, collisions
 
 
 def ingest_rulings(conn: sqlite3.Connection, path: Path) -> int:
@@ -417,7 +463,13 @@ def ingest_rulings(conn: sqlite3.Connection, path: Path) -> int:
     return count
 
 
-def sync(force: bool = False) -> None:
+def sync(force: bool = False) -> list[str]:
+    """Ingest whichever of cards / rulings moved upstream.
+
+    Returns changelog notes for sync.py: facts only the ingest can see, such
+    as name collisions, which a before/after table diff cannot show.
+    """
+    notes: list[str] = []
     if not DB_PATH.exists():
         print(f"ERR Database not found at {DB_PATH}. Run init_db.py first.")
         sys.exit(1)
@@ -446,7 +498,10 @@ def sync(force: bool = False) -> None:
 
         path = download_bulk(entry, label)
         if source_type == "oracle_cards":
-            count = ingest_cards(conn, path)
+            count, collisions = ingest_cards(conn, path)
+            if collisions:
+                notes.append(f"{collisions:,} duplicate-name export entries "
+                             f"resolved to the printing legal somewhere")
         else:
             count = ingest_rulings(conn, path)
 
@@ -455,6 +510,7 @@ def sync(force: bool = False) -> None:
 
     conn.close()
     print("Done.")
+    return notes
 
 
 if __name__ == "__main__":
