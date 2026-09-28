@@ -82,7 +82,9 @@ Five parallel reviewers covered queries and search, decks and the parser, servic
     - CLI: `deck remove --sideboard` was silently ignored, `deck move` without `--new-folder` moved to unsorted, and `deck add --commander` bypassed `set_commander`.
     - `analyse_archetype` could compare a deck with itself.
 - **Tests no longer write to the user's database.** `test_compare_export` created and deleted a deck in `data/mtg.db`. Deck-writing suites now run on `tests/db_sandbox.py`'s copy.
-- **Not yet applied to the live database** (see `docs/project-plan.md`): the cards and rules re-ingest, the prune, and correction #11's JSON rewrite.
+- **Applied to the live database** on 2026-09-28: the cards and rules re-ingest (which also brought in CR 20260925), the prune of 266 `front_card` rows, and correction #11's JSON rewrite.
+- **Corrections match a card's face names.** A correction written as 'Emeritus of Ideation' now reaches 'Emeritus of Ideation // Ancestral Recall'.
+- **Tests no longer assert upstream tag data they don't own.** Tagger labelled Lava Spike `spot removal` in the 2026-09-28 export, so the replace-not-union rule is now pinned with frozen tags. The migration test drops the index from its copy before exercising it.
 
 ### Fixed (`mana` outranked the answers, so Path to Exile was a mana source)
 - **`mana` sat second in `PRIMARY_ORDER`**, so that a Mox or a dork would win over whatever else it happened to do. But Tagger tags the *drawback* as well as the effect, and `land ramp` fires on **Path to Exile** because the opponent gets the basic. Path to Exile, Erode and Emergency Eject all classified as mana sources — as did **Teferi, Hero of Dominaria** and three Chandras, whose `+1` untaps lands or adds mana.
