@@ -1,0 +1,4 @@
+# Gradle wrapper: the shell script must keep LF or it breaks on Linux/macOS;
+# the batch file keeps CRLF for cmd.exe.
+app/gradlew text eol=lf
+*.bat text eol=crlf

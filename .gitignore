@@ -12,6 +12,15 @@ data/raw/
 # Forge release (GPL-3, ~300 MB) — an external tool, unpacked locally, never vendored
 tools/forge/
 
+# Gradle distribution used once to bootstrap app/'s wrapper (the wrapper itself is tracked)
+tools/gradle/
+
+# JVM app (docs/adr/0001): build output, Gradle state, Kotlin caches. The Forge
+# sandbox (redirected APPDATA, copied decks) and game logs live under app/build/.
+app/build/
+app/.gradle/
+app/.kotlin/
+
 # User preferences (theme, etc.) — per-machine, not source
 data/config.json
 
