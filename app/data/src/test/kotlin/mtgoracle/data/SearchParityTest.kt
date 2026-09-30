@@ -56,6 +56,33 @@ class SearchParityTest {
         "game:arena -game:paper",
         "oracle:\"100%\"",
         "(kw:flying or kw:trample) c:g mv<=3",
+        // Free text and its ranking, and the operators added after step 3.
+        "bolt",
+        "lightning bolt",
+        "counterspell",
+        "goblin mv<=1 c:r",
+        "\"draw a card\" t:instant c:u mv=1",
+        "-bolt t:instant c:r mv=1",
+        "bolt or shock",
+        "elf order:desc_pow",
+        "m:{U}{U} t:instant",
+        "m:2uu",
+        "m={1}{U} t:instant",
+        "m:{U}{1} t:instant",
+        "mana:{G/W}{G/W}",
+        "c:m t:creature mv<=2",
+        "otag:removal c:w mv<=2",
+        "otag:mana-rock mv=2",
+        "function:ramp c:g mv=2",
+        "is:commander ci:bg",
+        "is:permanent mv=0 -t:land",
+        "is:spell c:c mv=0",
+        "is:historic t:instant",
+        "is:dfc t:werewolf",
+        "is:mdfc t:land",
+        "is:split c:m",
+        "m:2uq",
+        "c=m",
         "pow!3",
         "f:brawll",
         "order:mv",
@@ -104,6 +131,12 @@ class SearchParityTest {
         }
         queries.indices.forEach { i -> assertEquals(expected[i], actual[i], "query ${queries[i]}") }
         assertEquals(queries.size, expected.size)
+    }
+
+    @Test
+    fun `the syntax help is Python's, word for word`() {
+        val python = DbFixture.python("from mtg_oracle.scryfall_search import SYNTAX_HELP; import sys; sys.stdout.write(SYNTAX_HELP)")
+        assertEquals(python.replace("\r\n", "\n").trim(), mtgoracle.core.lookup.SEARCH_SYNTAX_HELP.trim())
     }
 
     @Test

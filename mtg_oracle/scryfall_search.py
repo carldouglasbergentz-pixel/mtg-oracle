@@ -49,9 +49,19 @@ Supported syntax (Level 2):
     not TERM1 / -TERM1          negation
     ( ... )                     grouping
 
-    # Bare words and quoted strings
-    enters                      equivalent to o:enters (oracle-text default)
-    "enters the battlefield"    quoted value with spaces
+    # Bare words and quoted strings (free text)
+    bolt                        name, type line OR oracle text contains it
+    "enters the battlefield"    quoted: the phrase, in any of the three
+    Without `order:`, cards whose NAME matches come first (exact, then
+    prefix, then anywhere), then type-line matches, then the rest.
+
+    # More
+    m:{U}{U} / m:2uu            mana cost has at least these symbols
+    m={1}{U}                    mana cost is exactly these symbols
+    c:m                         multicolored (two or more colors)
+    otag:removal / function:    Scryfall Tagger tag, or one of its children
+                                (`removal-creature`); `mana-rock` = `mana rock`
+    is:commander|permanent|spell|historic|dfc|mdfc|split|reserved
 
 Examples:
     o:flash t:creature c:u mv<=3
@@ -145,12 +155,26 @@ Boolean:
   -A / not A  negation
   (A or B) C  grouping
 
+Mana, function and card kind:
+  m:{{U}}{{U}}    mana cost has at least these symbols (also m:2uu; m= is exact)
+  c:m         multicolored
+  otag:TAG    Scryfall Tagger function (otag:removal, otag:ramp, otag:mana-rock;
+              a tag also finds its children, removal -> removal-creature, ...)
+  is:X        commander, permanent, spell, historic, dfc, mdfc, split, reserved
+
 Colors can be letters (`u`, `uw`), words (`blue`, `white`, `blue white`), or
-braced (`{{W}}{{U}}`). Bare words and quoted strings default to oracle text:
-    "enters the battlefield"     <=>  o:"enters the battlefield"
+braced (`{{W}}{{U}}`).
+
+Free text: a bare word or a quoted phrase matches the name, the type line
+or the oracle text, so `bolt` finds Lightning Bolt and `goblin` every
+Goblin. Without `order:`, name matches come first. Use o:, t: or n: for
+one field only.
 
 Examples:
+    counterspell
+    goblin mv<=2 c:r
     o:"enters the battlefield" t:creature c:u mv<=3
+    otag:removal c:w mv<=2 order:asc_edhrec
     kw:flying (c:w or c:u) -t:artifact
     f:competitivebrawl ci<=UR t:instant order:asc_edhrec
     f:commander game:paper t:artifact mv<=2 order:asc_edhrec
@@ -167,6 +191,12 @@ Examples:
 class Term:
     field: str
     op: str
+    value: str
+
+
+@dataclass
+class Free:
+    """A bare word or quoted phrase: name, type line or oracle text."""
     value: str
 
 
@@ -346,9 +376,10 @@ class _Parser:
             field, op, value = v
             return Term(field, op, value)
         if t == "BAREWORD":
-            # Bare word / quoted string default to oracle-text search.
+            # Free text, as on Scryfall and Moxfield, but wider: name, type
+            # line or oracle text, so `goblin` finds every Goblin.
             self._eat()
-            return Term("o", ":", v)
+            return Free(v)
         raise SearchError(f"unexpected token: {t}:{v!r}")
 
 
@@ -380,13 +411,41 @@ _FIELD_ALIAS = {
     "restricted": "restricted",
     "game": "game",
     "is": "is",
+    "m": "m", "mana": "m",
+    "otag": "otag", "function": "otag", "oracletag": "otag",
 }
 
 _GAMES = frozenset({"paper", "mtgo", "arena", "astral", "sega"})
 
-# `is:` predicates. Small on purpose — one entry per genuinely useful flag.
+# The front face's type line: a two-faced card is what its front is (the
+# deck renderer's rule), so a Sorcery // Land is a spell, not a permanent.
+_FRONT_TYPE = (
+    "(CASE WHEN instr(c.type_line, ' // ') > 0 "
+    "THEN substr(c.type_line, 1, instr(c.type_line, ' // ') - 1) "
+    "ELSE COALESCE(c.type_line, '') END)"
+)
+
+# `is:` predicates. One entry per flag people actually search for.
 _IS_PREDICATES = {
     "reserved": "c.reserved = 1",
+    # A legendary creature, or a card that says it can be your commander.
+    "commander": (
+        f"(({_FRONT_TYPE} LIKE '%Legendary%' AND {_FRONT_TYPE} LIKE '%Creature%')"
+        " OR c.oracle_text LIKE '%can be your commander%')"
+    ),
+    "permanent": (
+        f"({_FRONT_TYPE} LIKE '%Artifact%' OR {_FRONT_TYPE} LIKE '%Creature%'"
+        f" OR {_FRONT_TYPE} LIKE '%Enchantment%' OR {_FRONT_TYPE} LIKE '%Land%'"
+        f" OR {_FRONT_TYPE} LIKE '%Planeswalker%' OR {_FRONT_TYPE} LIKE '%Battle%')"
+    ),
+    "spell": f"({_FRONT_TYPE} NOT LIKE '%Land%')",
+    "historic": (
+        f"({_FRONT_TYPE} LIKE '%Legendary%' OR {_FRONT_TYPE} LIKE '%Artifact%'"
+        f" OR {_FRONT_TYPE} LIKE '%Saga%')"
+    ),
+    "dfc": "c.layout IN ('transform', 'modal_dfc', 'reversible_card')",
+    "mdfc": "c.layout = 'modal_dfc'",
+    "split": "c.layout = 'split'",
 }
 
 
@@ -530,6 +589,10 @@ def compile_term(t: Term) -> tuple[str, list]:
             [val.lower()],
         )
     if field == "c":
+        if val.strip().lower() in ("m", "multicolor", "multicolored"):
+            if op != ":":
+                raise SearchError("c:m (multicolored) supports only ':'")
+            return "c.colors LIKE '%,%'", []
         colors = _parse_colors(val)
         if op == "=":
             return "c.colors = ?", [",".join(colors)]
@@ -608,12 +671,84 @@ def compile_term(t: Term) -> tuple[str, list]:
                 f"{', '.join(sorted(_IS_PREDICATES))}"
             )
         return pred, []
+    if field == "m":
+        return _mana_cost_term(op, val)
+    if field == "otag":
+        if op not in (":", "="):
+            raise SearchError("otag supports only ':' or '='")
+        # Stored with spaces ('mana rock'); Scryfall writes them with
+        # hyphens ('mana-rock'). A tag also finds its children, which Tagger
+        # names `<tag>-<kind>` ('removal-creature'): there is no plain
+        # 'removal' tag at all.
+        written = val.strip().lower()
+        spaced = written.replace("-", " ")
+        return (
+            "EXISTS (SELECT 1 FROM card_oracle_tags ot WHERE ot.card_name = c.name "
+            "AND (ot.tag IN (?, ?) OR ot.tag LIKE ? ESCAPE '!' OR ot.tag LIKE ? ESCAPE '!'))",
+            [written, spaced, f"{like_literal(written)}-%", f"{like_literal(spaced)}-%"],
+        )
     raise SearchError(f"unknown field mapping: {field!r}")
+
+
+_MANA_SYMBOL_RE = re.compile(r"\{[^{}]+\}")
+
+
+def _mana_symbols(raw: str) -> list[str]:
+    """'{2}{U}{U}' or the shorthand '2uu' -> ['{2}', '{U}', '{U}']."""
+    s = raw.strip()
+    if "{" in s:
+        symbols = [m.upper() for m in _MANA_SYMBOL_RE.findall(s)]
+        if "".join(symbols) != s.upper().replace(" ", ""):
+            raise SearchError(f"can't read mana cost {raw!r}")
+        return symbols
+    symbols = []
+    for part in re.findall(r"[0-9]+|.", s.lower()):
+        if part.isdigit():
+            symbols.append("{" + part + "}")
+        elif part in "wubrgcxs":
+            symbols.append("{" + part.upper() + "}")
+        else:
+            raise SearchError(f"unknown mana symbol {part!r} in {raw!r}")
+    return symbols
+
+
+def _mana_cost_term(op: str, value: str) -> tuple[str, list]:
+    """`m:` has at least these symbols (counted, not a substring: {U}{1}
+    finds {1}{U}); `m=` exactly these and no others."""
+    if op not in (":", "="):
+        raise SearchError(f"mana cost supports only ':' or '=', got {op!r}")
+    symbols = _mana_symbols(value)
+    if not symbols:
+        raise SearchError("m: needs at least one mana symbol")
+    counts: dict[str, int] = {}
+    for sym in symbols:
+        counts[sym] = counts.get(sym, 0) + 1
+    # How often `?` occurs in the cost: the length it loses without it, over its own length.
+    occurs = ("((LENGTH(COALESCE(c.mana_cost, '')) - "
+              "LENGTH(REPLACE(COALESCE(c.mana_cost, ''), ?, ''))) / ?)")
+    cmp = ">=" if op == ":" else "="
+    parts, params = [], []
+    for sym, n in counts.items():
+        parts.append(f"{occurs} {cmp} ?")
+        params.extend([sym, len(sym), n])
+    if op == "=":
+        # ...and nothing else: the cost holds as many `{` as there are symbols.
+        parts.append(f"{occurs} = ?")
+        params.extend(["{", 1, len(symbols)])
+    return "(" + " AND ".join(parts) + ")", params
 
 
 def compile_ast(node) -> tuple[str, list]:
     if isinstance(node, Term):
         return compile_term(node)
+    if isinstance(node, Free):
+        pattern = _contains(node.value)
+        return (
+            "(c.name LIKE ? ESCAPE '!' COLLATE NOCASE"
+            " OR c.type_line LIKE ? ESCAPE '!' COLLATE NOCASE"
+            " OR c.oracle_text LIKE ? ESCAPE '!' COLLATE NOCASE)",
+            [pattern, pattern, pattern],
+        )
     if isinstance(node, Not):
         inner, params = compile_ast(node.expr)
         # A comparison against a NULL column is NULL, and NOT NULL is still
@@ -710,14 +845,44 @@ def extract_order(query: str) -> tuple[str, list[tuple[str, str]]]:
     return cleaned, orders
 
 
-def _build_order_by(orders: list[tuple[str, str]]) -> str:
+def free_words(node) -> list[str]:
+    """The free text the query asks FOR, in order — not what is under a
+    NOT: `-bolt` must not rank Lightning Bolt first."""
+    if isinstance(node, Free):
+        return [node.value]
+    if isinstance(node, (And, Or)):
+        return [w for e in node.exprs for w in free_words(e)]
+    return []
+
+
+def _relevance(words: list[str]) -> tuple[str, list]:
+    """Name matches first — exact, then prefix, then every word somewhere in
+    the name — then type-line matches, then the rest (oracle text only)."""
+    phrase = " ".join(words)
+    in_name = " AND ".join("c.name LIKE ? ESCAPE '!' COLLATE NOCASE" for _ in words)
+    in_type = " AND ".join("c.type_line LIKE ? ESCAPE '!' COLLATE NOCASE" for _ in words)
+    sql = (
+        "CASE WHEN c.name = ? COLLATE NOCASE THEN 0 "
+        "WHEN c.name LIKE ? ESCAPE '!' COLLATE NOCASE THEN 1 "
+        f"WHEN {in_name} THEN 2 WHEN {in_type} THEN 3 ELSE 4 END"
+    )
+    params = [phrase, f"{like_literal(phrase)}%"]
+    params += [_contains(w) for w in words] + [_contains(w) for w in words]
+    return sql, params
+
+
+def _build_order_by(orders: list[tuple[str, str]], words=()) -> tuple[str, list]:
     """Translate extracted (field, direction) pairs into ORDER BY SQL.
 
     A trailing tiebreaker on c.name keeps the result stable when two rows
-    share the primary sort key.
+    share the primary sort key. With no sort asked for, free text ranks by
+    relevance (`_relevance`), then by name.
     """
     if not orders:
-        return "c.name COLLATE NOCASE ASC"
+        if words:
+            sql, params = _relevance(list(words))
+            return f"{sql}, c.name COLLATE NOCASE ASC", params
+        return "c.name COLLATE NOCASE ASC", []
     parts: list[str] = []
     for field, direction in orders:
         dir_sql = "DESC" if direction == "desc" else "ASC"
@@ -742,22 +907,19 @@ def _build_order_by(orders: list[tuple[str, str]]) -> str:
         parts.append(f"({expr}) IS NULL")
         parts.append(f"({expr}) {dir_sql}")
     parts.append("c.name COLLATE NOCASE ASC")
-    return ", ".join(parts)
+    return ", ".join(parts), []
 
 
 # --- Top-level query entry point --------------------------------------
 
-def _compile_where(query: str) -> tuple[str, list]:
-    return compile_ast(parse(query))
+def _parse_or_none(cleaned_query: str):
+    """The syntax tree, or None for an empty query — produced when the user
+    passes only `order:` tokens, and matching every card."""
+    return parse(cleaned_query) if cleaned_query.strip() else None
 
 
-def _compile_where_or_all(cleaned_query: str) -> tuple[str, list]:
-    """Like _compile_where but tolerates an empty cleaned query — produced
-    when the user passes only `order:` tokens with no filters. Returns a
-    no-op WHERE that matches all rows."""
-    if not cleaned_query.strip():
-        return "1=1", []
-    return _compile_where(cleaned_query)
+def _compile_where_or_all(ast) -> tuple[str, list]:
+    return ("1=1", []) if ast is None else compile_ast(ast)
 
 
 def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
@@ -765,14 +927,15 @@ def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
     if offset < 0:
         offset = 0
     cleaned, orders = extract_order(query)
-    where_sql, params = _compile_where_or_all(cleaned)
-    order_sql = _build_order_by(orders)
+    ast = _parse_or_none(cleaned)
+    where_sql, params = _compile_where_or_all(ast)
+    order_sql, order_params = _build_order_by(orders, free_words(ast))
     sql = (
         "SELECT c.name, c.type_line, c.mana_cost, c.mana_value "
         "FROM cards c WHERE " + where_sql +
         " ORDER BY " + order_sql + " LIMIT ? OFFSET ?"
     )
-    params_all = list(params) + [limit, offset]
+    params_all = list(params) + order_params + [limit, offset]
     _ensure_db()
     conn = sqlite3.connect(
         f"file:{DB_PATH}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_S,
@@ -791,7 +954,7 @@ def count_query(query: str) -> int:
 
     Order tokens are stripped — they don't affect the row count."""
     cleaned, _ = extract_order(query)
-    where_sql, params = _compile_where_or_all(cleaned)
+    where_sql, params = _compile_where_or_all(_parse_or_none(cleaned))
     sql = f"SELECT COUNT(*) FROM cards c WHERE {where_sql}"
     _ensure_db()
     conn = sqlite3.connect(

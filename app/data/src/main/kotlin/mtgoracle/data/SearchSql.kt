@@ -19,6 +19,10 @@ class SearchSql(private val formats: FormatCatalog) {
 
     private fun compile(node: SearchNode): Sql = when (node) {
         is SearchNode.Term -> term(node)
+        is SearchNode.Free -> contains(node.value).let { p ->
+            Sql("(c.name LIKE ? ESCAPE '!' COLLATE NOCASE OR c.type_line LIKE ? ESCAPE '!' COLLATE NOCASE " +
+                "OR c.oracle_text LIKE ? ESCAPE '!' COLLATE NOCASE)", listOf(p, p, p))
+        }
         // A comparison against NULL is NULL, and NOT NULL is still NULL — so
         // `-pow>=4` dropped every non-creature. Unknown is "no match".
         is SearchNode.Not -> compile(node.expr).let { Sql("NOT COALESCE((${it.text}), 0)", it.params) }
@@ -51,6 +55,10 @@ class SearchSql(private val formats: FormatCatalog) {
                 Sql("EXISTS (SELECT 1 FROM card_tags kt WHERE kt.card_name = c.name AND kt.category='keyword' AND kt.tag=?)", listOf(value.lowercase()))
             }
             "c" -> {
+                if (value.trim().lowercase() in MULTICOLOR) {
+                    if (op != ":") throw SearchError("c:m (multicolored) supports only ':'")
+                    return Sql("c.colors LIKE '%,%'")
+                }
                 val colors = parseColors(value)
                 when (op) {
                     "=" -> Sql("c.colors = ?", listOf(colors.joinToString(",")))
@@ -100,8 +108,43 @@ class SearchSql(private val formats: FormatCatalog) {
                     ?: throw SearchError("unknown is: predicate '$value'. Valid: ${IS_PREDICATES.keys.sorted().joinToString(", ")}")
                 Sql(predicate)
             }
+            "m" -> manaCost(op, value)
+            "otag" -> {
+                textOnly("otag")
+                // Stored with spaces ('mana rock'), written by Scryfall with hyphens ('mana-rock'). A tag also
+                // finds its children, which Tagger names `<tag>-<kind>`: there is no plain 'removal' tag at all.
+                val written = value.trim().lowercase()
+                val spaced = written.replace('-', ' ')
+                Sql(
+                    "EXISTS (SELECT 1 FROM card_oracle_tags ot WHERE ot.card_name = c.name " +
+                        "AND (ot.tag IN (?, ?) OR ot.tag LIKE ? ESCAPE '!' OR ot.tag LIKE ? ESCAPE '!'))",
+                    listOf(written, spaced, likeLiteral(written) + "-%", likeLiteral(spaced) + "-%"),
+                )
+            }
             else -> throw SearchError("unknown field mapping: '$field'")
         }
+    }
+
+    /** `m:` has at least these symbols (counted, so {U}{1} finds {1}{U}); `m=` exactly these and no others. */
+    private fun manaCost(op: String, value: String): Sql {
+        if (op != ":" && op != "=") throw SearchError("mana cost supports only ':' or '=', got '$op'")
+        val symbols = manaSymbols(value)
+        if (symbols.isEmpty()) throw SearchError("m: needs at least one mana symbol")
+        // How often `?` occurs in the cost: the length it loses without it, over its own length.
+        val occurs = "((LENGTH(COALESCE(c.mana_cost, '')) - LENGTH(REPLACE(COALESCE(c.mana_cost, ''), ?, ''))) / ?)"
+        val cmp = if (op == ":") ">=" else "="
+        val parts = mutableListOf<String>()
+        val params = mutableListOf<Any>()
+        for ((symbol, n) in symbols.groupingBy { it }.eachCount()) {
+            parts += "$occurs $cmp ?"
+            params.addAll(listOf(symbol, symbol.length, n))
+        }
+        if (op == "=") {
+            // ...and nothing else: the cost holds as many `{` as there are symbols.
+            parts += "$occurs = ?"
+            params.addAll(listOf("{", 1, symbols.size))
+        }
+        return Sql(parts.joinToString(" AND ", "(", ")"), params)
     }
 
     private fun legality(op: String, value: String, statuses: List<String>): Sql {
@@ -122,10 +165,17 @@ class SearchSql(private val formats: FormatCatalog) {
         return Sql("(${integerOnly(column)} AND CAST(c.$column AS INTEGER) $sqlOp ?)", listOf(n))
     }
 
-    /** ORDER BY for the sort keys, NULLs last whatever the direction; the name breaks every tie. */
-    fun orderBy(keys: List<SortKey>): String {
-        if (keys.isEmpty()) return "c.name COLLATE NOCASE ASC"
-        return keys.flatMap { key ->
+    /**
+     * ORDER BY for the sort keys, NULLs last whatever the direction; the name
+     * breaks every tie. With no sort asked for, [freeWords] rank by relevance.
+     */
+    fun orderBy(keys: List<SortKey>, freeWords: List<String> = emptyList()): Sql {
+        if (keys.isEmpty()) {
+            if (freeWords.isEmpty()) return Sql("c.name COLLATE NOCASE ASC")
+            val rank = relevance(freeWords)
+            return Sql("${rank.text}, c.name COLLATE NOCASE ASC", rank.params)
+        }
+        return Sql(keys.flatMap { key ->
             val expr = when (key.field) {
                 // Numeric where the column holds a plain number ('3'), NULL otherwise ('*', '1+*').
                 "pow", "power" -> "CASE WHEN ${integerOnly("power")} THEN CAST(c.power AS REAL) END"
@@ -134,7 +184,19 @@ class SearchSql(private val formats: FormatCatalog) {
                     ?: throw SearchError("unknown sort field: '${key.field}'. Valid: ${(SORT_FIELDS.keys + setOf("power", "toughness")).sorted().joinToString(", ")}")
             }
             listOf("($expr) IS NULL", "($expr) ${if (key.descending) "DESC" else "ASC"}")
-        }.plus("c.name COLLATE NOCASE ASC").joinToString(", ")
+        }.plus("c.name COLLATE NOCASE ASC").joinToString(", "))
+    }
+
+    /** Name matches first — exact, prefix, every word somewhere in it — then type-line matches, then the rest. */
+    private fun relevance(words: List<String>): Sql {
+        val phrase = words.joinToString(" ")
+        val inName = words.joinToString(" AND ") { "c.name LIKE ? ESCAPE '!' COLLATE NOCASE" }
+        val inType = words.joinToString(" AND ") { "c.type_line LIKE ? ESCAPE '!' COLLATE NOCASE" }
+        return Sql(
+            "CASE WHEN c.name = ? COLLATE NOCASE THEN 0 WHEN c.name LIKE ? ESCAPE '!' COLLATE NOCASE THEN 1 " +
+                "WHEN $inName THEN 2 WHEN $inType THEN 3 ELSE 4 END",
+            listOf<Any>(phrase, likeLiteral(phrase) + "%") + words.map(::contains) + words.map(::contains),
+        )
     }
 
     companion object {
@@ -155,9 +217,49 @@ class SearchSql(private val formats: FormatCatalog) {
             "restricted" to "restricted",
             "game" to "game",
             "is" to "is",
+            "m" to "m", "mana" to "m",
+            "otag" to "otag", "function" to "otag", "oracletag" to "otag",
         )
+        private val MULTICOLOR = setOf("m", "multicolor", "multicolored")
+
+        /** The front face's type line: a two-faced card is what its front is, so a Sorcery // Land is a spell. */
+        private const val FRONT_TYPE = "(CASE WHEN instr(c.type_line, ' // ') > 0 " +
+            "THEN substr(c.type_line, 1, instr(c.type_line, ' // ') - 1) ELSE COALESCE(c.type_line, '') END)"
         private val GAMES = setOf("paper", "mtgo", "arena", "astral", "sega")
-        private val IS_PREDICATES = mapOf("reserved" to "c.reserved = 1")
+        private val IS_PREDICATES = mapOf(
+            "reserved" to "c.reserved = 1",
+            // A legendary creature, or a card that says it can be your commander.
+            "commander" to "(($FRONT_TYPE LIKE '%Legendary%' AND $FRONT_TYPE LIKE '%Creature%') OR c.oracle_text LIKE '%can be your commander%')",
+            "permanent" to "($FRONT_TYPE LIKE '%Artifact%' OR $FRONT_TYPE LIKE '%Creature%' OR $FRONT_TYPE LIKE '%Enchantment%' " +
+                "OR $FRONT_TYPE LIKE '%Land%' OR $FRONT_TYPE LIKE '%Planeswalker%' OR $FRONT_TYPE LIKE '%Battle%')",
+            "spell" to "($FRONT_TYPE NOT LIKE '%Land%')",
+            "historic" to "($FRONT_TYPE LIKE '%Legendary%' OR $FRONT_TYPE LIKE '%Artifact%' OR $FRONT_TYPE LIKE '%Saga%')",
+            "dfc" to "c.layout IN ('transform', 'modal_dfc', 'reversible_card')",
+            "mdfc" to "c.layout = 'modal_dfc'",
+            "split" to "c.layout = 'split'",
+        )
+
+        /** The `is:` flags, for help and completion. */
+        val IS_FLAGS: List<String> get() = IS_PREDICATES.keys.sorted()
+
+        private val MANA_SYMBOL = Regex("\\{[^{}]+\\}")
+
+        /** '{2}{U}{U}' or the shorthand '2uu' -> [{2}, {U}, {U}]. */
+        fun manaSymbols(raw: String): List<String> {
+            val s = raw.trim()
+            if ('{' in s) {
+                val symbols = MANA_SYMBOL.findAll(s).map { it.value.uppercase() }.toList()
+                if (symbols.joinToString("") != s.uppercase().replace(" ", "")) throw SearchError("can't read mana cost '$raw'")
+                return symbols
+            }
+            return Regex("[0-9]+|.").findAll(s.lowercase()).map { it.value }.map { part ->
+                when {
+                    part[0].isDigit() -> "{$part}"
+                    part in listOf("w", "u", "b", "r", "g", "c", "x", "s") -> "{${part.uppercase()}}"
+                    else -> throw SearchError("unknown mana symbol '$part' in '$raw'")
+                }
+            }.toList()
+        }
         private val NUMERIC_OPS = mapOf(":" to "=", "=" to "=", "!=" to "!=", ">" to ">", "<" to "<", ">=" to ">=", "<=" to "<=")
         private val ALL_COLORS = listOf("W", "U", "B", "R", "G")
         private val COLOR_WORDS = mapOf(

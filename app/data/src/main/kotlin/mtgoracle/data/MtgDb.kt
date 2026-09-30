@@ -72,6 +72,7 @@ object SchemaCheck {
         "card_tags" to listOf("card_name", "tag", "category"),
         "card_abilities" to listOf("card_name", "ability_index", "ability_type", "cost", "effect", "has_target", "produces_mana", "is_mana_ability"),
         "card_legalities" to listOf("card_name", "format", "status"),
+        "card_oracle_tags" to listOf("card_name", "tag"), // otag:
         "rulings" to listOf("card_name", "date", "text"),
         "rules" to listOf("rule_number", "parent_rule", "section_title", "text"),
         "combos" to listOf("id", "name", "color_identity", "description"),

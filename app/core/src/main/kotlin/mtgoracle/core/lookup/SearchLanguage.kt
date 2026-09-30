@@ -12,6 +12,8 @@ class SearchError(message: String) : IllegalArgumentException(message)
 
 sealed interface SearchNode {
     data class Term(val field: String, val op: String, val value: String) : SearchNode
+    /** A bare word or quoted phrase: the name, the type line or the oracle text. */
+    data class Free(val value: String) : SearchNode
     data class Not(val expr: SearchNode) : SearchNode
     data class And(val parts: List<SearchNode>) : SearchNode
     data class Or(val parts: List<SearchNode>) : SearchNode
@@ -33,6 +35,17 @@ data class SearchQuery(val where: SearchNode?, val order: List<SortKey> = emptyL
 }
 
 object SearchLanguage {
+
+    /**
+     * The free text [node] asks FOR, in order — not what is under a NOT:
+     * `-bolt` must not rank Lightning Bolt first. (scryfall_search.free_words)
+     */
+    fun freeWords(node: SearchNode?): List<String> = when (node) {
+        is SearchNode.Free -> listOf(node.value)
+        is SearchNode.And -> node.parts.flatMap(::freeWords)
+        is SearchNode.Or -> node.parts.flatMap(::freeWords)
+        else -> emptyList()
+    }
 
     /** The whole query: sort tokens out first, then the filter. An empty filter matches everything. */
     fun parse(query: String): SearchQuery {
@@ -184,7 +197,8 @@ object SearchLanguage {
                 inner
             }
             is Token.Term -> { pos++; SearchNode.Term(t.field, t.op, t.value) }
-            is Token.Bare -> { pos++; SearchNode.Term("o", ":", t.word) }
+            // Free text, as on Scryfall and Moxfield, but wider: `goblin` finds every Goblin.
+            is Token.Bare -> { pos++; SearchNode.Free(t.word) }
             else -> throw SearchError("unexpected token: ${t?.let(::describe) ?: "end of query"}")
         }
 

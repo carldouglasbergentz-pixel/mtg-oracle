@@ -1,6 +1,7 @@
 package mtgoracle.core.lookup
 
 import mtgoracle.core.lookup.SearchNode.And
+import mtgoracle.core.lookup.SearchNode.Free
 import mtgoracle.core.lookup.SearchNode.Not
 import mtgoracle.core.lookup.SearchNode.Or
 import mtgoracle.core.lookup.SearchNode.Term
@@ -47,7 +48,7 @@ class SearchLanguageTest {
 
     @Test
     fun `and binds tighter than or, negation tighter than and`() {
-        assertEquals(Or(listOf(Term("o", ":", "a"), And(listOf(Term("o", ":", "b"), Term("o", ":", "c"))))), where("a or b c"))
+        assertEquals(Or(listOf(Free("a"), And(listOf(Free("b"), Free("c"))))), where("a or b c"))
         assertEquals(And(listOf(Not(Term("t", ":", "a")), Term("t", ":", "b"))), where("-t:a t:b"))
         assertEquals(And(listOf(Or(listOf(Term("c", ":", "w"), Term("c", ":", "u"))), Term("mv", "<=", "3"))), where("(c:w or c:u) mv<=3"))
     }
@@ -60,10 +61,18 @@ class SearchLanguageTest {
     @Test
     fun `quoted values and barewords`() {
         assertEquals(Term("o", ":", "draw a card"), where("o:\"draw a card\""))
-        assertEquals(Term("o", ":", "enters the battlefield"), where("\"enters the battlefield\""))
-        assertEquals(Not(Term("o", ":", "flash")), where("not flash"))
+        assertEquals(Free("enters the battlefield"), where("\"enters the battlefield\""))
+        assertEquals(Not(Free("flash")), where("not flash"))
         assertEquals(Term("pow", ">=", "4"), where("pow>=4"))
         assertEquals(Term("pow", "!", "3"), where("pow!3")) // the compiler rejects the op, not the parser
+    }
+
+    @Test
+    fun `free words are the ones asked for, not the negated ones`() {
+        assertEquals(listOf("lightning", "bolt"), SearchLanguage.freeWords(where("lightning t:instant bolt")))
+        assertEquals(listOf("goblin"), SearchLanguage.freeWords(where("goblin -bolt")))
+        assertEquals(listOf("a", "b"), SearchLanguage.freeWords(where("a or (b c:r)")))
+        assertEquals(emptyList(), SearchLanguage.freeWords(null))
     }
 
     @Test

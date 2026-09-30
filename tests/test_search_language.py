@@ -126,6 +126,59 @@ class TestSearchCounts(unittest.TestCase):
 
 
 @unittest.skipUnless(DB.exists(), "needs data/mtg.db")
+class TestFreeTextAndNewOperators(unittest.TestCase):
+    """Free text (name, type line or oracle text), relevance, m:, c:m, otag:, is:."""
+
+    def names(self, q, limit=50):
+        return [r["name"] for r in ss.run_query(q, limit=limit)]
+
+    def test_free_text_searches_name_type_and_text(self):
+        # A bare word used to be o: only: `goblin` missed Goblins whose text doesn't say it.
+        self.assertIn("Lightning Bolt", self.names("lightning bolt"))
+        self.assertGreater(ss.count_query("goblin"), ss.count_query("o:goblin"))
+        self.assertEqual(ss.count_query("goblin"),
+                         ss.count_query("n:goblin or t:goblin or o:goblin"))
+
+    def test_an_exact_name_ranks_first_unless_a_sort_is_asked_for(self):
+        self.assertEqual(self.names("lightning bolt")[0], "Lightning Bolt")
+        self.assertEqual(self.names("counterspell")[0], "Counterspell")
+        self.assertNotEqual(self.names("bolt order:desc_name")[0], "Bolt Bend")
+        # Under a NOT nothing is ranked: the plain name order.
+        rows = self.names("-bolt t:instant c:r mv=1")
+        self.assertEqual(rows, sorted(rows, key=str.lower))
+
+    def test_mana_cost_counts_symbols(self):
+        # {U}{1} is the same cost as {1}{U}: counted, not a substring.
+        self.assertEqual(ss.count_query("m:{U}{1} t:instant"), ss.count_query("m:1u t:instant"))
+        self.assertIn("Counterspell", self.names("m={U}{U} t:instant", limit=1000))
+        self.assertNotIn("Cryptic Command", self.names("m={U}{U} t:instant", limit=1000))
+        self.assertIn("Cryptic Command", self.names("m:{U}{U} t:instant", limit=1000))
+        with self.assertRaises(ss.SearchError):
+            ss.count_query("m:2uq")
+
+    def test_multicolor(self):
+        self.assertIn("Fire // Ice", self.names("c:m t:instant", limit=2000))
+        self.assertNotIn("Lightning Bolt", self.names("c:m t:instant", limit=2000))
+        with self.assertRaises(ss.SearchError):
+            ss.count_query("c=m")
+
+    def test_otag_takes_scryfall_spelling_and_children(self):
+        self.assertIn("Sol Ring", self.names("otag:mana-rock", limit=500))
+        self.assertEqual(ss.count_query("otag:mana-rock"), ss.count_query('otag:"mana rock"'))
+        # No tag is plain 'removal'; its children are 'removal-creature' and so on.
+        self.assertIn("Swords to Plowshares", self.names("otag:removal c:w mv=1", limit=500))
+
+    def test_is_predicates(self):
+        self.assertIn("Atraxa, Praetors' Voice", self.names("is:commander ci:wubg", limit=500))
+        self.assertNotIn("Birds of Paradise", self.names("is:commander t:bird", limit=500))
+        self.assertIn("Sol Ring", self.names("is:permanent mv=1 t:artifact", limit=500))
+        # A two-faced card is its front face: an MDFC spell // land is a spell.
+        self.assertIn("Agadeem's Awakening // Agadeem, the Undercrypt", self.names("is:spell is:mdfc", limit=500))
+        with self.assertRaises(ss.SearchError):
+            ss.count_query("is:foil")
+
+
+@unittest.skipUnless(DB.exists(), "needs data/mtg.db")
 class TestNameTolerance(unittest.TestCase):
 
     def test_fold_finds_names_starting_with_a_diacritic(self):
