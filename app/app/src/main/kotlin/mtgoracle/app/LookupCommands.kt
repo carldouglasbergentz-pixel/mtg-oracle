@@ -3,6 +3,8 @@ package mtgoracle.app
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.core.lookup.ComboSummary
 import mtgoracle.core.lookup.DeckScope
+import mtgoracle.core.lookup.Explain
+import mtgoracle.core.lookup.closest
 import mtgoracle.core.lookup.SearchError
 import mtgoracle.core.lookup.SearchLanguage
 import mtgoracle.core.lookup.SearchPage
@@ -10,7 +12,10 @@ import mtgoracle.core.lookup.SearchQuery
 import mtgoracle.data.Lookup
 import mtgoracle.forge.Log
 import mtgoracle.ui.kit.CardFace
+import mtgoracle.ui.lookup.COMMAND_HINTS
+import mtgoracle.ui.lookup.COMMAND_WORDS
 import mtgoracle.ui.lookup.HELP_TEXT
+import mtgoracle.ui.lookup.Preview
 import mtgoracle.ui.lookup.HELP_TOPICS
 import mtgoracle.ui.lookup.LookupUi
 import mtgoracle.ui.lookup.OutputLink
@@ -47,8 +52,11 @@ class LookupCommands(
     private val onQuit: () -> Unit = {},
 ) {
     val output = OutputLog()
-    private val suggester = Suggester(lookup.names.sorted, lookup.rules.numbers(), deckNames = { decks().map { it.name } + ".." }, helpTopics = HELP_TOPICS.keys.toList())
-    val ui = LookupUi(output, suggester::suggest, ::submit, ::open, faceOf)
+    private val suggester = Suggester(
+        lookup.names.sorted, lookup.rules.numbers(), deckNames = { decks().map { it.name } + ".." },
+        helpTopics = HELP_TOPICS.keys.toList(), vocabulary = lookup.vocabulary,
+    )
+    val ui = LookupUi(output, suggester::suggest, ::submit, ::open, faceOf, ::preview, ::count)
 
     /** The deck `cd` entered: `search` and card profiles follow it. Null at the root. */
     var scope: DeckScope? = null
@@ -122,9 +130,46 @@ class LookupCommands(
             "cd" -> cd(arg)
             "copy" -> copy(arg)
             "clear" -> output.clear()
-            "quit", "exit", "q" -> onQuit()
-            else -> say("(unknown command: '$head'; type 'help')", Tone.DIM)
+            "quit", "exit" -> onQuit()
+            // Anything that isn't a command is a search, as in a browser's address bar.
+            else -> search(line, typo = closest(head, COMMAND_WORDS))
         }
+    }
+
+    /** The search a line stands for (`search <q>`, or a line that is no command), or null. */
+    private fun searchText(line: String): String? {
+        val head = line.substringBefore(' ').lowercase()
+        return when {
+            head == "search" -> line.substringAfter(' ', "").trim().takeIf { it.isNotEmpty() && it.lowercase() !in setOf("help", "?") }
+            head in COMMAND_WORDS -> null
+            else -> line.trim().takeIf { it.isNotEmpty() }
+        }
+    }
+
+    /** [text] parsed and, after `cd`, restricted to the deck, with the labels of what the deck added. */
+    private fun scoped(text: String): Pair<SearchQuery, List<String>> {
+        val parsed = SearchLanguage.parse(text)
+        return scope?.restrict(parsed) ?: (parsed to emptyList())
+    }
+
+    /** The hint under the command line: a command's usage, or the query read back (or what is wrong with it). */
+    fun preview(line: String): Preview? {
+        if (line.isBlank()) return null
+        val text = searchText(line) ?: return COMMAND_HINTS[line.substringBefore(' ').lowercase()]?.let { Preview(it) }
+        return try {
+            val parsed = SearchLanguage.parse(text)
+            val (query, filters) = scope?.restrict(parsed) ?: (parsed to emptyList())
+            lookup.search.check(query)
+            Preview(Explain.query(parsed) + if (filters.isEmpty()) "" else "  ·  in ${scope?.deckName}: ${filters.joinToString(" ")}", isSearch = true)
+        } catch (e: SearchError) {
+            Preview("✗ ${e.message}", error = true)
+        }
+    }
+
+    /** How many cards a search line finds; null for a command or a query that doesn't compile. */
+    fun count(line: String): Int? {
+        val text = searchText(line) ?: return null
+        return try { lookup.search.count(scoped(text).first) } catch (e: SearchError) { null }
     }
 
     private fun help(topic: String) {
@@ -191,16 +236,19 @@ class LookupCommands(
         say(renderCombo(combo))
     }
 
-    private fun search(arg: String) {
+    /** [typo]: the command the first word may have meant, named when the search finds nothing. */
+    private fun search(arg: String, typo: String? = null) {
         if (arg.isEmpty() || arg.lowercase() in setOf("help", "?")) return help("search")
-        val parsed = try {
-            SearchLanguage.parse(arg)
+        // After `cd`, only what the deck can play; the filters are named, never applied silently.
+        val (query, filters) = try {
+            scoped(arg)
         } catch (e: SearchError) {
             return searchError(e)
         }
-        // After `cd`, only what the deck can play; the filters are named, never applied silently.
-        val (query, filters) = scope?.restrict(parsed) ?: (parsed to emptyList())
         showPage(query, 1, filters, announce = true)
+        if (typo != null && lastSearch?.query == query && lastSearch?.total == 0) {
+            say("(no card matches, and '${arg.substringBefore(' ')}' is no command — did you mean `$typo`?)", Tone.DIM)
+        }
     }
 
     /** Paging re-runs the query that ran, filters included: leaving the deck mid-paging can't change the results. */

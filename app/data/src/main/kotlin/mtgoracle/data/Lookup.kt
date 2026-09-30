@@ -3,6 +3,9 @@ package mtgoracle.data
 import mtgoracle.core.lookup.CustomFormat
 import mtgoracle.core.lookup.DeckScope
 import mtgoracle.core.lookup.FormatCatalog
+import mtgoracle.core.lookup.Formats
+import mtgoracle.core.lookup.SearchFields
+import mtgoracle.core.lookup.SearchVocabulary
 
 /**
  * Cards, rules, combos and corrections, read-only: everything the lookup
@@ -19,6 +22,29 @@ class Lookup(private val db: MtgDb) {
     val cards = Cards(db, names, combos, corrections)
     val rules = Rules(db)
     val search = CardSearch(db, formats)
+
+    /**
+     * What autofill offers after each field, the most used first: types and
+     * keywords from `card_tags`, Tagger tags (plus the parents their children
+     * imply: `removal` from `removal-creature`), formats, rarities, layouts.
+     */
+    val vocabulary: SearchVocabulary by lazy {
+        db.read { conn ->
+            fun column(sql: String): List<String> = conn.prepareStatement(sql).use { st -> st.executeQuery().use { rs -> rs.rows { getString(1) } } }.filterNotNull()
+            val tags = column("SELECT tag FROM card_oracle_tags GROUP BY tag ORDER BY COUNT(*) DESC")
+            SearchVocabulary(mapOf(
+                "t" to column("SELECT tag FROM card_tags WHERE category IN ('type', 'subtype', 'supertype') GROUP BY tag ORDER BY COUNT(*) DESC"),
+                "kw" to column("SELECT tag FROM card_tags WHERE category = 'keyword' GROUP BY tag ORDER BY COUNT(*) DESC"),
+                "otag" to (tags + tags.filter { '-' in it }.map { it.substringBefore('-') }).distinct(),
+                "f" to (Formats.LEGALITY.toList() + readCustomFormats().map { it.key }),
+                "r" to listOf("common", "uncommon", "rare", "mythic", "special", "bonus"),
+                "layout" to column("SELECT layout FROM cards WHERE layout IS NOT NULL GROUP BY layout ORDER BY COUNT(*) DESC"),
+                "game" to SearchFields.GAMES,
+                "is" to SearchFields.IS_FLAGS,
+                "order" to SearchFields.SORT_FIELDS.flatMap { listOf("asc_$it", "desc_$it") },
+            ))
+        }
+    }
 
     /** What deck [deckId] can play, for `search` and the card profile's combos after `cd`; null if it is gone. */
     fun deckScope(deckId: Int): DeckScope? = db.read { conn ->

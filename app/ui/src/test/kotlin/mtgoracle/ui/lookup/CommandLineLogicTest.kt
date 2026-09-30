@@ -29,6 +29,14 @@ class CommandLineLogicTest {
         ruleNumbers = listOf("100", "702", "702.1", "702.2"),
         deckNames = { listOf("UW Draw Go", "Rakdos Midrange", "..") },
         helpTopics = listOf("search"),
+        vocabulary = mtgoracle.core.lookup.SearchVocabulary(mapOf(
+            "t" to listOf("creature", "instant", "enchantment", "eldrazi"),
+            "kw" to listOf("flying", "first strike", "flash"),
+            "otag" to listOf("spot removal", "mana rock", "removal-creature", "removal"),
+            "is" to listOf("commander", "permanent"),
+            "order" to listOf("asc_mv", "desc_mv", "asc_edhrec", "desc_edhrec"),
+            "f" to listOf("commander", "canadianhighlander"),
+        )),
     )
 
     @Test
@@ -48,7 +56,7 @@ class CommandLineLogicTest {
         assertEquals("combo Thassa's Oracle", suggester.suggest("combo thas"))
         assertNull(suggester.suggest("card lightning bolt"), "typed in full, in another case")
         assertNull(suggester.suggest("card "))
-        assertNull(suggester.suggest("search light"), "search is its own language")
+        assertNull(suggester.suggest("next light"), "a command without arguments to complete")
     }
 
     @Test
@@ -65,5 +73,40 @@ class CommandLineLogicTest {
         assertEquals("rule 702.1", suggester.suggest("rule 702."))
         assertEquals("cd UW Draw Go", suggester.suggest("cd uw"))
         assertEquals("help search", suggester.suggest("help s"))
+    }
+
+    @Test
+    fun `a search completes the value after a field, most used first`() {
+        assertEquals("t:enchantment", suggester.suggest("t:ench"))
+        assertEquals("t:instant kw:flying", suggester.suggest("t:instant kw:fl"))
+        assertEquals("-kw:flying", suggester.suggest("-kw:fly"))
+        assertEquals("(type:creature", suggester.suggest("(type:cr"))
+        assertEquals("search is:commander", suggester.suggest("search is:com"))
+        assertEquals("order:asc_edhrec", suggester.suggest("order:asc_e"))
+        assertEquals("f:canadianhighlander", suggester.suggest("f:can"))
+        assertNull(suggester.suggest("t:"), "nothing typed after the field yet")
+        assertNull(suggester.suggest("xyz:foo"), "no such field")
+        assertNull(suggester.suggest("t:creature "), "a finished token")
+    }
+
+    @Test
+    fun `tags take Scryfall's hyphens, and a value with a space comes quoted`() {
+        assertEquals("otag:mana-rock", suggester.suggest("otag:mana-r"))
+        assertEquals("function:spot-removal", suggester.suggest("function:spot"))
+        assertEquals("otag:removal-creature", suggester.suggest("otag:removal-c"))
+        assertEquals("kw:\"first strike\"", suggester.suggest("kw:fir"), "offered as a Tab hint: it rewrites the text")
+        assertEquals("kw:\"first strike\"", suggester.suggest("kw:\"fir"))
+        assertNull(suggester.suggest("kw:\"first strike\""), "a closed quote is finished")
+    }
+
+    @Test
+    fun `free words complete to a card name, commands still come first`() {
+        assertEquals("Lightning Bolt", suggester.suggest("lightning b"))
+        assertEquals("t:instant c:r Lightning Bolt", suggester.suggest("t:instant c:r lightning b"))
+        assertEquals("search Sol Ring", suggester.suggest("search sol"))
+        assertEquals("Thassa's Oracle", suggester.suggest("thas"), "a one-word search")
+        assertEquals("card", suggester.suggest("car"), "a command before a card")
+        assertNull(suggester.suggest("-lightning b"), "a negated word is not a name to finish")
+        assertNull(suggester.suggest("l"), "one letter is too little")
     }
 }

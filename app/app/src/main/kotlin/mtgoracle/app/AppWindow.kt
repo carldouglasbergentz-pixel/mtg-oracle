@@ -40,10 +40,15 @@ import androidx.compose.ui.input.key.type
 fun AppContent(app: AppController, onQuit: () -> Unit) {
     val art = remember(app.forgeReady) { ArtImages(if (app.forgeReady) ForgeRuntime.images else NoArt) }
     HouseTheme {
-        CompositionLocalProvider(LocalArt provides art, LocalGlobalHints provides listOf("F8" to "theme: ${Palette.theme.label}")) {
-            // F8 cycles the theme on every screen: seen here before any screen's own keys.
+        CompositionLocalProvider(LocalArt provides art, LocalGlobalHints provides listOf("F7" to "text/art", "F8" to "theme: ${Palette.theme.label}")) {
+            // F8 cycles the theme and F7 text/art on every screen, typing or not: seen here before any screen's keys.
             Box(Modifier.fillMaxSize().onPreviewKeyEvent { e ->
-                if (e.type == KeyEventType.KeyDown && e.key == Key.F8) { app.cycleTheme(); true } else false
+                when {
+                    e.type != KeyEventType.KeyDown -> false
+                    e.key == Key.F8 -> { app.cycleTheme(); true }
+                    e.key == Key.F7 -> { app.toggleMode(); true }
+                    else -> false
+                }
             }) { Screens(app, onQuit) }
         }
     }

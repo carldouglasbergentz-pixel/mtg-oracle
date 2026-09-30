@@ -180,7 +180,30 @@ class LookupCommandsTest {
         assertEquals(0, commands.output.entries.size)
         run("quit")
         assertEquals(1, quits)
-        assertTrue("(unknown command: 'frobnicate'" in run("frobnicate"))
+    }
+
+    @Test
+    fun `a line that is no command is a search, and a command typo is named when nothing matches`() {
+        val bolt = run("lightning bolt")
+        assertTrue(bolt.lines()[1].startsWith("8 card(s)") || "card(s) — showing" in bolt, bolt)
+        assertTrue(bolt.lines()[2].contains("] Lightning Bolt "), "an exact name ranks first: $bolt")
+        val typo = run("crad sol ring")
+        assertTrue("(no card matches, and 'crad' is no command — did you mean `card`?)" in typo, typo)
+        assertTrue("did you mean" !in run("goblin mv=1 c:r"), "a search that finds cards needs no hint")
+    }
+
+    @Test
+    fun `the preview reads a query back, counts it, and says what is wrong`() {
+        val p = commands.preview("t:instant c:u mv<=2 counter")!!
+        assertEquals("type has \"instant\" · colours include U · mana value ≤ 2 · \"counter\" in name, type or text", p.text)
+        assertTrue(p.isSearch && !p.error)
+        assertTrue(commands.count("t:instant c:u mv<=2 counter")!! > 0)
+        val bad = commands.preview("typ:instant")!!
+        assertTrue(bad.error && "did you mean type:?" in bad.text, bad.text)
+        assertEquals(null, commands.count("typ:instant"))
+        assertTrue("combos <card>; <card>" in commands.preview("combos ")!!.text, "a command gets its usage")
+        assertEquals(null, commands.count("rule 702"), "a command is not counted")
+        assertEquals(null, commands.preview(""))
     }
 
     @Test

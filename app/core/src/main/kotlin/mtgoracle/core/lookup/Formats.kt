@@ -96,6 +96,6 @@ class FormatCatalog(custom: List<CustomFormat>) {
         if (key in Formats.LEGALITY) return key
         byName[key]?.derivesFrom?.takeIf { it in Formats.LEGALITY }?.let { return it }
         val valid = (Formats.LEGALITY + byName.keys).sorted()
-        throw SearchError("unknown format: '$raw'. Valid: ${valid.joinToString(", ")}")
+        throw SearchError("unknown format: '$raw'" + (closest(key, valid)?.let { " — did you mean $it?" } ?: "") + ". Valid: ${valid.joinToString(", ")}")
     }
 }

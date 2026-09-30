@@ -32,6 +32,23 @@ class CardSearch(private val db: MtgDb, formats: FormatCatalog) {
         }
     }
 
+    /** Throws SearchError for anything wrong with [query], without touching the database (the live hint). */
+    fun check(query: SearchQuery) {
+        sql.where(query.where)
+        sql.orderBy(query.order, SearchLanguage.freeWords(query.where))
+    }
+
+    /** How many cards [query] finds. */
+    fun count(query: SearchQuery): Int {
+        val where = sql.where(query.where)
+        return db.read { conn ->
+            conn.prepareStatement("SELECT COUNT(*) FROM cards c WHERE ${where.text}").use { st ->
+                st.bind(where.params)
+                st.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+            }
+        }
+    }
+
     private fun java.sql.PreparedStatement.bind(params: List<Any>) = params.forEachIndexed { i, p ->
         when (p) {
             is Int -> setInt(i + 1, p)

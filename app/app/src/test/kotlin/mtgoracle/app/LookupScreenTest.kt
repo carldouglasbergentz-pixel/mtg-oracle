@@ -130,4 +130,26 @@ class LookupScreenTest {
         assertEquals(0, ui.output.entries.size)
         assertTrue(driver.registry.targets.none { it is ClickTarget.Link }, "nothing cleared can still be clicked")
     }
+
+    @Test
+    fun `the hint reads the query back and counts it, a click in a pane ends typing, F7 works while typing`() {
+        open()
+        driver.key(Key.Semicolon, char = ':'.code)
+        ui.command.set("t:instant c:u mv<=1 counter")
+        driver.settle(40) // the count waits for typing to pause
+        val text = driver.text.all()
+        assertTrue("type has \"instant\" · colours include U · mana value ≤ 1" in text, "the query read back")
+        assertTrue(Regex("→  \\d+ cards?").containsMatchIn(text), "and counted")
+        driver.savePng(File(Scenario.pngDir, "lookup-hint.png"))
+
+        val mode = app.mode
+        driver.key(Key.F7)
+        assertTrue(mode != app.mode, "F7 is text/art even while typing")
+        assertEquals("t:instant c:u mv<=1 counter", ui.command.value.text, "and types nothing")
+        app.toggleMode()
+
+        assertTrue(ui.command.focused)
+        assertTrue(driver.click(ClickTarget.Control("deck:${app.decks.first().id}")))
+        assertFalse(ui.command.focused, "a click in the panes ends typing")
+    }
 }

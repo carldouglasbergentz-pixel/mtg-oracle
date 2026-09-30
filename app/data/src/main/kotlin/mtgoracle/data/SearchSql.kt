@@ -2,6 +2,8 @@ package mtgoracle.data
 
 import mtgoracle.core.lookup.FormatCatalog
 import mtgoracle.core.lookup.SearchError
+import mtgoracle.core.lookup.SearchFields
+import mtgoracle.core.lookup.closest
 import mtgoracle.core.lookup.SearchNode
 import mtgoracle.core.lookup.SortKey
 
@@ -36,7 +38,8 @@ class SearchSql(private val formats: FormatCatalog) {
     }
 
     private fun term(t: SearchNode.Term): Sql {
-        val field = FIELD_ALIAS[t.field.lowercase()] ?: throw SearchError("unknown field: '${t.field}'")
+        val field = SearchFields.ALIAS[t.field.lowercase()]
+            ?: throw SearchError("unknown field: '${t.field}'" + (closest(t.field, SearchFields.ALIAS.keys)?.let { " — did you mean $it${t.op}?" } ?: ""))
         val op = t.op
         val value = t.value
         fun textOnly(what: String) { if (op != ":" && op != "=") throw SearchError("$what supports only ':' or '=', got '$op'") }
@@ -105,7 +108,8 @@ class SearchSql(private val formats: FormatCatalog) {
             "is" -> {
                 textOnly("is:")
                 val predicate = IS_PREDICATES[value.trim().lowercase()]
-                    ?: throw SearchError("unknown is: predicate '$value'. Valid: ${IS_PREDICATES.keys.sorted().joinToString(", ")}")
+                    ?: throw SearchError("unknown is: predicate '$value'" + (closest(value.trim(), IS_PREDICATES.keys)?.let { " — did you mean is:$it?" } ?: "") +
+                        ". Valid: ${IS_PREDICATES.keys.sorted().joinToString(", ")}")
                 Sql(predicate)
             }
             "m" -> manaCost(op, value)
@@ -180,8 +184,10 @@ class SearchSql(private val formats: FormatCatalog) {
                 // Numeric where the column holds a plain number ('3'), NULL otherwise ('*', '1+*').
                 "pow", "power" -> "CASE WHEN ${integerOnly("power")} THEN CAST(c.power AS REAL) END"
                 "tou", "toughness" -> "CASE WHEN ${integerOnly("toughness")} THEN CAST(c.toughness AS REAL) END"
-                else -> SORT_FIELDS[key.field]
-                    ?: throw SearchError("unknown sort field: '${key.field}'. Valid: ${(SORT_FIELDS.keys + setOf("power", "toughness")).sorted().joinToString(", ")}")
+                else -> SORT_FIELDS[key.field] ?: (SORT_FIELDS.keys + setOf("power", "toughness")).let { valid ->
+                    throw SearchError("unknown sort field: '${key.field}'" + (closest(key.field, valid)?.let { " — did you mean $it?" } ?: "") +
+                        ". Valid: ${valid.sorted().joinToString(", ")}")
+                }
             }
             listOf("($expr) IS NULL", "($expr) ${if (key.descending) "DESC" else "ASC"}")
         }.plus("c.name COLLATE NOCASE ASC").joinToString(", "))
@@ -200,32 +206,12 @@ class SearchSql(private val formats: FormatCatalog) {
     }
 
     companion object {
-        private val FIELD_ALIAS = mapOf(
-            "oracle" to "o", "o" to "o",
-            "type" to "t", "t" to "t",
-            "name" to "n", "n" to "n",
-            "keyword" to "kw", "kw" to "kw",
-            "color" to "c", "c" to "c",
-            "ci" to "ci", "coloridentity" to "ci", "color_identity" to "ci", "id" to "ci",
-            "mv" to "mv", "cmc" to "mv",
-            "pow" to "pow", "power" to "pow",
-            "tou" to "tou", "toughness" to "tou",
-            "rarity" to "r", "r" to "r",
-            "layout" to "layout",
-            "f" to "f", "format" to "f", "legal" to "f",
-            "banned" to "banned",
-            "restricted" to "restricted",
-            "game" to "game",
-            "is" to "is",
-            "m" to "m", "mana" to "m",
-            "otag" to "otag", "function" to "otag", "oracletag" to "otag",
-        )
         private val MULTICOLOR = setOf("m", "multicolor", "multicolored")
 
         /** The front face's type line: a two-faced card is what its front is, so a Sorcery // Land is a spell. */
         private const val FRONT_TYPE = "(CASE WHEN instr(c.type_line, ' // ') > 0 " +
             "THEN substr(c.type_line, 1, instr(c.type_line, ' // ') - 1) ELSE COALESCE(c.type_line, '') END)"
-        private val GAMES = setOf("paper", "mtgo", "arena", "astral", "sega")
+        private val GAMES = SearchFields.GAMES.toSet()
         private val IS_PREDICATES = mapOf(
             "reserved" to "c.reserved = 1",
             // A legendary creature, or a card that says it can be your commander.
@@ -239,8 +225,8 @@ class SearchSql(private val formats: FormatCatalog) {
             "split" to "c.layout = 'split'",
         )
 
-        /** The `is:` flags, for help and completion. */
-        val IS_FLAGS: List<String> get() = IS_PREDICATES.keys.sorted()
+        /** The flags this compiler knows, which SearchFields.IS_FLAGS must list (SearchSqlTest). */
+        val IS_FLAGS: Set<String> get() = IS_PREDICATES.keys
 
         private val MANA_SYMBOL = Regex("\\{[^{}]+\\}")
 

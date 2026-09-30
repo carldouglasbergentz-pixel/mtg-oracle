@@ -58,6 +58,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.utf16CodePoint
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 
 const val DECK_LIST_COLS = 40
 
@@ -147,8 +151,18 @@ fun LibraryScreen(
         },
     ) {
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
+        val currentLookup by rememberUpdatedState(lookup)
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.weight(1f).fillMaxWidth()) {
+            // A press anywhere in the panes ends typing, as clicking outside a text field does,
+            // so T and the arrows are the screen's again. Seen first (Initial), never consumed.
+            Row(Modifier.weight(1f).fillMaxWidth().pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val e = awaitPointerEvent(PointerEventPass.Initial)
+                        if (e.type == PointerEventType.Press && currentLookup?.command?.focused == true) focus.requestFocus()
+                    }
+                }
+            }) {
                 BoxPane("decks", Modifier.cellWidth(DECK_LIST_COLS).fillMaxHeight()) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         var folder: String? = "\u0000"
@@ -193,6 +207,8 @@ fun LibraryScreen(
                     onLeave = { focus.requestFocus() },
                     onPage = ::page,
                     focus = commandFocus,
+                    preview = lookup.preview,
+                    count = lookup.count,
                 )
             }
             Row {
