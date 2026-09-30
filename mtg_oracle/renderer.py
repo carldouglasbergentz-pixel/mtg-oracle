@@ -1178,6 +1178,10 @@ def render_deck_diff(diff: dict) -> str:
     if diff.get("format_set"):
         lines.append(f"NOTE deck format auto-set to {diff['format_set']!r} "
                      f"because the list names a commander.")
+    kept = diff.get("commanders_kept") or []
+    if kept:
+        lines.append(f"NOTE the list names no commander, so {', '.join(kept)} "
+                     f"stayed the commander.")
     return "\n".join(lines)
 
 

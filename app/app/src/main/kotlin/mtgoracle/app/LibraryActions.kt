@@ -248,7 +248,7 @@ class LibraryActions(
     private fun previewReplace(deckId: Int, rows: List<mtgoracle.core.deck.ParsedRow>) {
         val unknown = rows.filter { lookup.names.resolve(it.name) == null }.map { it.name }
         val dry = try { writer.replace(deckId, rows, force = true, dryRun = true) } catch (e: DeckRefusal) { return say("refused: ${e.message}") }
-        show(diffRendering(deckName(deckId), dry.changes, dry.considering))
+        show(diffRendering(deckName(deckId), dry.changes, dry.considering, dry.commandersKept))
         val counts = "+${dry.changes.count { it.before == 0 }} -${dry.changes.count { it.after == 0 }} ~${dry.changes.count { it.before > 0 && it.after > 0 }}"
         val title = "Replace ${deckName(deckId)} with the clipboard ($counts, listed in the output)" + (if (unknown.isNotEmpty()) "; ${unknown.size} name(s) not found are left out" else "") + "?"
         ui.ask = Ask.Buttons(title, listOf("Replace" to {
@@ -256,7 +256,7 @@ class LibraryActions(
         }))
     }
 
-    private fun diffRendering(deck: String, changes: List<DeckChange>, considering: Boolean): Rendering {
+    private fun diffRendering(deck: String, changes: List<DeckChange>, considering: Boolean, commandersKept: List<String> = emptyList()): Rendering {
         val lines = buildList {
             add("replace $deck with the clipboard would change:")
             if (changes.isEmpty()) add("  nothing: the deck is the list already")
@@ -265,6 +265,7 @@ class LibraryActions(
                 add("  %-10s %s (%s)".format(what, c.card, c.section.key))
             }
             if (!considering) add("  (the list has no maybeboard, so the considering list stays as it is)")
+            if (commandersKept.isNotEmpty()) add("  (the list names no commander, so ${commandersKept.joinToString(", ")} stays the commander)")
         }
         return message(lines.joinToString("\n"), Tone.PLAIN)
     }

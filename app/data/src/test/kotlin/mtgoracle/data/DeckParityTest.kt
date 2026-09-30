@@ -35,6 +35,10 @@ class DeckParityTest {
         "1 Sol Ring\n2 Plains",
         "1 Sol Ring\n1 Zzyzx the Unreal",
         "999 Plains\n1000 Island\n1 Sol Ring",
+        // No commander section, the commander in the main deck: it stays the commander, not a second copy.
+        "1 Tymna the Weaver (CMR) 51\n1 Sol Ring\n2 Plains",
+        // A commander section replaces the commander.
+        "Commander\n1 Thrasios, Triton Hero\nDeck\n1 Sol Ring\n2 Plains",
     )
 
     /** op, deck, then the op's arguments; `-` is "not given". */
@@ -124,6 +128,9 @@ class DeckParityTest {
         deckformat __P_New__ Commander
         deckformat __P_New__ -
         load __P_New__ 0
+        replace __P_New__ 1|0
+        replace __P_New__ 5|0
+        replace __P_New__ 6|0
         replace __P_New__ 1|0
         replace __P_New__ 2|0
         replace __P_New__ 3|0

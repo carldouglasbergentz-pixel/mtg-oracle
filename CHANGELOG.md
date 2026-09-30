@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (replace keeps the commander)
+- **A replace from a list with no commander section keeps the deck's commanders,** in both apps. A pasted list without a `Commander` header had put Elminster into the main deck, and left a Duel Commander deck with no commander: no colour filter, no identity check, no Commander game. The commander now stays. If the list has it among the deck's cards, that copy *is* the commander, not a second one, and its printing goes with it. The preview and the result say so ("the list names no commander, so Elminster stays the commander"). A list that names a commander still replaces them. DeckParityTest has both cases; `test_deck_history` checks the rule.
+- Elminster was made the commander of Elminster Boomer Wizard again, with the user's go-ahead (revision #12, `promote`, undoable).
+
 ### Changed (the analysis reports, from the user's first read)
 - **The reports show only what the decks hold.** A role with no card that can fill it gets no row; one line under the table names what is missing ("No cards in the deck for: rituals, hand disruption").
 - **Every table says what its columns mean,** in a note under it: cards, also, engines, castable, drawn by T4, gap.

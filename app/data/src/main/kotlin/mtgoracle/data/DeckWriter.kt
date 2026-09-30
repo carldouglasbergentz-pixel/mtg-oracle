@@ -284,12 +284,15 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
     data class ReplaceResult(
         val revisionId: Long?, val changes: List<DeckChange>, val unresolved: List<String>,
         val rejected: List<Pair<String, String>>, val considering: Boolean, val formatSet: String?,
+        /** The deck's commanders a list without a commander section left in place. */
+        val commandersKept: List<String> = emptyList(),
     )
 
     /**
      * Makes deck [deckId] hold exactly the pasted list, as one `replace`
      * revision (decks.replace_deck_contents): verbatim, no deck rule. A list
-     * with a maybeboard sets the considering list; one without leaves it. A
+     * with a maybeboard sets the considering list; one without leaves it, and
+     * one without a commander section keeps the deck's commanders. A
      * name that resolves to nothing stops it, unless [force]. [dryRun] reports
      * the changes and writes nothing: the preview before the user says yes.
      */
@@ -327,9 +330,26 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
             // Deck rows spell names as stored; match the list to them ignoring case, so a spelling never reads as a swap.
             val stored = before.keys.associate { it.first.lowercase() to it.first }
             fun asStored(key: Pair<String, DeckSection>) = (stored[key.first.lowercase()] ?: key.first) to key.second
-            val want = target.entries.associate { asStored(it.key) to it.value }
-            val wantPrinting = targetPrinting.entries.associate { asStored(it.key) to it.value }
+            val want = target.entries.associate { asStored(it.key) to it.value }.toMutableMap()
+            val wantPrinting = targetPrinting.entries.associate { asStored(it.key) to it.value }.toMutableMap()
             val keep = keepCurrent.map(::asStored).toSet()
+            val namesCommander = want.keys.any { it.second == DeckSection.COMMANDER }
+            // A list with no commander section says nothing about the command zone (an export without a
+            // `Commander` header once left a Duel Commander deck without Elminster): the deck's commanders
+            // stay, and a copy the list puts in the main deck is that commander, not a second card.
+            val kept = mutableListOf<String>()
+            if (!namesCommander) {
+                for ((key, row) in before) {
+                    if (key.second != DeckSection.COMMANDER || row.quantity == 0) continue
+                    want[key] = row.quantity
+                    val main = key.first to DeckSection.MAIN
+                    want[main]?.let { qty ->
+                        want[main] = maxOf(0, qty - row.quantity)
+                        if (want[main] == 0) wantPrinting.remove(main)?.let { wantPrinting[key] = it }
+                    }
+                    kept += key.first
+                }
+            }
             for (key in before.keys + want.keys) {
                 if (key in keep || (key.second == DeckSection.CONSIDERING && !hasConsidering)) continue
                 val now = before[key] ?: ABSENT
@@ -339,10 +359,10 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
                     setSectionQuantity(conn, deckId, key.first, key.second, qty, printing = printing, setPrinting = true)
                 }
             }
-            val formatSet = if (want.keys.any { it.second == DeckSection.COMMANDER }) autoSetCommanderFormat(conn, deckId) else null
+            val formatSet = if (namesCommander) autoSetCommanderFormat(conn, deckId) else null
             val id = recordRevision(conn, deckId, "replace", before, null)
             if (id != null) touch(conn, deckId)
-            ReplaceResult(id, id?.let { changesOf(conn, it) }.orEmpty(), unresolved, rejected, hasConsidering, formatSet)
+            ReplaceResult(id, id?.let { changesOf(conn, it) }.orEmpty(), unresolved, rejected, hasConsidering, formatSet, kept.sorted())
         }
         return if (dryRun) db.dryRun(work) else db.write(work)
     }

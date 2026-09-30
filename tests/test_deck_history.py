@@ -167,6 +167,28 @@ class TestReplace(_HistoryTest):
         self.assertEqual(pick("removed"), [("Opt", 1, 0)])
         self.assertEqual(pick("changed"), [("Counterspell", 1, 2)])
 
+    def test_a_list_without_a_commander_section_keeps_the_commander(self):
+        # An export without a `Commander` header put Elminster in the main
+        # deck and left a Duel Commander deck without a commander (2026-09-30).
+        d.set_commander(self.deck, "Elminster")
+        d.add_card_to_deck(self.deck, "Counterspell")
+        diff = self.replace("1 Elminster\n1 Counterspell\n10 Island\n")
+        self.assertEqual(self.state(), {("Elminster", "commander"): 1,
+                                        ("Counterspell", "main"): 1,
+                                        ("Island", "main"): 10})
+        self.assertEqual(diff["commanders_kept"], ["Elminster"])
+        self.assertIn("so Elminster stayed the commander", r.render_deck_diff(diff))
+        diff = self.replace("1 Counterspell\n10 Island\n")
+        self.assertEqual(self.state()[("Elminster", "commander")], 1,
+                         "a list that doesn't name it keeps it too")
+
+    def test_a_list_with_a_commander_section_replaces_the_commander(self):
+        d.set_commander(self.deck, "Elminster")
+        diff = self.replace("Commander\n1 Tymna the Weaver\nDeck\n10 Island\n")
+        self.assertEqual(self.state(), {("Tymna the Weaver", "commander"): 1,
+                                        ("Island", "main"): 10})
+        self.assertEqual(diff["commanders_kept"], [])
+
     def test_identical_list_is_a_no_op(self):
         self.replace(self.LIST)
         count = len(self.history())

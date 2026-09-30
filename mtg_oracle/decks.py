@@ -2031,7 +2031,12 @@ def replace_deck_contents(
     already matched), added, removed, changed — lists of {card, section,
     before, after, set_code_before, collector_number_before,
     set_code_after, collector_number_after} — unresolved, rejected,
-    considering (whether the list set the considering list), format_set}.
+    considering (whether the list set the considering list), format_set,
+    commanders_kept}.
+
+    A list with no commander section keeps the deck's commanders
+    (`commanders_kept`), and a main-deck line naming one is that commander.
+    A list that names a commander replaces them.
     """
     target: dict[tuple[str, str], int] = {}
     target_printing: dict[tuple[str, str], tuple] = {}
@@ -2077,6 +2082,24 @@ def replace_deck_contents(
         target = {as_stored(key): qty for key, qty in target.items()}
         target_printing = {as_stored(key): p for key, p in target_printing.items()}
         keep_current = {as_stored(key) for key in keep_current}
+        names_commander = any(section == "commander" for _, section in target)
+        # A list with no commander section says nothing about the command
+        # zone: an export without a `Commander` header once put Elminster in
+        # the main deck and left a Duel Commander deck without one. The
+        # deck's commanders stay, and a copy the list puts in the main deck
+        # is that commander, not a second card.
+        commanders_kept = []
+        if not names_commander:
+            for (card, section), (qty, _printing) in before.items():
+                if section != "commander" or not qty:
+                    continue
+                target[(card, "commander")] = qty
+                main = (card, "main")
+                if main in target:
+                    target[main] = max(0, target[main] - qty)
+                    if not target[main] and main in target_printing:
+                        target_printing[(card, "commander")] = target_printing.pop(main)
+                commanders_kept.append(card)
         for key in set(before) | set(target):
             if key in keep_current:
                 continue
@@ -2088,7 +2111,6 @@ def replace_deck_contents(
             if now_qty != want_qty or (want_qty and want_printing != now_printing):
                 _set_section_quantity(cur, did, key[0], key[1], want_qty,
                                       want_printing)
-        names_commander = any(section == "commander" for _, section in target)
         format_set = (_auto_set_commander_format(cur, did)
                       if names_commander else None)
         revision_id, changes = _record_revision(cur, did, "replace", before)
@@ -2104,6 +2126,7 @@ def replace_deck_contents(
             "rejected": rejected,
             "considering": has_considering,
             "format_set": format_set,
+            "commanders_kept": sorted(commanders_kept),
         }
         conn.commit()
         return result
