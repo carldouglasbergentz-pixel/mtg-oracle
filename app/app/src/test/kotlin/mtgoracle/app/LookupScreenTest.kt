@@ -136,10 +136,13 @@ class LookupScreenTest {
         open()
         driver.key(Key.Semicolon, char = ':'.code)
         ui.command.set("t:instant c:u mv<=1 counter")
-        driver.settle(40) // the count waits for typing to pause
+        // The count waits for typing to pause, then runs on an IO thread in real time: wait for it in real time.
+        val counted = Regex("→  \\d+ cards?")
+        val deadline = System.currentTimeMillis() + 5_000
+        while (!counted.containsMatchIn(driver.text.all()) && System.currentTimeMillis() < deadline) { driver.frame(); Thread.sleep(20) }
         val text = driver.text.all()
         assertTrue("type has \"instant\" · colours include U · mana value ≤ 1" in text, "the query read back")
-        assertTrue(Regex("→  \\d+ cards?").containsMatchIn(text), "and counted")
+        assertTrue(counted.containsMatchIn(text), "and counted")
         driver.savePng(File(Scenario.pngDir, "lookup-hint.png"))
 
         val mode = app.mode

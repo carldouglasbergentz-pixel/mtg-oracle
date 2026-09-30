@@ -2,15 +2,14 @@ package mtgoracle.ui.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -18,69 +17,54 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
 import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.DeckSummary
-import mtgoracle.core.deck.Section
 import mtgoracle.ui.board.SIDE_COLS
 import mtgoracle.ui.kit.BoxPane
 import mtgoracle.ui.kit.CardFace
-import mtgoracle.ui.kit.CardFrame
 import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.StatusLine
 import mtgoracle.ui.kit.ZoomPane
 import mtgoracle.ui.kit.cellWidth
-import mtgoracle.ui.kit.cells
 import mtgoracle.ui.kit.clickTarget
-import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.lookup.CommandLine
+import mtgoracle.ui.lookup.KeyRoute
 import mtgoracle.ui.lookup.LookupUi
 import mtgoracle.ui.lookup.OutputLink
 import mtgoracle.ui.lookup.OutputPane
+import mtgoracle.ui.lookup.endsTyping
+import mtgoracle.ui.lookup.routeKey
+import mtgoracle.ui.lookup.startFocus
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
-import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.utf16CodePoint
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.pointerInput
 
 const val DECK_LIST_COLS = 40
-
-/** The order the text-mode deck view groups by, front face's type deciding. */
-private val TYPE_ORDER = listOf("Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land")
-
-fun primaryType(card: DeckCard): String {
-    val front = card.info?.typeLine?.split(" // ")?.first().orEmpty()
-    return TYPE_ORDER.firstOrNull { front.contains(it) } ?: "Other"
-}
 
 /**
  * Folders and decks on the left, the selected deck in the middle (art frames
  * or text lines, T toggles), the zoom pane on the right, and the command line
- * at the bottom. A command shows its output in the middle instead of the
- * deck; Tab switches back. Decks are read-only here: the TUI edits them.
+ * at the bottom. Enter opens the deck to edit (the deck workspace), P plays
+ * it. A command shows its output in the middle instead of the deck; Tab
+ * switches back. Decks are read-only here: the TUI edits them.
  *
  * The screen's own keys (arrows, T, Q...) only act while the command line
- * does not have the keyboard, so typing `quit` never quits on its `q`.
+ * does not have the keyboard ([routeKey]), so typing `quit` never quits on its `q`.
  */
 @Composable
 fun LibraryScreen(
@@ -96,6 +80,7 @@ fun LibraryScreen(
     onPrefetch: () -> Unit,
     onQuit: () -> Unit,
     lookup: LookupUi? = null,
+    onEdit: () -> Unit = {},
 ) {
     var zoom by remember { mutableStateOf<CardFace?>(null) }
     val focus = remember { FocusRequester() }
@@ -114,6 +99,7 @@ fun LibraryScreen(
         val name = (t as? ClickTarget.Control)?.name.orEmpty()
         when {
             name.startsWith("deck:") -> showDeck(name.removePrefix("deck:").toInt())
+            name == "edit" -> onEdit()
             name == "play" -> onPlay()
             name == "mode" -> onToggleMode()
             name == "prefetch" -> onPrefetch()
@@ -127,13 +113,10 @@ fun LibraryScreen(
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Palette.background).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-            if (e.isCtrlPressed && e.key == Key.L && lookup != null) { lookup.output.clear(); return@onPreviewKeyEvent true }
-            // Seen here before the command line: while it has the keyboard, every other key is its.
-            if (lookup?.command?.focused == true) return@onPreviewKeyEvent false
-            if (lookup != null && (e.utf16CodePoint == ':'.code || (e.isCtrlPressed && e.key == Key.K))) {
-                lookup.command.openedBy(if (e.isCtrlPressed) null else ':')
-                commandFocus.requestFocus()
-                return@onPreviewKeyEvent true
+            when (lookup?.let { routeKey(e, it, commandFocus) } ?: KeyRoute.TO_SCREEN) {
+                KeyRoute.HANDLED -> return@onPreviewKeyEvent true
+                KeyRoute.TO_LINE -> return@onPreviewKeyEvent false
+                KeyRoute.TO_SCREEN -> {}
             }
             when (e.key) {
                 Key.Tab -> if (lookup != null) lookup.showOutput = !lookup.showOutput else return@onPreviewKeyEvent false
@@ -141,7 +124,8 @@ fun LibraryScreen(
                 Key.PageDown -> page(+1)
                 Key.DirectionUp -> move(-1)
                 Key.DirectionDown -> move(+1)
-                Key.Enter, Key.P -> onPlay()
+                Key.Enter, Key.NumPadEnter -> onEdit()
+                Key.P -> onPlay()
                 Key.T -> onToggleMode()
                 Key.I -> onPrefetch()
                 Key.Q -> onQuit()
@@ -151,18 +135,8 @@ fun LibraryScreen(
         },
     ) {
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
-        val currentLookup by rememberUpdatedState(lookup)
         Column(Modifier.fillMaxSize()) {
-            // A press anywhere in the panes ends typing, as clicking outside a text field does,
-            // so T and the arrows are the screen's again. Seen first (Initial), never consumed.
-            Row(Modifier.weight(1f).fillMaxWidth().pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val e = awaitPointerEvent(PointerEventPass.Initial)
-                        if (e.type == PointerEventType.Press && currentLookup?.command?.focused == true) focus.requestFocus()
-                    }
-                }
-            }) {
+            Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
                 BoxPane("decks", Modifier.cellWidth(DECK_LIST_COLS).fillMaxHeight()) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         var folder: String? = "\u0000"
@@ -176,7 +150,7 @@ fun LibraryScreen(
                                 fit("  ${d.name}".padEnd(DECK_LIST_COLS - 8) + "%4d".format(d.cardCount), DECK_LIST_COLS - 2),
                                 Modifier.clickTarget(ClickTarget.Control("deck:${d.id}"), onClick),
                                 color = if (selected) Palette.background else Palette.foreground,
-                                background = if (selected) Palette.foreground else androidx.compose.ui.graphics.Color.Unspecified,
+                                background = if (selected) Palette.foreground else Color.Unspecified,
                             )
                         }
                     }
@@ -211,46 +185,25 @@ fun LibraryScreen(
                     count = lookup.count,
                 )
             }
-            Row {
-                listOf("play" to "[ Play ]", "mode" to if (mode == CardMode.ART) "[ Text ]" else "[ Art ]", "prefetch" to "[ Fetch images ]").forEach { (name, label) ->
-                    GridText(label, Modifier.clickTarget(ClickTarget.Control(name), onClick), color = Palette.background, background = Palette.foreground)
-                    GridText("  ")
-                }
-            }
-            val hints = if (lookup?.command?.focused == true) listOf("Enter" to "run", "↑↓" to "history", "Tab" to "autofill", "PgUp/PgDn" to "scroll", "Esc" to "leave")
-            else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
+            Buttons(listOf("edit" to "[ Edit ]", "play" to "[ Play ]", "mode" to if (mode == CardMode.ART) "[ Text ]" else "[ Art ]", "prefetch" to "[ Fetch images ]"), onClick)
+            val hints = if (lookup?.command?.focused == true) TYPING_HINTS
+            else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter" to "edit", "P" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
             StatusLine(hints, notice, cols)
         }
     }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    LaunchedEffect(Unit) { startFocus(lookup, focus, commandFocus) }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** The status line's hints while the command line has the keyboard. */
+internal val TYPING_HINTS = listOf("Enter" to "run", "↑↓" to "history", "Tab" to "autofill", "PgUp/PgDn" to "scroll", "Esc" to "leave")
+
+/** A row of `[ Label ]` controls. */
 @Composable
-private fun DeckView(deck: Deck, keyFor: (DeckCard) -> String?, mode: CardMode, cols: Int, onHover: (CardFace) -> Unit) {
-    val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
-    for (section in Section.entries) {
-        val cards = deck.cards.filter { it.section == section }
-        if (cards.isEmpty()) continue
-        val groups = cards.groupBy { if (section == Section.MAIN) primaryType(it) else section.name.lowercase().replaceFirstChar { c -> c.uppercase() } }
-        val order = (listOf("Commander", "Sideboard") + TYPE_ORDER + "Other")
-        for ((group, groupCards) in groups.entries.sortedBy { order.indexOf(it.key) }) {
-            GridText(fit("─ $group (${groupCards.sumOf { it.quantity }})", cols), color = Palette.dim, bold = true)
-            if (mode == CardMode.TEXT) {
-                groupCards.forEachIndexed { i, card ->
-                    val face = card.face(keyFor(card))
-                    val printing = card.setCode?.let { " (${it.uppercase()}) ${card.collectorNumber.orEmpty()}" }.orEmpty()
-                    GridText(fit("%2d %-32s %-10s %s".format(card.quantity, card.name, face.manaCost, face.typeLine) + printing, cols),
-                        Modifier.clickTarget(ClickTarget.Control("card:${section}:$group:$i"), {}) { onHover(face) })
-                }
-            } else {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    groupCards.forEachIndexed { i, card ->
-                        val face = card.face(keyFor(card))
-                        CardFrame(face, mode, target = ClickTarget.Control("card:${section}:$group:$i"), onHover = { onHover(face) })
-                    }
-                }
-            }
+internal fun Buttons(buttons: List<Pair<String, String>>, onClick: (ClickTarget) -> Unit) {
+    Row {
+        buttons.forEach { (name, label) ->
+            GridText(label, Modifier.clickTarget(ClickTarget.Control(name), onClick), color = Palette.background, background = Palette.foreground)
+            GridText("  ")
         }
     }
 }

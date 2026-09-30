@@ -28,6 +28,22 @@ class LookupUi(
     var showOutput by mutableStateOf(false)
     /** `> ` at the root, `UW Draw Go> ` after `cd` into it. */
     var prompt by mutableStateOf("> ")
+    /** Search results as a grid of cards (T switches to lines). */
+    var grid by mutableStateOf(true)
+    /** The row of the newest search page the arrow keys have selected; null before the first press. */
+    var selected by mutableStateOf<Int?>(null)
+
+    /** Moves the selection by [by] rows of the newest page, stopping at its ends; returns the card now selected. */
+    fun moveSelection(by: Int): String? {
+        val rows = output.latestSearch?.page?.rows.orEmpty()
+        if (rows.isEmpty()) return null
+        val at = ((selected ?: if (by > 0) -1 else rows.size) + by).coerceIn(0, rows.lastIndex)
+        selected = at
+        return rows[at].name
+    }
+
+    /** The selected card of the newest page, if any. */
+    val selectedCard: String? get() = selected?.let { output.latestSearch?.page?.rows?.getOrNull(it)?.name }
 }
 
 /** The hint under the command line: the query read back, a command's usage, or what is wrong. */

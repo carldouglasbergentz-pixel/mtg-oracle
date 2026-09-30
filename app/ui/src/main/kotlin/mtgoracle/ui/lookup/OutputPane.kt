@@ -25,6 +25,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.clickTarget
@@ -36,7 +37,9 @@ import mtgoracle.ui.theme.Palette
  * The scrollback, rendered for the width it has. A new command scrolls its
  * echo to the top, so a long answer (a card profile) reads from its start.
  * [onOpen] runs a clicked link; [onHover] hears which link the mouse is on
- * (the zoom pane shows a hovered card).
+ * (the zoom pane shows a hovered card). With [grid], the newest search page
+ * is drawn as cards ([SearchGrid]); older pages stay lines, so the
+ * scrollback never holds hundreds of images.
  */
 @Composable
 fun OutputPane(
@@ -45,6 +48,9 @@ fun OutputPane(
     onOpen: (OutputLink) -> Unit,
     onHover: (OutputLink) -> Unit,
     modifier: Modifier = Modifier,
+    grid: Boolean = false,
+    selected: Int? = null,
+    faceOf: (String) -> CardFace? = { null },
 ) {
     BoxWithConstraints(modifier.fillMaxSize()) {
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
@@ -56,8 +62,16 @@ fun OutputPane(
         LazyColumn(state = listState) {
             items(log.entries, key = { it.id }) { entry ->
                 val lines = remember(entry.id, cols) { entry.rendering.lines(cols) }
-                Column {
-                    lines.forEachIndexed { i, line -> OutputLineView(line, entry.id * 100_000 + i * 100, onOpen, onHover) }
+                val page = entry.page
+                if (grid && page != null && page.rows.isNotEmpty() && entry.id == log.latestSearch?.id) {
+                    SearchGrid(page, lines, entry.id * 100_000, selected, faceOf, onOpen, onHover)
+                } else Column {
+                    lines.forEachIndexed { i, line ->
+                        // The selected row of the newest page, when it is drawn as lines: the arrows move it.
+                        val row = i - 1
+                        val chosen = page != null && entry.id == log.latestSearch?.id && row == selected
+                        OutputLineView(if (chosen) line.copy(tone = Tone.ECHO) else line, entry.id * 100_000 + i * 100, onOpen, onHover)
+                    }
                 }
             }
         }
@@ -75,7 +89,7 @@ private fun toneBold(tone: Tone) = tone == Tone.BOLD || tone == Tone.ERROR || to
 
 /** One line: plain text between its links. [at] makes each link's click target unique on screen. */
 @Composable
-private fun OutputLineView(line: OutLine, at: Long, onOpen: (OutputLink) -> Unit, onHover: (OutputLink) -> Unit) {
+internal fun OutputLineView(line: OutLine, at: Long, onOpen: (OutputLink) -> Unit, onHover: (OutputLink) -> Unit) {
     val color = toneColor(line.tone)
     val bold = toneBold(line.tone)
     if (line.spans.isEmpty()) {

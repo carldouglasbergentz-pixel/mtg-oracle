@@ -24,6 +24,7 @@ import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.LocalArt
 import mtgoracle.ui.kit.WrapText
 import androidx.compose.foundation.layout.fillMaxWidth
+import mtgoracle.ui.library.DeckWorkspace
 import mtgoracle.ui.library.LibraryScreen
 import mtgoracle.ui.library.SetupScreen
 import mtgoracle.ui.theme.HouseTheme
@@ -61,11 +62,19 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
         Screen.Crashed -> CrashScreen(app)
         Screen.Loading -> Message("MTG Oracle", "Opening the database…")
         is Screen.Blocked -> Message("MTG Oracle can't start", screen.message)
-        Screen.Library -> LibraryScreen(
+        Screen.Library -> app.editing?.let { open ->
+            DeckWorkspace(
+                deck = app.deckById(open.deckId), filters = open.filters.map { it.second }, keyFor = app::keyFor,
+                deckMode = app.deckPaneMode, lookup = app.lookupUi!!, notice = app.notice,
+                onLeave = app::leaveEdit, onToggleResults = app::toggleMode, onToggleDeckMode = app::toggleDeckPaneMode,
+                onPlay = app::openSetup, onQuit = onQuit,
+            )
+        } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
             notice = app.notice ?: if (!app.forgeReady) "Forge is loading…" else null,
             onSelect = app::select, onPlay = app::openSetup, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit,
             lookup = app.lookupUi,
+            onEdit = app::edit,
         )
         Screen.Setup -> {
             val me = app.decks.first { it.id == app.selectedId }

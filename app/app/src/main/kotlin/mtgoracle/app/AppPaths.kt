@@ -77,6 +77,16 @@ class Settings(private val file: File) {
             save()
         }
 
+    /** The deck workspace's search results: a grid of cards (the default) or lines. */
+    var resultsGrid: Boolean
+        get() = props.getProperty("workspace.resultsGrid") != "false"
+        set(value) { props.setProperty("workspace.resultsGrid", value.toString()); save() }
+
+    /** The deck workspace's deck pane: lines (the default, dense beside a search) or frames. */
+    var deckPaneMode: CardMode
+        get() = CardMode.entries.firstOrNull { it.name == props.getProperty("workspace.deckMode") } ?: CardMode.TEXT
+        set(value) { props.setProperty("workspace.deckMode", value.name); save() }
+
     /** Best of 1, 3 or 5: the last one chosen in setup. */
     var matchFormat: MatchFormat
         get() = MatchFormat.entries.firstOrNull { it.column == props.getProperty("matchFormat") } ?: MatchFormat.BO1

@@ -1,6 +1,7 @@
 package mtgoracle.ui.lookup
 
 import androidx.compose.runtime.mutableStateListOf
+import mtgoracle.core.lookup.SearchPage
 
 /**
  * The output pane's scrollback: each command's echo (`> card sol ring`) and
@@ -8,7 +9,8 @@ import androidx.compose.runtime.mutableStateListOf
  * new width instead of keeping lines cut for the old one.
  */
 class OutputLog {
-    data class Entry(val id: Long, val rendering: Rendering, val isEcho: Boolean = false)
+    /** [page]: a search's page, which the pane may draw as a grid of cards instead of [rendering]'s lines. */
+    data class Entry(val id: Long, val rendering: Rendering, val isEcho: Boolean = false, val page: SearchPage? = null)
 
     val entries = mutableStateListOf<Entry>()
     private var nextId = 0L
@@ -18,6 +20,14 @@ class OutputLog {
     fun echo(command: String) = append(message("> $command", Tone.ECHO), isEcho = true)
 
     fun add(rendering: Rendering) = append(rendering, isEcho = false)
+
+    /** A page of search results: lines in text mode, a grid of cards otherwise. */
+    fun addSearch(page: SearchPage, rendering: Rendering) {
+        entries += Entry(nextId++, rendering, isEcho = false, page = page)
+    }
+
+    /** The newest search page in the scrollback: what the arrow keys select in. */
+    val latestSearch: Entry? get() = entries.lastOrNull { it.page != null }
 
     fun clear() = entries.clear()
 

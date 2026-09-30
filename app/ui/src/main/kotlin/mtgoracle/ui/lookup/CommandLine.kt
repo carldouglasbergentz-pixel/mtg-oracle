@@ -38,6 +38,12 @@ class CommandLineState {
     var value by mutableStateOf(TextFieldValue(""))
     var focused by mutableStateOf(false)
     val history = History()
+    /**
+     * Typing is under way: Enter ran a line and Esc hasn't ended it. A
+     * screen that opens then (the deck workspace, after `cd`) gives the line
+     * the keyboard back, so the next line and Esc go where they were meant.
+     */
+    var typing = false
 
     fun set(text: String) { value = TextFieldValue(text, TextRange(text.length)) }
 
@@ -123,6 +129,7 @@ fun CommandLine(
                                     Key.Enter, Key.NumPadEnter -> {
                                         val line = state.value.text.trim()
                                         state.set("")
+                                        state.typing = true
                                         if (line.isNotEmpty()) { state.history.submit(line); onSubmit(line) }
                                         true
                                     }
@@ -130,7 +137,7 @@ fun CommandLine(
                                     Key.DirectionDown -> { state.history.newer()?.let(state::set); true }
                                     Key.Tab -> { accept(); true } // never moves the focus away
                                     Key.DirectionRight -> state.value.selection.end == text.length && accept()
-                                    Key.Escape -> { onLeave(); true }
+                                    Key.Escape -> { state.typing = false; onLeave(); true }
                                     Key.PageUp -> { onPage(-1); true }
                                     Key.PageDown -> { onPage(+1); true }
                                     else -> false

@@ -91,7 +91,7 @@ class AppController(private val paths: AppPaths) {
             commands = LookupCommands(
                 lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
                 copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
-            ).also { lookupUi = it.ui }
+            ).also { lookupUi = it.ui.apply { grid = settings.resultsGrid } }
             screen = Screen.Library
         } catch (e: SchemaTooOldException) {
             screen = Screen.Blocked(e.message!!)
@@ -137,9 +137,40 @@ class AppController(private val paths: AppPaths) {
         java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(text), null)
     }
 
+    /** The deck open in the workspace; null in the library. */
+    val editing: mtgoracle.core.lookup.DeckScope? get() = commands?.scope
+    /** Lines or frames in the workspace's deck pane. */
+    var deckPaneMode by mutableStateOf(settings.deckPaneMode)
+
+    /** Enter in the library: the selected deck, opened to work on. */
+    fun edit() {
+        val id = selectedId ?: return
+        commands?.enterDeck(id)
+    }
+
+    fun leaveEdit() {
+        commands?.leaveDeck()
+    }
+
+    /**
+     * T / F7: what "text or art" means where you are. In the workspace it is
+     * the search results (grid or lines); elsewhere the deck view and the board.
+     */
     fun toggleMode() {
+        val ui = lookupUi
+        if (screen == Screen.Library && editing != null && ui != null) {
+            ui.grid = !ui.grid
+            settings.resultsGrid = ui.grid
+            return
+        }
         mode = if (mode == CardMode.ART) CardMode.TEXT else CardMode.ART
         settings.cardMode = mode
+    }
+
+    /** Shift+T in the workspace: the deck pane between lines and frames. */
+    fun toggleDeckPaneMode() {
+        deckPaneMode = if (deckPaneMode == CardMode.TEXT) CardMode.ART else CardMode.TEXT
+        settings.deckPaneMode = deckPaneMode
     }
 
     /** Offline prefetch: both image kinds for every card in every deck (and its AI copy). */

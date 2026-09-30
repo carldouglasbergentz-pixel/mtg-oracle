@@ -35,6 +35,9 @@ import mtgoracle.ui.lookup.renderRulesSearch
 import mtgoracle.ui.lookup.renderRulings
 import mtgoracle.ui.lookup.renderSearch
 import java.sql.SQLException
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /**
  * The command line's commands: argument syntax, which lookup answers, and
@@ -58,9 +61,28 @@ class LookupCommands(
     )
     val ui = LookupUi(output, suggester::suggest, ::submit, ::open, faceOf, ::preview, ::count)
 
-    /** The deck `cd` entered: `search` and card profiles follow it. Null at the root. */
-    var scope: DeckScope? = null
+    /**
+     * The deck being worked on (the deck workspace, entered by Enter or `cd`):
+     * `search` and card profiles follow it. Null in the library. Compose
+     * state, so the window switches screens with it.
+     */
+    var scope by mutableStateOf<DeckScope?>(null)
         private set
+
+    /** Opens deck [id] to work on: search follows it from now on. False when it is gone. */
+    fun enterDeck(id: Int): Boolean {
+        val entered = lookup.deckScope(id) ?: return false
+        scope = entered
+        ui.prompt = "${entered.deckName}> "
+        onEnterDeck(id)
+        return true
+    }
+
+    /** Back to the library: search covers the whole pool again. */
+    fun leaveDeck() {
+        scope = null
+        ui.prompt = "> "
+    }
     private var lastSearch: SearchPage? = null
     private var lastCombos: List<ComboSummary> = emptyList()
 
@@ -267,7 +289,8 @@ class LookupCommands(
         }
         lastSearch = result
         if (announce && filters.isNotEmpty()) say(renderDeckFilterNotice(filters))
-        say(renderSearch(result))
+        ui.selected = null
+        output.addSearch(result, renderSearch(result))
     }
 
     private fun searchError(e: SearchError) {
@@ -276,15 +299,15 @@ class LookupCommands(
     }
 
     /**
-     * `cd <deck>` (or `<folder>/<deck>`): search and card profiles follow the
-     * deck. `cd ..` and `cd /` go back to the whole pool. Navigation only:
-     * folders and decks are still made and changed in the TUI.
+     * `cd <deck>` (or `<folder>/<deck>`) opens the deck workspace, as Enter
+     * does; search and card profiles follow the deck. `cd ..` and `cd /` go
+     * back to the library. Navigation only: folders and decks are still made
+     * and changed in the TUI.
      */
     private fun cd(arg: String) {
         if (arg.isEmpty() || arg == ".." || arg == "/") {
-            scope = null
-            ui.prompt = "> "
-            return say("(search and card profiles cover the whole card pool)", Tone.DIM)
+            leaveDeck()
+            return say("(back in the library: search covers the whole card pool)", Tone.DIM)
         }
         val folder = if ('/' in arg) arg.substringBefore('/').trim() else null
         val name = arg.substringAfter('/').trim()
@@ -297,10 +320,8 @@ class LookupCommands(
             1 -> matches.single()
             else -> return say("('$name' is in several folders: ${matches.joinToString(", ") { it.folderName ?: UNSORTED }} — use `cd <folder>/$name`)")
         }
-        val entered = lookup.deckScope(deck.id) ?: return say("(no deck named '$arg')")
-        scope = entered
-        ui.prompt = "${entered.deckName}> "
-        onEnterDeck(deck.id)
+        if (!enterDeck(deck.id)) return say("(no deck named '$arg')")
+        val entered = scope!!
         val filters = entered.filters.map { it.second }
         say(if (filters.isEmpty()) "in ${entered.deckName}: no commander and no format, so search is not filtered"
             else "in ${entered.deckName}: search is limited to ${filters.joinToString("  ")}  (`cd ..` for the full pool)", Tone.DIM)
