@@ -33,6 +33,18 @@ class AnalysisPiecesTest {
         assertEquals(1.0, Probability.holdAny(1, 200, 60), "a small deck late on has been seen whole")
     }
 
+    @Test
+    fun `on curve is Moxfield's number when rocks are left out`() {
+        // Elminster Boomer Wizard on Moxfield, 2026-09-30: 43 land sources in a 99-card library,
+        // "a 99.17% chance of playing these on curve" for the one-drops, on the draw.
+        assertEquals(0.9917, Probability.manaOnTurn(lands = 43, rocks = 0, turn = 1, cost = 1, onPlay = false, deckSize = 99), 5e-5)
+        assertEquals(1.0, Probability.manaOnTurn(lands = 0, rocks = 0, turn = 1, cost = 0))
+        val without = Probability.manaOnTurn(40, 0, 3, 3)
+        val with = Probability.manaOnTurn(38, 2, 3, 3)
+        assertEquals(without, with, 1e-12, "on curve a rock pays like a land: cost N on turn N needs N sources either way")
+        assertTrue(Probability.manaOnTurn(40, 0, 3, 3, onPlay = false) > without, "the draw sees one card more")
+    }
+
     private fun card(name: String, cost: String, mv: Int, type: String, text: String, layout: String = "normal") =
         CardFacts(name, cost, mv, type, text, layout = layout)
 

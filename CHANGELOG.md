@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (on curve in the full profile, after Moxfield)
+- **`profile` has an "on curve" table by mana value,** after Moxfield's. It shows the cards at each value (and how many are permanents), and the chance, on the play and on the draw, that the lands and rocks drawn by turn N pay for a card costing N if you hold one. It is exact, like the rest of the draw maths. It counts rocks and land backs, and it uses the effective cost. Checked against Moxfield: with its assumptions (43 land sources, 99 cards, no rocks, on the draw) it gives the same 99.17% for one-drops.
+- **A mana value in that table is a link to its cards,** each of them a link to the card.
+
 ### Changed (replace keeps the commander)
 - **A replace from a list with no commander section keeps the deck's commanders,** in both apps. A pasted list without a `Commander` header had put Elminster into the main deck, and left a Duel Commander deck with no commander: no colour filter, no identity check, no Commander game. The commander now stays. If the list has it among the deck's cards, that copy *is* the commander, not a second one, and its printing goes with it. The preview and the result say so ("the list names no commander, so Elminster stays the commander"). A list that names a commander still replaces them. DeckParityTest has both cases; `test_deck_history` checks the rule.
 - Elminster was made the commander of Elminster Boomer Wizard again, with the user's go-ahead (revision #12, `promote`, undoable).

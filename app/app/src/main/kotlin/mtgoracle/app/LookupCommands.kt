@@ -145,6 +145,7 @@ class LookupCommands(
             is OutputLink.Combo -> { output.echo("combo-info ${link.id}"); guarded { showCombo(link.id) } }
             is OutputLink.Rule -> { output.echo("rule ${link.number}"); guarded { rule(link.number) } }
             is OutputLink.Run -> { output.echo(link.command); guarded { dispatch(link.command) } }
+            is OutputLink.Cards -> { output.echo(link.title); say(mtgoracle.ui.lookup.renderCardList(link.title, link.names)) }
             // A result's `+ sb ?`: the deck changes, the output doesn't.
             is OutputLink.Edit -> { ui.showOutput = showing; guarded { edit(link.action) } }
         }

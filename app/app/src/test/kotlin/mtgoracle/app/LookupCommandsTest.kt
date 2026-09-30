@@ -232,6 +232,14 @@ class LookupCommandsTest {
         val folder = run("profile ${deck.folderName}")
         assertTrue("${others.size + 1} decks, side by side" in folder && "=== MOST PLAYED, per role" in folder, folder)
         assertTrue("profile: no deck or folder named 'No Such Thing'" in run("profile No Such Thing"))
+        // A mana value in the on-curve table opens its cards, each a link.
+        run("profile ${deck.name}")
+        val ones = links().filterIsInstance<OutputLink.Cards>().first { it.title.endsWith(": 1 mana") }
+        val before = commands.output.entries.size
+        commands.open(ones)
+        val shown = commands.output.entries.drop(before).flatMap { it.rendering.lines(100) }
+        assertTrue(shown.any { it.text.startsWith("${deck.name}: 1 mana (${ones.names.size})") }, shown.joinToString("\n") { it.text })
+        assertEquals(ones.names, shown.flatMap { it.spans }.map { (it.link as OutputLink.Card).name })
 
         run("cd ${deck.name}")
         assertTrue("${deck.name} against ${others[0].name}, head to head" in run("compare ${others[0].name}"))

@@ -88,6 +88,25 @@ object Probability {
         return acc / totalWays
     }
 
+    /**
+     * P(the lands and rocks drawn by [turn] pay for a card costing [cost]),
+     * given you hold one: Moxfield's "on curve", exact, with rocks counted.
+     * Lands pay one each up to one per turn played; a rock pays from the turn
+     * it is drawn, as in [categoryLive].
+     */
+    fun manaOnTurn(lands: Int, rocks: Int, turn: Int, cost: Int, onPlay: Boolean = true, deckSize: Int = 100): Double {
+        if (cost <= 0) return 1.0
+        val s = clampSeen(cardsSeen(turn, onPlay), deckSize)
+        if (s <= 0) return 0.0
+        val others = deckSize - lands - rocks
+        var ways = BigInteger.ZERO
+        for (l in 0..minOf(lands, s)) for (r in 0..minOf(rocks, s - l)) {
+            if (minOf(turn, l) + r < cost || s - l - r > others) continue
+            ways += comb(lands, l) * comb(rocks, r) * comb(others, s - l - r)
+        }
+        return Py.ratio(ways, comb(deckSize, s))
+    }
+
     /** [categoryLive] across [turns]. */
     fun curve(mvCounts: Map<Int, Int>, lands: Int, rocks: Int, turns: List<Int>, onPlay: Boolean = true, deckSize: Int = 100): Map<Int, Double> =
         turns.associateWith { categoryLive(mvCounts, lands, rocks, it, cardsSeen(it, onPlay), deckSize) }

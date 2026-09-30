@@ -14,6 +14,8 @@ sealed interface OutputLink {
     data class Rule(val number: String) : OutputLink
     /** One of our own fixed commands (`next`, `prev`): never built from data. */
     data class Run(val command: String) : OutputLink
+    /** A list of cards to show, named by [title] (a mana value's cards in a profile). */
+    data class Cards(val title: String, val names: List<String>) : OutputLink
     /** A change to the open deck (a result's `+`, `sb`, `?`). */
     data class Edit(val action: EditAction) : OutputLink
 }

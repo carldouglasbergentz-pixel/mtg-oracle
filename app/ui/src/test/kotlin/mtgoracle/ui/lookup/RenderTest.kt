@@ -53,6 +53,7 @@ class RenderTest {
                     is OutputLink.Rule -> assertEquals("[${link.number}]", shown)
                     is OutputLink.Combo -> assertTrue(shown.startsWith("[") && shown.endsWith("]"), shown)
                     is OutputLink.Edit -> assertTrue(shown in setOf("+", "sb", "?"), shown)
+                    is OutputLink.Cards -> assertTrue(link.names.isNotEmpty(), "an empty list is never a link")
                 }
             }
         }

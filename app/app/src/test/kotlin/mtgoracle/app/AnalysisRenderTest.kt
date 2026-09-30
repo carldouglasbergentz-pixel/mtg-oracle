@@ -10,6 +10,7 @@ import mtgoracle.ui.lookup.renderRanking
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -43,6 +44,9 @@ class AnalysisRenderTest {
                     assertTrue(has == row, "${p.name}: $role has cards = $has, has a row = $row")
                 }
                 assertTrue("Cards: each card" in text && "Gap: what the" in text, text)
+                assertTrue("=== ON CURVE, by effective mana value ===" in text && lines.any { it.text.startsWith("on the draw") }, text)
+                val mvLinks = lines.flatMap { it.spans }.map { it.link }.filterIsInstance<mtgoracle.ui.lookup.OutputLink.Cards>()
+                assertEquals(p.curveCards.values.sumOf { it.size }, mvLinks.sumOf { it.names.size }, "the links hold every spell of the curve")
             }
             val set = renderProfile(profiles.take(4)).lines(width)
             assertTrue(set.all { it.text.length <= width }, set.joinToString("\n") { it.text })

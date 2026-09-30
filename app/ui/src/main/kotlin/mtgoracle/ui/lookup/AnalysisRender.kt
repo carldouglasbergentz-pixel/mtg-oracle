@@ -130,7 +130,53 @@ private fun deckProfile(r: Report, p: DeckProfile, turns: List<Int>, onPlay: Boo
         "Also: cards whose main job is another role but that can do this one too (Cryptic Command also draws). " +
         "Engines: permanents that do it again every turn rather than once.")
     absentNote(r, listOf(p), "cards in the deck for")
+    onCurveTable(r, p)
     whenTable(r, listOf(p), roles.filter { it != "utility" }, turns, onPlay)
+}
+
+/**
+ * Moxfield's "on curve", per mana value: the cards at each value, and the
+ * chance the mana is there on that turn for one of them. The values are
+ * links to their cards.
+ */
+private fun onCurveTable(r: Report, p: DeckProfile) {
+    if (p.curve.isEmpty()) return
+    val top = 6 // 6 means 6+: turn six, six mana
+    fun bucket(mv: Int) = minOf(mv, top)
+    val cards = (0..top).associateWith { b -> p.curve.filterKeys { bucket(it) == b }.values.sum() }
+    val permanents = (0..top).associateWith { b -> p.curvePermanents.filterKeys { bucket(it) == b }.values.sum() }
+    val names = (0..top).associateWith { b -> p.curveCards.filterKeys { bucket(it) == b }.values.flatten().sorted() }
+    val lead = 16
+    val col = 6
+    r.head("=== ON CURVE, by effective mana value ===")
+    val head = StringBuilder("mana value".left(lead))
+    val spans = mutableListOf<LinkSpan>()
+    for (b in 0..top) {
+        val text = if (b == top) "$top+" else "$b"
+        val cell = text.right(col)
+        if (names.getValue(b).isNotEmpty()) {
+            val start = head.length + col - text.length
+            spans += LinkSpan(start, start + text.length, OutputLink.Cards("${p.name}: ${if (b == top) "$top or more" else "$b"} mana", names.getValue(b)))
+        }
+        head.append(cell)
+    }
+    r.out += OutLine(head.toString(), Tone.PLAIN, spans)
+    r.add("cards".left(lead) + (0..top).joinToString("") { cards.getValue(it).toString().right(col) })
+    r.add("  permanents".left(lead) + (0..top).joinToString("") { permanents.getValue(it).toString().right(col) })
+    for (onPlay in listOf(true, false)) {
+        r.add((if (onPlay) "on the play" else "on the draw").left(lead) +
+            (0..top).joinToString("") { b -> if (cards.getValue(b) == 0) "-".right(col) else pct(p.onCurve(b, onPlay)).right(col) })
+    }
+    r.note("On curve: holding a card that costs N, the lands and rocks drawn by turn N pay for it (Moxfield's number, " +
+        "with rocks and land backs counted and the cost the effective one). Click a mana value for its cards.")
+}
+
+/** A list of cards, each a link: what a mana value in the on-curve table opens. */
+fun renderCardList(title: String, names: List<String>): Rendering = Rendering { width ->
+    val r = Report(width)
+    r.add("$title (${names.size})", Tone.BOLD)
+    names.forEach { r.card("  ", it) }
+    r.out
 }
 
 private fun setProfile(r: Report, profiles: List<DeckProfile>, turns: List<Int>, onPlay: Boolean) {

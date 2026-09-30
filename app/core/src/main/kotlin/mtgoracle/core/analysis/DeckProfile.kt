@@ -55,7 +55,13 @@ data class DeckProfile(
     /** The cards counted as [rocks] and as [landBacks], by name: what a report names when it says "2 rocks". */
     val rockNames: List<String> = emptyList(),
     val landBackNames: List<String> = emptyList(),
+    /** The spells of [curve], by effective mana value, sorted; and how many of them are permanents. */
+    val curveCards: Map<Int, List<String>> = emptyMap(),
+    val curvePermanents: Map<Int, Int> = emptyMap(),
 ) {
+    /** P(the mana is there on turn [mv] for a card costing [mv]), if you hold one: see [Probability.manaOnTurn]. */
+    fun onCurve(mv: Int, onPlay: Boolean = true): Double = Probability.manaOnTurn(lands, rocks, mv, mv, onPlay, size)
+
     /** Lands, modal-DFC land backs and rocks. */
     val manaSources: Int get() = lands + rocks
 
@@ -151,6 +157,8 @@ object Archetype {
         var size = 0
         val rockNames = mutableListOf<String>()
         val landBackNames = mutableListOf<String>()
+        val curveCards = sortedMapOf<Int, MutableList<String>>()
+        val curvePermanents = sortedMapOf<Int, Int>()
         for ((name, qty) in deck.cards) {
             val fact = pool.facts(name) ?: continue
             size += qty
@@ -185,9 +193,13 @@ object Archetype {
                 rockNames += fact.name
             }
             curve.merge(mv, qty, Int::plus)
+            curveCards.getOrPut(mv) { mutableListOf() } += fact.name
+            val front = fact.frontTypeLine()
+            if ("Instant" !in front && "Sorcery" !in front) curvePermanents.merge(mv, qty, Int::plus)
         }
         val missing = deck.cards.keys.filter { pool.facts(it) == null }.sorted()
-        return DeckProfile(deck.name, size, counts, roleMv, curve, lands, rocks, landBacks, missing, engines, onCurve, rockNames.sorted(), landBackNames.sorted())
+        return DeckProfile(deck.name, size, counts, roleMv, curve, lands, rocks, landBacks, missing, engines, onCurve, rockNames.sorted(), landBackNames.sorted(),
+            curveCards.mapValues { (_, names) -> names.sorted() }, curvePermanents)
     }
 
     /** How many of [decks] play each card, by canonical name: two spellings in one list is still one list. */
