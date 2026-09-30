@@ -7,7 +7,7 @@ Runs offline after the first sync. No network at query time; card art is fetched
 **Two halves, one database** ([ADR 0001](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md)):
 
 - **The app** (`app/`, Kotlin + Compose Desktop, Forge embedded) is where the work happens: the library, the deck workspace (the deck beside a search, a considering list, the history), lookups, and play against the AI, recorded game by game.
-- **The data pipeline** (`mtg_oracle/`, `scripts/`, Python) builds and migrates the database: `sync.py` pulls every source, and `scripts/self_heal.py` owns every schema migration. The Python TUI and CLI still work over the same database until the app has everything they do ([`docs/feature-parity.md`](docs/feature-parity.md)).
+- **The data pipeline** (`mtg_oracle/`, `scripts/`, Python) fills the database: `sync.py` pulls every source. **The app owns the schema** (`PRAGMA user_version`; `app/data/.../Schema.kt`): it takes a database over at start and migrates it from then on, and `scripts/self_heal.py` leaves a versioned database alone. The Python TUI and CLI still work over the same database until the app has everything they do ([`docs/feature-parity.md`](docs/feature-parity.md)).
 
 ## What's in the box
 
@@ -40,7 +40,7 @@ python scripts/mtg_cli.py card "Deathrite Shaman"
 python scripts/mtg_cli.py search "kw:flying c:u t:creature mv<=3"
 ```
 
-Play from the snapshot, not `gradlew :app:run`: a build replaces the class files under a running game. The app checks the schema at start and stops with the one command to run if the database is older than it (`python scripts/self_heal.py`); it never migrates on its own. Its tests: `gradlew test` in `app/` (the database tests skip without `data/mtg.db`).
+Play from the snapshot, not `gradlew :app:run`: a build replaces the class files under a running game. The app migrates the database to its schema version at start, after a backup in `data/backups/` (the three newest are kept); `gradlew :app:migrate` does only that, and `gradlew :app:checkSchema` checks without writing. A database without a version (one the Python migrations made) is checked against version 1 and adopted unchanged; one missing part of it stops the app with the one command that completes it (`python scripts/self_heal.py`). Its tests: `gradlew test` in `app/` (the database tests skip without `data/mtg.db`).
 
 `sync.py` is idempotent — it skips any source whose upstream version (timestamp / ETag / release date) hasn't moved. The end of every run prints a `=== changelog ===` summary of what actually changed.
 
@@ -48,7 +48,7 @@ Play from the snapshot, not `gradlew :app:run`: a build replaces the class files
 
 ### Existing database from an earlier version?
 
-`sync.py` self-heals: it runs the additive migrations (`scryfall_fields`, `tags`, `corrections`, `user_combos`) on every invocation and stays quiet unless one of them actually changes something. For older databases that predate the `oracle_id` / `mana_cost` / `decks` work, apply those three first:
+Once the app has started on a database, it owns the schema and none of this applies: `self_heal.py` then says so and does nothing. Before that, `sync.py` self-heals: it runs the additive migrations (`scryfall_fields`, `tags`, `corrections`, `user_combos`) on every invocation and stays quiet unless one of them actually changes something. For older databases that predate the `oracle_id` / `mana_cost` / `decks` work, apply those three first:
 
 ```bash
 python scripts/migrations/migrate_add_oracle_id.py        # oracle_id, layout, card_faces, sync_state
@@ -242,7 +242,7 @@ mtg-oracle/
 ├── scripts/
 │   ├── sync.py, sync_*.py           The sync: orchestrator and one script per source
 │   ├── init_db.py                   The full schema, on a fresh database
-│   ├── self_heal.py                 Runs every migration, in order (sync, TUI and CLI run it on start)
+│   ├── self_heal.py                 Runs every migration, in order, on a database the app hasn't taken over
 │   ├── migrations/                  One idempotent migration per schema change
 │   ├── tag_cards.py, load_custom_formats.py, prune_stale_cards.py
 │   ├── analyse_archetype.py         Deck analysis over a folder of reference lists

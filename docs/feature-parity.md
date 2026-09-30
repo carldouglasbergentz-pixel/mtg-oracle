@@ -91,6 +91,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 |---|---|---|---|
 | Sync: cards, rulings, rules, combos, tags, oracle tags, formats; skip-unchanged, `--force`, `--only`, changelog | `sync.py`, `sync` in the TUI | 6 | ○ (Python keeps it) |
 | Prune stale cards | `prune_stale_cards.py` | 6 | ○ |
+| Schema: create, migrate, backup | `init_db.py`, `self_heal.py` + `scripts/migrations/` | 6a | ✓ the app's `Schema` (`user_version`): creates v1, adopts a Python-made database unchanged, backs up before migrating; v2 dropped the empty `forge_matches`. `self_heal` leaves a versioned database alone |
 | User combos | `add_user_combo.py` | 3 (show) / 4 (add) | ▶ shown in every combo lookup; adding one moves to step 4 with the other writes |
 | Export scripts (land fetchers, typal matters) | `scripts/export_*.py` | 6 | ○ decide |
 | CLI for scripting and `--json` | `mtg_cli.py` | 6 | ○ decide: keep a Kotlin CLI or keep Python's |

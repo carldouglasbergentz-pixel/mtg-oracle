@@ -125,7 +125,8 @@ tasks.register("installLocal") {
     }
 }
 
-registerMode("checkSchema", "Checks that data/mtg.db has the schema this app needs.", "check-schema")
+registerMode("checkSchema", "Checks, read-only, that data/mtg.db has its schema version's every table and column.", "check-schema")
+registerMode("migrate", "Brings data/mtg.db to this build's schema version, as the app does at start (backup first).", "migrate")
 registerMode("prefetchImages", "Downloads card art for the cards in your decks (-Pargs=\"<deck name>\" for one).", "prefetch")
 registerMode("stagedPictures", "Headless: the staged boards (table, lands, stack box, trail, hidden info, reveal, watch) rendered with real art; -Pargs=\"<board names>\" for some.", "snapshots")
 registerMode("scriptedGame", "Headless: a scripted seat plays through the UI against the AI; use -Pdata=<copy>.", "scripted")

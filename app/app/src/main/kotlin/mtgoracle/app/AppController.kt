@@ -22,6 +22,7 @@ import mtgoracle.ui.kit.face
 import mtgoracle.ui.lookup.LookupUi
 import mtgoracle.data.MissingDatabaseException
 import mtgoracle.data.MtgDb
+import mtgoracle.data.SchemaTooNewException
 import mtgoracle.data.SchemaTooOldException
 import mtgoracle.forge.ForgeRuntime
 import mtgoracle.forge.Log
@@ -88,11 +89,15 @@ class AppController(private val paths: AppPaths) {
     /** Each deck's analysis block until the deck changes: arrowing through the list re-reads nothing. */
     private val insightCache = mutableMapOf<Int, DeckInsight>()
 
-    /** Opens the database (the schema check first), then brings Forge up in the background. */
+    /** Opens the database (migrating it to this build's schema first), then brings Forge up in the background. */
     fun boot() {
         try {
             val db = MtgDb(paths.db)
-            db.checkSchema()
+            val migrated = db.migrate(paths.backups)
+            if (migrated.changed) {
+                Log.info("schema v${migrated.from} -> v${migrated.to}: ${migrated.lines.joinToString("; ")}")
+                notice = "database schema updated to version ${migrated.to}" + (migrated.backup?.let { "; backup in ${it.name}" } ?: "")
+            }
             library = Library(db)
             sessions = Sessions(GameStore(db), paths.gameLogs)
             decks = library.decks()
@@ -126,6 +131,9 @@ class AppController(private val paths: AppPaths) {
             lookupUi = lookupCommands.ui.apply { grid = settings.resultsGrid; intent = actions::handle }
             screen = Screen.Library
         } catch (e: SchemaTooOldException) {
+            screen = Screen.Blocked(e.message!!)
+            return
+        } catch (e: SchemaTooNewException) {
             screen = Screen.Blocked(e.message!!)
             return
         } catch (e: MissingDatabaseException) {

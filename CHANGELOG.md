@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (step 6a: the app owns the schema)
+- **The Kotlin app creates and migrates the database** (`Schema`, `MtgDb.migrate`), with the version in `PRAGMA user_version`:
+  - Version 1 is `scripts/init_db.py`'s schema, verbatim (`schema-v1.sql`).
+  - A database the Python migrations made is checked against it and adopted unchanged; one missing part of it stops the app with the one command that completes it.
+  - An empty file gets the whole schema.
+  - Before any write, the stamp included, the database is copied to `data/backups/mtg-<time>-pre-vN.db`. The app's three newest copies are kept, and hand-made copies are never pruned.
+  - `gradlew :app:migrate` does just that. `checkSchema` checks read-only, against the shape the version must have (tables, columns, indexes, foreign keys as sets), instead of a hand-kept list.
+- **Version 2 drops `forge_matches`,** the Python simulator's table, when it is empty. Simulations are rows in `games` now.
+- **`self_heal.py` leaves a versioned database alone,** so nothing the app drops comes back. The Python TUI and CLI keep working over the same data. `forge sim` / `forge results` have nowhere to store, and their tests skip.
+- **The tests migrate their copies with the app's migrations,** not with `self_heal`. SchemaTest holds version 1 to Python's init_db + self_heal, and covers adoption, the backup, the kept table, a gap, a newer version and pruning.
+- **Applied to the live database** with the user's go-ahead: v0 → v2, integrity ok. The backup is `data/backups/mtg-2026-09-30-170040-pre-v2.db`.
+
 ### Added (step 5c: the AI copies edited in the app)
 - **A card's menu in the workspace has "AI substitute...":** what Forge's AI plays instead of that card, in games and simulations. The deck itself is untouched. The substitute is checked in this order:
   1. Against the deck's own rules, with every substitution applied together (a port of `check_swaps`: colour identity, legality, singleton, points), so two substitutes that only break singleton jointly are caught.

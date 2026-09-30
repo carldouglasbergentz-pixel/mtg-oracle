@@ -77,6 +77,24 @@ MIGRATIONS = (
 )
 
 
+def _app_version(db_path: Optional[Path]) -> int:
+    """The database's schema version, 0 for one the Python migrations still own.
+
+    The Kotlin app stamps `PRAGMA user_version` when it takes a database over
+    (step 6a) and migrates it from then on; nothing here may touch it after
+    that, or a table the app dropped would come back.
+    """
+    import sqlite3
+    path = db_path or DB_PATH
+    if not Path(path).exists():
+        return 0
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        return conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        conn.close()
+
+
 def run(migrations=MIGRATIONS, db_path: Optional[Path] = None) -> tuple[list[str], list[str]]:
     """Run each migration, against `db_path` when one is given.
 
@@ -90,6 +108,9 @@ def run(migrations=MIGRATIONS, db_path: Optional[Path] = None) -> tuple[list[str
     One migration refusing (migrate_unique_deck_names exits on duplicate deck
     names and leaves the renaming to the user) does not stop the rest.
     """
+    version = _app_version(db_path)
+    if version:
+        return [f"OK Schema version {version} is the app's: nothing to migrate here."], []
     if not Path(db_path or DB_PATH).exists():
         return [], []
     reports: list[str] = []

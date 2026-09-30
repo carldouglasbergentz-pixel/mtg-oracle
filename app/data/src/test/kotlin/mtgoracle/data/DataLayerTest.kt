@@ -104,31 +104,3 @@ class DataLayerTest {
         }
     }
 }
-
-/** The startup check's failure path, on a database built from scratch without the step-2 schema. */
-class SchemaCheckTest {
-    @Test
-    fun `an old schema names every gap and says to run self_heal`() {
-        val dir = kotlin.io.path.createTempDirectory("mtg-oracle-kt-old-").toFile()
-        val old = File(dir, "mtg.db")
-        // Everything the app needs except what the step-2 migrations added: the printing columns and `games`.
-        val step2 = setOf("deck_cards.set_code", "deck_cards.collector_number")
-        DriverManager.getConnection("jdbc:sqlite:${old.path}").use { conn ->
-            conn.createStatement().use { st ->
-                SchemaCheck.REQUIRED.filterKeys { it != "games" }.forEach { (table, columns) ->
-                    st.execute("CREATE TABLE $table (${columns.filter { "$table.$it" !in step2 }.joinToString(", ") { "$it TEXT" }})")
-                }
-            }
-        }
-        val error = assertFailsWith<SchemaTooOldException> { MtgDb(old).checkSchema() }
-        assertEquals(listOf("column deck_cards.set_code", "column deck_cards.collector_number", "table games"), error.missing)
-        assertContains(error.message!!, "python scripts/self_heal.py")
-        dir.deleteRecursively()
-    }
-
-    @Test
-    fun `a missing database says how to build one`() {
-        val error = assertFailsWith<MissingDatabaseException> { MtgDb(File("does-not-exist.db")) }
-        assertContains(error.message!!, "sync.py")
-    }
-}

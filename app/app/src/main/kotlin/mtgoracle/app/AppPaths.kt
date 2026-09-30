@@ -25,6 +25,8 @@ data class AppPaths(
 ) {
     val db: File get() = data.resolve("mtg.db")
     val gameLogs: File get() = data.resolve("game_logs")
+    /** Where a migration's backup goes (the three newest are kept). */
+    val backups: File get() = data.resolve("backups")
     val home: File get() = data.resolve("app")
     val forge: ForgeSetup get() = ForgeSetup(forgeAssets, forgeHome ?: home.resolve("forge"))
     val settings: File get() = home.resolve("settings.properties")

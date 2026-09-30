@@ -29,6 +29,7 @@ fun main(args: Array<String>) {
     val code = try {
         when (mode) {
             "check-schema" -> checkSchema(paths)
+            "migrate" -> migrate(paths)
             "prefetch" -> Headless.prefetch(paths, args.drop(1).joinToString(" ").ifBlank { null })
             "scripted" -> Scripted.run(paths, args.drop(1))
             "snapshots" -> StagedPictures.run(paths, java.io.File(System.getProperty("mtgoracle.evidence") ?: "build/evidence", "staged"), args.drop(1).toSet())
@@ -41,11 +42,25 @@ fun main(args: Array<String>) {
     exitProcess(code)
 }
 
-private fun checkSchema(paths: AppPaths): Int = try {
+/** Read-only: whether the database has its version's whole schema. */
+private fun checkSchema(paths: AppPaths): Int = schemaErrors {
     MtgDb(paths.db).checkSchema()
     println("${paths.db}: schema OK")
+}
+
+/** What the app does at start, alone: bring the database to this build's schema, with a backup first. */
+private fun migrate(paths: AppPaths): Int = schemaErrors {
+    val report = MtgDb(paths.db).migrate(paths.backups)
+    println("${paths.db}: schema v${report.from} -> v${report.to}")
+    report.lines.forEach { println("  $it") }
+}
+
+private fun schemaErrors(block: () -> Unit): Int = try {
+    block()
     0
 } catch (e: SchemaTooOldException) {
+    System.err.println(e.message); 2
+} catch (e: mtgoracle.data.SchemaTooNewException) {
     System.err.println(e.message); 2
 } catch (e: MissingDatabaseException) {
     System.err.println(e.message); 2

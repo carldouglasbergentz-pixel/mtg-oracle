@@ -557,9 +557,26 @@ class TestExport(ServiceTestCase):
         self.assertIn(svc.COMMANDER_NOTE, out.notes)
 
 
+def _has_forge_matches() -> bool:
+    """Whether the database still has the Python simulator's table.
+
+    The app took the schema over (step 6a) and dropped forge_matches: it
+    simulates in-process now, into `games`. `forge sim` / `forge results`
+    have nowhere to store, and go with the rest of the Python side.
+    """
+    conn = fd._connect()
+    try:
+        return conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                            "AND name = 'forge_matches'").fetchone() is not None
+    finally:
+        conn.close()
+
+
 class TestSimAndResults(ServiceTestCase):
     def setUp(self):
         super().setUp()
+        if not _has_forge_matches():
+            self.skipTest("forge_matches was dropped by the app's schema version 2")
         d.create_deck("Burn", folder=self.folder)
         d.add_card_to_deck("Burn", "Lightning Bolt", quantity=4, folder=self.folder)
         d.add_card_to_deck("Burn", "Mountain", quantity=20, folder=self.folder)
@@ -669,6 +686,8 @@ class TestRealForgeGame(unittest.TestCase):
     """
 
     def test_one_game(self):
+        if not _has_forge_matches():
+            self.skipTest("forge_matches was dropped by the app's schema version 2: the app simulates now")
         real_db_before = _file_digest(REAL_DB)
         tmp = Path(tempfile.mkdtemp(prefix="mtg-oracle-forge-"))
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)

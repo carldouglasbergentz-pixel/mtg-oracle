@@ -37,7 +37,7 @@ object Scripted {
         val copy = File(out, "mtg.db")
         check(copy.canonicalFile != paths.db.canonicalFile) { "refusing to use the real database" }
         Files.copy(paths.db.toPath(), copy.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        val db = MtgDb(copy).also { it.checkSchema() }
+        val db = MtgDb(copy).also { it.migrate(backups = null) } // a copy: no backup of it
         val library = Library(db)
         fun deck(name: String) = library.decks().firstOrNull { it.name.equals(name, ignoreCase = true) }?.let { library.deck(it.id) }
             ?: error("no deck named '$name' (have: ${library.decks().joinToString { it.name }})")
