@@ -67,7 +67,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 
 | Feature | Today | Step | Status |
 |---|---|---|---|
-| Deck profile: role densities, reach, exact castable-on-turn odds, low-confidence cards | `profile` | 5 | ✓ `profile [<deck>]` and the block's `[ full profile ]`; the tables are Python's byte for byte (AnalysisRenderParityTest) |
+| Deck profile: role densities, reach, exact castable-on-turn odds, low-confidence cards | `profile` | 5 | ✓ `profile [<deck>]` and the block's `[ full profile ]`; the numbers are Python's (AnalysisParityTest); the layout is the app's own, only the roles the deck holds and a note under each table |
 | Head-to-head comparison | `compare` | 5 | ✓ `compare <deck>` |
 | Reference-set ranges over a folder of lists, `--json` | `scripts/analyse_archetype.py` | 5 | ▶ in the app over a library folder: `profile <folder>` (side by side, most played per role) and `compare <folder>` (ranges); import the lists into a folder first. A folder of files and `--json` are the Kotlin CLI's (6c) |
 | Role classifier (Tagger tags + text rules, face-burn veto, drawback vetoes) | `roles.py` | 5 | ✓ `core/analysis`; AnalysisParityTest classifies all 35k cards against Python, and checks every deck's analytics and every profile, ranking and comparison at 12 decimals |

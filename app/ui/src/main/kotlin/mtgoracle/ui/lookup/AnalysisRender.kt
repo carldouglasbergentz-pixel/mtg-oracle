@@ -10,39 +10,39 @@ import mtgoracle.core.analysis.left
 import mtgoracle.core.analysis.right
 
 /*
- * The archetype analysis tables (renderer.render_profile / render_ranking /
- * render_comparison), byte for byte: the columns are fixed, so a table wider
- * than the pane runs past its edge rather than wrapping into nonsense.
- * Section heads are bold and card names are links.
+ * The archetype analysis as tables to read (profile, most played, compare).
+ * The numbers are the engine's, held to Python by AnalysisParityTest; the
+ * layout is the app's own:
+ *  - only roles that exist in the decks shown get a row;
+ *  - every table says under it what its columns mean;
+ *  - the tables fit the pane, dropping late turns or per-deck columns before a row would run past the edge.
  */
 
-private const val ROLE_COL = 26
-private const val TURN_COL = 7
-
 private val REPORT = Roles.REPORT_ROLES
-private val LABELS = Roles.LABELS
 
-/** Lines in Python's layout: never wrapped, `===` heads in bold. */
-private class Table {
+/** What a role is called in a report. `mana` is the non-land mana: "Mana sources" read as if it counted the lands. */
+private fun label(role: String): String = if (role == "mana") "Mana rocks / dorks" else Roles.LABELS.getValue(role)
+
+private class Report(val width: Int) {
     val out = mutableListOf<OutLine>()
-    fun add(text: String = "") {
-        out += OutLine(text, if (text.startsWith("===") || text.startsWith("HEAD TO HEAD") || text.startsWith("COMPARISON")) Tone.BOLD else Tone.PLAIN)
-    }
+    fun add(text: String = "", tone: Tone = Tone.PLAIN) { out += OutLine(text.trimEnd(), tone) }
+    fun head(text: String) { add(); wrapWords(text, width, "", "    ").forEach { add(it, Tone.BOLD) } }
+    /** An explanation under a table: dim, wrapped to the pane under a two-space hang. */
+    fun note(text: String) = wrapWords(text, width, "  ", "    ").forEach { add(it, Tone.DIM) }
     /** [prefix] then a card name that opens the card, then [suffix]. */
     fun card(prefix: String, name: String, shown: String = name, suffix: String = "") {
-        out += OutLine(prefix + shown + suffix, spans = listOf(LinkSpan(prefix.length, prefix.length + shown.length, OutputLink.Card(name))))
+        out += OutLine((prefix + shown + suffix).trimEnd(), spans = listOf(LinkSpan(prefix.length, prefix.length + shown.length, OutputLink.Card(name))))
     }
+    /** [text] wrapped to the pane. */
+    fun wrap(text: String, tone: Tone = Tone.PLAIN) = wrapWords(text, width, "", "  ").forEach { add(it, tone) }
 }
 
 private fun mean(values: List<Double>) = if (values.isEmpty()) 0.0 else Py.sum(values) / values.size
 private fun meanInt(values: List<Int>) = if (values.isEmpty()) 0.0 else values.sum().toDouble() / values.size
-
-private fun median(values: List<Int>): Double {
-    val s = values.sorted()
-    if (s.isEmpty()) return 0.0
-    val mid = s.size / 2
-    return if (s.size % 2 == 1) s[mid].toDouble() else (s[mid - 1] + s[mid]) / 2.0
-}
+private fun pct(p: Double) = Py.fixed(p * 100, 0) + "%"
+/** A difference in percentage points; one that rounds to nothing is `0p`, never `-0p`. */
+private fun points(delta: Double) = if (Math.abs(delta * 100) < 0.5) "0p" else Py.fixed(delta * 100, 0, plus = true) + "p"
+private fun reach(p: DeckProfile, role: String) = (p.roleMv[role] ?: emptyMap()).values.sum()
 
 /** `+3`, `-2`, or `=` when there is no difference. */
 private fun signed(delta: Double) = when {
@@ -51,199 +51,232 @@ private fun signed(delta: Double) = when {
     else -> "="
 }
 
-private fun f(x: Double, digits: Int, width: Int, plus: Boolean = false) = Py.fixed(x, digits, plus).right(width)
-private fun turnHeads(turns: List<Int>) = turns.joinToString("") { "T$it".right(TURN_COL) }
+/** The roles any of [profiles] can fill at all, in the taxonomy's order. */
+private fun present(profiles: List<DeckProfile>) = REPORT.filter { r -> profiles.any { (it.counts[r] ?: 0) > 0 || reach(it, r) > 0 } }
 
-/** Density, reach, on-curve and ceiling tables for one or more decks; [lowConfidence] are the cards nothing could place. */
-fun renderProfile(profiles: List<DeckProfile>, lowConfidence: Collection<String> = emptyList(), turns: List<Int> = DeckProfile.TURNS, onPlay: Boolean = true): Rendering {
-    val t = Table()
-    val ids = profiles.map { it.name }
-    t.add("${profiles.size} list(s): ${ids.joinToString(", ")}")
-    val odd = profiles.filter { it.size != 100 }
-    if (odd.isNotEmpty()) t.add("  note: not 100 cards -> {" + odd.joinToString(", ") { "${Py.repr(it.name)}: ${it.size}" } + "}")
-    profiles.filter { it.unresolved.isNotEmpty() }.forEach { p ->
-        t.add("  ${p.name}: ${p.unresolved.size} unresolved -> ${p.unresolved.take(6).joinToString(", ")}")
-    }
-    val unsure = lowConfidence.sorted()
-    if (unsure.isNotEmpty()) {
-        t.add()
-        t.add("  ${unsure.size} card(s) fell through to 'utility' - classification worth checking:")
-        unsure.forEach { t.card("    ", it) }
-    }
-
-    t.add()
-    t.add("=== DENSITY (primary role; sums to deck size) ===")
-    t.add("role".left(ROLE_COL) + "mean".right(6) + "med".right(5) + "min".right(5) + "max".right(5) + "   " +
-        ids.joinToString(" ") { it.takeLast(6).right(6) })
-    // A role every list has zero of is noise in a nine-column table.
-    val rows = REPORT.filter { r -> profiles.any { (it.counts[r] ?: 0) != 0 } } + "land"
-    fun statRow(label: String, values: List<Int>) = label.left(ROLE_COL) + f(meanInt(values), 1, 6) + f(median(values), 0, 5) +
-        values.min().toString().right(5) + values.max().toString().right(5) + "   " + values.joinToString(" ") { it.toString().right(6) }
-    for (role in rows) t.add(statRow(LABELS.getValue(role), profiles.map { it.counts[role] ?: 0 }))
-    t.add(statRow("MANA SOURCES", profiles.map { it.manaSources }))
-    val mv = profiles.map { it.avgMv }
-    t.add("avg effective MV".left(ROLE_COL) + f(mean(mv), 2, 6) + "".right(5) + f(mv.min(), 2, 5) + f(mv.max(), 2, 5) + "   " +
-        mv.joinToString(" ") { f(it, 2, 6) })
-
-    t.add()
-    t.add("=== REACH (every role a card can fill, not just its primary) ===")
-    t.add("role".left(ROLE_COL) + "primary".right(8) + "reach".right(7) + "diff".right(7) + "engines".right(9))
-    for (role in REPORT) {
-        val prim = meanInt(profiles.map { it.counts[role] ?: 0 })
-        val reach = meanInt(profiles.map { (it.roleMv[role] ?: emptyMap()).values.sum() })
-        val eng = meanInt(profiles.map { it.engines[role] ?: 0 })
-        t.add(LABELS.getValue(role).left(ROLE_COL) + f(prim, 1, 8) + f(reach, 1, 7) + f(reach - prim, 1, 7, plus = true) +
-            (if (eng != 0.0) Py.fixed(eng, 1) else "-").right(9))
-    }
-    t.add("  (engines = permanents that keep producing the effect rather than resolving once;")
-    t.add("   a planeswalker that draws every turn is not interchangeable with Memory Deluge)")
-
-    val label = if (onPlay) "on the play" else "on the draw"
-    t.add()
-    t.add("=== ON CURVE - role is playable on turn T, $label ===")
-    t.add("role".left(ROLE_COL) + turnHeads(turns))
-    val live = REPORT.associateWith { role -> profiles.map { it.liveCurve(role, turns, onPlay) } }
-    for (role in REPORT) {
-        val curves = live.getValue(role)
-        t.add(LABELS.getValue(role).left(ROLE_COL) + turns.joinToString("") { tt -> f(mean(curves.map { it.getValue(tt) }) * 100, 0, 6) + "%" })
-    }
-
-    t.add()
-    t.add("=== CEILING - holding one at all, mana ignored ===")
-    t.add("role".left(ROLE_COL) + turnHeads(turns) + "gap T4".right(8))
-    for (role in REPORT) {
-        val ceilings = profiles.map { it.ceiling(role, turns, onPlay) }
-        val means = turns.map { tt -> mean(ceilings.map { it.getValue(tt) }) }
-        // The gap is what mana costs you: held by turn 4 minus castable then.
-        val gap = if (turns.size > 3) means[3] - mean(live.getValue(role).map { it.getValue(turns[3]) }) else 0.0
-        t.add(LABELS.getValue(role).left(ROLE_COL) + means.joinToString("") { f(it * 100, 0, 6) + "%" } + f(gap * 100, 0, 7) + "p")
-    }
-    return Rendering { t.out }
+private fun absentNote(r: Report, profiles: List<DeckProfile>, what: String) {
+    val absent = REPORT.filter { it !in present(profiles) }
+    if (absent.isNotEmpty()) r.note("No $what: ${absent.joinToString(", ") { label(it).lowercase() }}.")
 }
 
-/** How many of [lists] lists play each card, per role, grouped by effective cost. */
-fun renderRanking(ranking: Ranking, lists: Int): Rendering {
-    val t = Table()
-    t.add("=== MOST PLAYED per role (sorted by effective mana value) ===")
+private fun unsureAndUnknown(r: Report, profiles: List<DeckProfile>, lowConfidence: Collection<String>) {
+    profiles.filter { it.unresolved.isNotEmpty() }.forEach { p ->
+        r.wrap("${p.unresolved.size} name(s) in ${p.name} not found, and left out of every number: ${p.unresolved.joinToString(", ")}", Tone.ERROR)
+    }
+    val unsure = lowConfidence.sorted()
+    if (unsure.isEmpty()) return
+    r.add()
+    r.wrap("Worth checking: nothing could place ${if (unsure.size == 1) "this card" else "these ${unsure.size} cards"}, so ${if (unsure.size == 1) "it counts" else "they count"} as utility.")
+    unsure.forEach { r.card("    ", it) }
+}
+
+/** The turn columns that fit next to a [lead]-wide label and [tail] more columns: late turns go first. */
+private fun fitTurns(turns: List<Int>, width: Int, lead: Int, tail: Int, col: Int): List<Int> {
+    var shown = turns
+    while (shown.size > 4 && lead + shown.size * col + tail > width) shown = shown.dropLast(1)
+    return shown
+}
+
+/**
+ * The castable-by-turn table: the mean over [profiles] of the chance a role
+ * is castable on each turn, then drawn by turn 4 and the gap between the two.
+ */
+private fun whenTable(r: Report, profiles: List<DeckProfile>, roles: List<String>, turns: List<Int>, onPlay: Boolean) {
+    val labelWidth = (roles.map { label(it).length } + "castable by turn".length).max() + 2
+    val shown = fitTurns(turns, r.width, labelWidth, 9 + 6, 5)
+    r.head("=== WHEN CAN IT HAPPEN? ${if (onPlay) "on the play" else "on the draw"} ===")
+    r.add("castable by turn".left(labelWidth) + shown.joinToString("") { "T$it".right(5) } + "drawn T4".right(10) + "gap".right(5))
+    for (role in roles) {
+        val live = profiles.map { it.liveCurve(role, turns, onPlay) }
+        val drawn = mean(profiles.map { it.ceiling(role, turns, onPlay).getValue(4) })
+        val castable4 = mean(live.map { it.getValue(4) })
+        r.add(label(role).left(labelWidth) + shown.joinToString("") { t -> pct(mean(live.map { it.getValue(t) })).right(5) } +
+            pct(drawn).right(10) + (Py.fixed((drawn - castable4) * 100, 0) + "p").right(5))
+    }
+    r.note("Castable: a card of the role is in hand AND the lands and rocks drawn so far pay for it that turn. " +
+        "Drawn T4: one is in hand by turn 4 at all, mana ignored: the most castable can ever be. " +
+        "Gap: what the mana costs you on turn 4. A wide gap says the cards are too expensive for the mana; " +
+        "a narrow gap with a low number says there are too few of them.")
+}
+
+/** Density, reach and the odds for one deck, or side by side for several (a folder). */
+fun renderProfile(profiles: List<DeckProfile>, lowConfidence: Collection<String> = emptyList(), turns: List<Int> = DeckProfile.TURNS, onPlay: Boolean = true): Rendering =
+    Rendering { width ->
+        val r = Report(width)
+        if (profiles.size == 1) deckProfile(r, profiles.single(), turns, onPlay) else setProfile(r, profiles, turns, onPlay)
+        unsureAndUnknown(r, profiles, lowConfidence)
+        r.out
+    }
+
+private fun deckProfile(r: Report, p: DeckProfile, turns: List<Int>, onPlay: Boolean) {
+    r.wrap("${p.name} · ${p.size} cards · average effective mana value ${Py.fixed(p.avgMv, 2)}", Tone.BOLD)
+    r.note("Effective: what a spell really costs to cast for its effect. A pitch spell is 0, delve counts six cards in the yard, {X} is 2.")
+    val backs = if (p.landBacks == 0) "" else " (${p.landBackNames.joinToString(", ")}: a spell with a land back, counted as a land)"
+    val rocks = if (p.rocks == 0) "" else " + ${p.rocks} rock${if (p.rocks == 1) "" else "s"} / dork${if (p.rocks == 1) "" else "s"} (${p.rockNames.joinToString(", ")})"
+    r.wrap("Mana: ${p.lands} lands$backs$rocks = ${p.manaSources} mana sources")
+
+    val roles = present(listOf(p)).sortedWith(compareByDescending<String> { p.counts[it] ?: 0 }.thenByDescending { reach(p, it) })
+    val labelWidth = (roles.map { label(it).length } + "Lands".length + "role".length).max() + 2
+    r.head("=== WHAT THE CARDS DO ===")
+    r.add("role".left(labelWidth) + "cards".right(6) + "also".right(6) + "engines".right(9))
+    for (role in roles) {
+        val cards = p.counts[role] ?: 0
+        val also = reach(p, role) - cards
+        val engines = p.engines[role] ?: 0
+        r.add(label(role).left(labelWidth) + cards.toString().right(6) + (if (also > 0) "+$also" else "-").right(6) + (if (engines > 0) "$engines" else "-").right(9))
+    }
+    r.add("Lands".left(labelWidth) + p.lands.toString().right(6))
+    r.note("Cards: each card once, under its main job; the column adds up to the deck. " +
+        "Also: cards whose main job is another role but that can do this one too (Cryptic Command also draws). " +
+        "Engines: permanents that do it again every turn rather than once.")
+    absentNote(r, listOf(p), "cards in the deck for")
+    whenTable(r, listOf(p), roles.filter { it != "utility" }, turns, onPlay)
+}
+
+private fun setProfile(r: Report, profiles: List<DeckProfile>, turns: List<Int>, onPlay: Boolean) {
+    r.wrap("${profiles.size} decks, side by side", Tone.BOLD)
+    profiles.forEachIndexed { i, p -> r.add("  #${i + 1}  ${p.name}" + if (p.size != 100) "  (${p.size} cards)" else "") }
+
+    val roles = present(profiles)
+    val labelWidth = (roles.map { label(it).length } + "Lands + rocks".length + "avg effective MV".length).max() + 2
+    val fixed = labelWidth + 6 + 11 + 6 + 9
+    val perDeck = fixed + profiles.size * 5 <= r.width
+    r.head("=== WHAT THE CARDS DO (cards per deck, by main job) ===")
+    r.add("role".left(labelWidth) + "mean".right(6) + "range".right(11) + "also".right(6) + "engines".right(9) +
+        if (perDeck) profiles.indices.joinToString("") { "#${it + 1}".right(5) } else "")
+    fun row(label: String, values: List<Int>, also: Double? = null, engines: Double? = null) = r.add(
+        label.left(labelWidth) + Py.fixed(meanInt(values), 1).right(6) + "${values.min()}-${values.max()}".right(11) +
+            (also?.let { if (it > 0) "+" + Py.fixed(it, 1) else "-" } ?: "").right(6) +
+            (engines?.let { if (it > 0) Py.fixed(it, 1) else "-" } ?: "").right(9) +
+            if (perDeck) values.joinToString("") { it.toString().right(5) } else "",
+    )
+    for (role in roles) {
+        row(label(role), profiles.map { it.counts[role] ?: 0 },
+            also = meanInt(profiles.map { reach(it, role) - (it.counts[role] ?: 0) }), engines = meanInt(profiles.map { it.engines[role] ?: 0 }))
+    }
+    row("Lands", profiles.map { it.lands })
+    row("Lands + rocks", profiles.map { it.manaSources })
+    val mv = profiles.map { it.avgMv }
+    r.add("avg effective MV".left(labelWidth) + Py.fixed(mean(mv), 2).right(6) + "${Py.fixed(mv.min(), 2)}-${Py.fixed(mv.max(), 2)}".right(11) +
+        "".right(15) + if (perDeck) mv.joinToString("") { Py.fixed(it, 2).right(5) } else "")
+    r.note("Mean and range: over the decks. Also and engines are means too; see a single deck's profile for what they count." +
+        if (perDeck) "" else " One column per deck needs ${fixed + profiles.size * 5} columns: widen the window to see them.")
+    absentNote(r, profiles, "deck has cards for")
+    whenTable(r, profiles, roles.filter { it != "utility" }, turns, onPlay)
+}
+
+/** How many of [lists] decks play each card, per role, grouped by effective cost. */
+fun renderRanking(ranking: Ranking, lists: Int): Rendering = Rendering { width ->
+    val r = Report(width)
+    r.head("=== MOST PLAYED, per role (by effective mana value) ===")
     for (role in REPORT) {
         val rows = ranking.byRole[role].orEmpty()
         if (rows.isEmpty()) continue
-        t.add()
-        t.add("  -- ${LABELS.getValue(role)} --")
+        r.add()
+        r.add("  -- ${label(role)} --")
         var last: Int? = null
         for (row in rows) {
             if (row.mv != last) {
-                t.add("     MV ${row.mv}")
+                r.add("     MV ${row.mv}")
                 last = row.mv
             }
-            val shown = row.name.take(44)
-            val tag = if (row.primary) "" else "  (secondary)"
+            val prefix = "       ${row.n.toString().right(2)}/$lists  "
+            val shown = row.name.take(maxOf(12, minOf(44, width - prefix.length - 1)))
+            val tag = if (row.primary) "" else "  (also)"
             val why = if (row.reason.isNotEmpty()) "   [${row.reason}]" else ""
-            t.card("       ${row.n.toString().right(2)}/$lists  ", row.name, shown, " ".repeat(46 - shown.length) + row.cost.left(16) + tag + why)
+            r.card(prefix, row.name, shown, " ".repeat(maxOf(1, 46 - shown.length)) + row.cost.left(16) + tag + why)
         }
     }
-    return Rendering { t.out }
+    r.note("n/$lists: how many of the decks play the card. (also): the card is here for a side job, its main one is another role. " +
+        "[...]: why its effective cost differs from the printed one.")
+    r.out
 }
 
-private val VERDICT_MARK = mapOf("under" to "<-- BELOW every list", "over" to "--> ABOVE every list", "in" to "")
+private val VERDICT_MARK = mapOf("under" to "<- below all", "over" to "-> above all", "in" to "")
 
 /**
- * One deck against a reference set: ranges, curve deltas, card diff. Against
+ * One deck against a reference set: ranges, the odds, the card diff. Against
  * ONE deck it is a head-to-head instead: with one list the range is a point,
  * and every difference would read as stepping outside it.
  */
-fun renderComparison(cmp: Comparison, turns: List<Int> = DeckProfile.TURNS, onPlay: Boolean = true): Rendering {
-    val t = Table()
+fun renderComparison(cmp: Comparison, turns: List<Int> = DeckProfile.TURNS, onPlay: Boolean = true): Rendering = Rendering { width ->
+    val r = Report(width)
     val subj = cmp.subject
     val refs = cmp.reference
-    val n = refs.size
-    val solo = n == 1
-    t.add()
-    t.add("=".repeat(76))
-    t.add(if (solo) "HEAD TO HEAD - ${Py.repr(subj.name)} against ${Py.repr(refs[0].name)}" else "COMPARISON - ${Py.repr(subj.name)} against $n reference list(s)")
-    t.add("=".repeat(76))
-    if (subj.size != 100) {
-        t.add("  note: subject is ${subj.size} cards; the draw maths still treats the deck as 100, so the unfilled slots count as blanks")
-    }
+    val solo = refs.size == 1
+    val all = listOf(subj) + refs
+    val roles = present(all)
+    r.add()
+    r.wrap(if (solo) "${subj.name} against ${refs[0].name}, head to head" else "${subj.name} against ${refs.size} reference decks", Tone.BOLD)
 
-    t.add()
-    if (solo) {
-        t.add("=== ROLE COUNTS ===")
-        t.add("role".left(ROLE_COL) + "yours".right(7) + "theirs".right(10) + "delta".right(8))
-    } else {
-        t.add("=== IN RANGE? (range, not mean - a range nobody left is the rule) ===")
-        t.add("role".left(ROLE_COL) + "yours".right(7) + "ref mean".right(10) + "range".right(10) + "delta".right(8) + "   verdict")
-    }
-    val order = (REPORT + "land").withIndex().associate { (i, r) -> r to i }
+    val labelWidth = (roles.map { label(it).length } + "avg effective MV".length).max() + 2
     fun roleRow(label: String, d: RoleDelta) = if (solo) {
-        label.left(ROLE_COL) + d.subject.toString().right(7) + f(d.refMean, 0, 10) + signed(d.delta).right(8)
+        label.left(labelWidth) + d.subject.toString().right(7) + Py.fixed(d.refMean, 0).right(8) + signed(d.delta).right(7)
     } else {
-        label.left(ROLE_COL) + d.subject.toString().right(7) + f(d.refMean, 1, 10) + "${d.refMin}-${d.refMax}".right(10) +
-            signed(d.delta).right(8) + "   " + VERDICT_MARK.getValue(d.verdict)
+        label.left(labelWidth) + d.subject.toString().right(7) + Py.fixed(d.refMean, 1).right(8) + "${d.refMin}-${d.refMax}".right(8) +
+            signed(d.delta).right(7) + "  " + VERDICT_MARK.getValue(d.verdict)
     }
-    cmp.roles.sortedBy { order[it.role] ?: 99 }.forEach { t.add(roleRow(LABELS.getValue(it.role), it)) }
-    t.add(roleRow("MANA SOURCES", cmp.manaSources))
+    r.head("=== WHAT THE CARDS DO (cards by main job) ===")
+    r.add("role".left(labelWidth) + "yours".right(7) + (if (solo) "theirs".right(8) else "mean".right(8) + "range".right(8)) + "delta".right(7))
+    for (role in roles) cmp.role(role)?.let { r.add(roleRow(label(role), it)) }
+    cmp.role("land")?.let { r.add(roleRow("Lands", it)) }
+    r.add(roleRow("Lands + rocks", cmp.manaSources))
     val (mine, theirs) = cmp.avgMv
-    t.add("avg effective MV".left(ROLE_COL) + f(mine, 2, 7) + f(theirs, 2, 10) + signed(Py.round(mine - theirs, 2)).right(if (solo) 8 else 18))
-
+    r.add("avg effective MV".left(labelWidth) + Py.fixed(mine, 2).right(7) + Py.fixed(theirs, 2).right(8) +
+        (if (solo) "" else "".right(8)) + signed(Py.round(mine - theirs, 2)).right(7))
     if (solo) {
-        t.add()
-        t.add("  role-density distance: ${Py.fixed(cmp.nearest[0].second, 2)}   (0 would be the same 100 cards by role)")
+        r.note("Delta: yours minus theirs.")
     } else {
+        r.note("Mean and range: over the reference decks. \"below all\" / \"above all\": no reference deck went that far, which is a choice worth a second look.")
         val out = cmp.outOfRange
-        t.add()
-        t.add("  ${out.size} role(s) outside the reference range" +
-            if (out.isNotEmpty()) ": ${out.joinToString(", ") { LABELS.getValue(it.role) }}" else " - this deck sits inside the archetype on every axis")
-        // A reference set spanning two archetypes has a mean that describes neither.
+        r.wrap(if (out.isEmpty()) "Inside the reference range on every role." else "Outside the reference range: ${out.joinToString(", ") { label(it.role).takeIf { _ -> it.role != "land" } ?: "Lands" }}.")
+        // A reference set spanning two builds has a mean that describes neither.
         val widest = cmp.roles.maxBy { it.refMax - it.refMin }
         if (widest.refMax - widest.refMin >= 6) {
-            t.add()
-            t.add("  CAUTION: the reference set spans ${widest.refMin}-${widest.refMax} on ${LABELS.getValue(widest.role).lowercase()}, so it holds more than one")
-            t.add("  build and the mean above describes neither. Use the nearest-list line, or re-run")
-            t.add("  with only the lists you actually want to resemble.")
+            r.wrap("Careful: the reference decks run ${widest.refMin} to ${widest.refMax} ${label(widest.role).lowercase()}, so they hold more than one build " +
+                "and their mean describes neither. The nearest deck below is the better guide.")
         }
-        t.add()
-        t.add("=== NEAREST REFERENCE LIST (role-density distance) ===")
-        cmp.nearest.take(5).forEach { (name, dist) -> t.add("   ${f(dist, 2, 6)}  $name") }
-        t.add("   (lower is more alike; the axis with the widest spread in the reference set dominates, which is the axis that defines the build)")
+        r.head("=== NEAREST REFERENCE DECK ===")
+        cmp.nearest.take(5).forEach { (name, dist) -> r.add("   ${Py.fixed(dist, 2).right(6)}  $name") }
+        r.note("How far apart the role counts are: 0 is the same deck by role.")
     }
 
-    val label = if (onPlay) "on the play" else "on the draw"
-    t.add()
-    t.add("=== ON CURVE, yours minus ${if (solo) "theirs" else "the reference mean"} ($label) ===")
-    t.add("role".left(ROLE_COL) + turnHeads(turns))
-    for (role in REPORT) {
+    val turnRoles = roles.filter { it != "utility" }
+    val labelTurns = (turnRoles.map { label(it).length } + "castable, yours minus".length).max() + 2
+    val shown = fitTurns(turns, width, labelTurns, 0, 6)
+    r.head("=== WHEN CAN IT HAPPEN? ${if (onPlay) "on the play" else "on the draw"} ===")
+    r.add("castable, yours minus".left(labelTurns) + shown.joinToString("") { "T$it".right(6) })
+    for (role in turnRoles) {
         val d = cmp.curveDelta[role].orEmpty()
-        t.add(LABELS.getValue(role).left(ROLE_COL) + turns.joinToString("") { f((d[it] ?: 0.0) * 100, 0, 6, plus = true) + "p" })
+        r.add(label(role).left(labelTurns) + shown.joinToString("") { points(d[it] ?: 0.0).right(6) })
     }
-    t.add("  (percentage points; + means this deck does it more often)")
+    r.note("Percentage points: how much more often (+) or less often (-) your deck can cast the role on that turn than ${if (solo) "theirs" else "the reference mean"}.")
 
     if (cmp.missing.isNotEmpty()) {
-        // "Played by more than one list" would hide everything when there is only one list to be played by.
-        val shown = if (solo) cmp.missing else cmp.missing.filter { it.nLists > 1 }.ifEmpty { cmp.missing }
-        t.add()
-        t.add("=== ${if (solo) "CARDS THEY PLAY" else "CARDS THE REFERENCE PLAYS"} THAT THIS DECK DOESN'T (${cmp.missing.size}) ===")
+        // "Played by more than one deck" would hide everything when there is only one deck to be played by.
+        val shownCards = if (solo) cmp.missing else cmp.missing.filter { it.nLists > 1 }.ifEmpty { cmp.missing }
+        r.head("=== ${if (solo) "CARDS THEY PLAY" else "CARDS THE REFERENCE PLAYS"} THAT YOU DON'T (${cmp.missing.size}) ===")
         for (role in REPORT + "land") {
-            val group = shown.filter { it.role == role }
+            val group = shownCards.filter { it.role == role }
             if (group.isEmpty()) continue
-            t.add()
-            t.add("  -- ${LABELS.getValue(role)}")
+            r.add()
+            r.add("  -- ${if (role == "land") "Lands" else label(role)}")
             group.forEach { c ->
                 val count = if (solo) "" else "${c.nLists.toString().right(2)}/${c.ofLists}  "
-                t.card("       ${count}MV${c.mv.toString().left(3)} ", c.name)
+                r.card("       ${count}MV${c.mv.toString().left(3)} ", c.name)
             }
         }
-        if (shown.size < cmp.missing.size) {
-            t.add()
-            t.add("  (${cmp.missing.size - shown.size} more played by exactly one list - pass --min-share 0 and read the JSON for those)")
-        }
+        if (shownCards.size < cmp.missing.size) r.note("${cmp.missing.size - shownCards.size} more are played by only one reference deck.")
     }
 
     if (cmp.unique.isNotEmpty()) {
-        t.add()
-        t.add("=== CARDS ONLY THIS DECK PLAYS (${cmp.unique.size}) ===")
-        t.add("  Not a criticism - this is where your build is its own thing.")
-        cmp.unique.forEach { c -> t.card("       ${(LABELS[c.role] ?: c.role).left(ROLE_COL)} MV${c.mv.toString().left(3)} ", c.name) }
+        r.head("=== CARDS ONLY YOU PLAY (${cmp.unique.size}) ===")
+        r.note("Not a criticism: this is where your build is its own thing.")
+        val w = (cmp.unique.map { (if (it.role == "land") "Lands" else Roles.LABELS[it.role]?.let { _ -> label(it.role) } ?: it.role).length }.maxOrNull() ?: 0) + 1
+        cmp.unique.forEach { c ->
+            val role = if (c.role == "land") "Lands" else Roles.LABELS[c.role]?.let { label(c.role) } ?: c.role
+            r.card("       ${role.left(w)} MV${c.mv.toString().left(3)} ", c.name)
+        }
     }
-    return Rendering { t.out }
+    r.out
 }

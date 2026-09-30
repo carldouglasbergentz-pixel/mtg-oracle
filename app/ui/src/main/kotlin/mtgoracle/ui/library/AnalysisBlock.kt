@@ -17,7 +17,7 @@ import mtgoracle.ui.lookup.Tone
 
 /** Role names short enough for one line of the block. */
 private val SHORT = mapOf(
-    "land" to "Lands", "mana" to "Mana", "ritual" to "Rituals", "counter" to "Counters", "sweeper" to "Sweepers",
+    "land" to "Lands", "mana" to "Rocks/dorks", "ritual" to "Rituals", "counter" to "Counters", "sweeper" to "Sweepers",
     "discard" to "Discard", "spot" to "Removal", "burn" to "Burn", "tutor" to "Tutors", "recursion" to "Recursion",
     "threat" to "Threats", "draw" to "Card adv.", "cantrip" to "Cantrips", "utility" to "Utility",
 )

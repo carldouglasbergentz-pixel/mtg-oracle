@@ -2,18 +2,22 @@ package mtgoracle.ui.kit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import mtgoracle.ui.theme.Cells
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 import mtgoracle.ui.theme.gridStyle
@@ -102,8 +106,26 @@ fun BoxPane(
     content: @Composable () -> Unit,
 ) {
     val cells = LocalCells.current
-    val density = LocalDensity.current
     Box(modifier.snapToCells().background(Palette.background).boxBorder(title, right, border, borderColor)) {
-        Box(Modifier.padding(with(density) { cells.width.toDp() }, with(density) { cells.height.toDp() })) { content() }
+        // Clipped: a line wider than the pane (a wide table) stops at the border instead of running into the next pane.
+        Box(Modifier.insideBorder(cells).clipToBounds()) { content() }
     }
+}
+
+/**
+ * The content's room: the whole cells between the border's rows and columns.
+ * The border sits on the last WHOLE cell, so a pane with a fraction of a cell
+ * left over (fillMaxHeight rarely lands on a whole row) gave its content that
+ * fraction too, and the last line was drawn under the bottom edge.
+ */
+private fun Modifier.insideBorder(cells: Cells): Modifier = layout { measurable, constraints ->
+    fun room(max: Int, cell: Float) = if (max == Constraints.Infinity) Constraints.Infinity else maxOf(0, (((max / cell).toInt() - 2) * cell).toInt())
+    val maxWidth = room(constraints.maxWidth, cells.width)
+    val maxHeight = room(constraints.maxHeight, cells.height)
+    // No minimum: what fills the pane asks for the maximum, and the pane keeps its own size either way.
+    val inner = Constraints(maxWidth = maxWidth, maxHeight = maxHeight)
+    val placeable = measurable.measure(inner)
+    val x = cells.width.roundToInt()
+    val y = cells.height.roundToInt()
+    layout(constraints.constrainWidth(placeable.width + 2 * x), constraints.constrainHeight(placeable.height + 2 * y)) { placeable.place(x, y) }
 }

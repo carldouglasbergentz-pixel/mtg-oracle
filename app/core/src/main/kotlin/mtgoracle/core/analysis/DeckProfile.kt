@@ -52,6 +52,9 @@ data class DeckProfile(
     val engines: Map<String, Int> = emptyMap(),
     /** The category each role's live curve draws from: [roleMv] minus the rocks, except for `mana`. */
     val onCurveMv: Map<String, Map<Int, Int>> = emptyMap(),
+    /** The cards counted as [rocks] and as [landBacks], by name: what a report names when it says "2 rocks". */
+    val rockNames: List<String> = emptyList(),
+    val landBackNames: List<String> = emptyList(),
 ) {
     /** Lands, modal-DFC land backs and rocks. */
     val manaSources: Int get() = lands + rocks
@@ -146,6 +149,8 @@ object Archetype {
         var rocks = 0
         var landBacks = 0
         var size = 0
+        val rockNames = mutableListOf<String>()
+        val landBackNames = mutableListOf<String>()
         for ((name, qty) in deck.cards) {
             val fact = pool.facts(name) ?: continue
             size += qty
@@ -163,6 +168,7 @@ object Archetype {
                 counts["land"] = counts.getValue("land") + qty
                 lands += qty
                 landBacks += qty
+                landBackNames += fact.name
                 continue
             }
             counts[cl.primary] = counts.getValue(cl.primary) + qty
@@ -174,11 +180,14 @@ object Archetype {
                 if (cl.engine) engines.merge(role, qty, Int::plus)
                 if (!isRock || role == "mana") onCurve.getValue(role).merge(mv, qty, Int::plus)
             }
-            if (isRock) rocks += qty
+            if (isRock) {
+                rocks += qty
+                rockNames += fact.name
+            }
             curve.merge(mv, qty, Int::plus)
         }
         val missing = deck.cards.keys.filter { pool.facts(it) == null }.sorted()
-        return DeckProfile(deck.name, size, counts, roleMv, curve, lands, rocks, landBacks, missing, engines, onCurve)
+        return DeckProfile(deck.name, size, counts, roleMv, curve, lands, rocks, landBacks, missing, engines, onCurve, rockNames.sorted(), landBackNames.sorted())
     }
 
     /** How many of [decks] play each card, by canonical name: two spellings in one list is still one list. */

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (the analysis reports, from the user's first read)
+- **The reports show only what the decks hold.** A role with no card that can fill it gets no row; one line under the table names what is missing ("No cards in the deck for: rituals, hand disruption").
+- **Every table says what its columns mean,** in a note under it: cards, also, engines, castable, drawn by T4, gap.
+- **One deck's profile is two tables, not four.**
+  - *What the cards do*: cards by main job, also (a side job), engines.
+  - *When can it happen*: castable by turn, then "drawn T4" and the gap, which is what the mana costs.
+
+  The single-deck mean/median/min/max columns are gone, and so is the separate ceiling table.
+- **Names say what they count.**
+  - The role "Mana sources" is **Mana rocks / dorks**: it read as if it counted the lands.
+  - The total is **Lands + rocks**.
+  - The mana line names its cards: "40 lands (Sea Gate Restoration: a spell with a land back, counted as a land) + 2 rocks / dorks (Mox Sapphire, Sol Ring) = 42 mana sources".
+- **A folder's decks are numbered** (`#1 = Izzet Delver`), not cut to their last six letters.
+- **The tables fit the pane:** late turns and per-deck columns go before a row runs past the edge. A difference that rounds to nothing reads `0p`, not `-0p`.
+- The numbers are unchanged and still held to Python by AnalysisParityTest. The layout is now the app's own, so the byte-for-byte render test was replaced by AnalysisRenderTest (only present roles, a note under every table, no line past the pane).
+
+### Fixed
+- **The last line of a pane was drawn under its bottom border** when the pane's height wasn't a whole number of rows. The border sits on the last whole row; the content now gets only the rows inside it, and is clipped there, so a wide table can't run into the next pane either.
+
 ### Added (step 5: analysis in the app)
 - **An analysis block above the deck,** fixed at the top of the middle column. It sits above the deck in the library and above the search in the workspace, and it doesn't scroll away. It shows:
   - size, lands (with MDFCs), spells, and average MV printed and effective;

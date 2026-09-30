@@ -228,14 +228,14 @@ class LookupCommandsTest {
         assertTrue("usage: profile" in run("profile"))
         assertTrue("(select or open a deck before `compare`)" in run("compare ${others[0].name}"))
         val one = run("profile ${deck.name}")
-        assertTrue("1 list(s): ${deck.name}" in one && "=== ON CURVE - role is playable on turn T, on the play ===" in one, one)
+        assertTrue(one.lines().any { it.startsWith("${deck.name} · ") } && "=== WHEN CAN IT HAPPEN? on the play ===" in one, one)
         val folder = run("profile ${deck.folderName}")
-        assertTrue("${others.size + 1} list(s):" in folder && "=== MOST PLAYED per role" in folder, folder)
+        assertTrue("${others.size + 1} decks, side by side" in folder && "=== MOST PLAYED, per role" in folder, folder)
         assertTrue("profile: no deck or folder named 'No Such Thing'" in run("profile No Such Thing"))
 
         run("cd ${deck.name}")
-        assertTrue("HEAD TO HEAD - '${deck.name}' against" in run("compare ${others[0].name}"))
-        assertTrue("COMPARISON - '${deck.name}' against ${others.size} reference list(s)" in run("compare ${deck.folderName}"), "the deck itself is left out")
+        assertTrue("${deck.name} against ${others[0].name}, head to head" in run("compare ${others[0].name}"))
+        assertTrue("${deck.name} against ${others.size} reference decks" in run("compare ${deck.folderName}"), "the deck itself is left out")
         assertTrue("compared to itself deviates nowhere" in run("compare ${deck.name}"))
         assertTrue("fully contained in '${deck.name}'" in run("combos"))
         assertTrue("usage: combos" in run("cd ..").let { run("combos") }, "outside a deck and with none selected, combos needs cards")
@@ -249,7 +249,7 @@ class LookupCommandsTest {
         selected.submit("profile")
         selected.submit("combos")
         val text = selected.output.entries.flatMap { it.rendering.lines(100) }.joinToString("\n") { it.text }
-        assertTrue("1 list(s): ${deck!!.name}" in text && "fully contained in '${deck.name}'" in text, text)
+        assertTrue("${deck!!.name} · " in text && "fully contained in '${deck.name}'" in text, text)
     }
 
     @Test
