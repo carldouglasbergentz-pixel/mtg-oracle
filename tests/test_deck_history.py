@@ -218,13 +218,39 @@ class TestReplace(_HistoryTest):
         self.assertEqual(self.state(), {("Duress", "sideboard"): 1})
         self.assertEqual(len(diff["added"]) + len(diff["removed"]), 2)
 
-    def test_maybeboard_and_bad_quantities_are_reported(self):
+    def test_the_maybeboard_sets_the_considering_list_and_bad_quantities_are_reported(self):
         d.add_card_to_deck(self.deck, "Island", quantity=3)
         diff = self.replace("1 Sol Ring\n0 Island\nMaybeboard\n1 Opt\n")
-        self.assertEqual(diff["maybeboard"], 1)
+        self.assertTrue(diff["considering"])
+        self.assertIn(("Opt", "considering", 0, 1), [(c["card"], c["section"], c["before"], c["after"]) for c in diff["added"]])
+        self.assertEqual([c["card_name"] for c in d.get_deck(self.deck)["considering"]], ["Opt"])
         self.assertEqual([n for n, _ in diff["rejected"]], ["Island"])
         # A rejected line keeps the card's current quantity.
         self.assertEqual(self.state()[("Island", "main")], 3)
+
+    def test_a_list_without_a_maybeboard_leaves_the_considering_list_alone(self):
+        d.add_card_to_deck(self.deck, "Island", quantity=3)
+        d.consider_card(self.deck, "Opt")
+        diff = self.replace("1 Sol Ring\n")
+        self.assertFalse(diff["considering"])
+        self.assertEqual([c["card_name"] for c in d.get_deck(self.deck)["considering"]], ["Opt"])
+
+    def test_import_puts_the_maybeboard_on_the_considering_list(self):
+        result = d.load_parsed_into_deck(self.deck, parse_deckstring("1 Sol Ring\nConsidering\n2 Opt\n"))
+        self.assertEqual(result["considering"], 2)
+        self.assertEqual([(c["card_name"], c["quantity"]) for c in d.get_deck(self.deck)["considering"]], [("Opt", 2)])
+
+    def test_a_printing_of_its_own_is_a_revision_and_undoes(self):
+        d.add_card_to_deck(self.deck, "Sol Ring")
+        d.set_printing(self.deck, "sol ring", "main", "C18", "263")
+        rev = d.deck_history(self.deck, limit=1)[0]
+        self.assertEqual(rev["action"], "printing")
+        self.assertEqual((rev["changes"][0]["set_code_after"], rev["changes"][0]["collector_number_after"]), ("c18", "263"))
+        d.undo_last_change(self.deck)
+        row = next(c for c in d.get_deck(self.deck)["cards"] if c["card_name"] == "Sol Ring")
+        self.assertIsNone(row["set_code"])
+        with self.assertRaises(d.DeckError):
+            d.set_printing(self.deck, "Sol Ring", "considering", "c18")
 
     def test_service_maps_the_abort_to_a_service_error(self):
         ref = svc.DeckRef(self.deck)

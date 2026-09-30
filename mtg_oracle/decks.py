@@ -1389,6 +1389,40 @@ def remove_card_from_deck(
         conn.close()
 
 
+def set_printing(
+    deck_name: str,
+    card_name: str,
+    section: str,
+    set_code: Optional[str],
+    collector_number: Optional[str] = None,
+    folder: Optional[str] = None,
+) -> str:
+    """Give the card in `section` (main, sideboard, commander) this printing,
+    or none with `set_code=None`: the art the app and Forge show. A content
+    change like a quantity change (`printing`), so the history shows it and
+    undo restores the old art. Returns the canonical name."""
+    if section not in ("main", "sideboard", "commander"):
+        raise DeckError(f"a printing is chosen in the deck, not the {section}")
+    canonical = resolve_card_name(card_name) or card_name
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, deck_name, folder)
+        before = _snapshot(cur, did)
+        have = before.get((canonical, section), _ABSENT)[0]
+        if not have:
+            raise DeckError(f"card not in the {section}: {canonical!r}")
+        _set_section_quantity(cur, did, canonical, section, have,
+                              _normalize_printing(set_code, collector_number))
+        revision_id, _ = _record_revision(cur, did, "printing", before, note=canonical)
+        if revision_id:
+            cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+        conn.commit()
+        return canonical
+    finally:
+        conn.close()
+
+
 def consider_card(
     deck_name: str, card_name: str, quantity: int = 1, folder: Optional[str] = None,
 ) -> str:
@@ -1611,7 +1645,7 @@ def load_parsed_into_deck(
 
     `parsed` is a list of {name, quantity, section} dicts, where `section`
     is one of 'main', 'sideboard', 'commander', 'maybeboard'. Maybeboard
-    rows are skipped (no table for them yet).
+    rows go onto the deck's considering list.
 
     `force=True` (the default) is what both import paths want: a pasted
     list is loaded verbatim, because singleton / CI checks would reject
@@ -1667,7 +1701,8 @@ def _load_rows(
     """Add parsed rows to deck `did` on an open cursor; the caller commits.
 
     Returns: rows added, copies added, names that didn't resolve, rows the
-    deck layer rejected, maybeboard rows skipped, input row count,
+    deck layer rejected, copies put on the considering list (the paste's
+    maybeboard, `considering`), input row count,
     `format_set` — 'commander' when the list had a commander and the deck
     had no format, as `set_commander` does, else None — and `revision_id`,
     the one history revision the whole list became (None if nothing
@@ -1676,13 +1711,26 @@ def _load_rows(
     before = _snapshot(cur, did)
     added = 0
     copies = 0
-    maybeboard = 0
+    considering = 0
     commander_added = False
     unresolved: list[str] = []
     rejected: list[tuple[str, str]] = []
     for row in parsed:
         if row["section"] == "maybeboard":
-            maybeboard += 1
+            # The paste's maybeboard is the deck's considering list: no rules there.
+            canonical = resolve_card_name(row["name"])
+            if not canonical:
+                unresolved.append(row["name"])
+                continue
+            have = _considering_quantity(cur, did, canonical)
+            try:
+                _check_quantity(row["quantity"])
+                _check_quantity(have + row["quantity"])
+            except QuantityError as e:
+                rejected.append((row["name"], str(e)))
+                continue
+            _set_section_quantity(cur, did, canonical, "considering", have + row["quantity"])
+            considering += row["quantity"]
             continue
         is_commander = row["section"] == "commander"
         try:
@@ -1724,10 +1772,17 @@ def _load_rows(
         "copies": copies,
         "unresolved": unresolved,
         "rejected": rejected,
-        "maybeboard": maybeboard,
+        "considering": considering,
         "format_set": format_set,
         "total_input": len(parsed),
     }
+
+
+def _considering_quantity(cur, did: int, card_name: str) -> int:
+    cur.execute(
+        "SELECT COALESCE(SUM(quantity), 0) FROM deck_considering "
+        "WHERE deck_id = ? AND card_name = ? COLLATE NOCASE", (did, card_name))
+    return cur.fetchone()[0]
 
 
 # --- Change history, replace and undo --------------------------------
@@ -1953,7 +2008,9 @@ def replace_deck_contents(
 
     `parsed` is `deck_parser.parse_deckstring` output. The list is applied
     verbatim — no legality, CI, singleton or points checks, as for import.
-    Maybeboard rows are skipped and counted. A row with a bad quantity is
+    A list with a maybeboard makes the considering list exactly that; a list
+    without one leaves the considering list alone — it says nothing about
+    it, and the deck's own export has none. A row with a bad quantity is
     reported in `rejected` and its card keeps its current quantity. Rows
     whose quantity is unchanged are not touched, so they keep their
     category and added_at. If the list names a commander and the deck has
@@ -1974,19 +2031,17 @@ def replace_deck_contents(
     already matched), added, removed, changed — lists of {card, section,
     before, after, set_code_before, collector_number_before,
     set_code_after, collector_number_after} — unresolved, rejected,
-    maybeboard, format_set}.
+    considering (whether the list set the considering list), format_set}.
     """
     target: dict[tuple[str, str], int] = {}
     target_printing: dict[tuple[str, str], tuple] = {}
     keep_current: set[tuple[str, str]] = set()
     unresolved: list[str] = []
     rejected: list[tuple[str, str]] = []
-    maybeboard = 0
+    has_considering = any(row["section"] == "maybeboard" for row in parsed)
     for row in parsed:
-        if row["section"] == "maybeboard":
-            maybeboard += 1
-            continue
-        section = row["section"] if row["section"] in SECTIONS else "main"
+        section = ("considering" if row["section"] == "maybeboard" else
+                   row["section"] if row["section"] in SECTIONS else "main")
         canonical = resolve_card_name(row["name"])
         if not canonical:
             unresolved.append(row["name"])
@@ -2002,7 +2057,7 @@ def replace_deck_contents(
         target[key] = target.get(key, 0) + row["quantity"]
         printing = _normalize_printing(row.get("set_code"),
                                        row.get("collector_number"))
-        if printing:
+        if printing and section != "considering":
             target_printing[key] = printing
     if unresolved and not force:
         raise UnresolvedCardsError(unresolved)
@@ -2025,6 +2080,8 @@ def replace_deck_contents(
         for key in set(before) | set(target):
             if key in keep_current:
                 continue
+            if key[1] == "considering" and not has_considering:
+                continue
             now_qty, now_printing = before.get(key, _ABSENT)
             want_qty = target.get(key, 0)
             want_printing = target_printing.get(key, now_printing)
@@ -2045,7 +2102,7 @@ def replace_deck_contents(
             **_split_changes(changes),
             "unresolved": unresolved,
             "rejected": rejected,
-            "maybeboard": maybeboard,
+            "considering": has_considering,
             "format_set": format_set,
         }
         conn.commit()

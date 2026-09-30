@@ -29,7 +29,7 @@ Section headers (case-insensitive):
     Sideboard / SB: / SB                  -> 'sideboard'
     Commander / Commanders                -> 'commander'
     Companion                             -> 'companion' (treated as sideboard)
-    Maybeboard / Maybe                    -> 'maybeboard'
+    Maybeboard / Maybe / Considering      -> 'maybeboard' (the deck's considering list)
     Tokens                                -> ignored (its rows are dropped)
 
 A trailing count on a header (`Sideboard (15)`) is allowed, and so is an
@@ -59,6 +59,8 @@ _SECTION_ALIASES = {
     "maybeboard": "maybeboard",
     "maybe": "maybeboard",
     "maybe board": "maybeboard",
+    # Moxfield's newer name for it, and ours: the deck's considering list.
+    "considering": "maybeboard",
     # Token lists are not deck contents. `Treasure` resolves to a real
     # (front_card) row, so reading them as cards put tokens in the main deck.
     "tokens": "tokens",

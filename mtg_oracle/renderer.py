@@ -1091,9 +1091,9 @@ def render_import_result(deck_name: str, result: dict) -> str:
         lines.append(f"WARNING {len(rejected)} card(s) rejected by deck rules:")
         for name, reason in rejected:
             lines.append(f"{INDENT}- {name}: {reason}")
-    maybeboard = result.get("maybeboard") or 0
-    if maybeboard:
-        lines.append(f"NOTE {maybeboard} maybeboard line(s) not loaded (no maybeboard in decks yet).")
+    considering = result.get("considering") or 0
+    if considering:
+        lines.append(f"NOTE {considering} maybeboard card(s) went onto the considering list.")
     format_set = result.get("format_set")
     if format_set:
         lines.append(
@@ -1173,10 +1173,8 @@ def render_deck_diff(diff: dict) -> str:
         lines.append(f"WARNING {len(rejected)} line(s) rejected; those cards "
                      f"keep their current quantity:")
         lines.extend(f"{INDENT}- {name}: {reason}" for name, reason in rejected)
-    maybeboard = diff.get("maybeboard") or 0
-    if maybeboard:
-        lines.append(f"NOTE {maybeboard} maybeboard line(s) not loaded "
-                     f"(no maybeboard in decks yet).")
+    if not diff.get("considering"):
+        lines.append("NOTE the list has no maybeboard, so the considering list was left as it was.")
     if diff.get("format_set"):
         lines.append(f"NOTE deck format auto-set to {diff['format_set']!r} "
                      f"because the list names a commander.")
