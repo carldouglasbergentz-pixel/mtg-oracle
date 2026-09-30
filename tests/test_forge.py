@@ -693,8 +693,11 @@ class TestRealForgeGame(unittest.TestCase):
                                  for x in d.list_decks(folder=folder)]
                         and d.delete_folder(folder))
         d.create_deck("Red", folder=folder)
-        d.add_card_to_deck("Red", "Mountain", quantity=24, folder=folder)
-        d.add_card_to_deck("Red", "Raging Goblin", quantity=36, folder=folder)
+        # Printings, so the game also proves Forge loads `Name|CODE|[number]`.
+        d.add_card_to_deck("Red", "Mountain", quantity=24, folder=folder,
+                           set_code="m21", collector_number="270")
+        d.add_card_to_deck("Red", "Raging Goblin", quantity=36, folder=folder,
+                           set_code="ath", collector_number="49")
         d.create_deck("Green", folder=folder)
         d.add_card_to_deck("Green", "Forest", quantity=24, folder=folder)
         d.add_card_to_deck("Green", "Grizzly Bears", quantity=36, folder=folder)
@@ -707,8 +710,203 @@ class TestRealForgeGame(unittest.TestCase):
         self.assertEqual(len(out.games), 1)
         self.assertIn(out.games[0]["winner"], ("a", "b", "draw"))
         self.assertEqual(out.log_path.parent, logs)
-        self.assertTrue((tmp / "decks" / "constructed" / "Red.dck").exists())
+        red = (tmp / "decks" / "constructed" / "Red.dck").read_text(encoding="utf-8")
+        self.assertIn("24 Mountain|M21|[270]", red)
+        self.assertIn("36 Raging Goblin|ATH|[49]", red)
         self.assertEqual(_file_digest(REAL_DB), real_db_before)
+
+
+# --- printings: Scryfall -> Forge editions ---------------------------------
+
+FORGE_EDITIONS = ROOT / "tools" / "forge" / "res" / "editions"
+
+# A miniature edition file, in Forge's real shape: two arts of one card out
+# of file order, a split card, sections that aren't printings, and an
+# artist-less line.
+MINI_EDITION = """[metadata]
+Code=TST
+Date=2020-01-01
+Name=Test Set
+ScryfallCode=tst
+
+[cards]
+265 L Island @Andreas Rocha
+263 L Island @Cliff Childs
+12 U Fire // Ice @Franz Vohwinkel
+7 R Sol Ring
+
+[borderless]
+300 R Sol Ring @Someone Else
+
+[Common]
+Island
+
+[tokens]
+1 b_1_1_bird_flying
+"""
+
+
+def mini_index(*texts):
+    return ff.edition_index(ff.parse_edition(t) for t in texts)
+
+
+class TestSortableCollectorNumber(unittest.TestCase):
+    """Forge's CardEdition.getSortableCollectorNumber, case by case."""
+
+    CASES = {"9": "00009", "10": "00010", "76★": "00076★", "418a": "00418a",
+             "DDN-64": "DDN-00064", "WS3": "WS00003", "U5": "U00005",
+             "2022-5": "-20225", None: "50000", "": "50000"}
+
+    def test_cases(self):
+        for number, want in self.CASES.items():
+            with self.subTest(number=number):
+                self.assertEqual(ff.sortable_collector_number(number), want)
+
+
+class TestParseEdition(unittest.TestCase):
+    def test_codes_and_printings(self):
+        edition = ff.parse_edition(MINI_EDITION)
+        self.assertEqual((edition.code, edition.scryfall_code), ("TST", "tst"))
+        self.assertEqual(edition.cards["island"], ("263", "265"))
+        self.assertEqual(edition.cards["sol ring"], ("7", "300"))
+        self.assertEqual(edition.cards["fire // ice"], ("12",))
+        self.assertEqual(edition.cards["fire"], ("12",))
+        # Tokens and booster sheets are not printings.
+        self.assertNotIn("b_1_1_bird_flying", edition.cards)
+
+    def test_scryfall_code_defaults_to_code(self):
+        edition = ff.parse_edition(MINI_EDITION.replace("ScryfallCode=tst\n", ""))
+        self.assertEqual(edition.scryfall_code, "tst")
+
+    def test_no_code_is_no_edition(self):
+        self.assertIsNone(ff.parse_edition("[cards]\n1 C Island\n"))
+
+
+class TestForgePrinting(unittest.TestCase):
+    def setUp(self):
+        self.index = mini_index(MINI_EDITION)
+
+    def printing(self, name, set_code, number):
+        return ff.forge_printing(self.index, name, set_code, number)
+
+    def test_exact_number_and_art_index(self):
+        self.assertEqual(self.printing("Island", "tst", "265"),
+                         ff.ForgePrinting("TST", "265", 2))
+        self.assertEqual(self.printing("Island", "TST", "263").suffix, "|TST|[263]")
+
+    def test_split_card_by_full_or_front_name(self):
+        self.assertEqual(self.printing("Fire // Ice", "tst", "12").suffix, "|TST|[12]")
+        self.assertEqual(self.printing("Fire", "tst", "12").suffix, "|TST|[12]")
+
+    def test_unknown_number_falls_back_to_the_edition(self):
+        self.assertEqual(self.printing("Sol Ring", "tst", "7★").suffix, "|TST")
+        self.assertEqual(self.printing("Sol Ring", "tst", None).suffix, "|TST")
+
+    def test_no_forge_printing_is_none(self):
+        self.assertIsNone(self.printing("Sol Ring", "zzz", "7"))
+        self.assertIsNone(self.printing("Counterspell", "tst", "1"))
+        self.assertIsNone(self.printing("Sol Ring", None, None))
+
+    def test_one_scryfall_code_several_forge_editions(self):
+        other = MINI_EDITION.replace("Code=TST", "Code=TST_AA").replace(
+            "7 R Sol Ring\n", "7 R Sol Ring\n99 R Counterspell\n")
+        index = mini_index(MINI_EDITION, other)
+        # The number decides, then the edition whose Code is the Scryfall code.
+        self.assertEqual(ff.forge_printing(index, "Counterspell", "tst", "99").code,
+                         "TST_AA")
+        self.assertEqual(ff.forge_printing(index, "Sol Ring", "tst", "7").code, "TST")
+
+
+class TestDckPrintings(unittest.TestCase):
+    def test_lines_carry_the_forge_printing(self):
+        index = mini_index(MINI_EDITION)
+        rows = [{**row("Island", 3), "set_code": "tst", "collector_number": "265"},
+                {**row("Island", 2), "set_code": None, "collector_number": None},
+                {**row("Sol Ring"), "set_code": "zzz", "collector_number": "1"}]
+        self.assertEqual(ff.dck_sections(rows, index)["Main"],
+                         [(2, "Island"), (3, "Island|TST|[265]"), (1, "Sol Ring")])
+
+    def test_without_an_index_names_only(self):
+        rows = [{**row("Island", 3), "set_code": "tst", "collector_number": "265"}]
+        self.assertEqual(ff.dck_sections(rows)["Main"], [(3, "Island")])
+
+    def test_a_substitute_drops_the_originals_printing(self):
+        rows = [{**row("City of Traitors"), "set_code": "tst",
+                 "collector_number": "7"}]
+        out = ff.apply_substitutions(rows, {"City of Traitors": "Sol Ring"})
+        self.assertIsNone(out[0]["set_code"])
+        self.assertEqual(ff.dck_sections(out, mini_index(MINI_EDITION))["Main"],
+                         [(1, "Sol Ring")])
+
+
+@unittest.skipUnless(FORGE_EDITIONS.is_dir(), "needs tools/forge/res/editions")
+class TestRealForgeEditions(unittest.TestCase):
+    """The mapping over Forge 2.0.14's own edition files."""
+
+    @classmethod
+    def setUpClass(cls):
+        install = fc.ForgeInstall(
+            config=fc.ForgeConfig(install_dir=FORGE_EDITIONS.parent.parent,
+                                  decks_dir=Path("unused"),
+                                  commander_decks_dir=Path("unused")),
+            jar=Path("unused.jar"), java="java", version="real")
+        cls.index = fc.load_edition_index(install)
+
+    CASES = [
+        # (card, Scryfall set, number) -> .dck suffix
+        (("Sol Ring", "c18", "222"), "|C18|[222]"),
+        (("Island", "m21", "264"), "|M21|[264]"),
+        # The List: Scryfall `plst`, Forge Code PLST (Code2 PLIST); the
+        # original set lives in the collector number.
+        (("Mana Leak", "plst", "DDN-64"), "|PLST|[DDN-64]"),
+        (("Temple of the False God", "plst", "C18-285"), "|PLST|[C18-285]"),
+        # `med` is three Forge editions; the number finds the right one.
+        (("Jace, the Mind Sculptor", "med", "WS3"), "|MPS_WAR|[WS3]"),
+        # Scryfall's star variant; Forge lists only the plain number.
+        (("Force Spike", "7ed", "76★"), "|7ED"),
+        (("Fire // Ice", "mh2", "290"), "|MH2|[290]"),
+        (("Brazen Borrower // Petty Theft", "eld", "281"), "|ELD|[281]"),
+    ]
+
+    def test_cases(self):
+        for (card, set_code, number), suffix in self.CASES:
+            with self.subTest(card=card, set_code=set_code):
+                self.assertEqual(
+                    ff.forge_printing(self.index, card, set_code, number).suffix,
+                    suffix)
+
+    def test_art_index_follows_forges_order(self):
+        # M21's three full-art Islands are 263, 264, 265: arts 1, 2, 3.
+        self.assertEqual(
+            [ff.forge_printing(self.index, "Island", "m21", n).art_index
+             for n in ("263", "264", "265")], [1, 2, 3])
+
+    def test_no_forge_printing(self):
+        self.assertIsNone(ff.forge_printing(self.index, "Lightning Bolt", "c18", "1"))
+        self.assertIsNone(ff.forge_printing(self.index, "Sol Ring", "zzzz", "1"))
+
+    def test_every_edition_parses(self):
+        files = list(FORGE_EDITIONS.glob("*.txt"))
+        self.assertEqual(sum(len(group) for group in self.index.values()),
+                         len(files))
+
+
+class TestExportPrintings(ServiceTestCase):
+    def test_the_dck_carries_the_printing(self):
+        d.remove_card_from_deck("Canlander", "Island", folder=self.folder)
+        d.add_card_to_deck("Canlander", "Island", quantity=5, folder=self.folder,
+                           set_code="TST", collector_number="265")
+        with mock.patch.object(fc, "load_edition_index",
+                               return_value=mini_index(MINI_EDITION)):
+            out = svc.forge_export(self.canlander, config=self.config)
+        text = out.path.read_text(encoding="utf-8")
+        self.assertIn("5 Island|TST|[265]\n", text)
+        self.assertIn("1 Sol Ring\n", text)
+
+    def test_no_printings_reads_no_editions(self):
+        with mock.patch.object(fc, "load_edition_index") as load:
+            svc.forge_export(self.canlander, config=self.config)
+        load.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -204,6 +204,29 @@ def load_card_index(install: ForgeInstall,
     return cards
 
 
+# --- editions -------------------------------------------------------------
+
+EDITIONS_DIR = Path("res") / "editions"
+
+
+def load_edition_index(install: ForgeInstall) -> dict:
+    """`forge_format.edition_index` over the install's edition files.
+
+    About 0.2 s for Forge 2.0.14's 678 files, so it is read per export
+    rather than cached. An install without the folder gives an empty index:
+    every printing then falls back to the name alone, which is how a row
+    without a printing is written anyway.
+    """
+    folder = install.config.install_dir / EDITIONS_DIR
+    editions = []
+    for path in sorted(folder.glob("*.txt")) if folder.is_dir() else ():
+        edition = ff.parse_edition(path.read_text(encoding="utf-8",
+                                                  errors="replace"))
+        if edition:
+            editions.append(edition)
+    return ff.edition_index(editions)
+
+
 # --- deck files -----------------------------------------------------------
 
 def deck_path(config: ForgeConfig, deck_name: str, game_type: str) -> Path:

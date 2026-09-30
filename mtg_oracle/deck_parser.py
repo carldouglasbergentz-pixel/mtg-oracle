@@ -4,6 +4,10 @@ Accepts the common formats produced by Moxfield, Archidekt, Arena,
 MTGO, manual deckstrings, and card-shop exports. Output is a flat list
 of {name, quantity, section} dicts where section is one of:
     'main', 'sideboard', 'commander', 'maybeboard'
+A line that names a printing also carries `set_code` (Scryfall's
+lower-case code, e.g. `c18`) and `collector_number` (e.g. `263`, `76★`,
+`DDN-64`, or None when only the set is given). Lines without one have
+neither key.
 
 Recognized input shapes:
 
@@ -13,7 +17,7 @@ Recognized input shapes:
     Lightning Bolt x4                     # trailing qty
     1 Jace, Vryn's Prodigy                # comma in name
     1 Fire/Ice                            # alt separator (resolve_card_name handles it)
-    4 Lightning Bolt (CLB) 146            # set + collector number (stripped)
+    4 Lightning Bolt (CLB) 146            # set + collector number (kept as the printing)
     4 Lightning Bolt *F*                  # foil marker (stripped)
     # comment line                        # ignored
     // also a comment
@@ -96,10 +100,13 @@ _CATEGORY_TAIL_RE = re.compile(r"\s*\[[^\]]*\](?:\s*\^[^^]*\^)?\s*$")
 # cards called `Unearth (Theme)`, `Hazmat Suit (Used)` and `Imaginary Friends
 # (Plane)`, and the old pattern quietly turned the first into `Unearth`, which
 # resolves to a different card entirely.
+#
+# The tail is kept, not just stripped: it is the printing the user chose, and
+# the art follows it (`set_code` / `collector_number` on the row).
 _SET_TAIL_RE = re.compile(
-    r"\s*\((?:[A-Z0-9]{2,6}|[a-z0-9]{2,6})\)"
-    r"(?:\s*[A-Za-z0-9][A-Za-z0-9-]*)?"
-    r"\s*[★*]?\s*$")
+    r"\s*\((?P<set>[A-Z0-9]{2,6}|[a-z0-9]{2,6})\)"
+    r"(?:\s*(?P<number>[A-Za-z0-9][A-Za-z0-9-]*))?"
+    r"\s*(?P<star>[★*])?\s*$")
 # Foil / etched / showcase markers some exports add. `*E*` is etched, which the
 # named-only list missed; a single letter covers the family without guessing.
 _FOIL_TAIL_RE = re.compile(
@@ -168,16 +175,41 @@ def _is_type_group(line: str) -> bool:
     return bool(words) and all(w == w.upper() for w in words)
 
 
-def _parse_line(line: str) -> tuple[int, str] | None:
-    """Parse a card line into (quantity, name). Returns None if the line
-    can't be interpreted as a card entry."""
+def _printing(tail: re.Match) -> dict:
+    """{set_code, collector_number} from a matched set tail, as Scryfall
+    spells them: the set code lower-case, a star as `★` (`76*` is how some
+    exporters type Scryfall's `76★`).
+
+    Stored as the paste says, unvalidated: the database holds oracle cards
+    only, so there is no list of real printings to check against. A printing
+    nothing recognises costs only its art — Forge export and the app fall
+    back to the default printing.
+    """
+    set_code = tail.group("set").lower()
+    if set_code.isdigit():
+        # `(15)` is a count some exporters append, never a set code.
+        return {}
+    number = tail.group("number")
+    if number and tail.group("star"):
+        number += "★"
+    return {"set_code": set_code, "collector_number": number}
+
+
+def _parse_line(line: str) -> tuple[int, str, dict] | None:
+    """Parse a card line into (quantity, name, printing). `printing` is
+    {set_code, collector_number} when the line names one, else {}. Returns
+    None if the line can't be interpreted as a card entry."""
     line = line.strip()
     if not line:
         return None
-    # Strip trailing category / foil / set-code / collector metadata.
+    # Strip trailing category / foil markers, then keep the printing.
     line = _CATEGORY_TAIL_RE.sub("", line)
     line = _FOIL_TAIL_RE.sub("", line)
-    line = _SET_TAIL_RE.sub("", line)
+    printing: dict = {}
+    tail = _SET_TAIL_RE.search(line)
+    if tail:
+        printing = _printing(tail)
+        line = line[:tail.start()]
     line = line.strip()
     if not line:
         return None
@@ -190,7 +222,7 @@ def _parse_line(line: str) -> tuple[int, str] | None:
             return None
         name = m.group(2).strip()
         if name:
-            return qty, name
+            return qty, name, printing
     # Trailing "Card x4".
     m = _TRAIL_COUNT_RE.match(line)
     if m:
@@ -198,14 +230,15 @@ def _parse_line(line: str) -> tuple[int, str] | None:
             qty = int(m.group(2))
         except ValueError:
             return None
-        return qty, m.group(1).strip()
+        return qty, m.group(1).strip(), printing
     # Implicit quantity 1.
-    return 1, line
+    return 1, line, printing
 
 
 def parse_deckstring(text: str) -> list[dict]:
     """Top-level entry point. Returns a list of {name, quantity, section}
-    dicts. Order in the output follows the input order.
+    dicts, plus {set_code, collector_number} on lines that name a printing.
+    Order in the output follows the input order.
     """
     rows: list[dict] = []
     section = "main"
@@ -241,6 +274,7 @@ def parse_deckstring(text: str) -> list[dict]:
         if parsed is None:
             # Silently skip unparseable lines; callers decide how to surface.
             continue
-        qty, name = parsed
-        rows.append({"name": name, "quantity": qty, "section": row_section})
+        qty, name, printing = parsed
+        rows.append({"name": name, "quantity": qty, "section": row_section,
+                     **printing})
     return rows

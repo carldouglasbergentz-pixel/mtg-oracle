@@ -264,6 +264,10 @@ CREATE TABLE IF NOT EXISTS deck_cards (
     is_commander INTEGER NOT NULL DEFAULT 0,
     is_sideboard INTEGER NOT NULL DEFAULT 0,
     added_at TEXT NOT NULL,
+    -- The chosen printing, Scryfall's spelling (`c18`, `263`); NULL = none.
+    -- See scripts/migrate_add_printings_and_games.py.
+    set_code TEXT,
+    collector_number TEXT,
     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
     FOREIGN KEY (card_name) REFERENCES cards(name)
 );
@@ -292,7 +296,12 @@ CREATE TABLE IF NOT EXISTS deck_changes (
     section TEXT NOT NULL
         CHECK (section IN ('main', 'sideboard', 'commander')),
     qty_before INTEGER NOT NULL,
-    qty_after INTEGER NOT NULL
+    qty_after INTEGER NOT NULL,
+    -- A printing change is a change too (qty_before = qty_after then).
+    set_code_before TEXT,
+    collector_number_before TEXT,
+    set_code_after TEXT,
+    collector_number_after TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_deck_changes_revision ON deck_changes(revision_id);
 
@@ -330,6 +339,34 @@ CREATE TABLE IF NOT EXISTS forge_matches (
 CREATE INDEX IF NOT EXISTS idx_forge_matches_match ON forge_matches(match_id);
 CREATE INDEX IF NOT EXISTS idx_forge_matches_deck_a ON forge_matches(deck_a_id);
 CREATE INDEX IF NOT EXISTS idx_forge_matches_deck_b ON forge_matches(deck_b_id);
+
+-- One row per game the Kotlin app plays; the app writes it. See
+-- scripts/migrate_add_printings_and_games.py.
+CREATE TABLE IF NOT EXISTS games (
+    id INTEGER PRIMARY KEY,
+    played_at TEXT NOT NULL,
+    mode TEXT NOT NULL CHECK (mode IN ('human_vs_ai', 'ai_vs_ai')),
+    deck_id INTEGER REFERENCES decks(id) ON DELETE SET NULL,
+    deck_name TEXT NOT NULL,
+    opponent_deck_id INTEGER REFERENCES decks(id) ON DELETE SET NULL,
+    opponent_name TEXT NOT NULL,
+    opponent_ai_variant INTEGER NOT NULL DEFAULT 0,
+    seed INTEGER,
+    winner TEXT CHECK (winner IN ('me', 'opponent', 'draw')),
+    turns INTEGER,
+    duration_ms INTEGER,
+    forge_version TEXT,
+    log_path TEXT,
+    -- Match grouping; see scripts/migrate_add_game_matches.py. A NULL
+    -- match_id is a single-game match.
+    match_id TEXT,
+    game_no INTEGER,
+    match_format TEXT CHECK (match_format IN ('bo1', 'bo3', 'bo5')),
+    conceded INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_games_deck ON games(deck_id);
+CREATE INDEX IF NOT EXISTS idx_games_opponent_deck ON games(opponent_deck_id);
+CREATE INDEX IF NOT EXISTS idx_games_match ON games(match_id);
 """
 
 

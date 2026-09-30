@@ -1097,16 +1097,37 @@ def render_import_result(deck_name: str, result: dict) -> str:
     return "\n".join(lines)
 
 
+def _printing_label(set_code, number) -> str:
+    """`(C18) 263`, `(STA)`, or `(no printing)`."""
+    if not set_code:
+        return "(no printing)"
+    return f"({set_code.upper()})" + (f" {number}" if number else "")
+
+
 def _change_line(change: dict) -> str:
-    """`+2 Brazen Borrower`, `-1 Opt`, `Counterspell 1 -> 2`, with the
-    section marked unless it is the main deck."""
+    """`+2 Brazen Borrower (ELD) 39`, `-1 Opt`, `Counterspell 1 -> 2`,
+    `Sol Ring (C18) 263 -> (CMR) 472`, with the section marked unless it is
+    the main deck."""
     before, after = change["before"], change["after"]
+    set_before = change.get("set_code_before")
+    set_after = change.get("set_code_after")
+    number_before = change.get("collector_number_before")
+    number_after = change.get("collector_number_after")
+    moved = before and after and (set_before, number_before) != (set_after, number_after)
     if not before:
         text = f"+{after} {change['card']}"
+        if set_after:
+            text += f" {_printing_label(set_after, number_after)}"
     elif not after:
         text = f"-{before} {change['card']}"
+    elif before == after:
+        text = (f"{change['card']} {_printing_label(set_before, number_before)}"
+                f" -> {_printing_label(set_after, number_after)}")
     else:
         text = f"{change['card']} {before} -> {after}"
+        if moved:
+            text += (f", {_printing_label(set_before, number_before)}"
+                     f" -> {_printing_label(set_after, number_after)}")
     if change["section"] != "main":
         text += f" [{change['section']}]"
     return text

@@ -81,7 +81,47 @@ class TestCollectorTails(unittest.TestCase):
     def test_quantities_and_sections_are_untouched_by_the_tail(self):
         row = one("4 Lightning Bolt (PLST) DDN-64 *F*")
         self.assertEqual(row, {"name": "Lightning Bolt", "quantity": 4,
-                               "section": "main"})
+                               "section": "main", "set_code": "plst",
+                               "collector_number": "DDN-64"})
+
+
+class TestPrintingsAreKept(unittest.TestCase):
+    """The tail is the printing the user chose; the art follows it."""
+
+    CASES = {
+        "1 Lightning Bolt (CLB) 146": ("clb", "146"),
+        "1 Lightning Bolt (clb) 146": ("clb", "146"),
+        "1 Brainstorm (CNS) 91 *F*": ("cns", "91"),
+        "1 Mana Leak (PLST) DDN-64": ("plst", "DDN-64"),
+        "1 Counterspell (PLST) A25-50": ("plst", "A25-50"),
+        "1 Jace, the Mind Sculptor (MED) WS3": ("med", "WS3"),
+        "1 Snapcaster Mage (PUMA) U5": ("puma", "U5"),
+        "1 Farewell (PWCS) 2022-5": ("pwcs", "2022-5"),
+        "1 Force Spike (7ED) 76★": ("7ed", "76★"),
+        # Scryfall spells the star `★`; some exporters type `*`.
+        "1 Force Spike (7ED) 76*": ("7ed", "76★"),
+        "1 The Wandering Emperor (NEO) 418 *E*": ("neo", "418"),
+        "1 Swords to Plowshares (STA)": ("sta", None),
+        "1x Sol Ring (c21) 263 [Ramp] ^Have,#37d67a^": ("c21", "263"),
+        "SB: 1 Pyroblast (PLST) A25-141": ("plst", "A25-141"),
+    }
+
+    def test_set_code_and_collector_number(self):
+        for line, (set_code, number) in self.CASES.items():
+            with self.subTest(line=line):
+                row = one(line)
+                self.assertEqual((row["set_code"], row["collector_number"]),
+                                 (set_code, number))
+
+    def test_no_printing_means_no_keys(self):
+        for line in ("1 Sol Ring", "1 Unearth (Theme)", "Sol Ring x2",
+                     "1 Hazmat Suit (Used)"):
+            with self.subTest(line=line):
+                self.assertNotIn("set_code", one(line))
+
+    def test_an_all_digit_group_is_a_count_not_a_set(self):
+        self.assertEqual(one("1 Island (15)"),
+                         {"name": "Island", "quantity": 1, "section": "main"})
 
 
 class TestTypeGroupHeadings(unittest.TestCase):

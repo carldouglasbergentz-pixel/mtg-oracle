@@ -18,6 +18,7 @@ import migrate_add_corrections
 import migrate_add_custom_formats
 import migrate_add_deck_history
 import migrate_add_forge
+import migrate_add_game_matches
 import migrate_add_decks
 import migrate_add_folder_format
 import migrate_add_legalities
@@ -25,6 +26,7 @@ import migrate_add_mana_cost
 import migrate_add_nocase_indexes
 import migrate_add_oracle_id
 import migrate_add_oracle_tags
+import migrate_add_printings_and_games
 import migrate_add_scryfall_fields
 import migrate_add_tags
 import migrate_add_user_combos
@@ -50,6 +52,10 @@ MIGRATIONS = (
     migrate_add_deck_history,
     # Forge tables reference decks.
     migrate_add_forge,
+    # Widens deck_cards and deck_changes; games references decks.
+    migrate_add_printings_and_games,
+    # Widens games, which the one above creates.
+    migrate_add_game_matches,
     # card_tags must exist before its key can be fixed; the fix re-tags
     # from cards, so it also needs the card columns above.
     migrate_add_tags,

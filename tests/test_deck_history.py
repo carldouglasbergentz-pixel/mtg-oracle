@@ -403,7 +403,13 @@ class TestMigration(unittest.TestCase):
         self.assertIn("already up to date", self.run_migration())
 
     def test_matches_init_db(self):
+        # deck_changes is widened by the printings migration after this one,
+        # as self_heal runs them; init_db has the end state.
         self.run_migration()
+        import migrate_add_printings_and_games as printings
+        with mock.patch.object(printings, "DB_PATH", self.db), \
+                contextlib.redirect_stdout(io.StringIO()):
+            printings.main()
         fresh = sqlite3.connect(":memory:")
         fresh.executescript(init_db.SCHEMA)
         migrated = sqlite3.connect(self.db)
@@ -430,6 +436,313 @@ class TestMigration(unittest.TestCase):
         order = [m.__name__ for m in sync.SELF_HEAL_MIGRATIONS]
         self.assertGreater(order.index("migrate_add_deck_history"),
                            order.index("migrate_add_decks"))
+
+
+class TestPrintings(_HistoryTest):
+    """A row's printing: carried in, changed as content, exported back."""
+
+    def printings(self):
+        return {(c["card_name"], c["is_sideboard"]):
+                (c["set_code"], c["collector_number"])
+                for c in d.get_deck(self.deck)["cards"]}
+
+    def replace(self, text, **kwargs):
+        return d.replace_deck_contents(self.deck, parse_deckstring(text), **kwargs)
+
+    def test_load_carries_the_printing(self):
+        d.load_parsed_into_deck(self.deck, parse_deckstring(
+            "1 Sol Ring (C18) 222\n2 Island\nSideboard\n1 Duress (PLST) M20-96\n"))
+        self.assertEqual(self.printings(), {
+            ("Sol Ring", 0): ("c18", "222"), ("Island", 0): (None, None),
+            ("Duress", 1): ("plst", "M20-96")})
+
+    def test_import_carries_the_printing(self):
+        name = f"{self.deck}-import"
+        d.import_deck(name, parse_deckstring("1 Force Spike (7ED) 76*\n"))
+        [row] = d.get_deck(name)["cards"]
+        self.assertEqual((row["set_code"], row["collector_number"]), ("7ed", "76★"))
+
+    def test_add_sets_a_printing_and_add_without_one_keeps_it(self):
+        d.add_card_to_deck(self.deck, "Island", quantity=2,
+                           set_code="M21", collector_number="264")
+        d.add_card_to_deck(self.deck, "Island")
+        self.assertEqual(self.printings()[("Island", 0)], ("m21", "264"))
+        d.add_card_to_deck(self.deck, "Island", set_code="unf", collector_number="240")
+        self.assertEqual(self.printings()[("Island", 0)], ("unf", "240"))
+        self.assertEqual(self.state(), {("Island", "main"): 4})
+
+    def test_a_printing_only_change_is_a_revision_and_undo_restores_it(self):
+        self.replace("1 Sol Ring (C18) 222\n")
+        diff = self.replace("1 Sol Ring (CMR) 472\n")
+        [change] = diff["changed"]
+        self.assertEqual((change["before"], change["after"]), (1, 1))
+        self.assertEqual((change["set_code_before"], change["collector_number_before"],
+                          change["set_code_after"], change["collector_number_after"]),
+                         ("c18", "222", "cmr", "472"))
+        latest = self.history()[0]
+        self.assertEqual((latest["id"], latest["action"]),
+                         (diff["revision_id"], "replace"))
+        self.assertIn("Sol Ring (C18) 222 -> (CMR) 472", r.render_deck_diff(diff))
+        d.undo_last_change(self.deck)
+        self.assertEqual(self.printings()[("Sol Ring", 0)], ("c18", "222"))
+        d.undo_last_change(self.deck)
+        self.assertEqual(self.printings()[("Sol Ring", 0)], ("cmr", "472"))
+
+    def test_same_list_with_printings_is_a_no_op(self):
+        text = "1 Sol Ring (C18) 222\n2 Island (M21) 264\n"
+        self.replace(text)
+        count = len(self.history())
+        self.assertIsNone(self.replace(text)["revision_id"])
+        self.assertEqual(len(self.history()), count)
+
+    def test_a_line_without_a_printing_keeps_the_rows(self):
+        self.replace("1 Sol Ring (C18) 222\n")
+        diff = self.replace("1 Sol Ring\n")
+        self.assertIsNone(diff["revision_id"])
+        self.assertEqual(self.printings()[("Sol Ring", 0)], ("c18", "222"))
+
+    def test_quantity_and_printing_together_are_one_change(self):
+        self.replace("1 Island (M21) 263\n")
+        diff = self.replace("3 Island (M21) 265\n")
+        [change] = diff["changed"]
+        self.assertEqual((change["before"], change["after"],
+                          change["collector_number_after"]), (1, 3, "265"))
+        self.assertIn("Island 1 -> 3, (M21) 263 -> (M21) 265",
+                      r.render_deck_diff(diff))
+
+    def test_history_reports_printings(self):
+        d.add_card_to_deck(self.deck, "Sol Ring", set_code="c18",
+                           collector_number="222")
+        [rev] = self.history()
+        self.assertEqual(rev["changes"][0]["set_code_after"], "c18")
+        self.assertIn("+1 Sol Ring (C18) 222", r.render_deck_history([rev]))
+
+    def test_export_writes_the_printing_and_import_reads_it_back(self):
+        self.replace("Commander\n1 Atraxa, Praetors' Voice (C16) 28\n"
+                     "Deck\n1 Sol Ring (C18) 222\n1 Swords to Plowshares (STA)\n"
+                     "2 Island\nSideboard\n1 Force Spike (7ED) 76★\n")
+        text = svc.export_deck_text(svc.DeckRef(self.deck)).text
+        for line in ("1 Atraxa, Praetors' Voice (C16) 28", "1 Sol Ring (C18) 222",
+                     "1 Swords to Plowshares (STA)", "2 Island\n",
+                     "1 Force Spike (7ED) 76★"):
+            self.assertIn(line, text)
+        name = f"{self.deck}-round-trip"
+        d.import_deck(name, parse_deckstring(text))
+        self.assertEqual(
+            sorted((c["card_name"], c["is_commander"], c["is_sideboard"],
+                    c["quantity"], c["set_code"], c["collector_number"])
+                   for c in d.get_deck(name)["cards"]),
+            sorted((c["card_name"], c["is_commander"], c["is_sideboard"],
+                    c["quantity"], c["set_code"], c["collector_number"])
+                   for c in d.get_deck(self.deck)["cards"]))
+
+
+class TestGamesTable(unittest.TestCase):
+    """The app's `games` rows outlive their decks, as forge_matches do."""
+
+    def test_deleting_a_deck_keeps_its_games(self):
+        d.create_deck("__games_me__")
+        d.create_deck("__games_them__")
+        [(me,)] = _sql("SELECT id FROM decks WHERE name = '__games_me__'")
+        [(them,)] = _sql("SELECT id FROM decks WHERE name = '__games_them__'")
+        _sql("INSERT INTO games (played_at, mode, deck_id, deck_name, "
+             "opponent_deck_id, opponent_name, winner) VALUES "
+             "('2026-09-29T12:00:00Z', 'human_vs_ai', ?, '__games_me__', ?, "
+             "'__games_them__', 'me')", (me, them))
+        d.delete_deck("__games_me__")
+        self.assertEqual(
+            _sql("SELECT deck_id, deck_name, opponent_deck_id FROM games "
+                 "WHERE deck_name = '__games_me__'"),
+            [(None, "__games_me__", them)])
+
+    def test_mode_and_winner_are_checked(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            _sql("INSERT INTO games (played_at, mode, deck_name, opponent_name) "
+                 "VALUES ('x', 'hotseat', 'a', 'b')")
+        with self.assertRaises(sqlite3.IntegrityError):
+            _sql("INSERT INTO games (played_at, mode, deck_name, opponent_name, "
+                 "winner) VALUES ('x', 'ai_vs_ai', 'a', 'b', 'a')")
+
+
+class TestPrintingsMigration(unittest.TestCase):
+    """migrate_add_printings_and_games on a database from before it."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.db = Path(tmp.name) / "old.db"
+        conn = sqlite3.connect(self.db)
+        conn.executescript(init_db.SCHEMA)
+        conn.executescript("""
+            DROP TABLE games;
+            ALTER TABLE deck_cards DROP COLUMN set_code;
+            ALTER TABLE deck_cards DROP COLUMN collector_number;
+            ALTER TABLE deck_changes DROP COLUMN set_code_before;
+            ALTER TABLE deck_changes DROP COLUMN collector_number_before;
+            ALTER TABLE deck_changes DROP COLUMN set_code_after;
+            ALTER TABLE deck_changes DROP COLUMN collector_number_after;
+        """)
+        conn.commit()
+        conn.close()
+        import migrate_add_printings_and_games as printings
+        self.migration = printings
+        patcher = mock.patch.object(printings, "DB_PATH", self.db)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def run_migration(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.migration.main()
+        return out.getvalue()
+
+    def test_idempotent(self):
+        self.assertIn("Migration applied", self.run_migration())
+        self.assertIn("already up to date", self.run_migration())
+
+    def test_matches_init_db(self):
+        self.run_migration()
+        # games is widened by the match migration after this one, as
+        # self_heal runs them; init_db has the end state.
+        import migrate_add_game_matches as matches
+        with mock.patch.object(matches, "DB_PATH", self.db), \
+                contextlib.redirect_stdout(io.StringIO()):
+            matches.main()
+        fresh = sqlite3.connect(":memory:")
+        fresh.executescript(init_db.SCHEMA)
+        migrated = sqlite3.connect(self.db)
+        try:
+            for table in ("deck_cards", "deck_changes", "games"):
+                for pragma in ("table_info", "foreign_key_list"):
+                    self.assertEqual(
+                        fresh.execute(f"PRAGMA {pragma}({table})").fetchall(),
+                        migrated.execute(f"PRAGMA {pragma}({table})").fetchall(),
+                        f"{pragma}({table})")
+            query = ("SELECT name, sql FROM sqlite_master WHERE type = 'index' "
+                     "AND tbl_name = 'games' ORDER BY 1")
+            self.assertEqual([n for n, _ in fresh.execute(query)],
+                             [n for n, _ in migrated.execute(query)])
+        finally:
+            fresh.close()
+            migrated.close()
+
+    def test_registered_for_self_heal_after_history_and_forge(self):
+        import self_heal
+        order = [m.__name__ for m in self_heal.MIGRATIONS]
+        at = order.index("migrate_add_printings_and_games")
+        self.assertGreater(at, order.index("migrate_add_deck_history"))
+        self.assertGreater(at, order.index("migrate_add_forge"))
+
+
+class TestGameMatchesMigration(unittest.TestCase):
+    """migrate_add_game_matches on a `games` table from before matches."""
+
+    OLD_GAMES = """
+        CREATE TABLE games (
+            id INTEGER PRIMARY KEY,
+            played_at TEXT NOT NULL,
+            mode TEXT NOT NULL CHECK (mode IN ('human_vs_ai', 'ai_vs_ai')),
+            deck_id INTEGER REFERENCES decks(id) ON DELETE SET NULL,
+            deck_name TEXT NOT NULL,
+            opponent_deck_id INTEGER REFERENCES decks(id) ON DELETE SET NULL,
+            opponent_name TEXT NOT NULL,
+            opponent_ai_variant INTEGER NOT NULL DEFAULT 0,
+            seed INTEGER,
+            winner TEXT CHECK (winner IN ('me', 'opponent', 'draw')),
+            turns INTEGER,
+            duration_ms INTEGER,
+            forge_version TEXT,
+            log_path TEXT
+        );
+        CREATE INDEX idx_games_deck ON games(deck_id);
+        CREATE INDEX idx_games_opponent_deck ON games(opponent_deck_id);
+        INSERT INTO games (played_at, mode, deck_name, opponent_name, winner)
+        VALUES ('2026-09-29T10:00:00Z', 'human_vs_ai', 'Mine', 'Theirs', 'me');
+    """
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.db = Path(tmp.name) / "old.db"
+        conn = sqlite3.connect(self.db)
+        conn.executescript(init_db.SCHEMA)
+        conn.executescript("DROP TABLE games;" + self.OLD_GAMES)
+        conn.commit()
+        conn.close()
+        import migrate_add_game_matches as matches
+        self.migration = matches
+        patcher = mock.patch.object(matches, "DB_PATH", self.db)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def run_migration(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.migration.main()
+        return out.getvalue()
+
+    def query(self, sql, params=()):
+        conn = sqlite3.connect(self.db)
+        try:
+            rows = conn.execute(sql, params).fetchall()
+            conn.commit()
+            return rows
+        finally:
+            conn.close()
+
+    def test_idempotent(self):
+        self.assertIn("Migration applied", self.run_migration())
+        self.assertIn("already up to date", self.run_migration())
+
+    def test_exact_column_names(self):
+        self.run_migration()
+        columns = [r[1] for r in self.query("PRAGMA table_info(games)")]
+        self.assertEqual(columns[-4:],
+                         ["match_id", "game_no", "match_format", "conceded"])
+
+    def test_existing_rows_survive_as_single_games(self):
+        self.run_migration()
+        self.assertEqual(
+            self.query("SELECT deck_name, winner, match_id, game_no, "
+                       "match_format, conceded FROM games"),
+            [("Mine", "me", None, None, None, 0)])
+
+    def test_match_format_is_checked(self):
+        self.run_migration()
+        insert = ("INSERT INTO games (played_at, mode, deck_name, opponent_name, "
+                  "match_id, game_no, match_format, conceded) "
+                  "VALUES ('x', 'ai_vs_ai', 'a', 'b', 'm1', ?, ?, ?)")
+        for game_no, fmt in ((1, "bo1"), (2, "bo3"), (3, "bo5")):
+            self.query(insert, (game_no, fmt, 1))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.query(insert, (1, "bo7", 0))
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.query(insert.replace(", ?)", ", NULL)"), (1, "bo3"))
+
+    def test_matches_init_db(self):
+        self.run_migration()
+        fresh = sqlite3.connect(":memory:")
+        fresh.executescript(init_db.SCHEMA)
+        migrated = sqlite3.connect(self.db)
+        try:
+            for pragma in ("table_info", "foreign_key_list", "index_list"):
+                self.assertEqual(
+                    sorted(fresh.execute(f"PRAGMA {pragma}(games)").fetchall()),
+                    sorted(migrated.execute(f"PRAGMA {pragma}(games)").fetchall()),
+                    pragma)
+        finally:
+            fresh.close()
+            migrated.close()
+
+    def test_registered_for_self_heal_after_printings(self):
+        import self_heal
+        order = [m.__name__ for m in self_heal.MIGRATIONS]
+        self.assertGreater(order.index("migrate_add_game_matches"),
+                           order.index("migrate_add_printings_and_games"))
+
+    def test_no_games_table_is_left_alone(self):
+        self.query("DROP TABLE games")
+        self.assertIn("already up to date", self.run_migration())
 
 
 if __name__ == "__main__":

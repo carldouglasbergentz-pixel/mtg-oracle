@@ -101,6 +101,22 @@ def _check_quantity(quantity: int) -> None:
         raise QuantityError(f"quantity must be between 1 and {MAX_QUANTITY}")
 
 
+def _normalize_printing(
+    set_code: Optional[str], collector_number: Optional[str],
+) -> Optional[tuple[str, Optional[str]]]:
+    """(set_code, collector_number) as Scryfall spells them, or None.
+
+    Lower-case set code, collector number as given (`76★`, `DDN-64`). A
+    collector number without a set means nothing, so it is None too. Not
+    validated: the database has no list of printings, and a printing that
+    nothing recognises only costs its art.
+    """
+    set_code = (set_code or "").strip().lower()
+    if not set_code:
+        return None
+    return set_code, (collector_number or "").strip() or None
+
+
 # --- Connection helpers ----------------------------------------------
 
 def _ro() -> sqlite3.Connection:
@@ -464,6 +480,7 @@ def get_deck(name: str, folder: Optional[str] = None) -> Optional[dict]:
             """
             SELECT dc.card_name, dc.quantity, dc.category,
                    dc.is_commander, dc.is_sideboard,
+                   dc.set_code, dc.collector_number,
                    c.type_line, c.mana_cost, c.mana_value, c.colors,
                    c.color_identity, c.power, c.toughness, c.oracle_text,
                    -- layout + per-face data: analytics needs to tell an MDFC
@@ -902,9 +919,15 @@ def add_card_to_deck(
     is_sideboard: bool = False,
     folder: Optional[str] = None,
     force: bool = False,
+    set_code: Optional[str] = None,
+    collector_number: Optional[str] = None,
 ) -> str:
     """Returns the canonical card name that was added (helpful for echoing
     back when the input was a loose form like 'Fire/Ice').
+
+    `set_code` / `collector_number` name the printing (Scryfall's spelling;
+    see `_normalize_printing`). A row holds one printing: adding with one
+    sets it on the row, adding without one leaves the row's printing alone.
 
     Format-aware validation runs by default — disable with `force=True`:
     - Color identity: in a deck with at least one is_commander=1 row, the
@@ -935,6 +958,7 @@ def add_card_to_deck(
         canonical = _add_card(
             cur, did, card_name, quantity=quantity, category=category,
             is_commander=is_commander, is_sideboard=is_sideboard, force=force,
+            printing=_normalize_printing(set_code, collector_number),
         )
         _record_revision(cur, did, "add", before, note=canonical)
         conn.commit()
@@ -953,12 +977,14 @@ def _add_card(
     is_commander: bool,
     is_sideboard: bool,
     force: bool,
+    printing: Optional[tuple[str, Optional[str]]] = None,
 ) -> str:
     """`add_card_to_deck` on an open cursor; the caller commits.
 
     Every check runs before the first write, so a DeckError leaves the
     transaction exactly as it found it — which is what lets an import skip
-    a rejected row and carry on.
+    a rejected row and carry on. `printing` is `_normalize_printing`'s
+    (set_code, collector_number), or None to leave the row's as it is.
     """
     _check_quantity(quantity)
     canonical = resolve_card_name(card_name)
@@ -1056,15 +1082,22 @@ def _add_card(
             "UPDATE deck_cards SET quantity = ? WHERE id = ?",
             (existing["quantity"] + quantity, existing["id"]),
         )
+        if printing is not None:
+            # One printing per row: the latest one named wins.
+            cur.execute(
+                "UPDATE deck_cards SET set_code = ?, collector_number = ? "
+                "WHERE id = ?", (*printing, existing["id"]))
     else:
+        set_code, number = printing or (None, None)
         cur.execute(
             """
             INSERT INTO deck_cards
-              (deck_id, card_name, quantity, category, is_commander, is_sideboard, added_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+              (deck_id, card_name, quantity, category, is_commander, is_sideboard,
+               added_at, set_code, collector_number)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (did, canonical, quantity, category,
-             int(is_commander), int(is_sideboard), _now()),
+             int(is_commander), int(is_sideboard), _now(), set_code, number),
         )
     cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
     return canonical
@@ -1544,6 +1577,8 @@ def _load_rows(
                 is_commander=is_commander,
                 is_sideboard=(row["section"] == "sideboard"),
                 force=force,
+                printing=_normalize_printing(row.get("set_code"),
+                                             row.get("collector_number")),
             )
         except CardNotFoundError:
             unresolved.append(row["name"])
@@ -1612,23 +1647,55 @@ def _section_of(is_commander, is_sideboard) -> str:
     return "commander" if is_commander else "main"
 
 
-def _snapshot(cur, did: int) -> dict[tuple[str, str], int]:
-    """{(card_name, section): quantity} for every row of the deck."""
+def _snapshot(cur, did: int) -> dict[tuple[str, str], tuple[int, Optional[tuple]]]:
+    """{(card_name, section): (quantity, printing)} for every row of the deck.
+
+    `printing` is (set_code, collector_number), or None when the row has
+    none. Duplicate rows for one key sum their quantities and report the
+    first row's printing.
+    """
     cur.execute(
-        "SELECT card_name, is_commander, is_sideboard, quantity "
-        "FROM deck_cards WHERE deck_id = ?",
+        "SELECT card_name, is_commander, is_sideboard, quantity, set_code, "
+        "collector_number FROM deck_cards WHERE deck_id = ? ORDER BY id",
         (did,),
     )
-    state: dict[tuple[str, str], int] = {}
+    state: dict[tuple[str, str], tuple[int, Optional[tuple]]] = {}
     for row in cur.fetchall():
         key = (row["card_name"],
                _section_of(row["is_commander"], row["is_sideboard"]))
-        state[key] = state.get(key, 0) + row["quantity"]
+        printing = _normalize_printing(row["set_code"], row["collector_number"])
+        qty, first = state.get(key, (0, printing))
+        state[key] = (qty + row["quantity"], first)
     return state
+
+
+_ABSENT = (0, None)
 
 
 def _change_order(key: tuple[str, str]) -> tuple[int, str]:
     return SECTIONS.index(key[1]), key[0].lower()
+
+
+def _change(key: tuple[str, str], before: tuple, after: tuple) -> dict:
+    """One change as the API reports it: quantities, and the printing on
+    each side (None where that side has no copies or no printing)."""
+    (qty_before, printing_before), (qty_after, printing_after) = before, after
+    set_before, number_before = printing_before or (None, None)
+    set_after, number_after = printing_after or (None, None)
+    return {"card": key[0], "section": key[1],
+            "before": qty_before, "after": qty_after,
+            "set_code_before": set_before if qty_before else None,
+            "collector_number_before": number_before if qty_before else None,
+            "set_code_after": set_after if qty_after else None,
+            "collector_number_after": number_after if qty_after else None}
+
+
+def _differs(before: tuple, after: tuple) -> bool:
+    """A quantity change, or — for a card present on both sides — a new
+    printing. A printing-only change is a change like any other."""
+    if before[0] != after[0]:
+        return True
+    return bool(before[0]) and before[1] != after[1]
 
 
 def _record_revision(
@@ -1641,10 +1708,9 @@ def _record_revision(
     """
     after = _snapshot(cur, did)
     changes = [
-        {"card": key[0], "section": key[1],
-         "before": before.get(key, 0), "after": after.get(key, 0)}
+        _change(key, before.get(key, _ABSENT), after.get(key, _ABSENT))
         for key in sorted(set(before) | set(after), key=_change_order)
-        if before.get(key, 0) != after.get(key, 0)
+        if _differs(before.get(key, _ABSENT), after.get(key, _ABSENT))
     ]
     if not changes:
         return None, []
@@ -1656,9 +1722,13 @@ def _record_revision(
     revision_id = cur.lastrowid
     cur.executemany(
         "INSERT INTO deck_changes "
-        "(revision_id, card_name, section, qty_before, qty_after) "
-        "VALUES (?, ?, ?, ?, ?)",
-        [(revision_id, c["card"], c["section"], c["before"], c["after"])
+        "(revision_id, card_name, section, qty_before, qty_after, "
+        " set_code_before, collector_number_before, "
+        " set_code_after, collector_number_after) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [(revision_id, c["card"], c["section"], c["before"], c["after"],
+          c["set_code_before"], c["collector_number_before"],
+          c["set_code_after"], c["collector_number_after"])
          for c in changes],
     )
     return revision_id, changes
@@ -1670,14 +1740,20 @@ _SECTION_WHERE = {
     "main": "is_commander = 0 AND is_sideboard = 0",
 }
 
+# `_set_section_quantity`'s "leave the printing as it is".
+_KEEP = object()
+
 
 def _set_section_quantity(
     cur, did: int, card_name: str, section: str, quantity: int,
+    printing=_KEEP,
 ) -> None:
     """Make (card, section) hold exactly `quantity` copies.
 
     An existing row keeps its id, category and added_at; duplicate rows for
     the same key collapse into the first. Quantity 0 deletes them all.
+    `printing` — a (set_code, collector_number) tuple or None — replaces
+    the row's printing; left out, the row keeps its own.
     """
     cur.execute(
         f"SELECT id FROM deck_cards WHERE deck_id = ? "
@@ -1693,16 +1769,24 @@ def _set_section_quantity(
     if keep:
         cur.execute("UPDATE deck_cards SET quantity = ? WHERE id = ?",
                     (quantity, keep[0]))
+        if printing is not _KEEP:
+            cur.execute(
+                "UPDATE deck_cards SET set_code = ?, collector_number = ? "
+                "WHERE id = ?", (*(printing or (None, None)), keep[0]))
     elif quantity:
+        set_code, number = (None, None) if printing is _KEEP else (printing or (None, None))
         cur.execute(
             "INSERT INTO deck_cards (deck_id, card_name, quantity, "
-            "is_commander, is_sideboard, added_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "is_commander, is_sideboard, added_at, set_code, collector_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (did, card_name, quantity, int(section == "commander"),
-             int(section == "sideboard"), _now()),
+             int(section == "sideboard"), _now(), set_code, number),
         )
 
 
 def _split_changes(changes: list[dict]) -> dict:
+    """added / removed / changed. A printing-only change is in `changed`,
+    with `before` equal to `after`."""
     return {
         "added": [c for c in changes if c["before"] == 0],
         "removed": [c for c in changes if c["after"] == 0],
@@ -1731,15 +1815,25 @@ def replace_deck_contents(
     category and added_at. If the list names a commander and the deck has
     no format, the format becomes 'commander', as on import.
 
+    Printings: a line that names one (`1 Sol Ring (C18) 263`) sets it — a
+    different printing of a card already in the deck is a change, recorded
+    like a quantity change. A line that names none leaves the card's
+    current printing alone: a plain list says nothing about art. When one
+    card appears on several lines of a section, the last printing wins,
+    because a row holds one printing.
+
     A name that resolves to no card aborts the whole replace with
     UnresolvedCardsError, and nothing changes; `force=True` replaces anyway
     without those names.
 
     Returns {deck, action: 'replace', revision_id (None when the deck
     already matched), added, removed, changed — lists of {card, section,
-    before, after} — unresolved, rejected, maybeboard, format_set}.
+    before, after, set_code_before, collector_number_before,
+    set_code_after, collector_number_after} — unresolved, rejected,
+    maybeboard, format_set}.
     """
     target: dict[tuple[str, str], int] = {}
+    target_printing: dict[tuple[str, str], tuple] = {}
     keep_current: set[tuple[str, str]] = set()
     unresolved: list[str] = []
     rejected: list[tuple[str, str]] = []
@@ -1762,6 +1856,10 @@ def replace_deck_contents(
             keep_current.add(key)
             continue
         target[key] = target.get(key, 0) + row["quantity"]
+        printing = _normalize_printing(row.get("set_code"),
+                                       row.get("collector_number"))
+        if printing:
+            target_printing[key] = printing
     if unresolved and not force:
         raise UnresolvedCardsError(unresolved)
 
@@ -1773,16 +1871,22 @@ def replace_deck_contents(
         # Deck rows spell names as stored; match the list to them without
         # regard to case so a stored spelling never reads as a swap.
         stored = {card.lower(): card for card, _ in before}
-        target = {(stored.get(card.lower(), card), section): qty
-                  for (card, section), qty in target.items()}
-        keep_current = {(stored.get(card.lower(), card), section)
-                        for card, section in keep_current}
+
+        def as_stored(key):
+            return stored.get(key[0].lower(), key[0]), key[1]
+
+        target = {as_stored(key): qty for key, qty in target.items()}
+        target_printing = {as_stored(key): p for key, p in target_printing.items()}
+        keep_current = {as_stored(key) for key in keep_current}
         for key in set(before) | set(target):
             if key in keep_current:
                 continue
-            if before.get(key, 0) != target.get(key, 0):
-                _set_section_quantity(cur, did, key[0], key[1],
-                                      target.get(key, 0))
+            now_qty, now_printing = before.get(key, _ABSENT)
+            want_qty = target.get(key, 0)
+            want_printing = target_printing.get(key, now_printing)
+            if now_qty != want_qty or (want_qty and want_printing != now_printing):
+                _set_section_quantity(cur, did, key[0], key[1], want_qty,
+                                      want_printing)
         names_commander = any(section == "commander" for _, section in target)
         format_set = (_auto_set_commander_format(cur, did)
                       if names_commander else None)
@@ -1809,13 +1913,28 @@ def replace_deck_contents(
         conn.close()
 
 
+def _stored_change(row) -> tuple[tuple, tuple]:
+    """A deck_changes row as (before, after) snapshot values."""
+    return ((row["qty_before"],
+             _normalize_printing(row["set_code_before"],
+                                 row["collector_number_before"])),
+            (row["qty_after"],
+             _normalize_printing(row["set_code_after"],
+                                 row["collector_number_after"])))
+
+
+_CHANGE_COLUMNS = ("card_name, section, qty_before, qty_after, "
+                   "set_code_before, collector_number_before, "
+                   "set_code_after, collector_number_after")
+
+
 def undo_last_change(name: str, folder: Optional[str] = None) -> dict:
     """Revert the deck's most recent revision, recording that as a revision.
 
     The undo is itself a revision (action 'undo'), so undoing an undo
-    re-applies the change — it works as redo. Only contents are restored: a
-    format that an import or `set_commander` auto-set stays set, because
-    format changes are not part of the history.
+    re-applies the change — it works as redo. Contents are restored,
+    printings included. A format that an import or `set_commander` auto-set
+    stays set, because format changes are not part of the history.
 
     Raises DeckError when the deck has no history, or when its contents no
     longer match what the latest revision recorded (a change made outside
@@ -1841,23 +1960,23 @@ def undo_last_change(name: str, folder: Optional[str] = None) -> dict:
                 f"recorded changes"
             )
         cur.execute(
-            "SELECT card_name, section, qty_before, qty_after "
-            "FROM deck_changes WHERE revision_id = ?",
+            f"SELECT {_CHANGE_COLUMNS} FROM deck_changes WHERE revision_id = ?",
             (latest["id"],),
         )
         changes = cur.fetchall()
         before = _snapshot(cur, did)
         drifted = [c["card_name"] for c in changes
-                   if before.get((c["card_name"], c["section"]), 0)
-                   != c["qty_after"]]
+                   if _differs(before.get((c["card_name"], c["section"]), _ABSENT),
+                               _stored_change(c)[1])]
         if drifted:
             raise DeckError(
                 f"cannot undo revision #{latest['id']}: the deck no longer "
                 f"matches it ({', '.join(drifted)} changed since)"
             )
         for c in changes:
+            qty, printing = _stored_change(c)[0]
             _set_section_quantity(cur, did, c["card_name"], c["section"],
-                                  c["qty_before"])
+                                  qty, printing)
         revision_id, inverse = _record_revision(
             cur, did, "undo", before,
             note=f"undo of #{latest['id']} ({latest['action']})")
@@ -1883,7 +2002,8 @@ def deck_history(
     name: str, folder: Optional[str] = None, limit: int = 20,
 ) -> list[dict]:
     """The deck's revisions, newest first: [{id, at, action, note,
-    changes: [{card, section, before, after}]}]."""
+    changes: [{card, section, before, after, set_code_before,
+    collector_number_before, set_code_after, collector_number_after}]}]."""
     limit = max(1, min(limit, 500))
     conn = _ro()
     try:
@@ -1897,12 +2017,11 @@ def deck_history(
         revisions = [dict(r) for r in cur.fetchall()]
         for rev in revisions:
             cur.execute(
-                "SELECT card_name, section, qty_before, qty_after "
-                "FROM deck_changes WHERE revision_id = ?",
+                f"SELECT {_CHANGE_COLUMNS} FROM deck_changes "
+                f"WHERE revision_id = ?",
                 (rev["id"],),
             )
-            rows = [{"card": c["card_name"], "section": c["section"],
-                     "before": c["qty_before"], "after": c["qty_after"]}
+            rows = [_change((c["card_name"], c["section"]), *_stored_change(c))
                     for c in cur.fetchall()]
             rev["changes"] = sorted(
                 rows, key=lambda c: _change_order((c["card"], c["section"])))

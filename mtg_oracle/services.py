@@ -807,6 +807,9 @@ def export_deck_text(
         raise ServiceError(f"no deck named {ref.deck!r}")
 
     buckets: dict[str, dict[str, int]] = {k: {} for k, _ in _EXPORT_ORDER}
+    # The printing goes back out as ` (SET) number`, the shape Moxfield
+    # writes and the parser keeps, so export -> import preserves the art.
+    printings: dict[tuple[str, str], str] = {}
     for row in deck.get("cards", []):
         if row.get("is_sideboard"):
             section = "sideboard"
@@ -816,6 +819,10 @@ def export_deck_text(
             section = "main"
         name = row["card_name"]
         buckets[section][name] = buckets[section].get(name, 0) + row["quantity"]
+        if row.get("set_code") and (section, name) not in printings:
+            number = row.get("collector_number")
+            printings[(section, name)] = (f" ({row['set_code'].upper()})"
+                                          + (f" {number}" if number else ""))
 
     all_names = [n for b in buckets.values() for n in b]
     facts = q.get_card_facts(all_names) if (front_face or group_by_role) else {}
@@ -854,9 +861,11 @@ def export_deck_text(
                 if not names:
                     continue
                 lines.append(f"// {roles.LABELS[role]} ({sum(entries[n] for n in names)})")
-                lines.extend(f"{entries[n]} {display(n)}" for n in names)
+                lines.extend(f"{entries[n]} {display(n)}"
+                             f"{printings.get((key, n), '')}" for n in names)
         else:
-            lines.extend(f"{entries[n]} {display(n)}" for n in sorted(entries))
+            lines.extend(f"{entries[n]} {display(n)}{printings.get((key, n), '')}"
+                         for n in sorted(entries))
 
     text = "\n".join(lines) + ("\n" if lines else "")
     return DeckExport(text, sum(counts.values()),
@@ -976,14 +985,18 @@ def _export_deck(install: fc.ForgeInstall, deck: dict, index: dict, *,
                                   and game_type == "constructed"):
             situational.append((name, flag))
 
+    # Rows keep their printing through _forge_rows; the index turns it into
+    # Forge's `|CODE|[number]`, or drops it when Forge has no such printing.
+    editions = (fc.load_edition_index(install)
+                if any(r.get("set_code") for r in rows) else {})
     try:
         path = fc.write_deck(install.config, deck["name"], deck["id"],
-                             ff.dck_sections(forge_rows), game_type,
+                             ff.dck_sections(forge_rows, editions), game_type,
                              overwrite=overwrite)
         ai_path = None
         if subs:
             ai_path = fc.write_deck(install.config, f"{deck['name']} (AI)",
-                                    deck["id"], ff.dck_sections(ai_rows),
+                                    deck["id"], ff.dck_sections(ai_rows, editions),
                                     game_type, overwrite=overwrite)
     except (fc.ForgeError, OSError) as e:
         raise ServiceError(str(e)) from e
