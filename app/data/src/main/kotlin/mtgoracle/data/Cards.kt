@@ -1,5 +1,6 @@
 package mtgoracle.data
 
+import mtgoracle.core.deck.CardInfo
 import mtgoracle.core.lookup.Ability
 import mtgoracle.core.lookup.CardProfile
 import mtgoracle.core.lookup.Formats
@@ -66,6 +67,20 @@ class Cards(private val db: MtgDb, private val names: CardNames, private val com
                 // A correction names a card the way people say it — often one face — so each face counts too.
                 corrections = corrections.about(conn, listOf(canonical) + if (" // " in canonical) canonical.split(" // ") else emptyList()),
             )
+        }
+    }
+
+    /** The canonical name and what the zoom pane shows of a card; null for a name nothing resolves to. */
+    fun info(name: String): Pair<String, CardInfo>? {
+        val canonical = names.resolve(name) ?: return null
+        return db.read { conn ->
+            conn.prepareStatement("SELECT mana_cost, type_line, oracle_text, power, toughness FROM cards WHERE name = ?").use { st ->
+                st.setString(1, canonical)
+                st.executeQuery().use { rs ->
+                    if (!rs.next()) null
+                    else canonical to CardInfo(rs.getString("mana_cost"), rs.getString("type_line"), rs.getString("oracle_text"), rs.getString("power"), rs.getString("toughness"))
+                }
+            }
         }
     }
 

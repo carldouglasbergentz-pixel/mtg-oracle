@@ -64,7 +64,9 @@ fun renderCard(card: CardProfile): Rendering = Rendering { width ->
         val filter = card.combosFilteredByCi
         if (card.combos.isNotEmpty()) {
             section("Top combos featuring this card (${card.combos.size}" + (filter?.let { ", filtered to deck CI $it" } ?: "") + "):")
-            card.combos.forEach { comboRow(it, "[${it.id.padStart(14)}]") }
+            // Padded to the longest id here, not a fixed 14: four-card ids are longer and broke the column.
+            val idW = card.combos.maxOf { it.id.length }
+            card.combos.forEach { comboRow(it, "[${it.id.padStart(idW)}]") }
         } else if (filter != null) {
             // Nothing passed the filter: say so rather than show nothing.
             section("Top combos featuring this card: 0 applicable to deck CI $filter (card may be unplayable here)")

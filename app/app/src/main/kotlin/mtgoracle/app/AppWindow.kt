@@ -51,6 +51,7 @@ fun AppContent(app: AppController, onQuit: () -> Unit) {
 
 @Composable
 private fun Screens(app: AppController, onQuit: () -> Unit) {
+    LaunchedEffect(app.quitRequested) { if (app.quitRequested) onQuit() }
     when (val screen = app.screen) {
         Screen.Crashed -> CrashScreen(app)
         Screen.Loading -> Message("MTG Oracle", "Opening the database…")
@@ -59,6 +60,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
             notice = app.notice ?: if (!app.forgeReady) "Forge is loading…" else null,
             onSelect = app::select, onPlay = app::openSetup, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit,
+            lookup = app.lookupUi,
         )
         Screen.Setup -> {
             val me = app.decks.first { it.id == app.selectedId }

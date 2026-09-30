@@ -46,8 +46,18 @@ import mtgoracle.ui.kit.cells
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
+import mtgoracle.ui.lookup.CommandLine
+import mtgoracle.ui.lookup.LookupUi
+import mtgoracle.ui.lookup.OutputLink
+import mtgoracle.ui.lookup.OutputPane
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.utf16CodePoint
+import kotlinx.coroutines.launch
 
 const val DECK_LIST_COLS = 40
 
@@ -61,8 +71,12 @@ fun primaryType(card: DeckCard): String {
 
 /**
  * Folders and decks on the left, the selected deck in the middle (art frames
- * or text lines, T toggles), the zoom pane on the right. Decks are read-only
- * here: the TUI edits them.
+ * or text lines, T toggles), the zoom pane on the right, and the command line
+ * at the bottom. A command shows its output in the middle instead of the
+ * deck; Tab switches back. Decks are read-only here: the TUI edits them.
+ *
+ * The screen's own keys (arrows, T, Q...) only act while the command line
+ * does not have the keyboard, so typing `quit` never quits on its `q`.
  */
 @Composable
 fun LibraryScreen(
@@ -77,13 +91,25 @@ fun LibraryScreen(
     onToggleMode: () -> Unit,
     onPrefetch: () -> Unit,
     onQuit: () -> Unit,
+    lookup: LookupUi? = null,
 ) {
     var zoom by remember { mutableStateOf<CardFace?>(null) }
     val focus = remember { FocusRequester() }
+    val commandFocus = remember { FocusRequester() }
+    val outputScroll = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    fun showDeck(id: Int) {
+        lookup?.showOutput = false
+        onSelect(id)
+    }
+    fun page(by: Int) {
+        if (lookup?.showOutput != true) return
+        scope.launch { outputScroll.scrollBy(by * outputScroll.layoutInfo.viewportSize.height * 0.9f) }
+    }
     val onClick: (ClickTarget) -> Unit = { t ->
         val name = (t as? ClickTarget.Control)?.name.orEmpty()
         when {
-            name.startsWith("deck:") -> onSelect(name.removePrefix("deck:").toInt())
+            name.startsWith("deck:") -> showDeck(name.removePrefix("deck:").toInt())
             name == "play" -> onPlay()
             name == "mode" -> onToggleMode()
             name == "prefetch" -> onPrefetch()
@@ -92,12 +118,23 @@ fun LibraryScreen(
     fun move(by: Int) {
         if (decks.isEmpty()) return
         val at = decks.indexOfFirst { it.id == selectedId }.coerceAtLeast(0)
-        onSelect(decks[(at + by).coerceIn(0, decks.lastIndex)].id)
+        showDeck(decks[(at + by).coerceIn(0, decks.lastIndex)].id)
     }
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Palette.background).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            if (e.isCtrlPressed && e.key == Key.L && lookup != null) { lookup.output.clear(); return@onPreviewKeyEvent true }
+            // Seen here before the command line: while it has the keyboard, every other key is its.
+            if (lookup?.command?.focused == true) return@onPreviewKeyEvent false
+            if (lookup != null && (e.utf16CodePoint == ':'.code || (e.isCtrlPressed && e.key == Key.K))) {
+                lookup.command.openedBy(if (e.isCtrlPressed) null else ':')
+                commandFocus.requestFocus()
+                return@onPreviewKeyEvent true
+            }
             when (e.key) {
+                Key.Tab -> if (lookup != null) lookup.showOutput = !lookup.showOutput else return@onPreviewKeyEvent false
+                Key.PageUp -> page(-1)
+                Key.PageDown -> page(+1)
                 Key.DirectionUp -> move(-1)
                 Key.DirectionDown -> move(+1)
                 Key.Enter, Key.P -> onPlay()
@@ -134,13 +171,29 @@ fun LibraryScreen(
                 val right = deck?.let { d ->
                     listOfNotNull(d.format, "${d.mainCount} cards", d.substitutions.takeIf { it.isNotEmpty() }?.let { "AI copy: ${it.size} substitutions" }).joinToString(" · ")
                 }
-                BoxPane(deck?.name ?: "no deck selected", Modifier.weight(1f).fillMaxHeight(), right = right) {
-                    Column(Modifier.verticalScroll(rememberScrollState())) {
-                        if (deck == null) GridText("Pick a deck on the left.", color = Palette.dim)
-                        else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it })
+                if (lookup?.showOutput == true) {
+                    BoxPane("output", Modifier.weight(1f).fillMaxHeight(), right = "Tab: ${deck?.name ?: "deck"}") {
+                        OutputPane(lookup.output, outputScroll, onOpen = lookup.open,
+                            onHover = { link -> (link as? OutputLink.Card)?.let { lookup.face(it.name) }?.let { zoom = it } })
+                    }
+                } else {
+                    BoxPane(deck?.name ?: "no deck selected", Modifier.weight(1f).fillMaxHeight(), right = right) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            if (deck == null) GridText("Pick a deck on the left.", color = Palette.dim)
+                            else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it })
+                        }
                     }
                 }
                 ZoomPane(zoom, SIDE_COLS, imageRows = 20, textMode = mode == CardMode.TEXT, modifier = Modifier.cellWidth(SIDE_COLS).fillMaxHeight())
+            }
+            if (lookup != null) {
+                CommandLine(
+                    lookup.command, lookup.prompt, lookup.suggest,
+                    onSubmit = { lookup.submit(it) },
+                    onLeave = { focus.requestFocus() },
+                    onPage = ::page,
+                    focus = commandFocus,
+                )
             }
             Row {
                 listOf("play" to "[ Play ]", "mode" to if (mode == CardMode.ART) "[ Text ]" else "[ Art ]", "prefetch" to "[ Fetch images ]").forEach { (name, label) ->
@@ -148,7 +201,9 @@ fun LibraryScreen(
                     GridText("  ")
                 }
             }
-            StatusLine(listOf("↑↓" to "deck", "Enter" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit"), notice, cols)
+            val hints = if (lookup?.command?.focused == true) listOf("Enter" to "run", "↑↓" to "history", "Tab" to "autofill", "PgUp/PgDn" to "scroll", "Esc" to "leave")
+            else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
+            StatusLine(hints, notice, cols)
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }

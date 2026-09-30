@@ -10,6 +10,10 @@ import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.play.GameMode
 import mtgoracle.data.GameStore
 import mtgoracle.data.Library
+import mtgoracle.data.Lookup
+import mtgoracle.ui.kit.CardFace
+import mtgoracle.ui.kit.face
+import mtgoracle.ui.lookup.LookupUi
 import mtgoracle.data.MissingDatabaseException
 import mtgoracle.data.MtgDb
 import mtgoracle.data.SchemaTooOldException
@@ -59,6 +63,12 @@ class AppController(private val paths: AppPaths) {
     /** Watch AI vs AI instead of playing (recorded as ai_vs_ai). */
     var watch by mutableStateOf(false)
     var match by mutableStateOf<RunningMatch?>(null)
+    /** The command line and its output (step 3); null until the database is open. */
+    var lookupUi by mutableStateOf<LookupUi?>(null)
+    var commands: LookupCommands? = null
+        private set
+    /** `quit` typed on the command line: the window's own quit path closes the app (AppContent). */
+    var quitRequested by mutableStateOf(false)
 
     init { Palette.theme = startTheme() }
 
@@ -75,6 +85,13 @@ class AppController(private val paths: AppPaths) {
             sessions = Sessions(GameStore(db), paths.gameLogs)
             decks = library.decks()
             decks.firstOrNull()?.let { select(it.id) }
+            val started = System.nanoTime()
+            val lookup = Lookup(db)
+            Log.info("lookup ready in ${(System.nanoTime() - started) / 1_000_000} ms (${lookup.names.sorted.size} card names)")
+            commands = LookupCommands(
+                lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
+                copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
+            ).also { lookupUi = it.ui }
             screen = Screen.Library
         } catch (e: SchemaTooOldException) {
             screen = Screen.Blocked(e.message!!)
@@ -104,6 +121,21 @@ class AppController(private val paths: AppPaths) {
 
     fun keyFor(card: DeckCard): String? =
         if (forgeReady) ForgeRuntime.images.keyFor(card.name, card.setCode, card.collectorNumber) else null
+
+    /** What the zoom pane shows of a card named in the output: its default printing's art, and its text. */
+    private val zoomInfo = object : LinkedHashMap<String, Pair<String, mtgoracle.core.deck.CardInfo>?>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<String, mtgoracle.core.deck.CardInfo>?>) = size > 256
+    }
+
+    private fun zoomFace(lookup: Lookup, name: String): CardFace? {
+        val (canonical, info) = zoomInfo.getOrPut(name) { lookup.cards.info(name) } ?: return null
+        val card = DeckCard(canonical, quantity = 1, isCommander = false, isSideboard = false, info = info)
+        return card.face(keyFor(card)) // the key is asked for each time: Forge may have come up since
+    }
+
+    private fun copyToClipboard(text: String) {
+        java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(text), null)
+    }
 
     fun toggleMode() {
         mode = if (mode == CardMode.ART) CardMode.TEXT else CardMode.ART
