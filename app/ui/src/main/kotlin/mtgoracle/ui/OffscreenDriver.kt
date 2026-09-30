@@ -148,6 +148,20 @@ class OffscreenDriver(
         return true
     }
 
+    /** A right-click on [target] (the secondary button), as a context menu wants. */
+    @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+    fun rightClick(target: ClickTarget): Boolean {
+        frame()
+        val rect = registry[target] ?: return false
+        val at = rect.center
+        val secondary = androidx.compose.ui.input.pointer.PointerButtons(isSecondaryPressed = true)
+        scene.sendPointerEvent(PointerEventType.Move, at)
+        scene.sendPointerEvent(PointerEventType.Press, at, buttons = secondary, button = androidx.compose.ui.input.pointer.PointerButton.Secondary)
+        scene.sendPointerEvent(PointerEventType.Release, at, button = androidx.compose.ui.input.pointer.PointerButton.Secondary)
+        settle()
+        return true
+    }
+
     fun hover(target: ClickTarget): Boolean {
         frame()
         val rect = registry[target] ?: return false

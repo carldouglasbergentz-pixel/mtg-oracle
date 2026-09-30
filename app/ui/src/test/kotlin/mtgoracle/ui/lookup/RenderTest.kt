@@ -52,6 +52,7 @@ class RenderTest {
                     is OutputLink.Run -> assertEquals(link.command, shown)
                     is OutputLink.Rule -> assertEquals("[${link.number}]", shown)
                     is OutputLink.Combo -> assertTrue(shown.startsWith("[") && shown.endsWith("]"), shown)
+                    is OutputLink.Edit -> assertTrue(shown in setOf("+", "sb", "?"), shown)
                 }
             }
         }

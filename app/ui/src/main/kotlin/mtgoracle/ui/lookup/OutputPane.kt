@@ -51,6 +51,9 @@ fun OutputPane(
     grid: Boolean = false,
     selected: Int? = null,
     faceOf: (String) -> CardFace? = { null },
+    /** The deck workspace: results carry `+ sb ?` and pointed cards their points. */
+    actions: Boolean = false,
+    points: (String) -> Int? = { null },
 ) {
     BoxWithConstraints(modifier.fillMaxSize()) {
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
@@ -64,7 +67,7 @@ fun OutputPane(
                 val lines = remember(entry.id, cols) { entry.rendering.lines(cols) }
                 val page = entry.page
                 if (grid && page != null && page.rows.isNotEmpty() && entry.id == log.latestSearch?.id) {
-                    SearchGrid(page, lines, entry.id * 100_000, selected, faceOf, onOpen, onHover)
+                    SearchGrid(page, lines, entry.id * 100_000, selected, faceOf, onOpen, onHover, actions, points)
                 } else Column {
                     lines.forEachIndexed { i, line ->
                         // The selected row of the newest page, when it is drawn as lines: the arrows move it.

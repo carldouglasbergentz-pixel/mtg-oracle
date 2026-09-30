@@ -21,6 +21,12 @@ import mtgoracle.ui.kit.Emphasis
 import mtgoracle.ui.kit.FrameSize
 import mtgoracle.ui.kit.displayCost
 import mtgoracle.ui.theme.LocalCells
+import mtgoracle.ui.theme.Palette
+import mtgoracle.ui.kit.GridText
+import mtgoracle.ui.kit.clickTarget
+import mtgoracle.core.deck.DeckSection
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 
 /** Where a grid's frames number their click targets within an entry: past any line's (`line * 100 + span`). */
 const val GRID_TARGETS = 90_000
@@ -44,6 +50,9 @@ internal fun SearchGrid(
     faceOf: (String) -> CardFace?,
     onOpen: (OutputLink) -> Unit,
     onHover: (OutputLink) -> Unit,
+    /** The deck workspace: `[+] [sb] [?]` under each card. */
+    actions: Boolean = false,
+    points: (String) -> Int? = { null },
 ) {
     val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
     Column {
@@ -54,18 +63,32 @@ internal fun SearchGrid(
                 val link = OutputLink.Card(row.name)
                 val keep = remember { BringIntoViewRequester() }
                 if (i == selected) LaunchedEffect(i) { keep.bringIntoView() }
-                androidx.compose.foundation.layout.Box(Modifier.bringIntoViewRequester(keep)) {
+                Column(Modifier.bringIntoViewRequester(keep)) {
                     CardFrame(
                         face, CardMode.ART,
                         emphasis = if (i == selected) Emphasis.SELECTABLE else Emphasis.NONE,
                         target = ClickTarget.Link(link, at + GRID_TARGETS + i),
                         onClick = { onOpen(link) },
                         onHover = { onHover(link) },
+                        mark = points(row.name)?.let { "($it)" },
                     )
+                    if (actions) GridActions(row.name, at + GRID_TARGETS + 100 + i * 3, onOpen)
                 }
             }
         }
         if (lines.size > 1) OutputLineView(lines.last(), at + 50, onOpen, onHover)
+    }
+}
+
+/** `[+] [sb] [?]` under a result: into the deck, the sideboard, the considering list. */
+@Composable
+private fun GridActions(card: String, at: Long, onOpen: (OutputLink) -> Unit) {
+    androidx.compose.foundation.layout.Row {
+        listOf("[+]" to DeckSection.MAIN, "[sb]" to DeckSection.SIDEBOARD, "[?]" to DeckSection.CONSIDERING).forEachIndexed { k, (label, section) ->
+            val link = OutputLink.Edit(EditAction.Add(card, section))
+            GridText(label, Modifier.clickTarget(ClickTarget.Link(link, at + k), { onOpen(link) }).pointerHoverIcon(PointerIcon.Hand), color = Palette.accent)
+            GridText(" ")
+        }
     }
 }
 

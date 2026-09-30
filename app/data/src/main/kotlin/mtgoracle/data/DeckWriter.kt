@@ -196,6 +196,19 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         revision(conn, id!!)
     }
 
+    /**
+     * What adding one copy to [section] (main or sideboard) would be refused
+     * for, without adding it: the considering list's `!`. Null when it would go in.
+     */
+    fun wouldRefuse(deckId: Int, card: String, section: DeckSection = DeckSection.MAIN): DeckRefusal? = db.dryRun { conn ->
+        try {
+            addCard(conn, deckId, card, 1, sideboard = section == DeckSection.SIDEBOARD, force = false)
+            null
+        } catch (e: DeckRefusal) {
+            e
+        }
+    }
+
     /** The deck's revisions, newest first (decks.deck_history). */
     fun history(deckId: Int, limit: Int = 50): List<DeckRevision> = db.read { conn ->
         conn.query("SELECT id FROM deck_revisions WHERE deck_id = ? ORDER BY id DESC LIMIT ?", deckId, limit.coerceIn(1, 500)) { getLong(1) }

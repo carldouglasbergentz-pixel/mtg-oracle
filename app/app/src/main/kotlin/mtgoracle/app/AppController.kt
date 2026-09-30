@@ -10,6 +10,7 @@ import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.play.GameMode
 import mtgoracle.data.GameStore
 import mtgoracle.data.Library
+import mtgoracle.data.DeckWriter
 import mtgoracle.data.Lookup
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.face
@@ -91,6 +92,7 @@ class AppController(private val paths: AppPaths) {
             commands = LookupCommands(
                 lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
                 copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
+                writer = DeckWriter(db, lookup.names, lookup.formats), onDeckChanged = ::deckChanged, notify = { notice = it },
             ).also { lookupUi = it.ui.apply { grid = settings.resultsGrid } }
             screen = Screen.Library
         } catch (e: SchemaTooOldException) {
@@ -113,6 +115,13 @@ class AppController(private val paths: AppPaths) {
     }
 
     fun deckById(id: Int): Deck? = deckCache.getOrPut(id) { library.deck(id) ?: return null }
+
+    /** Deck [id] was changed (in the workspace): read it again, and the library's counts. */
+    private fun deckChanged(id: Int) {
+        deckCache.remove(id)
+        decks = library.decks()
+        if (selectedId == id) deck = deckById(id)
+    }
 
     fun select(id: Int) {
         selectedId = id

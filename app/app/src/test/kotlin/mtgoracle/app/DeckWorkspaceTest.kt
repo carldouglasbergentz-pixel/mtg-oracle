@@ -61,7 +61,9 @@ class DeckWorkspaceTest {
         driver.settle()
     }
 
-    private fun frames() = driver.registry.targets.filterIsInstance<ClickTarget.Link>().filter { it.at % 100_000 >= mtgoracle.ui.lookup.GRID_TARGETS }
+    /** The grid's card frames (not the buttons under them). */
+    private fun frames() = driver.registry.targets.filterIsInstance<ClickTarget.Link>()
+        .filter { it.at % 100_000 in mtgoracle.ui.lookup.GRID_TARGETS until mtgoracle.ui.lookup.GRID_TARGETS + 100 && it.link is OutputLink.Card }
 
     @Test
     fun `enter opens the deck beside a search that follows it, and esc goes back`() {
@@ -135,5 +137,75 @@ class DeckWorkspaceTest {
         }
         search("cd ..")
         assertNull(app.editing)
+    }
+
+    private fun main(): Map<String, Int> = app.deck!!.cards.filter { !it.isSideboard && !it.isCommander }.associate { it.name to it.quantity }
+
+    private fun editLink(action: mtgoracle.ui.lookup.EditAction) =
+        driver.registry.targets.filterIsInstance<ClickTarget.Link>().firstOrNull { it.link == OutputLink.Edit(action) }
+
+    @Test
+    fun `the mouse edits - a result's plus, a row's minus, the tabs, the right-click menu, add anyway`() {
+        open()
+        driver.key(Key.Enter)
+        search("n=\"Sol Ring\"")
+        val add = assertNotNull(editLink(mtgoracle.ui.lookup.EditAction.Add("Sol Ring", mtgoracle.core.deck.DeckSection.MAIN)), "a result's [+]")
+        val had = main()["Sol Ring"] ?: 0
+        if (had == 0) {
+            assertTrue(driver.click(add))
+            driver.settle()
+            assertEquals(1, main()["Sol Ring"], "[+] added it")
+        }
+        // Search follows the deck's identity, so what a click can still break is singleton: a second Sol Ring.
+        assertTrue(driver.click(editLink(mtgoracle.ui.lookup.EditAction.Add("Sol Ring", mtgoracle.core.deck.DeckSection.MAIN))!!))
+        driver.settle()
+        assertTrue(ui.refusal?.forceable == true && "singleton" in ui.refusal!!.text, "the refusal is shown: ${ui.refusal}")
+        assertTrue("add anyway" in driver.text.all())
+        driver.savePng(File(Scenario.pngDir, "workspace-refusal.png"))
+        assertTrue(driver.click(ClickTarget.Control("force")))
+        driver.settle()
+        assertEquals(2, main()["Sol Ring"], "add anyway put the second in")
+
+        // The row's [-] takes it out again.
+        val minus = assertNotNull(editLink(mtgoracle.ui.lookup.EditAction.Remove("Sol Ring", mtgoracle.core.deck.DeckSection.MAIN)))
+        assertTrue(driver.click(minus))
+        driver.settle()
+        assertEquals(1, main()["Sol Ring"])
+
+        // Right-click a deck row: its menu, and "to considering".
+        val name = "Sol Ring"
+        val row = mtgoracle.ui.library.deckRowTarget(name, mtgoracle.core.deck.DeckSection.MAIN)
+        assertTrue(driver.rightClick(row))
+        driver.savePng(File(Scenario.pngDir, "workspace-menu.png"))
+        val menu = mtgoracle.ui.library.rowMenu(mtgoracle.ui.library.DeckRow(app.deck!!.cards.first { it.name == name }, mtgoracle.core.deck.DeckSection.MAIN, ""))
+        val toConsidering = menu.indexOfFirst { it.first == "to considering" }
+        assertTrue(driver.click(ClickTarget.Control("menu:$toConsidering")), "the menu offers it")
+        driver.settle()
+        assertTrue(app.deck!!.considering.any { it.name == name }, "$name moved to the considering list")
+
+        // The tabs: the list, then the history, which has every change above.
+        assertTrue(driver.click(ClickTarget.Control("tab:CONSIDERING")))
+        assertEquals(mtgoracle.ui.lookup.DeckTab.CONSIDERING, ui.deckTab)
+        assertTrue(driver.click(ClickTarget.Control("tab:HISTORY")))
+        driver.settle()
+        val text = driver.text.all()
+        assertTrue("move" in text && "Sol Ring" in text, "the history lists the changes")
+        driver.savePng(File(Scenario.pngDir, "workspace-history.png"))
+    }
+
+    @Test
+    fun `the keyboard edits - plus on a result, tab to the deck, delete a row`() {
+        open()
+        driver.key(Key.Enter)
+        search("n=\"Arcane Signet\"")
+        driver.key(Key.DirectionRight)
+        val card = ui.selectedCard!!
+        driver.key(Key.C, char = 'c'.code)
+        assertTrue(app.deck!!.considering.any { it.name == card }, "C: onto the considering list")
+        driver.key(Key.Two)
+        driver.key(Key.Tab)
+        driver.key(Key.DirectionDown)
+        driver.key(Key.Delete)
+        assertTrue(app.deck!!.considering.none { it.name == card }, "Delete took it off the list")
     }
 }

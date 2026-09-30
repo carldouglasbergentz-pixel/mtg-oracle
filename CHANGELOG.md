@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (step 4a: editing in the deck workspace, a considering list, and the history)
+- **Edit by mouse:**
+  - every search result has `[+] [sb] [?]`, which put it in the deck, the sideboard or the considering list;
+  - every deck row has `[-] [+]`;
+  - a right-click on a card opens its menu: to the sideboard, to considering, make commander, remove all, open;
+  - the deck pane has three tabs, **Deck · Considering · History**.
+- **Or by keyboard.** On a result, `+`, `S` and `C`. Tab moves to the deck, where `+`, `-` and `Delete` work on the row. `1`, `2` and `3` switch tabs. The commands are `add [--sb] [--force] <card> [N]`, `remove`, `consider`, `commander [--unset]`, `undo` and `history`.
+- **The deck's rules as the TUI applies them:** colour identity, legality, banned, restricted, singleton (basics, "any number", "up to N") and points. A refused change says why, and **`[ add anyway ]`** (F) pushes it through. A forced change is marked in the status line.
+- **The considering list** is Moxfield's maybeboard: cards weighed for the deck but not in it. They are not counted, exported or played. A card there that a rule would stop gets a `!` with the reason, and the rules apply when it moves into the deck. The TUI has `consider <card>` and lists it last in both deck views.
+- **The History tab** shows every change, newest first, in local time. That includes changes made in the TUI, because both apps write the same history. `undo` works as before: undo of undo is redo.
+- **Points:** the deck pane's title shows `9/10 pts`, and pointed cards show their points, `Mana Drain (1)`, in the deck and in the search results.
+- **The engine behind it is a Kotlin port of `decks.py`.** `DeckParityTest` runs 68 changes over five decks through both and compares every outcome, row and history entry. The database gets `deck_considering` and a rebuilt `deck_changes` (`migrate_add_considering`); the backup taken first is `data/backups/mtg-2026-09-30-pre-considering.db`.
+
 ### Fixed (an ability on the stack showed as "hidden" once its source had left the battlefield)
 - **The AI's Hawkeye trigger read "a hidden spell".** Hawkeye's Trick Arrows was on the stack when Condemn put Hawkeye on the bottom of the library. The "explosive" trigger that followed came from a card that was now in the library, so the stack box and the trail treated it as hidden. An ability on the stack is public together with its source (CR 400.2, 113.7a), so it now names Hawkeye, and so does an ability activated from a hand (cycling, channel). Only a face-down source stays unnamed. The tests for hidden information still pass: nothing hidden is named.
 

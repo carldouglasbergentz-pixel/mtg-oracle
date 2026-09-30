@@ -29,6 +29,16 @@ class MtgDb(val file: File) {
         }
     }
 
+    /** [block] on a read-write connection that is always rolled back: what a write would do, without doing it. */
+    internal fun <T> dryRun(block: (Connection) -> T): T = connect(readOnly = false).use { conn ->
+        conn.autoCommit = false
+        try {
+            block(conn)
+        } finally {
+            conn.rollback()
+        }
+    }
+
     private fun connect(readOnly: Boolean): Connection {
         val config = SQLiteConfig().apply {
             setReadOnly(readOnly)

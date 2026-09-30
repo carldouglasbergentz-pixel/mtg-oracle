@@ -9,7 +9,10 @@ import mtgoracle.core.lookup.SearchError
 import mtgoracle.core.lookup.SearchLanguage
 import mtgoracle.core.lookup.SearchPage
 import mtgoracle.core.lookup.SearchQuery
+import mtgoracle.data.DeckWriter
 import mtgoracle.data.Lookup
+import mtgoracle.core.deck.DeckSection
+import mtgoracle.ui.lookup.EditAction
 import mtgoracle.forge.Log
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.lookup.COMMAND_HINTS
@@ -53,13 +56,21 @@ class LookupCommands(
     private val onEnterDeck: (Int) -> Unit = {},
     private val copyToClipboard: (String) -> Unit = {},
     private val onQuit: () -> Unit = {},
+    /** The deck engine; null leaves the workspace read-only (tests of lookup alone). */
+    writer: DeckWriter? = null,
+    /** Deck [id] changed: re-read it for the screen. */
+    private val onDeckChanged: (Int) -> Unit = {},
+    /** A line for the status bar. */
+    private val notify: (String) -> Unit = {},
 ) {
     val output = OutputLog()
+    private val writerOrNull = writer
     private val suggester = Suggester(
         lookup.names.sorted, lookup.rules.numbers(), deckNames = { decks().map { it.name } + ".." },
         helpTopics = HELP_TOPICS.keys.toList(), vocabulary = lookup.vocabulary,
     )
-    val ui = LookupUi(output, suggester::suggest, ::submit, ::open, faceOf, ::preview, ::count)
+    val ui = LookupUi(output, suggester::suggest, ::submit, ::open, faceOf, ::preview, ::count, edit = { editing?.perform(it) })
+    private val editing: DeckEditing? = writer?.let { DeckEditing(it, lookup, ui, openDeck = { scope?.deckId }, reload = ::deckChanged, say = notify) }
 
     /**
      * The deck being worked on (the deck workspace, entered by Enter or `cd`):
@@ -74,14 +85,26 @@ class LookupCommands(
         val entered = lookup.deckScope(id) ?: return false
         scope = entered
         ui.prompt = "${entered.deckName}> "
+        ui.refusal = null
+        ui.deckTab = mtgoracle.ui.lookup.DeckTab.DECK
         onEnterDeck(id)
+        editing?.refresh(id)
         return true
+    }
+
+    /** After a change to deck [id]: its scope again (a new commander is a new identity), then the screen. */
+    private fun deckChanged(id: Int) {
+        if (scope?.deckId == id) lookup.deckScope(id)?.let { scope = it }
+        onDeckChanged(id)
     }
 
     /** Back to the library: search covers the whole pool again. */
     fun leaveDeck() {
         scope = null
         ui.prompt = "> "
+        ui.refusal = null
+        ui.points = emptyMap()
+        ui.pointsBudget = null
     }
     private var lastSearch: SearchPage? = null
     private var lastCombos: List<ComboSummary> = emptyList()
@@ -102,12 +125,15 @@ class LookupCommands(
      * would change what it means).
      */
     fun open(link: OutputLink) {
+        val showing = ui.showOutput
         ui.showOutput = true
         when (link) {
             is OutputLink.Card -> { output.echo("card ${link.name}"); guarded { card(link.name) } }
             is OutputLink.Combo -> { output.echo("combo-info ${link.id}"); guarded { showCombo(link.id) } }
             is OutputLink.Rule -> { output.echo("rule ${link.number}"); guarded { rule(link.number) } }
             is OutputLink.Run -> { output.echo(link.command); guarded { dispatch(link.command) } }
+            // A result's `+ sb ?`: the deck changes, the output doesn't.
+            is OutputLink.Edit -> { ui.showOutput = showing; guarded { edit(link.action) } }
         }
     }
 
@@ -153,9 +179,64 @@ class LookupCommands(
             "copy" -> copy(arg)
             "clear" -> output.clear()
             "quit", "exit" -> onQuit()
+            "add" -> deckCommand(arg, "add [--sb] [--force] <card> [N]") { card, n, flags ->
+                EditAction.Add(card, if ("--sb" in flags || "--sideboard" in flags) DeckSection.SIDEBOARD else DeckSection.MAIN, n ?: 1)
+            }
+            "remove" -> deckCommand(arg, "remove [--sb|--considering] <card> [N]") { card, n, flags ->
+                val section = when {
+                    "--sb" in flags || "--sideboard" in flags -> DeckSection.SIDEBOARD
+                    "--considering" in flags -> DeckSection.CONSIDERING
+                    else -> null
+                }
+                if (section == null) null else EditAction.Remove(card, section, all = n == null, quantity = n ?: 1)
+            }
+            "consider" -> deckCommand(arg, "consider <card> [N]") { card, n, _ -> EditAction.Add(card, DeckSection.CONSIDERING, n ?: 1) }
+            "commander" -> deckCommand(arg, "commander [--unset] [--force] <card>") { card, _, flags ->
+                if ("--unset" in flags) EditAction.Demote(card) else EditAction.Promote(card)
+            }
+            "undo" -> say(editing?.takeIf { scope != null }?.undo() ?: "open a deck first (Enter on it in the library, or `cd <deck>`)")
+            "history" -> if (scope == null) say("open a deck first") else { ui.deckTab = mtgoracle.ui.lookup.DeckTab.HISTORY; say("(the History tab of the deck pane)", Tone.DIM) }
             // Anything that isn't a command is a search, as in a browser's address bar.
             else -> search(line, typo = closest(head, COMMAND_WORDS))
         }
+    }
+
+    /** A result's `+ sb ?` or a deck command: through the engine, and whether it went in (or why not) under the output. */
+    private fun edit(action: EditAction, forced: Boolean = false): String? {
+        val e = editing ?: return null.also { say("(deck editing is not available here)", Tone.DIM) }
+        return e.perform(action, forced)
+    }
+
+    /**
+     * `add` / `remove` / `consider` / `commander`: `--` flags anywhere, a
+     * trailing number as the count (a card whose name ends in one wins, as
+     * in the TUI: `add Pip-Boy 3000`), then [make] turns them into the edit.
+     * A null edit is the remove without a section: through the engine's own
+     * every-section path.
+     */
+    private fun deckCommand(arg: String, usage: String, make: (card: String, n: Int?, flags: Set<String>) -> EditAction?) {
+        if (scope == null) return say("open a deck first (Enter on it in the library, or `cd <deck>`)")
+        val words = arg.split(' ').filter { it.isNotEmpty() }
+        val flags = words.filter { it.startsWith("--") }.map { it.lowercase() }.toSet()
+        var rest = words.filter { !it.startsWith("--") }.joinToString(" ")
+        if (rest.isEmpty()) return say("usage: $usage")
+        var n: Int? = null
+        val last = rest.substringAfterLast(' ', "")
+        if (last.all { it.isDigit() } && last.isNotEmpty() && lookup.names.resolve(rest) == null) {
+            n = last.toInt()
+            rest = rest.substringBeforeLast(' ')
+        }
+        val action = make(rest, n, flags)
+        val result = if (action == null) {
+            // `remove <card>` with no section: every section but the list, as the TUI's `remove`.
+            val id = scope!!.deckId
+            try {
+                val (card, removed, left) = requireNotNull(writerOrNull).remove(id, rest, n)
+                deckChanged(id); editing?.refresh(id)
+                "-$removed $card ($left left)"
+            } catch (e: mtgoracle.core.deck.DeckRefusal) { "refused: ${e.message}" }
+        } else edit(action, forced = "--force" in flags)
+        result?.let { say(it, if (it.startsWith("refused")) Tone.ERROR else Tone.DIM) }
     }
 
     /** The search a line stands for (`search <q>`, or a line that is no command), or null. */
@@ -290,7 +371,9 @@ class LookupCommands(
         lastSearch = result
         if (announce && filters.isNotEmpty()) say(renderDeckFilterNotice(filters))
         ui.selected = null
-        output.addSearch(result, renderSearch(result))
+        // In the workspace a row carries `+ sb ?`, and a pointed card its points.
+        val points = ui.points
+        output.addSearch(result, renderSearch(result, actions = scope != null && editing != null, points = { points[it.lowercase()] }))
     }
 
     private fun searchError(e: SearchError) {

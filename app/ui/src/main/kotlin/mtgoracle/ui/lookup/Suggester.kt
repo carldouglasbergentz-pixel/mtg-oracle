@@ -7,6 +7,8 @@ import mtgoracle.core.lookup.SearchVocabulary
 val COMMANDS = listOf(
     "card", "ruling", "combo", "combos", "combo-info", "rule", "search-rules", "search",
     "next", "prev", "page", "correction", "cd", "copy", "help", "clear", "quit",
+    // In the deck workspace.
+    "add", "remove", "consider", "commander", "undo", "history",
 )
 
 /** What a line's first word must be to run as a command; anything else is a search. */
@@ -29,6 +31,12 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "copy" to "copy [last|all]: output to the clipboard",
     "help" to "help [search]", "?" to "? [search]: help", "clear" to "clear: empty the output (Ctrl+L)",
     "quit" to "quit: close the app", "exit" to "exit: close the app",
+    "add" to "add [--sb] [--force] <card> [N]: into the open deck (or its sideboard)",
+    "remove" to "remove [--sb|--considering] <card> [N]: out of the open deck; no N takes every copy",
+    "consider" to "consider <card> [N]: onto the open deck's considering list",
+    "commander" to "commander [--unset] [--force] <card>: make it (or no longer) the open deck's commander",
+    "undo" to "undo: revert the open deck's newest change (undo again redoes it)",
+    "history" to "history: the open deck's changes (the History tab)",
 )
 
 /**
@@ -67,7 +75,8 @@ class Suggester(
         val command = value.substringBefore(' ')
         val rest = value.substringAfter(' ')
         return when (command.lowercase()) {
-            "card", "ruling", "rulings", "combo", "correction", "corrections" -> complete(command, rest, cardNames, cardNamesLower)
+            "card", "ruling", "rulings", "combo", "correction", "corrections", "add", "remove", "consider", "commander" ->
+                complete(command, rest, cardNames, cardNamesLower)
             "combos" -> combos(command, rest)
             "rule" -> complete(command, rest, ruleNumbers)
             "cd" -> complete(command, rest, deckNames())

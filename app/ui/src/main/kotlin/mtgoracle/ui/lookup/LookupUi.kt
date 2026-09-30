@@ -3,6 +3,7 @@ package mtgoracle.ui.lookup
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import mtgoracle.core.deck.DeckRevision
 import mtgoracle.ui.kit.CardFace
 
 /**
@@ -22,7 +23,22 @@ class LookupUi(
     val preview: (String) -> Preview? = { null },
     /** How many cards a search line finds; null when it is not a search. Hits the database: called off the UI thread. */
     val count: (String) -> Int? = { null },
+    /** A change to the open deck (the workspace's buttons, keys and menus). */
+    val edit: (EditAction) -> Unit = {},
 ) {
+    /** Why the last change was refused; null once something else happens. */
+    var refusal by mutableStateOf<Refusal?>(null)
+    var deckTab by mutableStateOf(DeckTab.DECK)
+    /** The open deck's revisions, newest first. */
+    var history by mutableStateOf<List<DeckRevision>>(emptyList())
+    /** Considering-list card -> the rule that would stop it in the deck (the `!`). */
+    var flags by mutableStateOf<Map<String, String>>(emptyMap())
+    /** The open deck's points list (lower-cased name -> points) and budget; empty and null outside a points format. */
+    var points by mutableStateOf<Map<String, Int>>(emptyMap())
+    var pointsBudget by mutableStateOf<Int?>(null)
+
+    fun pointsOf(card: String): Int? = points[card.lowercase()]
+
     val command = CommandLineState()
     /** The middle pane shows the output rather than the deck. */
     var showOutput by mutableStateOf(false)

@@ -14,6 +14,8 @@ sealed interface OutputLink {
     data class Rule(val number: String) : OutputLink
     /** One of our own fixed commands (`next`, `prev`): never built from data. */
     data class Run(val command: String) : OutputLink
+    /** A change to the open deck (a result's `+`, `sb`, `?`). */
+    data class Edit(val action: EditAction) : OutputLink
 }
 
 data class LinkSpan(val start: Int, val end: Int, val link: OutputLink)

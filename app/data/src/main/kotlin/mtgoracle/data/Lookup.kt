@@ -46,6 +46,16 @@ class Lookup(private val db: MtgDb) {
         }
     }
 
+    /** The names on deck [deckId]'s considering list. */
+    fun deckConsidering(deckId: Int): List<String> =
+        db.read { conn -> conn.query("SELECT card_name FROM deck_considering WHERE deck_id = ? ORDER BY card_name COLLATE NOCASE", deckId) { getString(1) } }
+
+    /** A points format's list, lower-cased card name -> points; empty for a format without one. */
+    fun points(formatKey: String?): Map<String, Int> {
+        if (formatKey == null) return emptyMap()
+        return db.read { conn -> conn.query("SELECT card_name, points FROM custom_format_points WHERE format = ?", formatKey) { getString(1).lowercase() to getInt(2) } }.toMap()
+    }
+
     /** What deck [deckId] can play, for `search` and the card profile's combos after `cd`; null if it is gone. */
     fun deckScope(deckId: Int): DeckScope? = db.read { conn ->
         val (name, format) = conn.prepareStatement("SELECT name, format FROM decks WHERE id = ?").use { st ->
