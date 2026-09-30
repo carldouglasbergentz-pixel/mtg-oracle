@@ -6,16 +6,16 @@ what it *effectively* costs rather than its printed mana value, and computes
 the exact probability that each role is playable on each turn.
 
     # a folder of reference lists
-    python scripts/analyse_archetype.py --dir "docs/sample decklists-uw canlander"
+    python scripts/analyse_archetype.py --dir docs/reports/decklists/uw-canlander
 
     # your own deck, compared against those lists
-    python scripts/analyse_archetype.py --dir "docs/sample decklists-uw canlander" \
+    python scripts/analyse_archetype.py --dir docs/reports/decklists/uw-canlander \
         --deck "My UW Deck" --folder "Canadian Highlander"
 
     # compare ONE deck against the rest: where am I outside their ranges,
     # which cards am I missing, and which do I play alone
     python scripts/analyse_archetype.py --compare "My UW Deck"
-        --folder "Canadian Highlander" --dir "docs/sample decklists-uw canlander"
+        --folder "Canadian Highlander" --dir docs/reports/decklists/uw-canlander
 
     # machine-readable, for the LLM layer or a spreadsheet
     python scripts/analyse_archetype.py --dir <path> --json > analysis.json

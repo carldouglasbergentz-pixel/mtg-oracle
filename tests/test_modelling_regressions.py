@@ -327,9 +327,9 @@ class TestRocksSitInOnePile(unittest.TestCase):
         self.assertEqual(sum(p.on_curve_mv["mana"].values()), 1)
 
     def test_every_curve_category_fits_its_pile_in_the_sample_lists(self):
-        root = Path(__file__).parent.parent / "docs"
+        root = Path(__file__).parent.parent / "docs" / "reports" / "decklists"
         from mtg_oracle.deck_parser import parse_deckstring
-        files = sorted(root.glob("sample decklists-*/*.txt"))
+        files = sorted(root.glob("*/*.txt"))
         if not files:
             self.skipTest("no sample lists")
         for path in files:

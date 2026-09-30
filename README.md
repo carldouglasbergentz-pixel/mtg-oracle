@@ -1,8 +1,13 @@
 # MTG Oracle
 
-Local-first Magic: The Gathering knowledge base + companion app. Cards, rulings, the complete Comprehensive Rules, Commander Spellbook combos, and your own decks — all in one queryable SQLite database, with a terminal TUI on top.
+A local-first Magic: The Gathering workbench: a desktop app to look up cards, rules and combos, build decks with Scryfall-style search, and play your decks against Forge's AI on a board of its own — all over one SQLite database of cards, rulings, the Comprehensive Rules, Commander Spellbook combos and your own decks.
 
-Runs offline after first sync. No network at query time.
+Runs offline after the first sync. No network at query time; card art is fetched once and cached.
+
+**Two halves, one database** ([ADR 0001](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md)):
+
+- **The app** (`app/`, Kotlin + Compose Desktop, Forge embedded) is where the work happens: the library, the deck workspace (the deck beside a search, a considering list, the history), lookups, and play against the AI, recorded game by game.
+- **The data pipeline** (`mtg_oracle/`, `scripts/`, Python) builds and migrates the database: `sync.py` pulls every source, and `scripts/self_heal.py` owns every schema migration. The Python TUI and CLI still work over the same database until the app has everything they do ([`docs/feature-parity.md`](docs/feature-parity.md)).
 
 ## What's in the box
 
@@ -19,22 +24,23 @@ Runs offline after first sync. No network at query time.
 ## Quick start
 
 ```bash
-# 1. Install runtime deps (just textual for the TUI; everything else is stdlib)
+# 1. The database (Python 3.12+; `textual` for the TUI, the rest is stdlib)
 pip install -r requirements.txt
+python scripts/init_db.py            # the schema
+python scripts/sync.py               # Scryfall, Wizards, Commander Spellbook, Tagger, local tags
 
-# 2. Create the schema
-python scripts/init_db.py
+# 2. The app (JDK 25, and Forge 2.0.14 unpacked into tools/forge/, git-ignored)
+cd app
+gradlew :app:installLocal            # builds a snapshot into app/dist/<timestamp>/
+run-mtg-oracle.cmd                   # plays the newest snapshot (run-mtg-oracle.sh elsewhere)
 
-# 3. Pull data from upstream (Scryfall + Wizards + Commander Spellbook + local tagging)
-python scripts/sync.py
-
-# 4a. Launch the TUI
-python scripts/mtg_app.py
-
-# 4b. Or use the CLI for one-off lookups
+# 3. Or the Python front-ends over the same database
+python scripts/mtg_app.py            # the Textual TUI
 python scripts/mtg_cli.py card "Deathrite Shaman"
 python scripts/mtg_cli.py search "kw:flying c:u t:creature mv<=3"
 ```
+
+Play from the snapshot, not `gradlew :app:run`: a build replaces the class files under a running game. The app checks the schema at start and stops with the one command to run if the database is older than it (`python scripts/self_heal.py`); it never migrates on its own. Its tests: `gradlew test` in `app/` (the database tests skip without `data/mtg.db`).
 
 `sync.py` is idempotent — it skips any source whose upstream version (timestamp / ETag / release date) hasn't moved. The end of every run prints a `=== changelog ===` summary of what actually changed.
 
@@ -45,22 +51,24 @@ python scripts/mtg_cli.py search "kw:flying c:u t:creature mv<=3"
 `sync.py` self-heals: it runs the additive migrations (`scryfall_fields`, `tags`, `corrections`, `user_combos`) on every invocation and stays quiet unless one of them actually changes something. For older databases that predate the `oracle_id` / `mana_cost` / `decks` work, apply those three first:
 
 ```bash
-python scripts/migrate_add_oracle_id.py        # oracle_id, layout, card_faces, sync_state
-python scripts/migrate_add_mana_cost.py        # mana cost rendering
-python scripts/migrate_add_decks.py            # decks + folders
+python scripts/migrations/migrate_add_oracle_id.py        # oracle_id, layout, card_faces, sync_state
+python scripts/migrations/migrate_add_mana_cost.py        # mana cost rendering
+python scripts/migrations/migrate_add_decks.py            # decks + folders
 python scripts/sync.py --force                 # repopulate everything
 ```
 
 Two one-shot fixes are not in the self-heal list because they rebuild rather than add:
 
 ```bash
-python scripts/migrate_fix_card_tags_pk.py     # card_tags PK -> (card_name, tag, category)
+python scripts/migrations/migrate_fix_card_tags_pk.py     # card_tags PK -> (card_name, tag, category)
 python scripts/prune_stale_cards.py            # dry run; --yes deletes stale card rows
 ```
 
 Each migration only touches what it needs to. Running them on a fresh DB is harmless.
 
-## TUI — terminal-style navigation
+## The Python TUI — terminal-style navigation
+
+The original front-end, kept working over the same database until the app has all of it.
 
 The Textual app behaves like a tiny shell. Three levels of "filesystem":
 
@@ -114,7 +122,9 @@ search c=wu t:instant
 search pow>=4 t:creature r:mythic order:desc_rarity
 ```
 
-Operators: `o:` `t:` `n:` (substring) `n=` (exact) `kw:` `c:` `c=` `ci:` `mv:` `pow:` `tou:` `r:` `layout:` plus comparisons (`<`, `>`, `<=`, `>=`, `!=`) on numeric fields. Boolean `or`, `not` (or `-` prefix), parentheses for grouping.
+Free text: a bare word or a quoted phrase matches the name, the type line or the oracle text (`bolt`, `goblin`, `"counter target spell"`), and without `order:` the name matches come first. The app takes any line that is no command as a search.
+
+Operators: `o:` `t:` `n:` (substring) `n=` (exact) `kw:` `c:` `c=` `c:m` (multicolored) `ci:` `mv:` `pow:` `tou:` `r:` `layout:` `m:` (mana cost, `m:{U}{U}` or `m:2uu`) `otag:` (Scryfall Tagger function, `otag:removal`) `is:` (`commander`, `permanent`, `spell`, `historic`, `dfc`, `mdfc`, `split`, `reserved`) plus comparisons (`<`, `>`, `<=`, `>=`, `!=`) on numeric fields. Boolean `or`, `not` (or `-` prefix), parentheses for grouping: `(t:instant or t:sorcery) o:"counter target spell"`.
 
 Format legality: `f:FORMAT` (legal or restricted), `banned:FORMAT`, `restricted:FORMAT`, `game:paper|arena|mtgo`, `is:reserved`. All 23 formats Scryfall tracks, from `alchemy` to `vintage` — including `competitivebrawl`, whose ban list differs from `brawl`'s by 33 cards. Spaces and hyphens are ignored (`f:"competitive brawl"`), and `edh` / `pdh` / `cbrawl` are aliases. `game:paper` drops the 216 Arena-only Alchemy `A-` rebalances.
 
@@ -206,64 +216,55 @@ Every command has `--help`.
 
 ```
 mtg-oracle/
-├── CLAUDE.md                        Project context for Claude Code
+├── CLAUDE.md                        Project rules for Claude Code (read first)
 ├── CHANGELOG.md                     Per-feature history (Keep a Changelog)
 ├── README.md                        You are here
-├── requirements.txt                 textual; rest is stdlib
-├── .claude/
-│   ├── settings.json                Tool permissions (project-shared)
-│   └── commands/                    /sync, /ruling, /combo, /correction
+├── requirements.txt                 textual; the rest is stdlib
+├── app/                             The desktop app: Gradle, Kotlin, Compose Desktop, Forge embedded
+│   ├── core/                        Plain data and pure logic: board and prompts, decks, the search
+│   │                                language and deck rules (ports of the Python ones)
+│   ├── data/                        data/mtg.db over JDBC: lookups, search, the deck engine, schema check
+│   ├── forge/                       Every Forge import: runtime, the human seat, images, matches
+│   ├── ui/                          The house-style kit and the screens (library, workspace, board)
+│   ├── app/                         Entry point, wiring, the window, headless modes
+│   ├── dist/                        Snapshots `installLocal` makes (git-ignored)
+│   └── run-mtg-oracle.cmd / .sh     Play the newest snapshot
+├── mtg_oracle/                      The Python package. Four layers, one-way — see CLAUDE.md > Layers
+│   ├── queries.py                   [data] get_card / find_combos / get_rule / ...
+│   ├── decks.py                     [data] Deck CRUD, rules, history, undo
+│   ├── scryfall_search.py           [data] The search language: tokenizer, parser, SQL compiler
+│   ├── forge_data.py                [data] Forge substitutions and simulated games
+│   ├── renderer.py                  [pure] Plain-text renderers, shared by CLI + TUI
+│   ├── roles.py / probability.py / analytics.py / deck_parser.py / forge_format.py   [pure]
+│   ├── forge_client.py              The external Forge install (export, sim)
+│   ├── services.py                  [use cases] One function per user intent
+│   └── tui/                         [adapter] The Textual app
+├── scripts/
+│   ├── sync.py, sync_*.py           The sync: orchestrator and one script per source
+│   ├── init_db.py                   The full schema, on a fresh database
+│   ├── self_heal.py                 Runs every migration, in order (sync, TUI and CLI run it on start)
+│   ├── migrations/                  One idempotent migration per schema change
+│   ├── tag_cards.py, load_custom_formats.py, prune_stale_cards.py
+│   ├── analyse_archetype.py         Deck analysis over a folder of reference lists
+│   ├── add_user_combo.py, export_*.py
+│   └── mtg_app.py, mtg_cli.py       The TUI and the CLI
+├── tests/                           Python tests (stdlib unittest); writers run on a copy (db_sandbox)
 ├── docs/
-│   ├── project-plan.md              Phased plan w/ exit criteria + parked items
-│   └── app-design.md                Aesthetic intent (terminal / monochrome)
+│   ├── project-plan.md              Where we are: phases, open items, parked ideas (read first)
+│   ├── feature-parity.md            Everything the TUI/CLI does, and when the app has it
+│   ├── app-design.md                The look, the board, the interaction model
+│   ├── adr/                         Architecture decisions
+│   └── reports/                     Deck-analysis reports (Swedish) and their reference decklists
 ├── data/
 │   ├── formats/                     Community-format definitions (tracked)
-│   ├── raw/                         Cached upstream payloads (gitignored)
-│   └── mtg.db                       The database (gitignored)
-├── mtg_oracle/                      Importable package. Four layers, one-way
-│   │                                dependencies — see CLAUDE.md > Layers
-│   ├── queries.py                   [data] get_card / find_combos / get_rule / ...
-│   ├── decks.py                     [data] Deck CRUD, name resolution, combos-in-deck
-│   ├── scryfall_search.py           [data] Tokenizer + parser + SQL compiler for `search`
-│   ├── renderer.py                  [pure] Plain-ASCII renderers, shared by CLI + TUI
-│   ├── roles.py                     [pure] What a card does, and what it really costs
-│   ├── probability.py               [pure] Exact hypergeometric draw maths
-│   ├── analytics.py                 [pure] Mana curve, colour pips, mana sources
-│   ├── deck_parser.py               [pure] Tolerant plain-text deckstring parser
-│   ├── services.py                  [use cases] One function per user intent
-│   └── tui/                         [adapter] Textual app + help, autofill, divider
-└── scripts/
-    ├── init_db.py                   Create the full schema on a fresh DB
-    ├── sync.py                      Orchestrator (cards, rules, combos, tags, oracletags, formats)
-    ├── sync_cards.py                Scryfall bulk (gzipped JSONL, streamed)
-    ├── sync_rules.py                Wizards CR scrape
-    ├── sync_combos.py               Commander Spellbook
-    ├── sync_oracle_tags.py          Scryfall Tagger oracle tags (what a card does)
-    ├── tag_cards.py                 Local regex tagger (keywords, types, abilities)
-    ├── load_custom_formats.py       data/formats/*.json -> custom_formats
-    ├── prune_stale_cards.py         Drop card rows upstream no longer ships
-    ├── analyse_archetype.py         Deck analysis over a folder of reference lists
-    ├── add_user_combo.py            Add a curated combo to user_combos
-    ├── migrate_add_*.py             Idempotent schema migrations
-    ├── mtg_cli.py                   CLI front-end
-    └── mtg_app.py                   TUI launcher
+│   ├── raw/, backups/, app/, game_logs/   Caches, backups, the app's own files (git-ignored)
+│   └── mtg.db                       The database (git-ignored)
+└── tools/forge/                     Forge 2.0.14, unpacked (git-ignored; GPL-3)
 ```
 
-## Phases — where we are
+## Where we are
 
-See [`docs/project-plan.md`](docs/project-plan.md) for the living plan. Roughly:
-
-- **Phase 0 — Foundation** ✓ data tables, idempotent sync, changelog diff, feedback loop
-- **Phase 1a — Query library + CLI** ✓ shared `mtg_oracle.queries` + CLI front-end
-- **Phase 2 — Desktop TUI app** ✓ Textual, terminal aesthetic, autofill, pagination, mana costs, ASCII-fold name lookup, sortable search, persistent theme
-- **Phase 3 — Decks Lite** ✓ folders, decks, deck cards, parser, paste, type-grouped render, combos-in-deck
-- **Phase 3b — Format-aware deck behavior** ✓ commander color-identity filter on search/add, singleton enforcement, pinned commander section, CI-aware combo lookup
-- **Phase 1b — HTTP API** parked (only when a remote client needs it)
-- **Phase 3c — Scryfall legalities + custom-format points** parked (per-format legality matrix + Canlander points list)
-- **Phase 4 — LLM layer** parked (Claude API + tool use over the same queries)
-- **Phase 5 — Mobile port** parked (desktop-first to maximize iteration speed)
-
-Parked / idea list also lives in the project plan.
+The living plan is [`docs/project-plan.md`](docs/project-plan.md); what the app has of the Python front-ends is [`docs/feature-parity.md`](docs/feature-parity.md). In short: the data pipeline, the TUI and the CLI are complete (phases 0–3g). Phase 6, the standalone app, has play against the AI (step 2), lookup and search (step 3), the deck workspace (3.5) and deck editing with a considering list and history (4a). Deck management (4b), analysis (5) and the sync (6) are next. The LLM layer and a mobile port are parked.
 
 ## Conventions and don'ts
 
@@ -274,6 +275,4 @@ Parked / idea list also lives in the project plan.
 - Don't modify `data/raw/` — it's an upstream payload cache, overwritten on every sync.
 - Spellbook is comprehensive-for-known-combos, not exhaustive. Homebrew combos exist outside their database.
 
-## Status today
-
-All phases marked ✓ above are implemented and verified end-to-end. See [`docs/project-plan.md`](docs/project-plan.md) for the live phase status and parked items, and [`CHANGELOG.md`](CHANGELOG.md) for per-feature history.
+See [`CHANGELOG.md`](CHANGELOG.md) for the per-feature history.

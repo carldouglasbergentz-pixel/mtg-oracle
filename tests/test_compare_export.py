@@ -18,7 +18,7 @@ from mtg_oracle import services as svc  # noqa: E402
 from mtg_oracle.deck_parser import parse_deckstring  # noqa: E402
 
 DB = Path(__file__).parent.parent / "data" / "mtg.db"
-SAMPLES = Path(__file__).parent.parent / "docs" / "sample decklists-uw canlander"
+SAMPLES = Path(__file__).parent.parent / "docs" / "reports" / "decklists" / "uw-canlander"
 
 
 def read_list(path: Path) -> dict:
@@ -175,7 +175,7 @@ class TestProfileInvariants(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         files = sorted(SAMPLES.glob("*.txt"))
-        duel = Path(__file__).parent.parent / "docs" / "sample decklists-duel commander 2026"
+        duel = Path(__file__).parent.parent / "docs" / "reports" / "decklists" / "duel-commander-2026"
         files += sorted(duel.glob("*.txt"))
         if not files:
             raise unittest.SkipTest("no sample lists")

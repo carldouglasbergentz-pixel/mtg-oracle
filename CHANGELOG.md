@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (the repository follows the app-first scope)
+- **The schema migrations moved to `scripts/migrations/`,** so `scripts/` holds the tools you run. They are still imported by their bare names (self_heal puts the folder on the path), so reports and tests name them as before. `python scripts/migrations/migrate_<name>.py` runs one directly.
+- **Reports and their reference lists moved to `docs/reports/`:** `docs/reports/*-report.html`, `report-style.md`, and `docs/reports/decklists/<name>/` (`uw-canlander`, `elminster-duel-commander`, `duel-commander-2026`), without the spaces in the old folder names. `docs/` itself is the plan, the design and the decisions.
+- **The README leads with the app:** what it is, how to build and play it (`gradlew :app:installLocal`, `run-mtg-oracle.cmd`), and the Python side as the data pipeline, with the TUI and CLI kept until parity.
+- **What did not move:** the Python package and `scripts/` stay at the top level. They own the schema and the sync, and both apps and the docs name their paths. They move once the sync is ported (step 6).
+
 ### Added (step 4a: editing in the deck workspace, a considering list, and the history)
 - **Edit by mouse:**
   - every search result has `[+] [sb] [?]`, which put it in the deck, the sideboard or the considering list;

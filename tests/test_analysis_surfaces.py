@@ -21,7 +21,7 @@ from mtg_oracle import services as svc  # noqa: E402
 from mtg_oracle.deck_parser import parse_deckstring  # noqa: E402
 
 DB = Path(__file__).parent.parent / "data" / "mtg.db"
-SAMPLES = Path(__file__).parent.parent / "docs" / "sample decklists-uw canlander"
+SAMPLES = Path(__file__).parent.parent / "docs" / "reports" / "decklists" / "uw-canlander"
 
 ORDER = [x for x in R.ROLES if x != "land"]
 TURNS = list(range(1, 9))

@@ -10,7 +10,7 @@ Card names are validated against the `cards` table via
 typos surface immediately. The combo's color_identity is auto-derived
 from the union of its cards' color identities if not given explicitly.
 
-Schema reminder (see `scripts/migrate_add_user_combos.py`):
+Schema reminder (see `scripts/migrations/migrate_add_user_combos.py`):
     user_combos (id, name, color_identity, description, added_at, added_by)
     user_combo_cards (combo_id, card_name, quantity)
 

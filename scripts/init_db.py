@@ -33,7 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_cards_edhrec ON cards(edhrec_rank);
 -- satisfy a NOCASE comparison from a BINARY index. Without these, the
 -- convention silently costs a full table scan: get_deck's join over a
 -- 100-card deck took 747 ms instead of 0.8 ms. One per column any query
--- compares case-insensitively — see scripts/migrate_add_nocase_indexes.py.
+-- compares case-insensitively — see scripts/migrations/migrate_add_nocase_indexes.py.
 CREATE INDEX IF NOT EXISTS idx_cards_name_nocase ON cards(name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS rulings (
@@ -169,7 +169,7 @@ CREATE INDEX IF NOT EXISTS idx_custom_points_card_nocase
 -- PK includes `category`: a token can be both a subtype and a keyword on
 -- the same card ('saga', 'adventure', 'dragon'). A (card_name, tag) key
 -- kept only one of them, and which one won depended on set iteration order
--- in tag_cards.py. Existing databases: scripts/migrate_fix_card_tags_pk.py.
+-- in tag_cards.py. Existing databases: scripts/migrations/migrate_fix_card_tags_pk.py.
 CREATE TABLE IF NOT EXISTS card_tags (
     card_name TEXT NOT NULL,
     tag TEXT NOT NULL,
@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS decks (
 );
 CREATE INDEX IF NOT EXISTS idx_decks_folder ON decks(folder_id);
 -- The table's UNIQUE misses NULL folders and case variants; this doesn't.
--- See scripts/migrate_unique_deck_names.py.
+-- See scripts/migrations/migrate_unique_deck_names.py.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_decks_folder_name_nocase_unique
     ON decks(COALESCE(folder_id, 0), name COLLATE NOCASE);
 
@@ -265,7 +265,7 @@ CREATE TABLE IF NOT EXISTS deck_cards (
     is_sideboard INTEGER NOT NULL DEFAULT 0,
     added_at TEXT NOT NULL,
     -- The chosen printing, Scryfall's spelling (`c18`, `263`); NULL = none.
-    -- See scripts/migrate_add_printings_and_games.py.
+    -- See scripts/migrations/migrate_add_printings_and_games.py.
     set_code TEXT,
     collector_number TEXT,
     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
@@ -277,7 +277,7 @@ CREATE INDEX IF NOT EXISTS idx_deck_cards_card_nocase ON deck_cards(card_name CO
 
 -- One user action that changed a deck's contents = one revision; its
 -- deck_changes rows are the per-(card, section) quantity diff. See
--- scripts/migrate_add_deck_history.py.
+-- scripts/migrations/migrate_add_deck_history.py.
 CREATE TABLE IF NOT EXISTS deck_revisions (
     id INTEGER PRIMARY KEY,
     deck_id INTEGER NOT NULL
@@ -306,7 +306,7 @@ CREATE TABLE IF NOT EXISTS deck_changes (
 CREATE INDEX IF NOT EXISTS idx_deck_changes_revision ON deck_changes(revision_id);
 
 -- Cards being considered for a deck (Moxfield's maybeboard): not in it,
--- not counted, exported or played. See scripts/migrate_add_considering.py.
+-- not counted, exported or played. See scripts/migrations/migrate_add_considering.py.
 CREATE TABLE IF NOT EXISTS deck_considering (
     id INTEGER PRIMARY KEY,
     deck_id INTEGER NOT NULL
@@ -319,7 +319,7 @@ CREATE INDEX IF NOT EXISTS idx_deck_considering_deck ON deck_considering(deck_id
 CREATE INDEX IF NOT EXISTS idx_deck_considering_card_nocase ON deck_considering(card_name COLLATE NOCASE);
 
 -- Forge: per-deck AI substitutions, and one row per simulated game. See
--- scripts/migrate_add_forge.py.
+-- scripts/migrations/migrate_add_forge.py.
 CREATE TABLE IF NOT EXISTS forge_substitutions (
     id INTEGER PRIMARY KEY,
     deck_id INTEGER NOT NULL
@@ -354,7 +354,7 @@ CREATE INDEX IF NOT EXISTS idx_forge_matches_deck_a ON forge_matches(deck_a_id);
 CREATE INDEX IF NOT EXISTS idx_forge_matches_deck_b ON forge_matches(deck_b_id);
 
 -- One row per game the Kotlin app plays; the app writes it. See
--- scripts/migrate_add_printings_and_games.py.
+-- scripts/migrations/migrate_add_printings_and_games.py.
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY,
     played_at TEXT NOT NULL,
@@ -370,7 +370,7 @@ CREATE TABLE IF NOT EXISTS games (
     duration_ms INTEGER,
     forge_version TEXT,
     log_path TEXT,
-    -- Match grouping; see scripts/migrate_add_game_matches.py. A NULL
+    -- Match grouping; see scripts/migrations/migrate_add_game_matches.py. A NULL
     -- match_id is a single-game match.
     match_id TEXT,
     game_no INTEGER,

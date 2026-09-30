@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
+# The migrations live in scripts/migrations/, imported by their bare names so
+# reports and tests name them as before.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "migrations"))
+
 import migrate_add_considering
 import migrate_add_corrections
 import migrate_add_custom_formats

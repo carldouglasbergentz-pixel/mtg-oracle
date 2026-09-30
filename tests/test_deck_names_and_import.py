@@ -18,6 +18,7 @@ from unittest import mock
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts" / "migrations"))
 
 import db_sandbox  # noqa: E402
 import init_db  # noqa: E402

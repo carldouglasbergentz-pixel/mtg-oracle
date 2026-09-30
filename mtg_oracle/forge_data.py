@@ -5,7 +5,7 @@
                          `deck_cards` is never changed by a substitution.
     forge_matches        one row per simulated game.
 
-Created by scripts/migrate_add_forge.py (self-healed on start) and mirrored
+Created by scripts/migrations/migrate_add_forge.py (self-healed on start) and mirrored
 in scripts/init_db.py. Validation of a substitution lives in
 `decks.check_swaps`; this module only stores what the service layer decided.
 """
