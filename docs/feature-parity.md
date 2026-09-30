@@ -49,7 +49,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | Deck view grouped by type; commander pinned; CI badge; pointed cards `Name (3)` | nav pane, `show` | 2 | ▶ |
 | Deck workspace: the deck beside a search that follows it, results as a card grid or lines, arrow-key selection | — (new, 3.5; Moxfield's edit mode) | 3.5 | ✓ editing since 4a |
 | Considering list (Moxfield's maybeboard): not counted, exported or played; `!` where a rule would stop a card | — (new, 4a) | 4a | ✓ app: the Considering tab; TUI: `consider` and both deck views |
-| Live nav analytics: curve, avg MV, pips, sources by colour, combos in deck | nav pane | 5 | ○ |
+| Live nav analytics: curve, avg MV, pips, sources by colour, combos in deck | nav pane | 5 | ✓ the analysis block, fixed at the top of the middle column above the deck (library) and above the search (workspace), recomputed on every edit; also the primary roles and their T2/T4 odds |
 | Add / remove with format rules: CI, legality, singleton (incl. "up to N"), restricted, points; `--force` | `add`, `remove` | 4 | ✓ 4a: the workspace's buttons, keys, menu and `add`/`remove`; `add anyway` is `--force`; DeckParityTest checks every rule against Python |
 | Commander promote / demote, auto-set format | `commander` | 4 | ✓ 4a: the menu and `commander [--unset]` |
 | Deck format and folder default format | `format` | 4 | ✓ 4b: format... in the menus and [ Format ] in the workspace, chosen from every known format; a folder default can be stamped on its decks without one |
@@ -60,17 +60,17 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | History and undo / redo | `history`, `undo` | 4 | ✓ 4a: the History tab (every change, both apps' alike) and `undo` (undo of undo is redo) |
 | Printings (set + collector number) kept from the paste, used for art | parser + `deck_cards` | 2 | ✓ kept on import and replace, written back by export |
 | Choose a card's printing / art in the app (pick from its printings in the deck view or zoom pane; recorded in deck history, undoable) | — (new; wanted 2026-09-29 — Jace set to WWK 31 by hand) | 4 | ✓ 4b: a row's menu > choose printing..., every printing Forge knows, newest first, the art in the zoom pane on hover; a `printing` revision, undoable |
-| Export to clipboard / file, round-trips; `--front-face`, `--grouped` | `export` | 4 | ▶ 4b: to the clipboard, full names or front faces (split cards whole); `--grouped` needs the roles (step 5); to a file stays the TUI's |
-| Combos fully contained in a deck | `combos` in a deck | 5 | ○ |
+| Export to clipboard / file, round-trips; `--front-face`, `--grouped` | `export` | 4 | ▶ to the clipboard: full names, front faces (split cards whole), or grouped by role (5); to a file stays the TUI's |
+| Combos fully contained in a deck | `combos` in a deck | 5 | ✓ `combos` with no argument in or on a deck, and the block's `[ N combos in the deck ]` |
 
 ## Analysis
 
 | Feature | Today | Step | Status |
 |---|---|---|---|
-| Deck profile: role densities, reach, exact castable-on-turn odds, low-confidence cards | `profile` | 5 | ○ |
-| Head-to-head comparison | `compare` | 5 | ○ |
-| Reference-set ranges over a folder of lists, `--json` | `scripts/analyse_archetype.py` | 5 | ○ |
-| Role classifier (Tagger tags + text rules, face-burn veto, drawback vetoes) | `roles.py` | 5 | ○ |
+| Deck profile: role densities, reach, exact castable-on-turn odds, low-confidence cards | `profile` | 5 | ✓ `profile [<deck>]` and the block's `[ full profile ]`; the tables are Python's byte for byte (AnalysisRenderParityTest) |
+| Head-to-head comparison | `compare` | 5 | ✓ `compare <deck>` |
+| Reference-set ranges over a folder of lists, `--json` | `scripts/analyse_archetype.py` | 5 | ▶ in the app over a library folder: `profile <folder>` (side by side, most played per role) and `compare <folder>` (ranges); import the lists into a folder first. A folder of files and `--json` are the Kotlin CLI's (6c) |
+| Role classifier (Tagger tags + text rules, face-burn veto, drawback vetoes) | `roles.py` | 5 | ✓ `core/analysis`; AnalysisParityTest classifies all 35k cards against Python, and checks every deck's analytics and every profile, ranking and comparison at 12 decimals |
 
 ## Forge and playtesting
 

@@ -214,6 +214,61 @@ class LookupCommandsTest {
         assertTrue("(no help topic 'decks'" in run("help decks"))
     }
 
+    /** A deck whose name no other deck has, in a folder with at least two more. */
+    private fun analysedDeck() = library.decks().let { all ->
+        all.firstOrNull { d -> d.folderName != null && all.count { it.name.equals(d.name, true) } == 1 && all.count { it.folderName == d.folderName } >= 3 }
+    }
+
+    @Test
+    fun `profile and compare take the open deck, a named deck or a folder`() {
+        val deck = analysedDeck()
+        assumeTrue(deck != null, "a folder with three decks")
+        deck!!
+        val others = library.decks().filter { it.folderName == deck.folderName && it.id != deck.id }
+        assertTrue("usage: profile" in run("profile"))
+        assertTrue("(select or open a deck before `compare`)" in run("compare ${others[0].name}"))
+        val one = run("profile ${deck.name}")
+        assertTrue("1 list(s): ${deck.name}" in one && "=== ON CURVE - role is playable on turn T, on the play ===" in one, one)
+        val folder = run("profile ${deck.folderName}")
+        assertTrue("${others.size + 1} list(s):" in folder && "=== MOST PLAYED per role" in folder, folder)
+        assertTrue("profile: no deck or folder named 'No Such Thing'" in run("profile No Such Thing"))
+
+        run("cd ${deck.name}")
+        assertTrue("HEAD TO HEAD - '${deck.name}' against" in run("compare ${others[0].name}"))
+        assertTrue("COMPARISON - '${deck.name}' against ${others.size} reference list(s)" in run("compare ${deck.folderName}"), "the deck itself is left out")
+        assertTrue("compared to itself deviates nowhere" in run("compare ${deck.name}"))
+        assertTrue("fully contained in '${deck.name}'" in run("combos"))
+        assertTrue("usage: combos" in run("cd ..").let { run("combos") }, "outside a deck and with none selected, combos needs cards")
+    }
+
+    @Test
+    fun `without cd, profile and combos mean the deck selected in the library`() {
+        val deck = analysedDeck()
+        assumeTrue(deck != null, "a folder with three decks")
+        val selected = LookupCommands(lookup, decks = { library.decks() }, faceOf = { null }, selectedDeck = { deck!!.id })
+        selected.submit("profile")
+        selected.submit("combos")
+        val text = selected.output.entries.flatMap { it.rendering.lines(100) }.joinToString("\n") { it.text }
+        assertTrue("1 list(s): ${deck!!.name}" in text && "fully contained in '${deck.name}'" in text, text)
+    }
+
+    @Test
+    fun `the analysis block states the deck and links to the report and the combos`() {
+        val deck = analysedDeck()
+        assumeTrue(deck != null, "a folder with three decks")
+        val insight = lookup.analysis.insight(deck!!.id, deck.name)
+        val wide = mtgoracle.ui.library.insightLines(insight, 120)
+        val text = wide.joinToString("\n") { it.text }
+        assertTrue(text.startsWith("${insight.profile.size} cards · ${insight.analytics.landCount} lands"), text)
+        assertTrue("curve" in text && "roles" in text && "by T2/T4" in text, text)
+        assertEquals(listOf(OutputLink.Run("profile"), OutputLink.Run("combos")), wide.flatMap { it.spans }.map { it.link }.distinct())
+        for (width in listOf(40, 60, 90)) {
+            val narrow = mtgoracle.ui.library.insightLines(insight, width)
+            assertTrue(narrow.all { it.text.length <= width }, "at $width:\n" + narrow.joinToString("\n") { it.text })
+            narrow.forEach { l -> l.spans.forEach { assertTrue(it.end <= l.text.length) } }
+        }
+    }
+
     @Test
     fun `autofill knows the decks for cd`() {
         val prefix = library.decks().first().name.take(3)

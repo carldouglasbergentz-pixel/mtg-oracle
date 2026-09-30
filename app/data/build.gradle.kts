@@ -9,6 +9,7 @@ plugins {
 dependencies {
     api(project(":core"))
     implementation(libs.sqlite.jdbc)
+    implementation(libs.serialization.json) // card_faces, and the sync's upstream JSON
     testFixturesImplementation(libs.sqlite.jdbc)
     testImplementation(kotlin("test"))
     testImplementation(libs.junit.jupiter)

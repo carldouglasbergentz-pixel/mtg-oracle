@@ -1,5 +1,7 @@
 package mtgoracle.core.deck
 
+import mtgoracle.core.analysis.Roles
+
 /**
  * A deck as a `N Card Name` list for a deck site (services.export_deck_text,
  * held to it by DeckParityTest): sections under the headers the parser reads
@@ -12,9 +14,17 @@ object DeckExport {
     /**
      * [frontFace] shortens two-faced names to the front face, except split
      * cards, whose front is no card (`Fire` is not one; `Fire // Ice` is).
-     * [layoutOf] tells a split card from the others.
+     * [layoutOf] tells a split card from the others. With [primaryOf] (a
+     * card's primary role, null for one the database lacks), each section is
+     * grouped under `// Counterspells (15)` comments, which importers skip.
      */
-    fun text(deck: Deck, frontFace: Boolean = false, headers: Boolean = true, layoutOf: (String) -> String? = { null }): String {
+    fun text(
+        deck: Deck,
+        frontFace: Boolean = false,
+        headers: Boolean = true,
+        layoutOf: (String) -> String? = { null },
+        primaryOf: ((String) -> String?)? = null,
+    ): String {
         val buckets = ORDER.associate { it.first to LinkedHashMap<String, Int>() }
         val printings = HashMap<Pair<String, String>, String>()
         for (row in deck.cards) {
@@ -41,7 +51,17 @@ object DeckExport {
                 if (lines.isNotEmpty()) lines += ""
                 lines += header
             }
-            entries.keys.sortedWith(CODE_POINT_ORDER).forEach { n -> lines += "${entries.getValue(n)} ${display(n)}${printings[key to n].orEmpty()}" }
+            fun row(n: String) = "${entries.getValue(n)} ${display(n)}${printings[key to n].orEmpty()}"
+            if (primaryOf == null) {
+                entries.keys.sortedWith(CODE_POINT_ORDER).forEach { lines += row(it) }
+                continue
+            }
+            val byRole = entries.keys.groupBy { primaryOf(it) ?: "utility" }
+            for (role in Roles.ROLES) {
+                val names = byRole[role]?.sortedWith(CODE_POINT_ORDER) ?: continue
+                lines += "// ${Roles.LABELS.getValue(role)} (${names.sumOf { entries.getValue(it) }})"
+                names.forEach { lines += row(it) }
+            }
         }
         return if (lines.isEmpty()) "" else lines.joinToString("\n") + "\n"
     }

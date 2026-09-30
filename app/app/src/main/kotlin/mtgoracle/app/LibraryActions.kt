@@ -113,6 +113,7 @@ class LibraryActions(
                 is LibraryIntent.Export -> ui.ask = Ask.Buttons("Export ${deckName(intent.deckId)} to the clipboard", listOf(
                     "Full names" to { export(intent.deckId, frontFace = false) },
                     "Front faces only" to { export(intent.deckId, frontFace = true) },
+                    "Grouped by role" to { export(intent.deckId, frontFace = false, grouped = true) },
                 ))
                 is LibraryIntent.ChoosePrinting -> choosePrinting(intent)
             }
@@ -268,11 +269,14 @@ class LibraryActions(
         return message(lines.joinToString("\n"), Tone.PLAIN)
     }
 
-    private fun export(deckId: Int, frontFace: Boolean) {
+    /** [grouped]: each section under `// <role> (N)` comments, which importers skip and people read. */
+    private fun export(deckId: Int, frontFace: Boolean, grouped: Boolean = false) {
         val deck = library.deck(deckId) ?: return say("no such deck")
-        val text = DeckExport.text(deck, frontFace = frontFace, layoutOf = lookup::layout)
+        val pool = if (grouped) lookup.analysis.pool(deck.cards.map { it.name }) else null
+        val text = DeckExport.text(deck, frontFace = frontFace, layoutOf = lookup::layout, primaryOf = pool?.let { p -> { n -> p.classify(n)?.primary } })
         writeClipboard(text)
-        say("copied ${deck.name} to the clipboard: ${deck.cards.sumOf { it.quantity }} card(s)" + if (frontFace) ", front faces" else "")
+        say("copied ${deck.name} to the clipboard: ${deck.cards.sumOf { it.quantity }} card(s)" +
+            (if (frontFace) ", front faces" else "") + (if (grouped) ", grouped by role" else ""))
     }
 
     private fun choosePrinting(intent: LibraryIntent.ChoosePrinting) {

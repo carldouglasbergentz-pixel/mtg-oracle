@@ -29,6 +29,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import kotlinx.coroutines.launch
+import mtgoracle.core.analysis.DeckInsight
 import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.ui.board.SIDE_COLS
@@ -93,6 +94,8 @@ fun DeckWorkspace(
     onToggleDeckMode: () -> Unit,
     onPlay: () -> Unit,
     onQuit: () -> Unit,
+    /** The analysis block, fixed above the search: every edit's effect in view. */
+    insight: DeckInsight? = null,
 ) {
     var zoom by remember { mutableStateOf<CardFace?>(null) }
     val focus = remember { FocusRequester() }
@@ -201,7 +204,9 @@ fun DeckWorkspace(
                     }
                 }
                 val title = "search" + if (filters.isEmpty()) " · the whole pool" else " · ${filters.joinToString("  ")}"
-                BoxPane(title, Modifier.weight(1f).fillMaxHeight().region("workspace-search"), right = if (lookup.grid) "T: lines" else "T: grid") {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                AnalysisPane(insight, middle, onOpen = lookup.open, Modifier.fillMaxWidth())
+                BoxPane(title, Modifier.fillMaxWidth().weight(1f).region("workspace-search"), right = if (lookup.grid) "T: lines" else "T: grid") {
                     if (lookup.output.entries.isEmpty()) {
                         Column(Modifier.fillMaxWidth()) {
                             WrapText("Type what you are looking for (press : first): a name (bolt), a type (goblin), " +
@@ -216,6 +221,7 @@ fun DeckWorkspace(
                             actions = true, points = lookup::pointsOf,
                         )
                     }
+                }
                 }
                 ZoomPane(lookup.hoverFace ?: zoom, SIDE_COLS, imageRows = 20, textMode = false, modifier = Modifier.cellWidth(SIDE_COLS).fillMaxHeight())
             }

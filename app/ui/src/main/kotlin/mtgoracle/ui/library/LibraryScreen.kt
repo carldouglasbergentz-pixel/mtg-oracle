@@ -29,6 +29,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import kotlinx.coroutines.launch
+import mtgoracle.core.analysis.DeckInsight
 import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.DeckSummary
@@ -89,6 +90,8 @@ fun LibraryScreen(
     onEdit: () -> Unit = {},
     /** Every folder, the empty ones too: a folder just made has no deck yet. */
     folders: List<Folder> = emptyList(),
+    /** The analysis block above the selected deck; null while it is being read. */
+    insight: DeckInsight? = null,
 ) {
     var menu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
     val selectedFolder = decks.firstOrNull { it.id == selectedId }?.folderId
@@ -188,10 +191,14 @@ fun LibraryScreen(
                             onHover = { link -> (link as? OutputLink.Card)?.let { lookup.face(it.name) }?.let { zoom = it } })
                     }
                 } else {
-                    BoxPane(deck?.name ?: "no deck selected", Modifier.weight(1f).fillMaxHeight(), right = right) {
-                        Column(Modifier.verticalScroll(rememberScrollState())) {
-                            if (deck == null) GridText("Pick a deck on the left.", color = Palette.dim)
-                            else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it })
+                    // The analysis stays put above the deck, which scrolls under it.
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
+                        if (deck != null) AnalysisPane(insight, middle, onOpen = { lookup?.open?.invoke(it) }, Modifier.fillMaxWidth())
+                        BoxPane(deck?.name ?: "no deck selected", Modifier.fillMaxWidth().weight(1f), right = right) {
+                            Column(Modifier.verticalScroll(rememberScrollState())) {
+                                if (deck == null) GridText("Pick a deck on the left.", color = Palette.dim)
+                                else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it })
+                            }
                         }
                     }
                 }

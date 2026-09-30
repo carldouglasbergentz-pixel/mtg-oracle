@@ -1,5 +1,8 @@
 package mtgoracle.app
 
+import mtgoracle.core.analysis.Archetype
+import mtgoracle.core.analysis.DeckList
+import mtgoracle.core.analysis.Roles
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.core.lookup.ComboSummary
 import mtgoracle.core.lookup.DeckScope
@@ -31,7 +34,10 @@ import mtgoracle.ui.lookup.preformatted
 import mtgoracle.ui.lookup.renderCard
 import mtgoracle.ui.lookup.renderCombo
 import mtgoracle.ui.lookup.renderComboList
+import mtgoracle.ui.lookup.renderComparison
 import mtgoracle.ui.lookup.renderCorrections
+import mtgoracle.ui.lookup.renderProfile
+import mtgoracle.ui.lookup.renderRanking
 import mtgoracle.ui.lookup.renderDeckFilterNotice
 import mtgoracle.ui.lookup.renderRule
 import mtgoracle.ui.lookup.renderRulesSearch
@@ -62,6 +68,8 @@ class LookupCommands(
     private val onDeckChanged: (Int) -> Unit = {},
     /** A line for the status bar. */
     private val notify: (String) -> Unit = {},
+    /** The deck selected in the library: what `profile`, `compare` and `combos` mean without `cd`. */
+    private val selectedDeck: () -> Int? = { null },
 ) {
     val output = OutputLog()
     private val writerOrNull = writer
@@ -164,7 +172,9 @@ class LookupCommands(
             "card" -> cardOrRow(arg)
             "ruling", "rulings" -> rulings(arg)
             "combo" -> combo(arg)
-            "combos" -> combos(arg)
+            "combos" -> if (arg.isEmpty() && currentDeck() != null) deckCombos() else combos(arg)
+            "profile" -> profile(arg)
+            "compare" -> compare(arg)
             "combo-info" -> comboInfo(arg)
             "rule" -> if (arg.isEmpty()) say("usage: rule <rule_number>") else rule(arg)
             "search-rules" -> if (arg.isEmpty()) say("usage: search-rules <text>") else say(renderRulesSearch(arg, lookup.rules.search(arg, limit = 25)))
@@ -389,30 +399,99 @@ class LookupCommands(
     /**
      * `cd <deck>` (or `<folder>/<deck>`) opens the deck workspace, as Enter
      * does; search and card profiles follow the deck. `cd ..` and `cd /` go
-     * back to the library. Navigation only: folders and decks are still made
-     * and changed in the TUI.
+     * back to the library.
      */
     private fun cd(arg: String) {
         if (arg.isEmpty() || arg == ".." || arg == "/") {
             leaveDeck()
             return say("(back in the library: search covers the whole card pool)", Tone.DIM)
         }
+        val deck = findDeck(arg).getOrElse { return say(it.message!!) } ?: return say("(no deck named '$arg'; the decks are in the list on the left)")
+        if (!enterDeck(deck.id)) return say("(no deck named '$arg')")
+        val entered = scope!!
+        val filters = entered.filters.map { it.second }
+        say(if (filters.isEmpty()) "in ${entered.deckName}: no commander and no format, so search is not filtered"
+            else "in ${entered.deckName}: search is limited to ${filters.joinToString("  ")}  (`cd ..` for the full pool)", Tone.DIM)
+    }
+
+    /** The deck `<deck>` or `<folder>/<deck>` names; null for none, a failure naming the folders when several match. */
+    private fun findDeck(arg: String): Result<DeckSummary?> {
         val folder = if ('/' in arg) arg.substringBefore('/').trim() else null
         val name = arg.substringAfter('/').trim()
         val matches = decks().filter { d ->
             d.name.equals(name, ignoreCase = true) &&
                 (folder == null || (d.folderName ?: UNSORTED).equals(folder, ignoreCase = true) || (d.folderName == null && folder.equals("(no folder)", ignoreCase = true)))
         }
-        val deck = when (matches.size) {
-            0 -> return say("(no deck named '$arg'; the decks are in the list on the left)")
-            1 -> matches.single()
-            else -> return say("('$name' is in several folders: ${matches.joinToString(", ") { it.folderName ?: UNSORTED }} — use `cd <folder>/$name`)")
+        return when (matches.size) {
+            0 -> Result.success(null)
+            1 -> Result.success(matches.single())
+            else -> Result.failure(IllegalArgumentException(
+                "('$name' is in several folders: ${matches.joinToString(", ") { it.folderName ?: UNSORTED }} — use `<folder>/$name`)"))
         }
-        if (!enterDeck(deck.id)) return say("(no deck named '$arg')")
-        val entered = scope!!
-        val filters = entered.filters.map { it.second }
-        say(if (filters.isEmpty()) "in ${entered.deckName}: no commander and no format, so search is not filtered"
-            else "in ${entered.deckName}: search is limited to ${filters.joinToString("  ")}  (`cd ..` for the full pool)", Tone.DIM)
+    }
+
+    /** The decks in the folder named [name] (ignoring case), or null when no folder has that name. */
+    private fun folderDecks(name: String): List<DeckSummary>? =
+        decks().filter { it.folderName.equals(name, ignoreCase = true) }.takeIf { it.isNotEmpty() }
+
+    /** The deck being worked on, else the one selected in the library. */
+    private fun currentDeck(): DeckSummary? = (scope?.deckId ?: selectedDeck())?.let { id -> decks().firstOrNull { it.id == id } }
+
+    private fun deckList(d: DeckSummary) = lookup.analysis.deckList(d.id, d.name)
+
+    /** `combos` in or on a deck: every combo it holds whole, numbered for `combo-info <N>`. */
+    private fun deckCombos() {
+        val deck = currentDeck() ?: return
+        val combos = lookup.combos.inDeck(deck.id)
+        lastCombos = combos
+        val name = mtgoracle.core.analysis.Py.repr(deck.name)
+        if (combos.isEmpty()) return say("(no combos fully contained in $name)")
+        say(renderComboList(combos, "${combos.size} combo(s) fully contained in $name:"))
+    }
+
+    /**
+     * `profile` (the deck you are in or on), `profile <deck>`, or `profile
+     * <folder>`: every deck in it side by side, then the cards they play
+     * most. A deck's name wins over a folder's.
+     */
+    private fun profile(arg: String) {
+        if (arg.isEmpty()) {
+            val deck = currentDeck() ?: return say("usage: profile [<deck>|<folder>]   (or select a deck first to profile it)")
+            return profileDecks(listOf(deckList(deck)))
+        }
+        val deck = findDeck(arg).getOrElse { return say(it.message!!) }
+        if (deck != null) return profileDecks(listOf(deckList(deck)))
+        val folder = folderDecks(arg) ?: return say("profile: no deck or folder named '$arg'")
+        profileDecks(folder.map(::deckList), ranking = true)
+    }
+
+    private fun profileDecks(lists: List<DeckList>, ranking: Boolean = false) {
+        val pool = lookup.analysis.pool(lists.flatMap { it.cards.keys })
+        val rank = Archetype.rank(lists, pool, Roles.REPORT_ROLES)
+        say(renderProfile(lists.map { Archetype.profile(it, pool) }, rank.lowConfidence))
+        if (ranking) say(renderRanking(rank, lists.size))
+    }
+
+    /**
+     * `compare <deck>`: the deck you are in or on, head to head with that
+     * one; `compare <folder>`: against every deck in it (itself left out),
+     * with the ranges it steps outside. Import reference lists into a folder
+     * and they are a reference set.
+     */
+    private fun compare(arg: String) {
+        val subject = currentDeck() ?: return say("(select or open a deck before `compare`)")
+        if (arg.isEmpty()) return say("usage: compare <deck>|<folder>   (measures '${subject.name}' against it)")
+        val other = findDeck(arg).getOrElse { return say(it.message!!) }
+        val reference = when {
+            other != null && other.id == subject.id -> return say("(a deck compared to itself deviates nowhere — name a different one)")
+            other != null -> listOf(other)
+            else -> folderDecks(arg)?.filter { it.id != subject.id } ?: return say("compare: no deck or folder named '$arg'")
+        }
+        if (reference.isEmpty()) return say("compare: '$arg' holds nothing but '${subject.name}' itself")
+        val lists = reference.map(::deckList)
+        val mine = deckList(subject)
+        val pool = lookup.analysis.pool((lists + mine).flatMap { it.cards.keys })
+        say(renderComparison(Archetype.compare(mine, lists, pool)))
     }
 
     private fun copy(arg: String) {

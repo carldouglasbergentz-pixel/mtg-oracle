@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (step 5: analysis in the app)
+- **An analysis block above the deck,** fixed at the top of the middle column. It sits above the deck in the library and above the search in the workspace, and it doesn't scroll away. It shows:
+  - size, lands (with MDFCs), spells, and average MV printed and effective;
+  - the curve, with pips and mana sources per colour;
+  - the primary roles;
+  - how often each role is castable on turns 2 and 4, on the play;
+  - links to the full profile and to the deck's combos.
+
+  It is recomputed on every edit. Classifications are cached per card and blocks per deck, so moving through the list re-reads nothing.
+- **`profile [<deck>|<folder>]`:** density, reach, on-curve and ceiling tables. A folder profiles every deck in it side by side, plus the most-played cards per role; that is the reference-set report in the app.
+- **`compare <deck>|<folder>`:** head to head, or against every deck in a folder (itself left out), with the range verdicts, the curve deltas, and the cards they play that it lacks. Importing reference lists into a folder makes them a reference set.
+- **`combos` with no argument, in or on a deck:** the combos it holds whole.
+- **Export grouped by role:** a third choice in Export, under `// Counterspells (15)` comments.
+- **The analysis engine in Kotlin** (`core/analysis`): role classifier, effective mana, exact draw maths, deck analytics, profile, compare and rank. It is pure, with Python's rounding and float summation reproduced (`Py`).
+
+  AnalysisParityTest checks it against Python:
+  - every one of the ~35k cards' classification;
+  - every deck's curve, pips and sources;
+  - every profile, ranking and comparison over the reference folders and the user's decks, at 12 decimals.
+
+  AnalysisRenderParityTest holds the tables to Python's byte for byte. DeckParityTest covers the grouped export.
+- `kotlinx-serialization-json` (JetBrains), for `card_faces` now and the sync's upstream JSON in step 6.
+
 ### Changed (formats follow the folders, and read as players write them; from the user's play-through)
 - **Moving a deck into a folder whose default format differs offers that format** (`Use Canadian Highlander` / `Keep Duel Commander (DC)`). A deck's format is its own, so it is asked, never changed silently.
 - **A format with no command zone asks where the commander goes:** moving Elminster's deck to Canadian Highlander asks "Put Elminster in the deck?".

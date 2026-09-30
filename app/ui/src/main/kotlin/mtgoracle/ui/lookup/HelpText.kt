@@ -2,7 +2,7 @@ package mtgoracle.ui.lookup
 
 import mtgoracle.core.lookup.SEARCH_SYNTAX_HELP
 
-/** `help`: what the command line does. Only what this app has; deck editing is still the TUI's. */
+/** `help`: what the command line does. */
 val HELP_TEXT = """
 MTG Oracle — command line   (: or Ctrl+K to type, Esc to leave it)
 
@@ -18,16 +18,30 @@ COMBOS
   combo <card>                        combos with a card (one match opens it)
   combos <card1>; <card2>[; ...]      combos with ALL of the cards
   combo-info <id-or-number>           a combo in full; <N> is a row of the last list
+  combos                              in or on a deck: the combos it holds whole
 
 SEARCH
   search <query>                      Scryfall-style card search — `help search` for the syntax
   next / prev / page <N>              page through the results
 
 DECKS
-  cd <deck>                           search and card profiles follow that deck: its
+  cd <deck>                           open it to edit: search and card profiles follow its
                                       commander's colours and its format (shown in the prompt)
   cd ..                               back to the whole card pool
-  Editing decks (add, remove, import, ...) is still the TUI's: `python scripts/mtg_app.py`.
+  add [--sb] [--force] <card> [N]     into the open deck (or its sideboard)
+  remove [--sb|--considering] <card> [N]   out of it; no N takes every copy
+  consider <card> [N]                 onto its considering list
+  commander [--unset] <card>          make it (or no longer) the commander
+  undo / history                      revert the newest change / the History tab
+
+ANALYSIS
+  profile [<deck>|<folder>]           what the deck's cards do, what they really cost, and when
+                                      each role is castable; a folder profiles every deck in it
+                                      side by side, with the cards they play most
+  compare <deck>                      the open (or selected) deck head to head with another
+  compare <folder>                    ...or against every deck in a folder: where it steps
+                                      outside their ranges, and the cards they play that it lacks
+  Import reference lists into a folder and they become a reference set.
 
 MORE
   copy [last|all]                     the last command's output, or all of it, to the clipboard

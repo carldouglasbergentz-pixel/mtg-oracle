@@ -47,6 +47,27 @@ class Combos(private val db: MtgDb, private val names: CardNames) {
         }
     }
 
+    /** Combos whose every card is in deck [deckId], sideboard included (decks.combos_in_deck). */
+    fun inDeck(deckId: Int, limit: Int = 50): List<ComboSummary> {
+        fun branch(combos: String, cardsTable: String, source: String) = """
+            SELECT c.id, c.color_identity, c.name,
+                   (SELECT COUNT(*) FROM $cardsTable WHERE combo_id = c.id) AS card_count,
+                   (SELECT GROUP_CONCAT(card_name, ' + ') FROM $cardsTable WHERE combo_id = c.id) AS cards,
+                   '$source' AS source
+            FROM $combos c
+            WHERE c.id IN (SELECT cc.combo_id FROM $cardsTable cc
+                           WHERE cc.card_name COLLATE NOCASE IN (SELECT card_name FROM deck_cards WHERE deck_id = ?)
+                           GROUP BY cc.combo_id
+                           HAVING COUNT(DISTINCT cc.card_name) = (SELECT COUNT(*) FROM $cardsTable WHERE combo_id = cc.combo_id))
+        """.trimIndent()
+        val sql = branch("combos", "combo_cards", "spellbook") + "\nUNION ALL\n" + branch("user_combos", "user_combo_cards", "user") +
+            "\nORDER BY card_count ASC, id LIMIT ?"
+        return db.read { conn ->
+            val rows = conn.query(sql, deckId, deckId, limit.coerceIn(1, 500)) { summaryRow() }
+            flagTemplateVars(conn, rows)
+        }
+    }
+
     /** One combo in full; Spellbook first, then the user's. Null for an unknown id. */
     fun detail(id: String): ComboDetail? = db.read { conn ->
         fun texts(sql: String): List<String> = conn.prepareStatement(sql).use { st ->

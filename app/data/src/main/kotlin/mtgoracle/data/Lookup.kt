@@ -22,6 +22,7 @@ class Lookup(private val db: MtgDb) {
     val cards = Cards(db, names, combos, corrections)
     val rules = Rules(db)
     val search = CardSearch(db, formats)
+    val analysis = Analysis(db, names, combos)
 
     /**
      * What autofill offers after each field, the most used first: types and

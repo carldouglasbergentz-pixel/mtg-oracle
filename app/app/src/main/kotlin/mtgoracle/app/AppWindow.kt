@@ -66,6 +66,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             DeckWorkspace(
                 deck = app.deckById(open.deckId), filters = open.filters.map { it.second }, keyFor = app::keyFor,
                 deckMode = app.deckPaneMode, lookup = app.lookupUi!!, notice = app.notice,
+                insight = app.insight?.takeIf { it.deckId == open.deckId },
                 onLeave = app::leaveEdit, onToggleResults = app::toggleMode, onToggleDeckMode = app::toggleDeckPaneMode,
                 onPlay = app::openSetup, onQuit = onQuit,
             )
@@ -76,6 +77,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             lookup = app.lookupUi,
             onEdit = app::edit,
             folders = app.folders,
+            insight = app.insight?.takeIf { it.deckId == app.selectedId },
         )
         Screen.Setup -> {
             val me = app.decks.first { it.id == app.selectedId }

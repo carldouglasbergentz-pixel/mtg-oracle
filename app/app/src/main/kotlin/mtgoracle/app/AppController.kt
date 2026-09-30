@@ -3,11 +3,13 @@ package mtgoracle.app
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import mtgoracle.core.analysis.DeckInsight
 import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.play.GameMode
+import mtgoracle.data.Analysis
 import mtgoracle.data.GameStore
 import mtgoracle.data.Library
 import mtgoracle.data.DeckWriter
@@ -58,6 +60,9 @@ class AppController(private val paths: AppPaths) {
     var decks by mutableStateOf(emptyList<DeckSummary>())
     var selectedId by mutableStateOf<Int?>(null)
     var deck by mutableStateOf<Deck?>(null)
+    /** The analysis block's numbers for [deck], computed again whenever it changes. */
+    var insight by mutableStateOf<DeckInsight?>(null)
+        private set
     var mode by mutableStateOf(settings.cardMode)
     var notice by mutableStateOf<String?>(null)
     var forgeReady by mutableStateOf(false)
@@ -76,8 +81,11 @@ class AppController(private val paths: AppPaths) {
     init { Palette.theme = startTheme() }
 
     private lateinit var library: Library
+    private var analysis: Analysis? = null
     private lateinit var sessions: Sessions
     private val deckCache = mutableMapOf<Int, Deck>()
+    /** Each deck's analysis block until the deck changes: arrowing through the list re-reads nothing. */
+    private val insightCache = mutableMapOf<Int, DeckInsight>()
 
     /** Opens the database (the schema check first), then brings Forge up in the background. */
     fun boot() {
@@ -97,7 +105,10 @@ class AppController(private val paths: AppPaths) {
                 lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
                 copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
                 writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
+                selectedDeck = { selectedId },
             )
+            analysis = lookup.analysis
+            analyse()
             commands = lookupCommands
             val actions = LibraryActions(
                 library, LibraryWriter(db), writer, lookup, lookupCommands.ui,
@@ -134,8 +145,12 @@ class AppController(private val paths: AppPaths) {
     /** Deck [id] was changed (in the workspace): read it again, and the library's counts. */
     private fun deckChanged(id: Int) {
         deckCache.remove(id)
+        insightCache.remove(id)
         decks = library.decks()
-        if (selectedId == id) deck = deckById(id)
+        if (selectedId == id) {
+            deck = deckById(id)
+            analyse()
+        }
     }
 
     /** Every folder, the empty ones too. */
@@ -144,10 +159,11 @@ class AppController(private val paths: AppPaths) {
     /** The library's shape changed (a deck made, renamed, moved or deleted; a folder): read it all again. */
     private fun refreshLibrary() {
         deckCache.clear()
+        insightCache.clear()
         decks = library.decks()
         folders = library.folders()
         val still = decks.firstOrNull { it.id == selectedId } ?: decks.firstOrNull()
-        if (still != null) select(still.id) else { selectedId = null; deck = null }
+        if (still != null) select(still.id) else { selectedId = null; deck = null; insight = null }
     }
 
     /** Where the app reads a pasted list from; the tests put their own list there. */
@@ -165,6 +181,24 @@ class AppController(private val paths: AppPaths) {
     fun select(id: Int) {
         selectedId = id
         deck = deckById(id)
+        analyse()
+    }
+
+    /**
+     * The analysis block for the selected deck. On the UI thread: a hundred
+     * cards classify in a few milliseconds, and a block a frame late would
+     * show the numbers from before the edit.
+     */
+    private fun analyse() {
+        val a = analysis ?: return
+        val d = deck ?: return run { insight = null }
+        insight = try {
+            insightCache.getOrPut(d.id) { a.insight(d.id, d.name) }
+        } catch (e: Exception) {
+            Log.error("analysis of ${d.name} failed", e)
+            notice = "analysis failed: ${e.message}"
+            null
+        }
     }
 
     fun keyFor(card: DeckCard): String? =

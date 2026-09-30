@@ -137,6 +137,8 @@ class DeckParityTest {
         export __p_imp__ 0
         export __P_New__ 1
         export __parity_cmd__ 0
+        export __parity_cmd__ 0|1
+        export __P_New__ 1|1
         undo __P_New__
         folderformat __pf__ duel|1
         rmdir __pf__ 1
@@ -204,7 +206,7 @@ class DeckParityTest {
                 elif op == 'replace': d.replace_deck_contents(deck, parse_deckstring(pastes[int(a[0])]), force=a[1] == '1')
                 elif op == 'printing': d.set_printing(deck, a[0], a[1], opt(a[2]), opt(a[3]))
                 elif op == 'export':
-                    print('EXPORT ' + svc.export_deck_text(svc.DeckRef(deck), front_face=a[0] == '1').text.replace('\n', '~'))
+                    print('EXPORT ' + svc.export_deck_text(svc.DeckRef(deck), front_face=a[0] == '1', group_by_role=len(a) > 1 and a[1] == '1').text.replace('\n', '~'))
                     continue
                 print('OK')
             except d.DeckError as e:
@@ -232,7 +234,13 @@ class DeckParityTest {
             "import" -> writer.importDeck(op.deck, folder(a[0]), opt(a[1]), DeckParser.parse(pastes[a[2].toInt()]))
             "replace" -> writer.replace(deck(), DeckParser.parse(pastes[a[0].toInt()]), force = a[1] == "1")
             "printing" -> writer.setPrinting(deck(), a[0], DeckSection.of(a[1]), Printing.of(opt(a[2]), opt(a[3])))
-            "export" -> return "EXPORT " + DeckExport.text(Library(db).deck(deck())!!, frontFace = a[0] == "1", layoutOf = lookup::layout).replace("\n", "~")
+            "export" -> {
+                val d = Library(db).deck(deck())!!
+                val pool = lookup.analysis.pool(d.cards.map { it.name })
+                val grouped = a.getOrNull(1) == "1"
+                return "EXPORT " + DeckExport.text(d, frontFace = a[0] == "1", layoutOf = lookup::layout,
+                    primaryOf = if (grouped) { n -> pool.classify(n)?.primary } else null).replace("\n", "~")
+            }
             else -> runContent(writer, deck(), op)
         }
         "OK"

@@ -9,6 +9,8 @@ val COMMANDS = listOf(
     "next", "prev", "page", "correction", "cd", "copy", "help", "clear", "quit",
     // In the deck workspace.
     "add", "remove", "consider", "commander", "undo", "history",
+    // Analysis.
+    "profile", "compare",
 )
 
 /** What a line's first word must be to run as a command; anything else is a search. */
@@ -19,7 +21,7 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "card" to "card <name>: the full profile · card <N>: row N of the last search",
     "ruling" to "ruling <name>: the card's rulings", "rulings" to "rulings <name>: the card's rulings",
     "combo" to "combo <card>: combos with that card",
-    "combos" to "combos <card>; <card>[; ...]: combos with all of them",
+    "combos" to "combos <card>; <card>[; ...]: combos with all of them · combos: the ones the deck holds whole",
     "combo-info" to "combo-info <id|N>: one combo in full",
     "rule" to "rule <number>: the rule and its sub-rules",
     "search-rules" to "search-rules <text>: rules whose text has it",
@@ -37,6 +39,8 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "commander" to "commander [--unset] [--force] <card>: make it (or no longer) the open deck's commander",
     "undo" to "undo: revert the open deck's newest change (undo again redoes it)",
     "history" to "history: the open deck's changes (the History tab)",
+    "profile" to "profile [<deck>|<folder>]: what the cards do and when each role is castable",
+    "compare" to "compare <deck>|<folder>: this deck head to head, or against every deck in the folder",
 )
 
 /**
@@ -79,7 +83,7 @@ class Suggester(
                 complete(command, rest, cardNames, cardNamesLower)
             "combos" -> combos(command, rest)
             "rule" -> complete(command, rest, ruleNumbers)
-            "cd" -> complete(command, rest, deckNames())
+            "cd", "profile", "compare" -> complete(command, rest, deckNames())
             "help", "?" -> complete(command, rest, helpTopics)
             "search" -> query("$command ", rest)
             in COMMAND_WORDS -> null
