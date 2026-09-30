@@ -1,7 +1,10 @@
 package mtgoracle.data
 
+import mtgoracle.core.deck.DeckExport
+import mtgoracle.core.deck.DeckParser
 import mtgoracle.core.deck.DeckRefusal
 import mtgoracle.core.deck.DeckSection
+import mtgoracle.core.deck.Printing
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.File
 import java.nio.file.Files
@@ -23,6 +26,15 @@ class DeckParityTest {
     private val decks = mapOf(
         "__parity_cmd__" to "commander", "__parity_none__" to null, "__parity_can__" to "canlander",
         "__parity_vin__" to "vintage", "__parity_duel__" to "duel",
+    )
+
+    /** The lists the load / import / replace ops paste, by index. */
+    private val pastes = listOf(
+        "Commander\n1 Tymna the Weaver\nDeck\n1 Sol Ring (C18) 263\n4 Plains\nSideboard\n1 Duress\nMaybeboard\n2 Opt\n1 Not A Real Card",
+        "1 Sol Ring\n3 Plains\n1 Swords to Plowshares (EMA) 25\nConsidering\n1 Brainstorm",
+        "1 Sol Ring\n2 Plains",
+        "1 Sol Ring\n1 Zzyzx the Unreal",
+        "999 Plains\n1000 Island\n1 Sol Ring",
     )
 
     /** op, deck, then the op's arguments; `-` is "not given". */
@@ -95,6 +107,41 @@ class DeckParityTest {
         add __parity_duel__ Krark, the Thumbless|2|0|1
         undo __parity_duel__
         undo __parity_none__
+        mkdir __pf__
+        mkdir __PF__
+        mkdir a/b
+        mkdir (unsorted)
+        folderformat __pf__ canlander|0
+        newdeck __p_new__ __pf__|-
+        newdeck __P_NEW__ __pf__|-
+        newdeck __p_other__ -|vintage
+        newdeck bad/name -|-
+        rename __p_new__ __P_New__
+        movedeck __P_New__ -
+        rename __P_New__ __p_other__
+        movedeck __P_New__ __pf__
+        rmdir __pf__ 0
+        deckformat __P_New__ Commander
+        deckformat __P_New__ -
+        load __P_New__ 0
+        replace __P_New__ 1|0
+        replace __P_New__ 2|0
+        replace __P_New__ 3|0
+        replace __P_New__ 3|1
+        replace __P_New__ 4|0
+        printing __P_New__ Sol Ring|main|c21|263
+        printing __P_New__ Sol Ring|considering|c21|-
+        printing __P_New__ Island|main|c21|-
+        import __p_imp__ __pf__|-|0
+        import __p_imp__ __pf__|-|1
+        export __p_imp__ 0
+        export __P_New__ 1
+        export __parity_cmd__ 0
+        undo __P_New__
+        folderformat __pf__ duel|1
+        rmdir __pf__ 1
+        delete __p_imp__
+        delete __p_imp__
     """.trimIndent().lines()
 
     /** The first word is the op, the second the deck; the rest, split on `|`, its arguments. */
@@ -108,8 +155,10 @@ class DeckParityTest {
     private val python = """
         import sys
         from pathlib import Path
-        from mtg_oracle import decks as d, queries as q, scryfall_search as ss
+        from mtg_oracle import decks as d, queries as q, scryfall_search as ss, services as svc
+        from mtg_oracle.deck_parser import parse_deckstring
         db, ops_path, decks_path = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+        pastes = open(sys.argv[5], encoding='utf-8').read().split('\x1e') if len(sys.argv) > 5 else []
         for m in (q, d, ss):
             m.DB_PATH = db
         q.clear_format_cache()
@@ -119,7 +168,11 @@ class DeckParityTest {
                  ('a commander is a single card', 'COMMANDER_COPIES'), ('already a commander', 'ALREADY_COMMANDER'),
                  ('already in the main deck', 'ALREADY_IN_MAIN'), ('card not in', 'NOT_IN_DECK'), ('cannot move', 'NOT_IN_DECK'),
                  ('not currently a commander', 'NOT_A_COMMANDER'), ('nothing to undo', 'NOTHING_TO_UNDO'), ('cannot undo', 'UNDO_DRIFT'),
-                 ('move is between', 'BAD_MOVE'), ('is already in the', 'BAD_MOVE')]
+                 ('move is between', 'BAD_MOVE'), ('is already in the', 'BAD_MOVE'),
+                 ('a printing is chosen in the deck', 'BAD_MOVE'), ('folder already exists', 'NAME_TAKEN'),
+                 ('already exists in', 'NAME_TAKEN'), ('cannot move the decks in', 'NAME_TAKEN'), ('which separates folder and deck', 'BAD_NAME'),
+                 ('is reserved', 'BAD_NAME'), ('name required', 'BAD_NAME'), ('deck(s); pass force', 'FOLDER_NOT_EMPTY'),
+                 ('nothing was replaced', 'UNRESOLVED_CARDS'), ('folder not found', 'NO_SUCH_DECK'), ('deck not found', 'NO_SUCH_DECK')]
         def kind(e):
             return next((k for p, k in KINDS if p in str(e)), 'UNKNOWN: ' + str(e))
         if sys.argv[4] == 'create':
@@ -138,13 +191,56 @@ class DeckParityTest {
                 elif op == 'move': d.move_card(deck, a[0], to_section=a[2], from_section=a[1], quantity=int(a[3]), force=a[4] == '1')
                 elif op == 'commander': d.set_commander(deck, a[0], unset=a[1] == '1', force=a[2] == '1')
                 elif op == 'undo': d.undo_last_change(deck)
+                elif op == 'mkdir': d.create_folder(deck)
+                elif op == 'rmdir': d.delete_folder(deck, force=a[0] == '1')
+                elif op == 'folderformat': d.set_folder_format(deck, opt(a[0]), apply_to_decks=a[1] == '1')
+                elif op == 'newdeck': d.create_deck(deck, folder=opt(a[0]), format=opt(a[1]))
+                elif op == 'rename': d.rename_deck(deck, a[0])
+                elif op == 'movedeck': d.move_deck(deck, opt(a[0]))
+                elif op == 'deckformat': d.set_deck_format(deck, opt(a[0]))
+                elif op == 'delete': d.delete_deck(deck)
+                elif op == 'load': d.load_parsed_into_deck(deck, parse_deckstring(pastes[int(a[0])]))
+                elif op == 'import': d.import_deck(deck, parse_deckstring(pastes[int(a[2])]), folder=opt(a[0]), format=opt(a[1]))
+                elif op == 'replace': d.replace_deck_contents(deck, parse_deckstring(pastes[int(a[0])]), force=a[1] == '1')
+                elif op == 'printing': d.set_printing(deck, a[0], a[1], opt(a[2]), opt(a[3]))
+                elif op == 'export':
+                    print('EXPORT ' + svc.export_deck_text(svc.DeckRef(deck), front_face=a[0] == '1').text.replace('\n', '~'))
+                    continue
                 print('OK')
             except d.DeckError as e:
                 print('ERR ' + kind(e))
     """.trimIndent()
 
-    private fun runKotlin(writer: DeckWriter, ids: Map<String, Int>, op: Op): String = try {
-        val id = ids.getValue(op.deck)
+    /** A deck's or folder's id by name, looked up at each op: ops create, rename and delete them. */
+    private fun MtgDb.id(table: String, name: String): Int? = read { c -> c.query("SELECT id FROM $table WHERE name = ? COLLATE NOCASE", name) { getInt(1) }.firstOrNull() }
+
+    private fun runKotlin(db: MtgDb, lookup: Lookup, writer: DeckWriter, library: LibraryWriter, op: Op): String = try {
+        val a = op.args
+        fun deck() = db.id("decks", op.deck) ?: throw DeckRefusal(DeckRefusal.Kind.NO_SUCH_DECK, "deck not found")
+        fun folder(name: String?) = name?.takeIf { it != "-" }?.let { db.id("deck_folders", it) ?: throw DeckRefusal(DeckRefusal.Kind.NO_SUCH_DECK, "folder not found") }
+        fun opt(v: String) = v.takeIf { it != "-" }
+        when (op.op) {
+            "mkdir" -> library.createFolder(op.deck)
+            "rmdir" -> library.deleteFolder(folder(op.deck)!!, force = a[0] == "1")
+            "folderformat" -> library.setFolderFormat(folder(op.deck)!!, opt(a[0]), applyToDecks = a[1] == "1")
+            "newdeck" -> library.createDeck(op.deck, folder(a[0]), opt(a[1]))
+            "rename" -> library.renameDeck(deck(), a[0])
+            "movedeck" -> library.moveDeck(deck(), folder(a[0]))
+            "deckformat" -> library.setDeckFormat(deck(), opt(a[0]))
+            "delete" -> library.deleteDeck(deck())
+            "load" -> writer.load(deck(), DeckParser.parse(pastes[a[0].toInt()]))
+            "import" -> writer.importDeck(op.deck, folder(a[0]), opt(a[1]), DeckParser.parse(pastes[a[2].toInt()]))
+            "replace" -> writer.replace(deck(), DeckParser.parse(pastes[a[0].toInt()]), force = a[1] == "1")
+            "printing" -> writer.setPrinting(deck(), a[0], DeckSection.of(a[1]), Printing.of(opt(a[2]), opt(a[3])))
+            "export" -> return "EXPORT " + DeckExport.text(Library(db).deck(deck())!!, frontFace = a[0] == "1", layoutOf = lookup::layout).replace("\n", "~")
+            else -> runContent(writer, deck(), op)
+        }
+        "OK"
+    } catch (e: DeckRefusal) {
+        "ERR ${e.kind}"
+    }
+
+    private fun runContent(writer: DeckWriter, id: Int, op: Op) {
         val a = op.args
         when (op.op) {
             "add" -> writer.add(id, a[0], a[1].toInt(), sideboard = a[2] == "1", force = a[3] == "1")
@@ -155,16 +251,15 @@ class DeckParityTest {
             "undo" -> writer.undo(id)
             else -> error("unknown op ${op.op}")
         }
-        "OK"
-    } catch (e: DeckRefusal) {
-        "ERR ${e.kind}"
     }
 
     /** Everything the engine writes about [names], ids and times aside, as comparable text. */
-    private fun state(db: File, names: Collection<String>): String = DriverManager.getConnection("jdbc:sqlite:${db.path}").use { c ->
-        names.sorted().joinToString("\n\n") { name ->
+    private fun state(db: File): String = DriverManager.getConnection("jdbc:sqlite:${db.path}").use { c ->
+        val folders = c.query("SELECT name, COALESCE(format, '') FROM deck_folders WHERE name LIKE '!_!_p%' ESCAPE '!' ORDER BY name") { "${getString(1)}|${getString(2)}" }
+        val names = c.query("SELECT name FROM decks WHERE name LIKE '!_!_p%' ESCAPE '!' ORDER BY name") { getString(1) }
+        "folders: $folders\n\n" + names.joinToString("\n\n") { name ->
             val id = c.query("SELECT id FROM decks WHERE name = ?", name) { getInt(1) }.single()
-            val format = c.query("SELECT format FROM decks WHERE id = ?", id) { getString(1) }.single()
+            val format = c.query("SELECT d.format || ' in ' || COALESCE(f.name, '(unsorted)') FROM decks d LEFT JOIN deck_folders f ON f.id = d.folder_id WHERE d.id = ?", id) { getString(1) }.single()
             val cards = c.query(
                 "SELECT card_name, quantity, is_commander, is_sideboard, category, set_code, collector_number FROM deck_cards WHERE deck_id = ? ORDER BY card_name, is_commander, is_sideboard, quantity",
                 id,
@@ -186,20 +281,21 @@ class DeckParityTest {
         val tmp = Files.createTempDirectory("mtg-oracle-parity-").toFile()
         try {
             val opsFile = File(tmp, "ops.txt").apply { writeText(ops.joinToString("\n"), Charsets.UTF_8) }
+            val pastesFile = File(tmp, "pastes.txt").apply { writeText(pastes.joinToString("\u001E"), Charsets.UTF_8) }
             val decksFile = File(tmp, "decks.txt").apply { writeText(decks.entries.joinToString("\n") { "${it.key}|${it.value.orEmpty()}" }, Charsets.UTF_8) }
             DbFixture.python(python, first.path, opsFile.path, decksFile.path, "create")
             val second = File(tmp, "mtg.db").also { Files.copy(first.toPath(), it.toPath()) }
 
-            val expected = DbFixture.python(python, first.path, opsFile.path, decksFile.path, "run").trimEnd().lines().map { it.trimEnd('\r') }
+            val expected = DbFixture.python(python, first.path, opsFile.path, decksFile.path, "run", pastesFile.path).trimEnd().lines().map { it.trimEnd('\r') }
 
             val kotlinDb = MtgDb(second)
             val lookup = Lookup(kotlinDb)
             val writer = DeckWriter(kotlinDb, lookup.names, lookup.formats)
-            val ids = decks.keys.associateWith { name -> kotlinDb.read { c -> c.query("SELECT id FROM decks WHERE name = ?", name) { getInt(1) }.single() } }
-            val actual = ops.map { runKotlin(writer, ids, parse(it)) }
+            val library = LibraryWriter(kotlinDb)
+            val actual = ops.map { runKotlin(kotlinDb, lookup, writer, library, parse(it)) }
 
             ops.indices.forEach { i -> assertEquals(expected[i], actual[i], "op ${i + 1}: ${ops[i]}") }
-            assertEquals(state(first, decks.keys), state(second, decks.keys), "the decks and their history")
+            assertEquals(state(first), state(second), "the folders, the decks and their history")
         } finally {
             tmp.deleteRecursively()
             first.parentFile.deleteRecursively()

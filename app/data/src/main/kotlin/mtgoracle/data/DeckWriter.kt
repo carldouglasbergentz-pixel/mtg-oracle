@@ -1,6 +1,7 @@
 package mtgoracle.data
 
 import mtgoracle.core.deck.DeckChange
+import mtgoracle.core.deck.ParsedRow
 import mtgoracle.core.deck.DeckRefusal
 import mtgoracle.core.deck.DeckRefusal.Kind
 import mtgoracle.core.deck.DeckRevision
@@ -209,6 +210,160 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         }
     }
 
+    /** What a pasted list did to a deck (decks._load_rows' summary). */
+    data class LoadResult(
+        val revisionId: Long?, val added: Int, val copies: Int, val unresolved: List<String>,
+        val rejected: List<Pair<String, String>>, val considering: Int, val formatSet: String?, val totalInput: Int,
+    )
+
+    /**
+     * Adds a pasted list to deck [deckId], all or nothing, as one `load`
+     * revision (decks.load_parsed_into_deck). [force], the default, loads it
+     * verbatim: a paste is the deck as the user has it. The maybeboard goes
+     * onto the considering list.
+     */
+    fun load(deckId: Int, rows: List<ParsedRow>, force: Boolean = true): LoadResult = db.write { conn ->
+        requireDeck(conn, deckId)
+        loadRows(conn, deckId, rows, force, "load")
+    }
+
+    /** A new deck made from a pasted list, created and loaded in one transaction (decks.import_deck). Returns its id. */
+    fun importDeck(name: String, folderId: Int?, format: String?, rows: List<ParsedRow>): Pair<Int, LoadResult> = db.write { conn ->
+        val id = LibraryWriter.createDeckRow(conn, name, folderId, format)
+        id to loadRows(conn, id, rows, force = true, action = "import")
+    }
+
+    private fun loadRows(conn: Connection, deckId: Int, rows: List<ParsedRow>, force: Boolean, action: String): LoadResult {
+        val before = snapshot(conn, deckId)
+        var added = 0
+        var copies = 0
+        var considering = 0
+        var commanderAdded = false
+        val unresolved = mutableListOf<String>()
+        val rejected = mutableListOf<Pair<String, String>>()
+        for (row in rows) {
+            if (row.section == "maybeboard") {
+                val canonical = names.resolve(row.name) ?: run { unresolved += row.name; null } ?: continue
+                val have = conn.query("SELECT COALESCE(SUM(quantity), 0) FROM deck_considering WHERE deck_id = ? AND card_name = ? COLLATE NOCASE", deckId, canonical) { getInt(1) }.single()
+                try {
+                    DeckRules.checkQuantity(row.quantity)
+                    DeckRules.checkQuantity(have + row.quantity)
+                } catch (e: DeckRefusal) {
+                    rejected += row.name to (e.message ?: ""); continue
+                }
+                setSectionQuantity(conn, deckId, canonical, DeckSection.CONSIDERING, have + row.quantity)
+                considering += row.quantity
+                continue
+            }
+            val commander = row.section == "commander"
+            try {
+                addCard(conn, deckId, row.name, row.quantity, sideboard = row.section == "sideboard", force = force,
+                    commander = commander, printing = Printing.of(row.setCode, row.collectorNumber))
+            } catch (e: DeckRefusal) {
+                when {
+                    e.kind == Kind.CARD_NOT_FOUND -> unresolved += row.name
+                    // The row's fault, not a structural one: force does not waive it.
+                    e.kind == Kind.QUANTITY -> rejected += row.name to (e.message ?: "")
+                    // With force every rule is skipped, so a refusal here is structural.
+                    force -> throw e
+                    else -> rejected += row.name to (e.message ?: "")
+                }
+                continue
+            }
+            added++
+            copies += row.quantity
+            commanderAdded = commanderAdded || commander
+        }
+        // As set_commander: naming a commander is what makes a deck a Commander deck.
+        val formatSet = if (commanderAdded) autoSetCommanderFormat(conn, deckId) else null
+        val revision = recordRevision(conn, deckId, action, before, null)
+        return LoadResult(revision, added, copies, unresolved, rejected, considering, formatSet, rows.size)
+    }
+
+    /** What a replace did, or ([dryRun]) would do: the changes, and the rows it could not take. */
+    data class ReplaceResult(
+        val revisionId: Long?, val changes: List<DeckChange>, val unresolved: List<String>,
+        val rejected: List<Pair<String, String>>, val considering: Boolean, val formatSet: String?,
+    )
+
+    /**
+     * Makes deck [deckId] hold exactly the pasted list, as one `replace`
+     * revision (decks.replace_deck_contents): verbatim, no deck rule. A list
+     * with a maybeboard sets the considering list; one without leaves it. A
+     * name that resolves to nothing stops it, unless [force]. [dryRun] reports
+     * the changes and writes nothing: the preview before the user says yes.
+     */
+    fun replace(deckId: Int, rows: List<ParsedRow>, force: Boolean = false, dryRun: Boolean = false): ReplaceResult {
+        val target = LinkedHashMap<Pair<String, DeckSection>, Int>()
+        val targetPrinting = HashMap<Pair<String, DeckSection>, Printing>()
+        val keepCurrent = HashSet<Pair<String, DeckSection>>()
+        val unresolved = mutableListOf<String>()
+        val rejected = mutableListOf<Pair<String, String>>()
+        val hasConsidering = rows.any { it.section == "maybeboard" }
+        for (row in rows) {
+            val section = when (row.section) {
+                "maybeboard" -> DeckSection.CONSIDERING
+                "sideboard" -> DeckSection.SIDEBOARD
+                "commander" -> DeckSection.COMMANDER
+                else -> DeckSection.MAIN
+            }
+            val canonical = names.resolve(row.name) ?: run { unresolved += row.name; null } ?: continue
+            val key = canonical to section
+            try {
+                DeckRules.checkQuantity(row.quantity)
+                DeckRules.checkQuantity((target[key] ?: 0) + row.quantity)
+            } catch (e: DeckRefusal) {
+                rejected += row.name to (e.message ?: ""); keepCurrent += key; continue
+            }
+            target[key] = (target[key] ?: 0) + row.quantity
+            Printing.of(row.setCode, row.collectorNumber)?.takeIf { section != DeckSection.CONSIDERING }?.let { targetPrinting[key] = it }
+        }
+        if (unresolved.isNotEmpty() && !force) {
+            throw DeckRefusal(Kind.UNRESOLVED_CARDS, "${unresolved.size} card name(s) not found, so nothing was replaced: ${unresolved.joinToString(", ")}. Fix them, or replace without them.")
+        }
+        val work: (Connection) -> ReplaceResult = { conn ->
+            requireDeck(conn, deckId)
+            val before = snapshot(conn, deckId)
+            // Deck rows spell names as stored; match the list to them ignoring case, so a spelling never reads as a swap.
+            val stored = before.keys.associate { it.first.lowercase() to it.first }
+            fun asStored(key: Pair<String, DeckSection>) = (stored[key.first.lowercase()] ?: key.first) to key.second
+            val want = target.entries.associate { asStored(it.key) to it.value }
+            val wantPrinting = targetPrinting.entries.associate { asStored(it.key) to it.value }
+            val keep = keepCurrent.map(::asStored).toSet()
+            for (key in before.keys + want.keys) {
+                if (key in keep || (key.second == DeckSection.CONSIDERING && !hasConsidering)) continue
+                val now = before[key] ?: ABSENT
+                val qty = want[key] ?: 0
+                val printing = wantPrinting[key] ?: now.printing
+                if (now.quantity != qty || (qty > 0 && printing != now.printing)) {
+                    setSectionQuantity(conn, deckId, key.first, key.second, qty, printing = printing, setPrinting = true)
+                }
+            }
+            val formatSet = if (want.keys.any { it.second == DeckSection.COMMANDER }) autoSetCommanderFormat(conn, deckId) else null
+            val id = recordRevision(conn, deckId, "replace", before, null)
+            if (id != null) touch(conn, deckId)
+            ReplaceResult(id, id?.let { changesOf(conn, it) }.orEmpty(), unresolved, rejected, hasConsidering, formatSet)
+        }
+        return if (dryRun) db.dryRun(work) else db.write(work)
+    }
+
+    /**
+     * Gives the card in [section] (main, sideboard, commander) this printing,
+     * or none: the art the app and Forge show. A change of its own, the
+     * `printing` revision, undoable (decks.set_printing).
+     */
+    fun setPrinting(deckId: Int, card: String, section: DeckSection, printing: Printing?): String = db.write { conn ->
+        if (section == DeckSection.CONSIDERING) throw DeckRefusal(Kind.BAD_MOVE, "a printing is chosen in the deck, not the ${section.key}")
+        val canonical = names.resolve(card) ?: card
+        requireDeck(conn, deckId)
+        val before = snapshot(conn, deckId)
+        val have = before[canonical to section]?.quantity ?: 0
+        if (have == 0) throw DeckRefusal(Kind.NOT_IN_DECK, "card not in the ${section.key}: '$canonical'")
+        setSectionQuantity(conn, deckId, canonical, section, have, printing = printing, setPrinting = true)
+        if (recordRevision(conn, deckId, "printing", before, canonical) != null) touch(conn, deckId)
+        canonical
+    }
+
     /** The deck's revisions, newest first (decks.deck_history). */
     fun history(deckId: Int, limit: Int = 50): List<DeckRevision> = db.read { conn ->
         conn.query("SELECT id FROM deck_revisions WHERE deck_id = ? ORDER BY id DESC LIMIT ?", deckId, limit.coerceIn(1, 500)) { getLong(1) }
@@ -217,13 +372,21 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
 
     // --- the rules, on the caller's connection (decks._add_card and its asserts) ---
 
-    private fun addCard(conn: Connection, deckId: Int, card: String, quantity: Int, sideboard: Boolean, force: Boolean): String {
+    /**
+     * decks._add_card on an open connection: every check before the first
+     * write. [commander] adds a command-zone row (not checked against the
+     * identity it defines); [printing] sets the row's art, null leaves it.
+     */
+    private fun addCard(
+        conn: Connection, deckId: Int, card: String, quantity: Int, sideboard: Boolean, force: Boolean,
+        commander: Boolean = false, printing: Printing? = null,
+    ): String {
         DeckRules.checkQuantity(quantity)
         val canonical = names.resolve(card) ?: throw DeckRefusal(Kind.CARD_NOT_FOUND, "card not found: '$card'")
         val meta = conn.query("SELECT color_identity, type_line, oracle_text FROM cards WHERE name = ? COLLATE NOCASE", canonical) {
             Triple(getString("color_identity"), getString("type_line"), getString("oracle_text"))
         }.firstOrNull()
-        if (!force) {
+        if (!force && !commander) {
             deckColorIdentity(conn, deckId)?.let { deckCi ->
                 val letters = meta?.first.orEmpty().split(",").filter { it.isNotEmpty() }.toSet()
                 val outside = (letters - deckCi.toSet()).sorted()
@@ -236,7 +399,9 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         val fmt = deckFormat(conn, deckId)
         val info = formats.resolve(fmt)
         val singleton = formats.isSingleton(fmt)
-        if (!force) assertLegal(conn, deckId, canonical, info, commander = false, quantity = quantity, singleton = singleton)
+        if (!force) assertLegal(conn, deckId, canonical, info, commander = commander, quantity = quantity, singleton = singleton)
+        // A commander is one card, and not also a card in the 99; before singleton, so the message names the problem.
+        if (!force && commander && !sideboard) assertCanBeAddedAsCommander(conn, deckId, canonical, quantity)
         val limit = DeckRules.singletonLimit(meta?.second, meta?.third)
         if (!force && singleton && limit != null) {
             val current = conn.query(
@@ -249,20 +414,32 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         }
         if (!force) assertPointsFit(conn, deckId, canonical, info, quantity, sideboard)
         val existing = conn.query(
-            "SELECT id, quantity FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE AND is_commander = 0 AND is_sideboard = ?",
-            deckId, canonical, if (sideboard) 1 else 0,
+            "SELECT id, quantity FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE AND is_commander = ? AND is_sideboard = ?",
+            deckId, canonical, if (commander) 1 else 0, if (sideboard) 1 else 0,
         ) { getLong("id") to getInt("quantity") }.firstOrNull()
         if (existing != null) {
             DeckRules.checkQuantity(existing.second + quantity)
             conn.update("UPDATE deck_cards SET quantity = ? WHERE id = ?", existing.second + quantity, existing.first)
+            // One printing per row: the latest one named wins.
+            if (printing != null) conn.update("UPDATE deck_cards SET set_code = ?, collector_number = ? WHERE id = ?", printing.setCode, printing.collectorNumber, existing.first)
         } else {
             conn.update(
-                "INSERT INTO deck_cards (deck_id, card_name, quantity, category, is_commander, is_sideboard, added_at) VALUES (?, ?, ?, NULL, 0, ?, ?)",
-                deckId, canonical, quantity, if (sideboard) 1 else 0, now(),
+                "INSERT INTO deck_cards (deck_id, card_name, quantity, category, is_commander, is_sideboard, added_at, set_code, collector_number) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?)",
+                deckId, canonical, quantity, if (commander) 1 else 0, if (sideboard) 1 else 0, now(), printing?.setCode, printing?.collectorNumber,
             )
         }
         touch(conn, deckId)
         return canonical
+    }
+
+    /** decks._assert_can_be_added_as_commander: one fresh copy, not already a commander or in the main deck. */
+    private fun assertCanBeAddedAsCommander(conn: Connection, deckId: Int, canonical: String, quantity: Int) {
+        if (quantity != 1) throw DeckRefusal(Kind.COMMANDER_COPIES, "a commander is a single card; cannot add ${quantity}x '$canonical' as commander")
+        val already = conn.query(
+            "SELECT MAX(is_commander) FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE AND is_sideboard = 0", deckId, canonical,
+        ) { getObject(1)?.let { (it as Number).toInt() } }.single()
+        if (already == 1) throw DeckRefusal(Kind.ALREADY_COMMANDER, "'$canonical' is already a commander of this deck")
+        if (already == 0) throw DeckRefusal(Kind.ALREADY_IN_MAIN, "'$canonical' is already in the main deck; promote that copy to commander instead")
     }
 
     /** decks._assert_legal_in_format: banned, out of the pool, banned as commander, restricted to one copy. */

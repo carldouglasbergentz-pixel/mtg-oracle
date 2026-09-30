@@ -46,6 +46,10 @@ class Lookup(private val db: MtgDb) {
         }
     }
 
+    /** A card's layout (`split`, `transform`, `modal_dfc`...), or null: what the export's front-face rule needs. */
+    fun layout(card: String): String? =
+        db.read { conn -> conn.query("SELECT layout FROM cards WHERE name = ? COLLATE NOCASE", card) { getString(1) }.firstOrNull() }
+
     /** The names on deck [deckId]'s considering list. */
     fun deckConsidering(deckId: Int): List<String> =
         db.read { conn -> conn.query("SELECT card_name FROM deck_considering WHERE deck_id = ? ORDER BY card_name COLLATE NOCASE", deckId) { getString(1) } }
