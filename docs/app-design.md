@@ -14,6 +14,19 @@ decisions so implementation choices stay coherent.
 
 - Primary palette: two colors — background and foreground. Optional subtle
   accent for selection / active state. Default is dark-on-light-text.
+  Themes (F8, remembered) are each such a pair, a dimmed tone and one
+  accent: the house default, Rosé Pine, a light "paper", a code-editor
+  dark and Solarized dark. The first run takes the TUI's saved theme.
+  One exception, a *status* tone rather than a third colour: **tapped**
+  has a red of its own in every theme (Rosé Pine's love, VS Code's error
+  red, a Solarized red lightened to read on base03). It is used only for
+  the TAPPED label and a tapped frame's border, at 4.5:1 or better against
+  the background, because a tapped card missed is a game lost.
+- On the table a tapped permanent is also *turned* a quarter clockwise, art
+  and all, as a hand turns it, and scaled by the same factor both ways to
+  stay inside its upright slot, so tapping moves nothing around it. R
+  turns this off (remembered). Text-mode frames stay upright and rely on
+  the tone.
 - Typography: monospace everywhere. Fixed-width grid is load-bearing —
   layout, ASCII art, and alignment all depend on it.
 - Chrome: minimal. Borders drawn with box-drawing characters
@@ -100,6 +113,7 @@ The app is no longer text-only. Card art is used the way an IDE uses an image pr
 The board shares the visual language above. From MTGO, the client built for exactly the timing-heavy play the user favours, it takes the interaction model:
 
 - **Phase stops** per step, user-configurable: where you get priority and where the game flows past. Without them a draw-go deck either stops constantly or misses the window for its instant.
+- **Floating mana is a stop.** Mana you floated is mana you meant to use. While it is in your pool, the game never passes for you, whatever the stops, F4 or F6 say. Passing when that could end the step (the stack is empty) asks first: `{W}{W} is floating and empties when this step ends — pass anyway?`.
 - **Keys:**
   - F2: OK or pass once.
   - F4: done for the turn, but stop if the opponent acts.
@@ -107,7 +121,11 @@ The board shares the visual language above. From MTGO, the client built for exac
   - F3: cancel auto-yields.
   - Enter / Esc / 1–9 in prompts.
   Keyboard-first, like the rest of the app.
-- **The stack is its own pane,** always visible. Lands sit on their own row, apart from other permanents. Each player has a chess clock (optional).
+- **A table, in type zones.** From the midline out to each player's edge: creatures (an animated manland or artifact creature among them, attachments under their host), then planeswalkers and battles, then artifacts and enchantments, then lands at the edge. As on a physical table, the nonland zones sit at the midline and the lands at the player's own edge (just above your hand; at the top of the opponent's half), with the free rows between them, so the lands stay put as creatures come and go. Lands are stacked MTGO-style (`Island ×3`) and split whenever state differs. Each zone is labelled on its rule line, and piles of one card stay side by side: untapped first, tapped right after.
+- **Space goes where the cards are, and no card is ever cut off.** Each half gets the rows its cards need and no more (the opponent's gives up what it doesn't use), and the zones within a half share rows when there are few. When a half can't show every card at full size, its frames step down: first a compact art frame (a shorter crop, the credit, stats with cost and type on one line), then a text-sized frame. The hand follows your side's size. Sizes change only when the window does or a zone crosses a row, never on a hover, click or tap. A row with more cards than width overlaps them MTGO-style, each card keeping its title strip showing and clickable, and the one under the mouse comes to the top. Only when even that can't hold them does the row scroll sideways, with a `+N ▸` count. The zone column gives the graveyard and exile lists what height is left (the stop ladder folds to one line in a short window), so nothing is drawn over anything. Placement is computed, so a click, a hover or a tap moves nothing; only a card arriving or leaving can re-plan its row. Each player has a chess clock (optional).
+- **The news is at the top, the middle is quiet.** A fixed header above the opponent's half carries a heavy rule line with turn, phase, whose turn and priority, the stack's top item, combat and the match, and under it the trail. The midline between the halves is only the heavy `═` rule, so nothing flickers in the middle of the table.
+- **The stack floats over the table** while anything is on it. It is a solid, bordered panel anchored on the midline at the table's right end. Each item shows its source's card frame with art (a sacrificed fetchland's too), who put it there (▲ across the table, ▼ you), whether it is a spell or an activated or triggered ability, its text, and its targets. The targets are marked `◄` on the board. The panel takes no layout space: it can be dragged by its top edge (the place is remembered), folded with S to a one-line `stack: N` bar on the header's rule, and it steps across the midline, or folds, whenever it would cover a card the current prompt wants clicked. It is the stack's only view: the header names the top item (`STACK 2: Mana Leak`) and any combat, a click on an item picks it as a target, and hovering an item shows its full text and targets in the zoom pane. The right column is the zoom pane and the log.
+- **The other side's actions are visible, not only logged.** Anything the opponent puts on the stack stops you, as on MTGO, F4 included. The prompt says so: "AI activated Polluted Delta — respond?". What never waits on the stack, or resolves before you notice, goes on the trail: up to two lines in the header with the other side's last few actions (older ones are in the log), such as `AI: played Polluted Delta · Polluted Delta → graveyard · life 20→19 · fetched Swamp`, new ones in the accent. Cards they touched carry a `*` until your next decision. Hidden cards are counted, never named ("drew a card").
 - **Every game is recorded:** events, prompts and answers, feeding per-card statistics later.
 
 ## Explicit non-goals

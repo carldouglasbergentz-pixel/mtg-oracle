@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (the Kotlin board said "face-down" of cards that were only hidden, and the trail named a hideaway card)
+- **"Face-down" now means face down.** A card you may not see (the opponent's hand, a card you aren't allowed to look at) is a "hidden card", and a hidden stack target is "a hidden card". Only a card that really lies face down (a hideaway card, a morph) is called face-down.
+- **The trail no longer names a card the opponent exiled face down.** When the AI's Shelldock Isle hid a card, the trail showed its name ("Opposition Agent library → exile"), because Forge turns the card face down only after the move. A card moving out of a hidden zone is now named from what it is once it lands: "a face-down card library → exile" for a hideaway, and "Duress library → exile" for Laelia's face-up exile.
+- **What was not found:** no moment where a card exiled face up showed as hidden. Laelia, Ragavan casting our Brainstorm, and Deep-Cavern Bat, replayed from the user's Bo3, name the card in every board they produce.
+
+### Fixed (floating mana was lost to an auto-pass on the Kotlin board)
+- **What happened:** you floated {W}{W} in response to Blood Moon, to cast Get Lost once it resolved. The AI passed after it resolved, and with no stop in the AI's main phase your priority was passed for you, so the phase ended with the mana.
+- **Floating mana is now a stop.** While your pool holds mana that the end of the step empties, nothing passes your priority for you: not the stops, F4, F6, End Turn, or auto-yields. When the pool is empty again, stops work as before, and an F6 from the same turn carries on skipping.
+- **Passing with mana floating and an empty stack asks first:** `{W}{W} is floating and empties when this step ends — pass anyway?`, with [ Pass ] (Enter) and [ Stay ] (Esc). With something on the stack it doesn't ask, because priority comes back in the same step with the mana still there. Mana that doesn't empty (Upwelling) never asks and never stops.
+
+### Added (a snapshot of the Kotlin app to play from)
+- **`gradlew :app:installLocal`** copies a runnable app (jars, Forge's assets, launchers) into `app/dist/<timestamp>/` and keeps the newest three. Run it with **`app\run-mtg-oracle.cmd`** (or `.sh`), which always starts the newest snapshot.
+- **Why:** playing from `gradlew run` crashed mid-game with `NoClassDefFoundError` whenever a build replaced the class files under it. The X-prompt crashes in Wrath of the Skies and Entreat the Angels were this, not the prompt.
+- **Version:** the window title and `app.log` name what is running: the git short hash, a `-dirty` flag and the install time.
+- **Pruning:** a snapshot that is still running is never pruned. On Windows its open jars stop the move, and it is removed on a later install.
+
+### Fixed (the Kotlin app's text uses the window's width)
+- The new-game screen cut its lines at 110 columns whatever the window's width, and the crash and start-up screens cut theirs at 100. Every line now takes the width it is given. Deck names and other facts are cut only where the pane really ends, and help lines wrap onto a second line, indented under their text. The sideboard lists no longer stop at 60 columns, and the damage-assignment prompt's target column is as wide as its longest target instead of 34. A word longer than a line, such as a file path, now continues onto the next line instead of being cut.
+
+### Fixed (a crash in the Kotlin app was recorded as a concession)
+- **An error in the window no longer closes it.** Compose's default showed a dialog and closed the window, and closing records the game on as conceded, which is how a crash at Wrath of the Skies' X prompt became a concession. Now the error is logged in full to `data/app/app.log` and the game's log, a crash screen opens in a fresh window, and leaving from it records the game as unfinished (no winner, not conceded). An error on any other thread, Forge's included, is logged and shown on the board's error line.
+- **X costs suggest what you can pay:** the number prompt starts at the largest X the mana you have now pays for (`max affordable 3`). Any value can still be typed, and ranges up to Int.MAX work as before.
+
+### Changed (the Kotlin board's news moves to a header at the top)
+- Turn, phase, priority, the stack's top item, combat, the match, the folded `stack: N` bar and the trail (two lines) now sit in a fixed header above the opponent's half. The midline is a plain rule, so the middle of the board no longer flickers.
+
+### Fixed (the Kotlin board: lands at the player's own edge; no fixed stack pane)
+- **Lands sit at each player's edge,** just above your hand and at the top of the opponent's half, with the nonland zones at the midline and the free rows between. Before, a side with only lands drew them under the midline. The halves stay even while both fit, so the lands don't move when creatures arrive.
+- **The right column is the zoom pane and the log;** the fixed stack pane is gone. The floating box is the stack's view: click an item to target it, hover it for its full text and targets. The midline still names the top item, and now any combat too.
+
+### Changed (the Kotlin board sizes its card frames to the window)
+- **Frames step down before cards overlap:** full art, then a compact art frame (a two-row crop, the artist credit, stats with cost and type), then a text-sized frame. The table picks the largest that shows every card on each side, and the hand follows yours.
+- **No stranded space:** each half gets the rows its bands need. The opponent's gives up what it doesn't use, and no empty band sits between zones.
+- At 1600×900, the crowded test board (9 lands, 3 artifacts, 2 planeswalkers, 6 creatures) now shows every card at compact size. At 1280×720 it shows every card at text size, overlapped. Before, both hid cards behind "+N ▸".
+- The zone column needs a row less: revealed cards now sit on the hand line.
+
+### Changed (tapped cards are unmistakable on the Kotlin board)
+- **A real tap:** in art mode, tapped permanents (lands and land piles too) turn a quarter clockwise, art included. The card is scaled the same both ways to fit its upright slot, so tapping or untapping moves no other card, and clicking and hovering hit the turned card. R turns rotation off (remembered); text mode stays upright.
+- **A tapped tone in every theme:** a red of its own, at 4.5:1 or better against each theme's background (house red, Rosé Pine's love, VS Code's error red, a readable Solarized red, a dark red on paper). It is used for the TAPPED label, the tapped frame's border and tapped chips.
+
+### Changed (the Kotlin board: type zones, nothing clipped, piles that hold still)
+- **Each half is split into type zones** from the midline out: creatures, planeswalkers · battles, artifacts · enchantments, lands. Each is labelled, and they share rows when rows are short.
+- **No card is cut off the board any more.** Rows overlap their cards MTGO-style (the title strip showing and clickable, the hovered card on top), and scroll with a `+N ▸` count only as a last resort. The two halves split the height by what their cards need. Before, a crowded side ran off the right edge ("Tef…").
+- **The zone column never draws over itself.** Its graveyard and exile lists get what height is left, and the stop ladder folds to one line in a short window. Before, "graveyard 17", "[Remand]" and "library 63" overlapped.
+- **Piles of the same land stay adjacent.** Tapping one of two Islands split the pile and sent the untapped one to the end of the row. Now names keep their first-seen order, untapped before tapped.
+- The same rules apply to the hand.
+
+### Added (the mana pool on the Kotlin board)
+- **Each player's floating mana** sits on a line of its own under their life total, in the costs' symbols (`pool  {U}{U} {C}×4`, or `—`), and updates as mana is added, spent or emptied.
+- **Paying from the pool:** during your payment prompt, each colour is a button that spends one of it, as a click on Forge's own pool does.
+- **The trail notes mana a resolving ability adds**, e.g. `Mana Drain: +{C}×4`.
+
+### Fixed (colourless mana never showed in the pool)
+- The board read the pool with Forge's colour codes, in which colourless is 0. The pool is keyed by mana atoms, where colourless has its own bit, so `{C}` was always missing. Mana Drain's four colourless looked like nothing.
+
+### Added (matches in the Kotlin app: best of 1 / 3 / 5, sideboarding, concede)
+- **Best of 1, 3 or 5,** chosen in setup (B) and remembered. Forge's own match runs the games, and the loser chooses to play or draw.
+- **Sideboarding between games** on a screen of its own: the deck and sideboard side by side, a click moves one copy, a line says whether the deck is legal, then Done. The AI sideboards as Forge's AI does. This replaces the auto-answer that kept the main deck.
+- **A result panel between games:** game N's result, the match score, Continue. When the match is over, the way back to the library.
+- **Leaving:** Ctrl+Q, Esc with nothing to cancel, or `[ concede ]` in the prompt opens a menu: concede this game (the match goes on), concede the match (back to the library), or cancel. Closing the window mid-game records that game as conceded, without waiting on Forge.
+- **Recording:** each game is its own `games` row, with `match_id`, `game_no`, `match_format` and `conceded`. The Kotlin test copies of the database are now migrated by `scripts/self_heal.py` itself.
+
+### Fixed (the Kotlin app dropped every one of the human's triggered abilities)
+- **Our triggers never reached the stack**: surveil lands, attack triggers (Restless Anchorage's Map), delayed triggers (Mana Drain's mana, Teferi's end-step untap), a revealed miracle, Solitude's ETB. For each trigger Forge asks the GUI which ability to play, and ours answered null because a trigger's view is never "playable". Forge dropped the trigger without a log line. The AI's triggers never ask the GUI, which is why they worked. `TriggersTest` now plays 14 cases in real games, each checking that nothing was decided for us.
+- **Long choice lists could not be answered.** A library search's options below the prompt's fifth row were clipped. Options now fill the rows in columns, and scroll past that.
+- **No decision is made for the human silently.** Forge's static dialogs now come to our prompts. Anything still auto-answered is logged `UNHANDLED` and shown as a warning on the board's status line.
+
+### Added (the Kotlin app's board: a table that holds still, the stack over it, the other side's actions — Phase 6 step 2)
+- **Lands are cards on the table,** stacked MTGO-style (`Island ×3`) and split whenever state differs (tapped, counters, attachments, marks, how the prompt treats them). An animated manland stands with the creatures.
+- **Nothing moves on a click but the cards that changed.** The halves, midline, hand, prompt (fixed height, buttons always on one row), zoom, stack list and every card cell have set sizes. `LayoutStabilityTest` plays a real turn and measures them all.
+- **No card shows "nocost".** A card without a mana cost shows none, everywhere.
+- **The stack floats over the table.** It is a draggable, foldable (S) panel showing each item's source art (a sacrificed fetchland's too), who, what kind, the text and the targets, which are marked `◄` on the board. It steps aside for any card the prompt wants clicked, and its place is remembered.
+- **The opponent's actions stop you and show.** Anything they put on the stack gives you priority (F4 included; F6 and explicit auto-yields excepted): "AI activated Polluted Delta — respond?". A trail on the midline shows what never waits on the stack (land drops, sacrifices, fetched lands, life, draws counted but never named), and the cards touched are marked `*` until your next decision.
+- **Themes** (F8): house, Rosé Pine, paper (light), code dark, Solarized dark. The choice is remembered, and the first run takes the TUI's `rose-pine`.
+- **Resizable side panes:** drag the zone or right column's border, or press Ctrl(+Shift)+←/→. Widths are remembered and clamped to the window.
+
+### Added (printings, and the app's `games` table — Phase 6 step 2e)
+- **A deck row remembers its printing.** `deck_cards` has two new columns, `set_code` and `collector_number`, both in Scryfall's spelling.
+    - The parser now keeps `(SET) number` instead of stripping it: `1 Sol Ring (C18) 263`, `(PLST) DDN-64`, `(7ED) 76★` (a typed `76*` becomes `★`).
+    - Import, load, replace and `add` carry the printing through, and `export` writes it back, so export→import keeps the art.
+    - Set codes are stored as pasted, not validated. The database has only oracle cards, so there is no list of printings to check against. A printing nothing recognises only loses its art.
+- **Replace and history treat a printing change as a change.** A printing-only change is a revision row with equal quantities. `deck_changes` stores the printing before and after, so undo restores it.
+    - A pasted line without a printing leaves the card's current printing alone.
+    - Each (card, section) has one printing; if a list names two, the last one wins.
+- **Forge export writes the printing.** The line is `Name|CODE|[number]`, in Forge's own edition code, mapped through each edition file's `ScryfallCode=` and picked by collector number: `plst` → `PLST`, `med` → the right one of three `MPS_*` sets.
+    - When Forge lacks that number, the line falls back to `Name|CODE`.
+    - When Forge lacks the printing altogether, it falls back to the name alone.
+    - The rule is documented in CLAUDE.md for the Kotlin app.
+- **`games`**: one row per game the Kotlin app plays. Python creates it and the app writes it. Deck ids go NULL when a deck is deleted, so the record survives the deck.
+- Everything above ships in one self-heal migration, `scripts/migrate_add_printings_and_games.py`, mirrored in `init_db`.
+- **Matches:** `games` gains `match_id`, `game_no`, `match_format` (`bo1` / `bo3` / `bo5`) and `conceded`, for the app's best-of-N and concede support (`scripts/migrate_add_game_matches.py`). Existing rows keep NULLs and count as single-game matches.
+
 ### Added (Forge integration v1: export, AI substitutions, play, simulate, results)
 - **`forge export [<deck>]`** writes the deck as a Forge `.dck` (TUI, CLI, and a clickable `[-> forge]` in the nav pane's deck header).
     - Names map to Forge's front-face spelling; Forge names split cards by their first half too.
