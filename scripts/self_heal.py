@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
+import migrate_add_considering
 import migrate_add_corrections
 import migrate_add_custom_formats
 import migrate_add_deck_history
@@ -56,6 +57,8 @@ MIGRATIONS = (
     migrate_add_printings_and_games,
     # Widens games, which the one above creates.
     migrate_add_game_matches,
+    # Rebuilds deck_changes, which needs the printing columns above.
+    migrate_add_considering,
     # card_tags must exist before its key can be fixed; the fix re-tags
     # from cards, so it also needs the card columns above.
     migrate_add_tags,

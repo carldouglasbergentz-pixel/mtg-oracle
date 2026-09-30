@@ -294,7 +294,7 @@ CREATE TABLE IF NOT EXISTS deck_changes (
         REFERENCES deck_revisions(id) ON DELETE CASCADE,
     card_name TEXT NOT NULL,
     section TEXT NOT NULL
-        CHECK (section IN ('main', 'sideboard', 'commander')),
+        CHECK (section IN ('main', 'sideboard', 'commander', 'considering')),
     qty_before INTEGER NOT NULL,
     qty_after INTEGER NOT NULL,
     -- A printing change is a change too (qty_before = qty_after then).
@@ -304,6 +304,19 @@ CREATE TABLE IF NOT EXISTS deck_changes (
     collector_number_after TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_deck_changes_revision ON deck_changes(revision_id);
+
+-- Cards being considered for a deck (Moxfield's maybeboard): not in it,
+-- not counted, exported or played. See scripts/migrate_add_considering.py.
+CREATE TABLE IF NOT EXISTS deck_considering (
+    id INTEGER PRIMARY KEY,
+    deck_id INTEGER NOT NULL
+        REFERENCES decks(id) ON DELETE CASCADE,
+    card_name TEXT NOT NULL REFERENCES cards(name),
+    quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    added_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_deck_considering_deck ON deck_considering(deck_id);
+CREATE INDEX IF NOT EXISTS idx_deck_considering_card_nocase ON deck_considering(card_name COLLATE NOCASE);
 
 -- Forge: per-deck AI substitutions, and one row per simulated game. See
 -- scripts/migrate_add_forge.py.

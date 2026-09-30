@@ -504,6 +504,19 @@ def get_deck(name: str, folder: Optional[str] = None) -> Optional[dict]:
         deck["total_side"] = sum(
             c["quantity"] for c in deck["cards"] if c["is_sideboard"]
         )
+        cur.execute(
+            """
+            SELECT dc.card_name, dc.quantity, c.type_line, c.mana_cost,
+                   c.color_identity
+            FROM deck_considering dc
+            LEFT JOIN cards c ON c.name = dc.card_name COLLATE NOCASE
+            WHERE dc.deck_id = ?
+            ORDER BY dc.card_name COLLATE NOCASE
+            """,
+            (did,),
+        )
+        # Not in the deck: nothing that counts, exports or plays it reads this.
+        deck["considering"] = [dict(r) for r in cur.fetchall()]
         deck["commander_ci"] = _deck_color_identity_inner(cur, did)
         info = _resolve_format(deck.get("format"))
         deck["format_info"] = info
@@ -1281,6 +1294,7 @@ def remove_card_from_deck(
     card_name: str,
     quantity: Optional[int] = None,
     folder: Optional[str] = None,
+    section: Optional[str] = None,
 ) -> tuple[str, int, int]:
     """Remove copies of a card from the deck.
 
@@ -1299,15 +1313,33 @@ def remove_card_from_deck(
 
     Returns (canonical_name, removed_count, remaining_count) so the TUI
     can echo a precise "OK removed Nx Card (M remaining)" message.
+
+    `section` ('main', 'sideboard', 'commander' or 'considering') takes the
+    copies from that section only, as a row's `−` in the app does. Without
+    it, every section but the considering list, main deck first.
     """
     if quantity is not None:
         _check_quantity(quantity)
+    if section is not None and section not in SECTIONS:
+        raise DeckError(f"no section {section!r}; one of {', '.join(SECTIONS)}")
     card_name = resolve_card_name(card_name) or card_name
     conn = _rw()
     try:
         cur = conn.cursor()
         did = _deck_id(cur, deck_name, folder)
         before = _snapshot(cur, did)
+        if section is not None:
+            have = before.get((card_name, section), _ABSENT)[0] or next(
+                (q for (n, sec), (q, _) in before.items()
+                 if sec == section and n.lower() == card_name.lower()), 0)
+            if not have:
+                raise DeckError(f"card not in the {section}: {card_name!r}")
+            removed = have if quantity is None else min(quantity, have)
+            _set_section_quantity(cur, did, card_name, section, have - removed)
+            cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+            _record_revision(cur, did, "remove", before, note=card_name)
+            conn.commit()
+            return card_name, removed, have - removed
 
         # Sum current copies across all rows for this card (main + sideboard
         # + commander; rare to have multiple but possible). Decrement is
@@ -1353,6 +1385,89 @@ def remove_card_from_deck(
         _record_revision(cur, did, "remove", before, note=card_name)
         conn.commit()
         return card_name, removed, remaining
+    finally:
+        conn.close()
+
+
+def consider_card(
+    deck_name: str, card_name: str, quantity: int = 1, folder: Optional[str] = None,
+) -> str:
+    """Put a card on the deck's considering list (its maybeboard).
+
+    No deck rule applies: the list is for weighing cards, and a card that
+    would break a rule belongs there as much as any. The rules apply when a
+    card moves into the deck (`move_card`). Returns the canonical name.
+    """
+    _check_quantity(quantity)
+    canonical = resolve_card_name(card_name)
+    if not canonical:
+        raise CardNotFoundError(f"card not found: {card_name!r}")
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, deck_name, folder)
+        before = _snapshot(cur, did)
+        have = before.get((canonical, "considering"), _ABSENT)[0]
+        _check_quantity(have + quantity)
+        _set_section_quantity(cur, did, canonical, "considering", have + quantity)
+        cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+        _record_revision(cur, did, "consider", before, note=canonical)
+        conn.commit()
+        return canonical
+    finally:
+        conn.close()
+
+
+def move_card(
+    deck_name: str,
+    card_name: str,
+    to_section: str,
+    from_section: str,
+    quantity: int = 1,
+    folder: Optional[str] = None,
+    force: bool = False,
+) -> str:
+    """Move copies of a card between the main deck, the sideboard and the
+    considering list, as one revision (`move`).
+
+    Into the main deck or the sideboard the card meets that section's rules,
+    as `add` applies them (colour identity, legality, singleton, points),
+    counted without the copies being moved; `force=True` overrides. The
+    considering list takes anything. The command zone is `set_commander`'s:
+    promotion has rules of its own. Returns the canonical name.
+    """
+    movable = ("main", "sideboard", "considering")
+    if to_section not in movable or from_section not in movable:
+        raise DeckError(f"move is between {', '.join(movable)}; the command zone is `commander`")
+    if to_section == from_section:
+        raise DeckError(f"{card_name!r} is already in the {to_section}")
+    _check_quantity(quantity)
+    canonical = resolve_card_name(card_name) or card_name
+    conn = _rw()
+    try:
+        cur = conn.cursor()
+        did = _deck_id(cur, deck_name, folder)
+        before = _snapshot(cur, did)
+        have = before.get((canonical, from_section), _ABSENT)[0]
+        if have < quantity:
+            raise DeckError(
+                f"the {from_section} has {have} {canonical!r}; cannot move {quantity}")
+        _set_section_quantity(cur, did, canonical, from_section, have - quantity)
+        if to_section == "considering":
+            already = before.get((canonical, "considering"), _ABSENT)[0]
+            _set_section_quantity(cur, did, canonical, "considering", already + quantity)
+        else:
+            _add_card(cur, did, canonical, quantity=quantity, category=None,
+                      is_commander=False, is_sideboard=to_section == "sideboard",
+                      force=force)
+        cur.execute("UPDATE decks SET updated_at = ? WHERE id = ?", (_now(), did))
+        _record_revision(cur, did, "move", before,
+                         note=f"{canonical}: {from_section} -> {to_section}")
+        conn.commit()
+        return canonical
+    except BaseException:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -1623,7 +1738,10 @@ def _load_rows(
 # diff in the same transaction, so history can never disagree with the deck.
 # Rename, move and format changes are not content and are not logged.
 
-SECTIONS = ("commander", "main", "sideboard")
+# `considering` is the deck's maybeboard (deck_considering): cards weighed
+# for the deck but not in it. It is a section of the history like the others,
+# so a move to or from it is recorded and undoable.
+SECTIONS = ("commander", "main", "sideboard", "considering")
 
 
 class UnresolvedCardsError(DeckError):
@@ -1666,6 +1784,14 @@ def _snapshot(cur, did: int) -> dict[tuple[str, str], tuple[int, Optional[tuple]
         printing = _normalize_printing(row["set_code"], row["collector_number"])
         qty, first = state.get(key, (0, printing))
         state[key] = (qty + row["quantity"], first)
+    # The considering list has no printings: art is chosen for the deck.
+    cur.execute(
+        "SELECT card_name, quantity FROM deck_considering WHERE deck_id = ? ORDER BY id",
+        (did,),
+    )
+    for row in cur.fetchall():
+        key = (row["card_name"], "considering")
+        state[key] = (state.get(key, (0, None))[0] + row["quantity"], None)
     return state
 
 
@@ -1753,8 +1879,26 @@ def _set_section_quantity(
     An existing row keeps its id, category and added_at; duplicate rows for
     the same key collapse into the first. Quantity 0 deletes them all.
     `printing` — a (set_code, collector_number) tuple or None — replaces
-    the row's printing; left out, the row keeps its own.
+    the row's printing; left out, the row keeps its own. The considering
+    list lives in its own table and keeps no printing.
     """
+    if section == "considering":
+        cur.execute(
+            "SELECT id FROM deck_considering WHERE deck_id = ? "
+            "AND card_name = ? COLLATE NOCASE ORDER BY id",
+            (did, card_name),
+        )
+        ids = [r["id"] for r in cur.fetchall()]
+        for row_id in ids[1:] if quantity else ids:
+            cur.execute("DELETE FROM deck_considering WHERE id = ?", (row_id,))
+        if ids and quantity:
+            cur.execute("UPDATE deck_considering SET quantity = ? WHERE id = ?",
+                        (quantity, ids[0]))
+        elif quantity:
+            cur.execute(
+                "INSERT INTO deck_considering (deck_id, card_name, quantity, added_at) "
+                "VALUES (?, ?, ?, ?)", (did, card_name, quantity, _now()))
+        return
     cur.execute(
         f"SELECT id FROM deck_cards WHERE deck_id = ? "
         f"AND card_name = ? COLLATE NOCASE AND {_SECTION_WHERE[section]} "

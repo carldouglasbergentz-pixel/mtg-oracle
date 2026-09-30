@@ -619,6 +619,7 @@ class MtgOracleApp(App):
             "export": self._cmd_export,
             "history": self._cmd_history,
             "undo": self._cmd_undo,
+            "consider": self._cmd_consider,
             "forge": self._cmd_forge,
             "sync": self._cmd_sync,
             "copy": self._cmd_copy,
@@ -1537,6 +1538,25 @@ class MtgOracleApp(App):
             self._refresh_nav()
         except d.DeckError as e:
             self._write(f"add: {e}")
+
+    def _cmd_consider(self, arg: str) -> None:
+        """`consider <card> [<qty>]`: the deck's considering list (its
+        maybeboard). No deck rule applies there; moving into the deck is
+        where they do (the Kotlin app's workspace)."""
+        if not self._cwd_deck:
+            self._write("(consider works inside a deck: `cd <deck>` first)")
+            return
+        arg, parsed_qty = self._split_quantity(arg.strip())
+        if not arg:
+            self._write("usage: consider <card> [<qty>]")
+            return
+        try:
+            canonical = d.consider_card(
+                self._cwd_deck, arg, quantity=parsed_qty or 1, folder=self._cwd_folder)
+            self._write(f"OK considering {parsed_qty or 1}x {canonical}")
+            self._refresh_nav()
+        except d.DeckError as e:
+            self._write(f"consider: {e}")
 
     @staticmethod
     def _split_quantity(arg: str) -> tuple[str, Optional[int]]:

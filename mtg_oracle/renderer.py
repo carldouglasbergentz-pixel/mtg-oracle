@@ -745,6 +745,9 @@ def render_deck(deck: dict, links: Optional[list[LinkSpan]] = None) -> str:
         ordered.append((k, main_buckets[k]))
     if sideboard:
         ordered.append(("Sideboard", sideboard))
+    # Weighed for the deck, not in it: last, and in no total above.
+    if deck.get("considering"):
+        ordered.append(("Considering", deck["considering"]))
 
     # Mark pointed cards where the eye already is — right after the name,
     # inside the name column so the mana-cost column stays aligned.
@@ -1020,6 +1023,9 @@ def render_deck_compact(
         ordered.append((k, main_buckets[k]))
     if sideboard:
         ordered.append(("Sideboard", sideboard))
+    # Weighed for the deck, not in it: last, and in no total above.
+    if deck.get("considering"):
+        ordered.append(("Considering", deck["considering"]))
 
     points = deck.get("points")
     points_by_card = {n.lower(): p for n, p, _q, _s in (points or {}).get("cards", [])}

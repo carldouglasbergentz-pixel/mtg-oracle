@@ -24,7 +24,7 @@ COMMANDS = [
     "cd", "pwd", "ls", "mkdir", "rmdir",
     "add", "remove", "show", "rename", "move",
     "commander", "format", "points", "import", "paste", "export",
-    "history", "undo", "forge",
+    "history", "undo", "consider", "forge",
     "profile", "compare",
     # Maintenance
     "sync",
@@ -111,6 +111,9 @@ INSIDE A DECK (`/<folder>/<deck>/`)
                             points list (Canadian Highlander). Pointed
                             cards show their points after the name, as
                             `Card Name (3)`, in `show` and the left pane.
+  consider <card> [<qty>]   put a card on the deck's considering list (its
+                            maybeboard): shown last, not counted, exported or
+                            played, and not held to the deck's rules
   combos                    list Spellbook combos fully contained here
   paste                     read deckstring from system clipboard and
                             append to current deck (Windows / macOS / Linux)
