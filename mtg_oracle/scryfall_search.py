@@ -676,7 +676,7 @@ _SORT_FIELD_SQL = {
 }
 
 
-def _extract_order(query: str) -> tuple[str, list[tuple[str, str]]]:
+def extract_order(query: str) -> tuple[str, list[tuple[str, str]]]:
     """Pull `order:` / `sort:` tokens out of the raw query string.
 
     Returns (cleaned_query, [(field, direction), ...]) where direction is
@@ -764,7 +764,7 @@ def run_query(query: str, limit: int = 50, offset: int = 0) -> list[dict]:
     limit = max(1, min(limit, 1000))
     if offset < 0:
         offset = 0
-    cleaned, orders = _extract_order(query)
+    cleaned, orders = extract_order(query)
     where_sql, params = _compile_where_or_all(cleaned)
     order_sql = _build_order_by(orders)
     sql = (
@@ -790,7 +790,7 @@ def count_query(query: str) -> int:
     """Return the total number of matches for a query (no LIMIT / OFFSET).
 
     Order tokens are stripped — they don't affect the row count."""
-    cleaned, _ = _extract_order(query)
+    cleaned, _ = extract_order(query)
     where_sql, params = _compile_where_or_all(cleaned)
     sql = f"SELECT COUNT(*) FROM cards c WHERE {where_sql}"
     _ensure_db()

@@ -955,15 +955,18 @@ def get_corrections(
     if card:
         clauses.append(_RELATES_TO_NAMES)
         params.append(_relates_to_pattern(card))
+    # Escaped like every other user-typed LIKE: `correction 100%` matched all.
     if topic:
-        clauses.append("(topic LIKE ? OR incorrect_claim LIKE ?)")
-        params.append(f"%{topic}%")
-        params.append(f"%{topic}%")
+        clauses.append(
+            "(topic LIKE ? ESCAPE '!' OR incorrect_claim LIKE ? ESCAPE '!')"
+        )
+        params.extend([f"%{like_literal(topic)}%"] * 2)
     if text:
         clauses.append(
-            "(relates_to LIKE ? OR topic LIKE ? OR incorrect_claim LIKE ?)"
+            "(relates_to LIKE ? ESCAPE '!' OR topic LIKE ? ESCAPE '!' "
+            "OR incorrect_claim LIKE ? ESCAPE '!')"
         )
-        params.extend([f"%{text}%"] * 3)
+        params.extend([f"%{like_literal(text)}%"] * 3)
 
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     sql = (

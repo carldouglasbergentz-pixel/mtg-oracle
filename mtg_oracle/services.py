@@ -149,18 +149,24 @@ def deck_search_scope(query: str, ref: DeckRef) -> SearchScope:
     if not ref:
         return SearchScope(query)
 
-    effective = query
+    # Sort tokens come out before the query is parenthesised and go back on
+    # the end: `(t:x order:asc_mv)` hid the token from the extractor, which
+    # needs whitespace after it, and the parser then saw a field `order`.
+    effective, orders = ss.extract_order(query)
     filters: list[str] = []
+
+    def restrict(term: str) -> str:
+        return f"({effective}) {term}" if effective else term
 
     deck_ci = _deck_color_identity(ref)
     if deck_ci is not None:
         # An empty CI is colorless, which the search language spells `c`.
-        effective = f"({effective}) ci<={''.join(deck_ci) or 'c'}"
+        effective = restrict(f"ci<={''.join(deck_ci) or 'c'}")
         filters.append(f"ci<={''.join(deck_ci) or 'C'}")
 
     info = _deck_format_info(ref)
     if info and info["legality_key"]:
-        effective = f"({effective}) f:{info['legality_key']}"
+        effective = restrict(f"f:{info['legality_key']}")
         # Show the deck's own format name, but name the inherited pool too:
         # "f:Canadian Highlander" alone would look like a filter we have
         # legality data for, and we don't — we have Vintage's.
@@ -169,7 +175,8 @@ def deck_search_scope(query: str, ref: DeckRef) -> SearchScope:
             label += f" (={info['legality_key']} pool)"
         filters.append(label)
 
-    return SearchScope(effective, tuple(filters))
+    effective += "".join(f" order:{direction}_{key}" for key, direction in orders)
+    return SearchScope(effective.strip(), tuple(filters))
 
 
 def search(

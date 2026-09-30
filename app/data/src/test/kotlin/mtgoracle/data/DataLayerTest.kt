@@ -111,13 +111,13 @@ class SchemaCheckTest {
     fun `an old schema names every gap and says to run self_heal`() {
         val dir = kotlin.io.path.createTempDirectory("mtg-oracle-kt-old-").toFile()
         val old = File(dir, "mtg.db")
+        // Everything the app needs except what the step-2 migrations added: the printing columns and `games`.
+        val step2 = setOf("deck_cards.set_code", "deck_cards.collector_number")
         DriverManager.getConnection("jdbc:sqlite:${old.path}").use { conn ->
             conn.createStatement().use { st ->
-                st.execute("CREATE TABLE deck_folders (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT, format TEXT)")
-                st.execute("CREATE TABLE decks (id INTEGER PRIMARY KEY, folder_id INTEGER, name TEXT, format TEXT)")
-                st.execute("CREATE TABLE deck_cards (id INTEGER PRIMARY KEY, deck_id INTEGER, card_name TEXT, quantity INTEGER, is_commander INTEGER, is_sideboard INTEGER)")
-                st.execute("CREATE TABLE cards (name TEXT PRIMARY KEY, mana_cost TEXT, type_line TEXT, oracle_text TEXT, power TEXT, toughness TEXT)")
-                st.execute("CREATE TABLE forge_substitutions (deck_id INTEGER, card_name TEXT, substitute TEXT)")
+                SchemaCheck.REQUIRED.filterKeys { it != "games" }.forEach { (table, columns) ->
+                    st.execute("CREATE TABLE $table (${columns.filter { "$table.$it" !in step2 }.joinToString(", ") { "$it TEXT" }})")
+                }
             }
         }
         val error = assertFailsWith<SchemaTooOldException> { MtgDb(old).checkSchema() }

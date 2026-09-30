@@ -35,13 +35,51 @@ class TestTokenizer(unittest.TestCase):
             ss.parse("t:goblin -")
 
     def test_order_inside_quotes_is_text(self):
-        cleaned, orders = ss._extract_order('o:"x order:asc_mv y"')
+        cleaned, orders = ss.extract_order('o:"x order:asc_mv y"')
         self.assertEqual(cleaned, 'o:"x order:asc_mv y"')
         self.assertEqual(orders, [])
 
     def test_order_token_outside_quotes_still_extracted(self):
-        self.assertEqual(ss._extract_order("t:goblin order:desc_ci"),
+        self.assertEqual(ss.extract_order("t:goblin order:desc_ci"),
                          ("t:goblin", [("ci", "desc")]))
+
+
+class TestDeckScope(unittest.TestCase):
+    """Database-free: the deck's CI and format are stubbed."""
+
+    def scope(self, query):
+        from unittest import mock
+        from mtg_oracle import services as svc
+        commander = {"key": "commander", "label": "commander",
+                     "legality_key": "commander", "custom": False}
+        with mock.patch.object(svc, "_deck_color_identity", return_value=["B", "G"]), \
+                mock.patch.object(svc, "_deck_format_info", return_value=commander):
+            return svc.deck_search_scope(query, svc.DeckRef("Some Deck"))
+
+    def test_order_survives_the_deck_filters(self):
+        # `(t:creature order:asc_mv)` hid the token from the extractor, so
+        # every sorted search inside a deck failed with `unknown field`.
+        effective = self.scope("t:creature order:asc_mv").effective
+        self.assertEqual(effective, "((t:creature) ci<=BG) f:commander order:asc_mv")
+        cleaned, orders = ss.extract_order(effective)
+        self.assertEqual(orders, [("mv", "asc")])
+        ss.compile_ast(ss.parse(cleaned))
+
+    def test_only_an_order_is_the_deck_filters_sorted(self):
+        effective = self.scope("order:desc_edhrec").effective
+        self.assertEqual(effective, "(ci<=BG) f:commander order:desc_edhrec")
+        ss.compile_ast(ss.parse(ss.extract_order(effective)[0]))
+
+
+@unittest.skipUnless(DB.exists(), "needs data/mtg.db")
+class TestCorrectionsFilter(unittest.TestCase):
+
+    def test_percent_in_the_text_filter_is_literal(self):
+        # `correction %` used to list every correction.
+        self.assertEqual(q.get_corrections(text="%"), [])
+        # As a wildcard `t_tor` is `tutor`, which correction #12's topic has.
+        self.assertTrue(q.get_corrections(topic="tutor"))
+        self.assertEqual(q.get_corrections(topic="t_tor"), [])
 
 
 @unittest.skipUnless(DB.exists(), "needs data/mtg.db")

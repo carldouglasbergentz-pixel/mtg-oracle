@@ -19,6 +19,25 @@ object DbFixture {
 
     val available: Boolean get() = realDb.isFile
 
+    /**
+     * The real database through [MtgDb]'s read-only connection, for tests
+     * that only read cards, rules and combos: a 330 MB copy per class buys
+     * nothing there. Tests that write anything use [copy].
+     */
+    fun readOnly(): MtgDb = MtgDb(realDb)
+
+    /** Runs [code] with Python from the repo root (scripts see `mtg_oracle`), returning stdout; fails loudly on a non-zero exit. */
+    fun python(code: String, vararg args: String): String {
+        val process = ProcessBuilder(listOf("python", "-c", code) + args)
+            .directory(repoRoot)
+            .apply { environment()["PYTHONIOENCODING"] = "utf-8" }
+            .start()
+        val out = process.inputStream.bufferedReader(Charsets.UTF_8).readText()
+        val err = process.errorStream.bufferedReader(Charsets.UTF_8).readText()
+        check(process.waitFor() == 0) { "python failed: $err" }
+        return out
+    }
+
     /** A fresh copy in a new temp dir, migrated by self_heal. */
     fun copy(): File {
         check(available) { "no $realDb to copy" }
