@@ -36,6 +36,18 @@ class LookupPiecesTest {
         assertEquals("commander", Formats.fold("EDH"))
         assertEquals("duel", Formats.fold("1v1 commander"))
         assertEquals("tlr", Formats.fold("Tiny Leaders"))
+        assertEquals("duel", Formats.fold("DC"), "what players call Duel Commander")
+        assertEquals("canadianhighlander", Formats.fold("chl"))
+    }
+
+    @Test
+    fun `formats read as players write them`() {
+        assertEquals("DC", Formats.shortName("duel"))
+        assertEquals("DC", Formats.shortName("Duel Commander"))
+        assertEquals("CHL", Formats.shortName("canlander"))
+        assertEquals("EDH", Formats.shortName("EDH"))
+        assertEquals("kitchen table", Formats.shortName("kitchen table"), "a format without a tag reads as itself")
+        assertEquals("Duel Commander (DC)", Formats.displayName("duel"))
     }
 
     private val catalog = FormatCatalog(listOf(

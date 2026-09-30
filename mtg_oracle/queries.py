@@ -60,6 +60,8 @@ _FORMAT_ALIAS = {
     "cbrawl": "competitivebrawl",
     "tinyleaders": "tlr",             # `tlr` is Tiny Leaders: Reborn
     "tinyleadersreborn": "tlr",
+    "dc": "duel",                     # what players call Duel Commander
+    "chl": "canadianhighlander",      # a custom format: resolved through custom_formats
 }
 
 # `restricted` does not mean the same thing in every format:

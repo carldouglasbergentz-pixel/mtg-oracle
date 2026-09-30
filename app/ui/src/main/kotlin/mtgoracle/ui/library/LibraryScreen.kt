@@ -48,6 +48,7 @@ import mtgoracle.ui.lookup.CommandLine
 import mtgoracle.ui.kit.ContextMenu
 import mtgoracle.ui.kit.onRightClick
 import mtgoracle.core.deck.Folder
+import mtgoracle.core.lookup.Formats
 import androidx.compose.ui.geometry.Offset
 import mtgoracle.ui.lookup.KeyRoute
 import mtgoracle.ui.lookup.LookupUi
@@ -112,9 +113,9 @@ fun LibraryScreen(
             name == "play" -> onPlay()
             name == "mode" -> onToggleMode()
             name == "prefetch" -> onPrefetch()
-            name == "new-deck" -> lookup?.intent?.invoke(LibraryIntent.NewDeck(selectedFolder))
+            name == "new-deck" -> lookup?.intent?.invoke(LibraryIntent.NewDeck(selectedFolder, askFolder = true))
             name == "new-folder" -> lookup?.intent?.invoke(LibraryIntent.NewFolder)
-            name == "import" -> lookup?.intent?.invoke(LibraryIntent.Import(selectedFolder))
+            name == "import" -> lookup?.intent?.invoke(LibraryIntent.Import(selectedFolder, askFolder = true))
         }
     }
     fun move(by: Int) {
@@ -160,7 +161,9 @@ fun LibraryScreen(
                         for ((folderId, folderName) in groups) {
                             val inFolder = decks.filter { it.folderId == folderId }
                             if (folderId == null && inFolder.isEmpty()) continue
-                            GridText(fit(folderName + if (inFolder.isEmpty()) "  (empty)" else "", DECK_LIST_COLS - 2),
+                            // A folder with a default format carries its tag: `Duel Commander [DC]`.
+                            val tag = folders.firstOrNull { it.id == folderId }?.format?.takeIf { it.isNotBlank() }?.let { " [${Formats.shortName(it)}]" }.orEmpty()
+                            GridText(fit(folderName + tag + if (inFolder.isEmpty()) "  (empty)" else "", DECK_LIST_COLS - 2),
                                 Modifier.clickTarget(ClickTarget.Control("folder:${folderId ?: "none"}"), {}).onRightClick { at -> folderId?.let { menu = "folder:$it" to at } },
                                 color = Palette.dim, bold = true)
                             inFolder.forEach { d ->
@@ -177,7 +180,7 @@ fun LibraryScreen(
                 }
                 val middle = cols - DECK_LIST_COLS - SIDE_COLS
                 val right = deck?.let { d ->
-                    listOfNotNull(d.format, "${d.mainCount} cards", d.substitutions.takeIf { it.isNotEmpty() }?.let { "AI copy: ${it.size} substitutions" }).joinToString(" · ")
+                    listOfNotNull(d.format?.let(Formats::shortName), "${d.mainCount} cards", d.substitutions.takeIf { it.isNotEmpty() }?.let { "AI copy: ${it.size} substitutions" }).joinToString(" · ")
                 }
                 if (lookup?.showOutput == true) {
                     BoxPane("output", Modifier.weight(1f).fillMaxHeight(), right = "Tab: ${deck?.name ?: "deck"}") {

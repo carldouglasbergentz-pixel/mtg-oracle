@@ -183,7 +183,7 @@ fun DeckWorkspace(
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
                 val spent = deck?.cards?.filter { !it.isSideboard }?.sumOf { c -> (lookup.pointsOf(c.name) ?: 0) * c.quantity }
                 val right = deck?.let { d ->
-                    listOfNotNull(d.format, "${d.mainCount} cards", lookup.pointsBudget?.let { b -> "$spent/$b pts" + if ((spent ?: 0) > b) "!" else "" }).joinToString(" · ")
+                    listOfNotNull(d.format?.let(mtgoracle.core.lookup.Formats::shortName), "${d.mainCount} cards", lookup.pointsBudget?.let { b -> "$spent/$b pts" + if ((spent ?: 0) > b) "!" else "" }).joinToString(" · ")
                 }
                 BoxPane(deck?.name ?: "deck", Modifier.cellWidth(left).fillMaxHeight().region("workspace-deck"), right = right) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {

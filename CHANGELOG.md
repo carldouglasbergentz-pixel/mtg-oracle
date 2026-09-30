@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (formats follow the folders, and read as players write them; from the user's play-through)
+- **Moving a deck into a folder whose default format differs offers that format** (`Use Canadian Highlander` / `Keep Duel Commander (DC)`). A deck's format is its own, so it is asked, never changed silently.
+- **A format with no command zone asks where the commander goes:** moving Elminster's deck to Canadian Highlander asks "Put Elminster in the deck?".
+- **[ New deck ] and [ Import ] ask for the folder first.** The current folder is listed first, and `+ new folder...` makes one on the spot. A folder's own menu still puts the deck straight in it.
+- **The folder-default question is clearer and only asked when it matters:** "Default format for Duel Commander: Duel Commander (DC). 2 deck(s) in the folder have no format: give them Duel Commander (DC) too?". A folder with no formatless decks isn't asked about.
+- **Formats as players write them:**
+  - a folder with a default shows its tag, `Duel Commander [DC]`, `Canadian Highlander [CHL]`, `[EDH]`;
+  - a deck's title shows `DC` rather than `duel`;
+  - the format lists read `Duel Commander (DC)`, `Commander (EDH)`;
+  - **`f:dc` and `f:chl` work in search**, in both the app and the TUI.
+
 ### Added (step 4b: managing decks in the app)
 - **The library:**
   - **[ New deck ]**, **[ New folder ]** and **[ Import ]**;

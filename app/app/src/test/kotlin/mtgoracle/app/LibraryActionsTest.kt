@@ -87,7 +87,7 @@ class LibraryActionsTest {
         text(LibraryIntent.NewFolder, "__Actions__")
         val folder = library.folders().single { it.name == "__Actions__" }
         choose(LibraryIntent.FolderFormat(folder.id), "Canadian Highlander")
-        press(null, "Only new decks")
+        assertNull(ui.ask, "an empty folder has no formatless decks to ask about")
         assertEquals("canadianhighlander", library.folders().single { it.id == folder.id }.format)
 
         text(LibraryIntent.NewDeck(folder.id), "__New__")
@@ -162,5 +162,60 @@ class LibraryActionsTest {
         assertEquals("c21" to "263", sol.setCode to sol.collectorNumber)
         choose(LibraryIntent.ChoosePrinting(id, "Sol Ring", DeckSection.MAIN), "default art")
         assertNull(library.deck(id)!!.cards.single { it.name == "Sol Ring" }.setCode)
+    }
+
+    @Test
+    fun `a move offers the folder's format, and a format without a commander asks where the commander goes`() {
+        text(LibraryIntent.NewFolder, "__CHL__")
+        val chl = library.folders().single { it.name == "__CHL__" }
+        choose(LibraryIntent.FolderFormat(chl.id), "Canadian Highlander")
+        assertNull(ui.ask, "no deck in it lacks a format: nothing to ask")
+        clipboard = "Commander\n1 Elminster\nDeck\n1 Sol Ring"
+        text(LibraryIntent.Import(null), "__Elminster__")
+        val deck = deck("__Elminster__")
+        assertEquals("commander", deck.format)
+
+        choose(LibraryIntent.MoveDeck(deck.id), "__CHL__")
+        val offer = assertIs<Ask.Buttons>(ui.ask, "the folder's default is offered, not forced")
+        assertTrue("default to Canadian Highlander" in offer.title && "Commander (EDH) now" in offer.title, offer.title)
+        assertEquals("commander", library.decks().single { it.id == deck.id }.format, "nothing changed yet")
+        press(null, "Use Canadian Highlander")
+        assertEquals("canadianhighlander", library.decks().single { it.id == deck.id }.format)
+
+        val where = assertIs<Ask.Buttons>(ui.ask, "Canadian Highlander has no command zone")
+        assertTrue("Elminster" in where.title, where.title)
+        press(null, "Move to the deck")
+        val elminster = library.deck(deck.id)!!.cards.single { it.name == "Elminster" }
+        assertTrue(!elminster.isCommander, "Elminster is in the deck now")
+    }
+
+    @Test
+    fun `a folder default asks about its formatless decks only when it has some, and new deck asks where`() {
+        text(LibraryIntent.NewFolder, "__Mixed__")
+        val folder = library.folders().single { it.name == "__Mixed__" }
+        actions.handle(LibraryIntent.NewDeck(folder.id))
+        (ui.ask as Ask.Text).let { ui.ask = null; it.onOk("__Formatless__") }
+        choose(LibraryIntent.FolderFormat(folder.id), "Duel Commander (DC)")
+        val ask = assertIs<Ask.Buttons>(ui.ask)
+        assertTrue("1 deck(s) in the folder have no format" in ask.title, ask.title)
+        press(null, "Yes, those 1 too")
+        assertEquals("duel", deck("__Formatless__").format)
+
+        actions.handle(LibraryIntent.NewDeck(null, askFolder = true))
+        val where = assertIs<Ask.Choose>(ui.ask, "the button asks where first")
+        ui.ask = null
+        where.onPick(where.options.first { it.label == "__Mixed__" })
+        (ui.ask as Ask.Text).let { ui.ask = null; it.onOk("__Asked__") }
+        assertEquals(folder.id, deck("__Asked__").folderId)
+        assertEquals("duel", deck("__Asked__").format, "and it takes that folder's default")
+
+        // Or a folder made on the spot.
+        actions.handle(LibraryIntent.NewDeck(null, askFolder = true))
+        val again = assertIs<Ask.Choose>(ui.ask)
+        ui.ask = null
+        again.onPick(again.options.last())
+        (ui.ask as Ask.Text).let { ui.ask = null; it.onOk("__Fresh__") }
+        (ui.ask as Ask.Text).let { ui.ask = null; it.onOk("__InFresh__") }
+        assertEquals(library.folders().single { it.name == "__Fresh__" }.id, deck("__InFresh__").folderId)
     }
 }

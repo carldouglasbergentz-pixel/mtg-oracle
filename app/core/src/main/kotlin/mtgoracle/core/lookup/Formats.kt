@@ -48,6 +48,8 @@ object Formats {
         "cbrawl" to "competitivebrawl",
         "tinyleaders" to "tlr", // `tlr` is Tiny Leaders: Reborn
         "tinyleadersreborn" to "tlr",
+        "dc" to "duel", // what players call Duel Commander
+        "chl" to "canadianhighlander",
     )
 
     /** In these, `restricted` means "not as your commander", not "one copy". */
@@ -57,6 +59,34 @@ object Formats {
         "commander", "duel", "oathbreaker", "brawl", "standardbrawl", "competitivebrawl",
         "gladiator", "paupercommander", "predh", "tlr",
     )
+
+    /** The formats with a command zone: a deck in any other has no commander to keep. */
+    val COMMANDER_FORMATS: Set<String> = setOf(
+        "commander", "duel", "brawl", "standardbrawl", "competitivebrawl", "oathbreaker", "paupercommander", "predh", "tlr",
+    )
+
+    /** What people call Scryfall's keys, for menus and questions; a key without one reads as itself. */
+    private val NAMES = mapOf(
+        "commander" to "Commander (EDH)", "duel" to "Duel Commander (DC)", "tlr" to "Tiny Leaders: Reborn",
+        "paupercommander" to "Pauper Commander (PDH)", "competitivebrawl" to "Competitive Brawl", "standardbrawl" to "Standard Brawl",
+        "oldschool" to "Old School 93/94", "predh" to "PreDH", "penny" to "Penny Dreadful",
+    )
+
+    /** [key] as people say it: `duel` is Duel Commander. */
+    fun displayName(key: String): String = NAMES[key] ?: key.replaceFirstChar { it.uppercase() }
+
+    /** The short tags players write, for a folder's `[DC]` and a deck's title. */
+    private val SHORT = mapOf(
+        "commander" to "EDH", "duel" to "DC", "canadianhighlander" to "CHL", "canlander" to "CHL",
+        "paupercommander" to "PDH", "tlr" to "TL", "oathbreaker" to "OB", "competitivebrawl" to "cBrawl",
+        "standardbrawl" to "sBrawl", "brawl" to "Brawl", "standard" to "STD", "pioneer" to "PIO", "modern" to "MOD",
+        "legacy" to "LEG", "vintage" to "VIN", "pauper" to "PAU", "premodern" to "PREM", "oldschool" to "93/94",
+        "predh" to "PreDH", "penny" to "PD", "historic" to "HIST", "timeless" to "TIME", "alchemy" to "ALCH",
+        "gladiator" to "GLAD", "future" to "FUT",
+    )
+
+    /** [raw] (a format as stored or typed) as its short tag: `duel` and `Duel Commander` are DC; one without a tag is itself. */
+    fun shortName(raw: String): String = SHORT[fold(raw)] ?: raw
 
     /** Singleton community formats no definition file covers, by their folded name (queries.SINGLETON_COMMUNITY_FORMATS). */
     val SINGLETON_COMMUNITY: Set<String> = setOf(

@@ -28,6 +28,9 @@ import mtgoracle.ui.lookup.message
  * the write through the engine (LibraryWriter, DeckWriter), then the screen
  * read again. Nothing is written before the user has answered.
  */
+/** The folder chooser's "make one now": no folder id is ever this. */
+private const val NEW_FOLDER = "+new"
+
 class LibraryActions(
     private val library: Library,
     private val libraryWriter: LibraryWriter,
@@ -56,8 +59,10 @@ class LibraryActions(
     fun handle(intent: LibraryIntent) {
         try {
             when (intent) {
-                is LibraryIntent.NewDeck -> ui.ask = Ask.Text("New deck" + folderLabel(intent.folderId), ok = "Create") { name ->
-                    act { val id = libraryWriter.createDeck(name, intent.folderId); refresh(); openDeck(id); "created $name" }
+                is LibraryIntent.NewDeck -> inFolder(intent.folderId, intent.askFolder, "New deck in") { folderId ->
+                    ui.ask = Ask.Text("New deck" + folderLabel(folderId), ok = "Create") { name ->
+                        act { val id = libraryWriter.createDeck(name, folderId); refresh(); openDeck(id); "created $name" + (formatOf(id)?.let { " (${formatName(it)}, the folder's default)" } ?: "") }
+                    }
                 }
                 LibraryIntent.NewFolder -> ui.ask = Ask.Text("New folder", ok = "Create") { name ->
                     act { libraryWriter.createFolder(name); refresh(); "folder $name created" }
@@ -66,10 +71,11 @@ class LibraryActions(
                     act { libraryWriter.renameDeck(intent.deckId, name); refresh(); deckChanged(intent.deckId); "renamed to $name" }
                 }
                 is LibraryIntent.MoveDeck -> ui.ask = Ask.Choose("Move ${deckName(intent.deckId)} to", folderOptions(), { o ->
-                    act { libraryWriter.moveDeck(intent.deckId, o.value.toIntOrNull()); refresh(); "moved to ${o.label}" }
+                    val folderId = o.value.toIntOrNull()
+                    if (act { libraryWriter.moveDeck(intent.deckId, folderId); refresh(); "moved to ${o.label}" }) offerFolderFormat(intent.deckId, folderId)
                 })
                 is LibraryIntent.DeckFormat -> ui.ask = Ask.Choose("Format of ${deckName(intent.deckId)}", formatOptions(), { o ->
-                    act { libraryWriter.setDeckFormat(intent.deckId, o.value.ifEmpty { null }); refresh(); deckChanged(intent.deckId); "format: ${o.label}" }
+                    setFormat(intent.deckId, o.value.ifEmpty { null })
                 })
                 is LibraryIntent.DeleteDeck -> ui.ask = Ask.Buttons("Delete ${deckName(intent.deckId)}, its considering list and its history? This cannot be undone.", listOf(
                     "Delete" to {
@@ -80,13 +86,19 @@ class LibraryActions(
                         }
                     },
                 ))
-                is LibraryIntent.FolderFormat -> ui.ask = Ask.Choose("Default format of ${folderName(intent.folderId)}", formatOptions(), { o ->
+                is LibraryIntent.FolderFormat -> ui.ask = Ask.Choose("Default format of ${folderName(intent.folderId)} (what new decks there get)", formatOptions(), { o ->
                     val format = o.value.ifEmpty { null }
-                    if (format == null) act { libraryWriter.setFolderFormat(intent.folderId, null); refresh(); "no default format" }
-                    else ui.ask = Ask.Buttons("New decks in ${folderName(intent.folderId)} get ${o.label}. Its decks without a format too?", listOf(
-                        "Those too" to { act { val n = libraryWriter.setFolderFormat(intent.folderId, format, applyToDecks = true); refresh(); "default ${o.label}; $n deck(s) set" } },
-                        "Only new decks" to { act { libraryWriter.setFolderFormat(intent.folderId, format); refresh(); "default ${o.label}" } },
-                    ))
+                    val folder = folderName(intent.folderId)
+                    val formatless = library.decks().count { it.folderId == intent.folderId && it.format.isNullOrBlank() }
+                    when {
+                        format == null -> act { libraryWriter.setFolderFormat(intent.folderId, null); refresh(); "$folder: no default format" }
+                        // Only a folder with decks lacking a format has anything to ask.
+                        formatless == 0 -> act { libraryWriter.setFolderFormat(intent.folderId, format); refresh(); "$folder: new decks get ${o.label}" }
+                        else -> ui.ask = Ask.Buttons("Default format for $folder: ${o.label}. $formatless deck(s) in the folder have no format: give them ${o.label} too?", listOf(
+                            "Yes, those $formatless too" to { act { val n = libraryWriter.setFolderFormat(intent.folderId, format, applyToDecks = true); refresh(); "$folder: ${o.label}, and $n deck(s) set" } },
+                            "No, only new decks" to { act { libraryWriter.setFolderFormat(intent.folderId, format); refresh(); "$folder: new decks get ${o.label}" } },
+                        ))
+                    }
                 })
                 is LibraryIntent.DeleteFolder -> {
                     val name = folderName(intent.folderId)
@@ -96,7 +108,7 @@ class LibraryActions(
                         "Delete, keep the decks" to { act { libraryWriter.deleteFolder(intent.folderId, force = true); refresh(); "folder $name deleted; $decks deck(s) now in no folder" } },
                     ))
                 }
-                is LibraryIntent.Import -> importNew(intent.folderId)
+                is LibraryIntent.Import -> inFolder(intent.folderId, intent.askFolder, "Import a deck into") { importNew(it) }
                 is LibraryIntent.ImportInto -> importInto(intent.deckId)
                 is LibraryIntent.Export -> ui.ask = Ask.Buttons("Export ${deckName(intent.deckId)} to the clipboard", listOf(
                     "Full names" to { export(intent.deckId, frontFace = false) },
@@ -109,16 +121,69 @@ class LibraryActions(
         }
     }
 
-    /** One write, its outcome on the status line, a refusal as the refusal. */
-    private fun act(write: () -> String) {
-        try {
-            say(write())
-        } catch (e: DeckRefusal) {
-            say("refused: ${e.message}")
-        } catch (e: Exception) {
-            Log.error("library change failed", e)
-            say("failed: ${e.message}")
-        }
+    /** One write, its outcome on the status line, a refusal as the refusal; whether it went through. */
+    private fun act(write: () -> String): Boolean = try {
+        say(write())
+        true
+    } catch (e: DeckRefusal) {
+        say("refused: ${e.message}")
+        false
+    } catch (e: Exception) {
+        Log.error("library change failed", e)
+        say("failed: ${e.message}")
+        false
+    }
+
+    /** [then] in the folder [folderId], or, when [ask], in the one the user picks (the given one first). */
+    private fun inFolder(folderId: Int?, ask: Boolean, title: String, then: (Int?) -> Unit) {
+        if (!ask) return then(folderId)
+        // The folder it would go in first, then the rest, then a new one made on the spot.
+        val options = folderOptions().sortedBy { if (it.value == (folderId?.toString() ?: "")) 0 else 1 } + Option("+ new folder...", NEW_FOLDER)
+        ui.ask = Ask.Choose(title, options, { o ->
+            if (o.value != NEW_FOLDER) then(o.value.toIntOrNull())
+            else ui.ask = Ask.Text("New folder", ok = "Create") { name ->
+                var made: Int? = null
+                if (act { made = libraryWriter.createFolder(name); refresh(); "folder $name created" }) then(made)
+            }
+        })
+    }
+
+    private fun formatOf(deckId: Int): String? = library.decks().firstOrNull { it.id == deckId }?.format?.takeIf { it.isNotBlank() }
+
+    /** A format as people say it: `duel` is Duel Commander, `canlander` Canadian Highlander. */
+    private fun formatName(format: String?): String {
+        if (format.isNullOrBlank()) return "no format"
+        val info = lookup.formats.resolve(format) ?: return format
+        return if (info.custom) info.label else Formats.displayName(info.key)
+    }
+
+    /**
+     * Moved into [folderId]: a folder whose default differs from the deck's
+     * own format offers it. A deck's format is its own, so it is asked, never
+     * changed on the move.
+     */
+    private fun offerFolderFormat(deckId: Int, folderId: Int?) {
+        val default = folderId?.let { id -> library.folders().firstOrNull { it.id == id }?.format }?.takeIf { it.isNotBlank() } ?: return
+        val own = formatOf(deckId)
+        if (own != null && Formats.fold(own) == Formats.fold(default)) return
+        ui.ask = Ask.Buttons("Decks in ${folderName(folderId)} default to ${formatName(default)}. Give ${deckName(deckId)} that format? It has ${formatName(own)} now.", listOf(
+            "Use ${formatName(default)}" to { setFormat(deckId, default) },
+            "Keep ${formatName(own)}" to { say("${deckName(deckId)} keeps ${formatName(own)}") },
+        ))
+    }
+
+    /** Sets the deck's format; a deck with commanders in a format without a command zone is asked where they go. */
+    private fun setFormat(deckId: Int, format: String?) {
+        if (!act { libraryWriter.setDeckFormat(deckId, format); refresh(); deckChanged(deckId); "format: ${formatName(format)}" }) return
+        val info = lookup.formats.resolve(format) ?: return
+        if (info.legalityKey in Formats.COMMANDER_FORMATS) return
+        val commanders = library.deck(deckId)?.cards?.filter { it.isCommander && !it.isSideboard }?.map { it.name }.orEmpty()
+        if (commanders.isEmpty()) return
+        val who = commanders.joinToString(" and ")
+        ui.ask = Ask.Buttons("${formatName(format)} has no commander. Put $who in the deck?", listOf(
+            "Move to the deck" to { act { commanders.forEach { writer.promote(deckId, it, unset = true) }; deckChanged(deckId); "$who now in the deck" } },
+            "Keep as commander" to { say("$who stays commander") },
+        ))
     }
 
     private fun deckName(id: Int) = library.decks().firstOrNull { it.id == id }?.name ?: "deck #$id"
@@ -132,7 +197,7 @@ class LibraryActions(
         val custom = lookup.vocabulary["f"].filter { it !in Formats.LEGALITY }
         return (custom + Formats.LEGALITY).map { key ->
             val info = lookup.formats.resolve(key)
-            Option(info?.label ?: key, key, listOfNotNull(info?.legalityKey?.takeIf { it != key }?.let { "$it pool" }, info?.pointsBudget?.let { "$it points" }, "singleton".takeIf { info?.singleton == true }).joinToString(", "))
+            Option(formatName(key), key, listOfNotNull(info?.legalityKey?.takeIf { it != key }?.let { "$it pool" }, info?.pointsBudget?.let { "$it points" }, "singleton".takeIf { info?.singleton == true }).joinToString(", "))
         } + Option("(no format: no rules)", "")
     }
 

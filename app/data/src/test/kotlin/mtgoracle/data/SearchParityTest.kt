@@ -81,6 +81,8 @@ class SearchParityTest {
         "is:dfc t:werewolf",
         "is:mdfc t:land",
         "is:split c:m",
+        "f:dc t:instant c:u mv=1",
+        "f:chl t:land order:asc_name",
         "m:2uq",
         "c=m",
         "pow!3",

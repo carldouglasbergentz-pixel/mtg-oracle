@@ -72,6 +72,15 @@ class TestDeckScope(unittest.TestCase):
 
 
 @unittest.skipUnless(DB.exists(), "needs data/mtg.db")
+class TestFormatAliases(unittest.TestCase):
+
+    def test_players_names_for_formats(self):
+        self.assertEqual(q.fold_format("DC"), "duel")
+        self.assertEqual(q.resolve_format("chl")["key"], "canadianhighlander")
+        self.assertEqual(ss.count_query("f:dc t:instant"), ss.count_query("f:duel t:instant"))
+
+
+@unittest.skipUnless(DB.exists(), "needs data/mtg.db")
 class TestCorrectionsFilter(unittest.TestCase):
 
     def test_percent_in_the_text_filter_is_literal(self):
