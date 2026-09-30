@@ -45,9 +45,11 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         if (seat.gameType != opp.gameType) notes += "${me.name} is ${seat.gameType.name.lowercase()} and ${opponent.name} is ${opp.gameType.name.lowercase()}: they can't play each other."
         val mine = ForgeCards.check(seat)
         val theirs = ForgeCards.check(opp)
-        if (mine.unknown.isNotEmpty()) notes += "Forge lacks ${mine.unknown.joinToString()} in ${me.name}; substitute or remove them in the TUI."
-        if (theirs.unknown.isNotEmpty()) notes += "Forge lacks ${theirs.unknown.joinToString()} in ${opp.name}; substitute them in the TUI (`forge sub add`)."
-        if (theirs.aiUnplayable.isNotEmpty()) notes += "The AI can't play ${theirs.aiUnplayable.joinToString()} in ${opp.name}; a substitution (`forge sub add`) fixes that."
+        val how = "open the deck, right-click the card, AI substitute..."
+        if (mine.unknown.isNotEmpty()) notes += "Forge lacks ${mine.unknown.joinToString()} in ${me.name}; replace them in the deck, or give its AI copy a substitute ($how)."
+        if (theirs.unknown.isNotEmpty()) notes += "Forge lacks ${theirs.unknown.joinToString()} in ${opp.name}; give its AI copy a substitute ($how)."
+        if (theirs.aiUnplayable.isNotEmpty()) notes += "The AI can't play ${theirs.aiUnplayable.joinToString()} in ${opp.name}; a substitute fixes that ($how)."
+        if (seatAiCopy && mine.aiUnplayable.isNotEmpty()) notes += "The AI can't play ${mine.aiUnplayable.joinToString()} in ${me.name} either; a substitute fixes that ($how)."
         if (seat.gameType == GameType.COMMANDER) notes += "Forge plays Commander at 40 life, with 21 commander damage lethal — not Duel Commander's 20 life."
         notes += opp.notes
         return Prepared(seat, opp, notes, blocked = mine.unknown.isNotEmpty() || theirs.unknown.isNotEmpty() || seat.gameType != opp.gameType)

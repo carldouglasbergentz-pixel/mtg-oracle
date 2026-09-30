@@ -23,4 +23,7 @@ sealed interface LibraryIntent {
     data class ImportInto(val deckId: Int) : LibraryIntent
     data class Export(val deckId: Int) : LibraryIntent
     data class ChoosePrinting(val deckId: Int, val card: String, val section: DeckSection) : LibraryIntent
+    /** What the AI copy of deck [deckId] plays instead of [card]: asked, checked against the deck's rules, stored. */
+    data class AiSubstitute(val deckId: Int, val card: String) : LibraryIntent
+    data class RemoveAiSubstitute(val deckId: Int, val card: String) : LibraryIntent
 }

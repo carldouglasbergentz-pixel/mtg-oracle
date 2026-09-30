@@ -1,5 +1,9 @@
 package mtgoracle.app
 
+import mtgoracle.data.Substitutions
+import mtgoracle.forge.ForgeRuntime
+import mtgoracle.forge.ForgeSupport
+
 import mtgoracle.core.deck.CardPrinting
 import mtgoracle.core.deck.DeckChange
 import mtgoracle.core.deck.DeckExport
@@ -55,6 +59,10 @@ class LibraryActions(
     private val printingsOf: (String) -> List<CardPrinting> = { emptyList() },
     /** A card's face in a printing, for the zoom pane while the chooser is open. */
     private val faceOf: (String, Printing?) -> CardFace? = { _, _ -> null },
+    /** The AI copies' substitutions. */
+    private val substitutions: Substitutions? = null,
+    /** Whether Forge has a card and its AI plays it; null before Forge is up. */
+    private val forgeSupport: (String) -> ForgeSupport? = { null },
 ) {
     fun handle(intent: LibraryIntent) {
         try {
@@ -116,6 +124,18 @@ class LibraryActions(
                     "Grouped by role" to { export(intent.deckId, frontFace = false, grouped = true) },
                 ))
                 is LibraryIntent.ChoosePrinting -> choosePrinting(intent)
+                is LibraryIntent.AiSubstitute -> {
+                    val current = library.deck(intent.deckId)?.substitutions?.firstOrNull { it.cardName.equals(intent.card, ignoreCase = true) }?.substitute
+                    ui.ask = Ask.Text("The AI copy of ${deckName(intent.deckId)} plays, instead of ${intent.card}:", current.orEmpty(), ok = "Substitute") { answer ->
+                        act { substitute(intent.deckId, intent.card, answer.trim()) }
+                    }
+                }
+                is LibraryIntent.RemoveAiSubstitute -> act {
+                    val store = substitutions ?: return@act "substitutions are not available here"
+                    val removed = store.remove(intent.deckId, intent.card) ?: return@act "no substitution for ${intent.card} in ${deckName(intent.deckId)}"
+                    deckChanged(intent.deckId)
+                    "AI copy of ${deckName(intent.deckId)}: plays ${intent.card} again (not $removed)"
+                }
             }
         } catch (e: DeckRefusal) {
             say(e.message ?: e.kind.name)
@@ -278,6 +298,29 @@ class LibraryActions(
         writeClipboard(text)
         say("copied ${deck.name} to the clipboard: ${deck.cards.sumOf { it.quantity }} card(s)" +
             (if (frontFace) ", front faces" else "") + (if (grouped) ", grouped by role" else ""))
+    }
+
+    /**
+     * The AI copy plays [substitute] for [card] (services.forge_add_substitution):
+     * judged as `add` judges a card, against the deck with every substitution
+     * applied ([DeckWriter.checkSwaps]), then Forge must have it and its AI
+     * play it. A card's earlier substitute is replaced.
+     */
+    private fun substitute(deckId: Int, card: String, substitute: String): String {
+        val store = substitutions ?: return "substitutions are not available here"
+        if (substitute.isEmpty()) return "no substitute named: nothing changed"
+        val canonical = lookup.names.resolve(card) ?: card
+        val others = store.list(deckId).filter { !it.cardName.equals(canonical, ignoreCase = true) }.map { it.cardName to it.substitute }
+        val (inDeck, sub) = writer.checkSwaps(deckId, others + (card to substitute)).last()
+        when (forgeSupport(sub)) {
+            null -> return "Forge is still loading: try again in a moment"
+            ForgeSupport.UNKNOWN -> throw DeckRefusal(DeckRefusal.Kind.BAD_SUBSTITUTE, "'$sub' is unknown to Forge ${ForgeRuntime.version}")
+            ForgeSupport.AI_CANT_PLAY -> throw DeckRefusal(DeckRefusal.Kind.BAD_SUBSTITUTE, "Forge's AI can't play '$sub' either (AI:RemoveDeck:All); pick another substitute")
+            ForgeSupport.PLAYABLE -> {}
+        }
+        val replaced = store.set(deckId, inDeck, sub)
+        deckChanged(deckId)
+        return "AI copy of ${deckName(deckId)}: plays $sub for $inDeck" + (replaced?.let { " (was $it)" } ?: "")
     }
 
     private fun choosePrinting(intent: LibraryIntent.ChoosePrinting) {

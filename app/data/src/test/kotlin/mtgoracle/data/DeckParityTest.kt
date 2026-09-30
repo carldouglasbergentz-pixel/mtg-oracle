@@ -96,6 +96,24 @@ class DeckParityTest {
         move __parity_can__ Black Lotus|considering|main|1|0
         move __parity_can__ Black Lotus|considering|main|1|1
         undo __parity_can__
+        swaps __parity_can__ Strip Mine>Wasteland
+        swaps __parity_can__ Sol Ring>Mana Crypt
+        swaps __parity_can__ Sol Ring>Mana Drain
+        swaps __parity_can__ Sol Ring>Wasteland;Strip Mine>Wasteland
+        newdeck __p_swap__ -|canlander
+        add __p_swap__ Sol Ring|1|0|0
+        add __p_swap__ Strip Mine|1|0|0
+        add __p_swap__ Counterspell|1|0|0
+        swaps __p_swap__ Sol Ring>Counterspell
+        swaps __p_swap__ Sol Ring>Brainstorm;Strip Mine>Brainstorm
+        swaps __p_swap__ Sol Ring>Brainstorm
+        delete __p_swap__
+        swaps __parity_can__ Sol Ring>sol ring
+        swaps __parity_can__ Black Lotus>Island
+        swaps __parity_can__ Sol Ring>Zzyzx the Unreal
+        swaps __parity_cmd__ Swords to Plowshares>Lightning Bolt
+        swaps __parity_cmd__ Swords to Plowshares>Path to Exile
+        swaps __parity_cmd__ Tymna the Weaver>Thrasios, Triton Hero
         add __parity_vin__ Ancestral Recall|1|0|0
         add __parity_vin__ Ancestral Recall|1|0|0
         add __parity_vin__ Ancestral Recall|1|1|0
@@ -181,6 +199,7 @@ class DeckParityTest {
                  ('a printing is chosen in the deck', 'BAD_MOVE'), ('folder already exists', 'NAME_TAKEN'),
                  ('already exists in', 'NAME_TAKEN'), ('cannot move the decks in', 'NAME_TAKEN'), ('which separates folder and deck', 'BAD_NAME'),
                  ('is reserved', 'BAD_NAME'), ('name required', 'BAD_NAME'), ('deck(s); pass force', 'FOLDER_NOT_EMPTY'),
+                 ('cannot substitute for itself', 'BAD_SUBSTITUTE'),
                  ('nothing was replaced', 'UNRESOLVED_CARDS'), ('folder not found', 'NO_SUCH_DECK'), ('deck not found', 'NO_SUCH_DECK')]
         def kind(e):
             return next((k for p, k in KINDS if p in str(e)), 'UNKNOWN: ' + str(e))
@@ -212,6 +231,10 @@ class DeckParityTest {
                 elif op == 'import': d.import_deck(deck, parse_deckstring(pastes[int(a[2])]), folder=opt(a[0]), format=opt(a[1]))
                 elif op == 'replace': d.replace_deck_contents(deck, parse_deckstring(pastes[int(a[0])]), force=a[1] == '1')
                 elif op == 'printing': d.set_printing(deck, a[0], a[1], opt(a[2]), opt(a[3]))
+                elif op == 'swaps':
+                    pairs = [tuple(x.split('>')) for x in rest.split(';')]
+                    print('SWAPS ' + ';'.join(c + '>' + s for c, s in d.check_swaps(deck, pairs)))
+                    continue
                 elif op == 'export':
                     print('EXPORT ' + svc.export_deck_text(svc.DeckRef(deck), front_face=a[0] == '1', group_by_role=len(a) > 1 and a[1] == '1').text.replace('\n', '~'))
                     continue
@@ -241,6 +264,10 @@ class DeckParityTest {
             "import" -> writer.importDeck(op.deck, folder(a[0]), opt(a[1]), DeckParser.parse(pastes[a[2].toInt()]))
             "replace" -> writer.replace(deck(), DeckParser.parse(pastes[a[0].toInt()]), force = a[1] == "1")
             "printing" -> writer.setPrinting(deck(), a[0], DeckSection.of(a[1]), Printing.of(opt(a[2]), opt(a[3])))
+            "swaps" -> {
+                val pairs = op.args.joinToString("|").split(';').map { it.substringBefore('>') to it.substringAfter('>') }
+                return "SWAPS " + writer.checkSwaps(deck(), pairs).joinToString(";") { "${it.first}>${it.second}" }
+            }
             "export" -> {
                 val d = Library(db).deck(deck())!!
                 val pool = lookup.analysis.pool(d.cards.map { it.name })

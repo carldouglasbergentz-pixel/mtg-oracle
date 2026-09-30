@@ -17,6 +17,8 @@ class DeckRefusal(val kind: Kind, message: String) : IllegalStateException(messa
         COLOR_IDENTITY, BANNED, NOT_IN_POOL, BANNED_AS_COMMANDER, RESTRICTED, SINGLETON, POINTS,
         COMMANDER_COPIES, ALREADY_COMMANDER, ALREADY_IN_MAIN,
         NOT_IN_DECK, NOT_A_COMMANDER, BAD_MOVE, NOTHING_TO_UNDO, UNDO_DRIFT,
+        // An AI copy's substitution: for itself, or one Forge can't play.
+        BAD_SUBSTITUTE,
         // The library's shape: names, folders, pasted lists.
         BAD_NAME, NAME_TAKEN, FOLDER_NOT_EMPTY, UNRESOLVED_CARDS,
     }

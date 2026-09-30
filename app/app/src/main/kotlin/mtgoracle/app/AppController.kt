@@ -10,6 +10,7 @@ import mtgoracle.core.deck.DeckSummary
 import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.play.GameMode
 import mtgoracle.data.Analysis
+import mtgoracle.data.Substitutions
 import mtgoracle.data.GameStore
 import mtgoracle.data.Library
 import mtgoracle.data.DeckWriter
@@ -119,6 +120,8 @@ class AppController(private val paths: AppPaths) {
                 readClipboard = { readClipboard() }, writeClipboard = ::copyToClipboard,
                 printingsOf = { name -> if (forgeReady) ForgeCards.printings(name) else emptyList() },
                 faceOf = { name, printing -> printingFace(lookup, name, printing) },
+                substitutions = Substitutions(db),
+                forgeSupport = { name -> if (forgeReady) ForgeCards.support(name) else null },
             )
             lookupUi = lookupCommands.ui.apply { grid = settings.resultsGrid; intent = actions::handle }
             screen = Screen.Library

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (step 5c: the AI copies edited in the app)
+- **A card's menu in the workspace has "AI substitute...":** what Forge's AI plays instead of that card, in games and simulations. The deck itself is untouched. The substitute is checked in this order:
+  1. Against the deck's own rules, with every substitution applied together (a port of `check_swaps`: colour identity, legality, singleton, points), so two substitutes that only break singleton jointly are caught.
+  2. Against Forge: it must know the card, and its AI must play it.
+
+  A card's earlier substitute is replaced, and "no AI substitute" takes it back.
+- **An AI copy tab (4) in the deck pane** lists the substitutions, each card a link, with `[x]` to stop one. The tabs are narrower, so all four fit the deck pane.
+- The setup screen's notes point at the menu, not the TUI's `forge sub add`.
+- `DeckRefusal.Kind.BAD_SUBSTITUTE`. DeckParityTest has 13 swap cases against `decks.check_swaps`: single and joint singleton, points, colour identity, a substitute for itself, and cards not in the deck or not found.
+
 ### Added (step 5c: simulations in the app)
 - **[ Simulate N ] on the setup screen** (S, with N cycling 1 / 5 / 10 / 20 / 50) plays that many AI-vs-AI games of the chosen pairing, with no board, one after another in the app's own Forge. Both AIs play their AI copies while "AI copy" is on.
   - Each game is recorded as it ends, all under one `match_id` with `game_no` 1..N. A stopped simulation keeps what it played, and the game it stopped is not recorded.

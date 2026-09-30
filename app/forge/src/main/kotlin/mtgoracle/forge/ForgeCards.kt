@@ -85,6 +85,12 @@ object ForgeCards {
         }.distinctBy { it.setCode to it.collectorNumber }.sortedWith(compareByDescending<CardPrinting> { it.date }.thenBy { it.setCode })
     }
 
+    /** Whether Forge has [name], and whether its AI plays it (not `AI:RemoveDeck:All`): what a substitute must pass. */
+    fun support(name: String): ForgeSupport {
+        val pc = paperCard(forgeCardName(name), null, null) ?: return ForgeSupport.UNKNOWN
+        return if (pc.rules.aiHints.remAIDecks) ForgeSupport.AI_CANT_PLAY else ForgeSupport.PLAYABLE
+    }
+
     fun check(play: PlayDeck): DeckCheck {
         val unknown = sortedSetOf<String>(String.CASE_INSENSITIVE_ORDER)
         val unplayable = sortedSetOf<String>(String.CASE_INSENSITIVE_ORDER)
@@ -112,3 +118,6 @@ object ForgeCards {
         Section.SIDEBOARD -> DeckSection.Sideboard
     }
 }
+
+/** What Forge makes of a card: see [ForgeCards.support]. */
+enum class ForgeSupport { PLAYABLE, UNKNOWN, AI_CANT_PLAY }

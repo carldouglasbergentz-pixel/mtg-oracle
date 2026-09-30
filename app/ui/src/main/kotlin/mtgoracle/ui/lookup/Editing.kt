@@ -23,4 +23,4 @@ sealed interface EditAction {
 data class Refusal(val text: String, val forceable: Boolean)
 
 /** The deck pane's tabs in the workspace. */
-enum class DeckTab(val label: String) { DECK("Deck"), CONSIDERING("Considering"), HISTORY("History") }
+enum class DeckTab(val label: String) { DECK("Deck"), CONSIDERING("Considering"), HISTORY("History"), AI_COPY("AI copy") }

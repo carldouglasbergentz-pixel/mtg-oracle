@@ -210,6 +210,42 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         }
     }
 
+    /**
+     * Would deck [deckId] pass `add`'s rules with these cards swapped out
+     * (decks.check_swaps)? [swaps] is (card in the deck, substitute); they come
+     * back as canonical names, or the first one that breaks a rule is refused.
+     * A dry run through [addCard], never a second copy of its rules: each
+     * swapped-out card is deleted, each substitute goes back in with the same
+     * quantities and sections, and the transaction is rolled back. All the
+     * swaps together, since two substitutes can break singleton or the points
+     * budget only jointly. A substitution has no "anyway": it isn't the deck.
+     */
+    fun checkSwaps(deckId: Int, swaps: List<Pair<String, String>>): List<Pair<String, String>> = db.dryRun { conn ->
+        requireDeck(conn, deckId)
+        data class Row(val name: String, val quantity: Int, val commander: Boolean, val sideboard: Boolean)
+        data class Planned(val card: String, val substitute: String, val rows: List<Row>)
+        val planned = swaps.map { (card, substitute) ->
+            val inDeck = names.resolve(card) ?: card
+            val rows = conn.query(
+                "SELECT card_name, quantity, is_commander, is_sideboard FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE",
+                deckId, inDeck,
+            ) { Row(getString(1), getInt(2), getBoolean(3), getBoolean(4)) }
+            if (rows.isEmpty()) throw DeckRefusal(Kind.NOT_IN_DECK, "card not in deck: '$card'")
+            val canonical = names.resolve(substitute) ?: throw DeckRefusal(Kind.CARD_NOT_FOUND, "card not found: '$substitute'")
+            if (canonical.equals(rows[0].name, ignoreCase = true)) throw DeckRefusal(Kind.BAD_SUBSTITUTE, "'$canonical' cannot substitute for itself")
+            Planned(rows[0].name, canonical, rows)
+        }
+        planned.forEach { conn.update("DELETE FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE", deckId, it.card) }
+        for (p in planned) for (row in p.rows) {
+            try {
+                addCard(conn, deckId, p.substitute, row.quantity, sideboard = row.sideboard, force = false, commander = row.commander)
+            } catch (e: DeckRefusal) {
+                throw DeckRefusal(e.kind, "${p.substitute} for ${p.card}: ${e.message}")
+            }
+        }
+        planned.map { it.card to it.substitute }
+    }
+
     /** What a pasted list did to a deck (decks._load_rows' summary). */
     data class LoadResult(
         val revisionId: Long?, val added: Int, val copies: Int, val unresolved: List<String>,

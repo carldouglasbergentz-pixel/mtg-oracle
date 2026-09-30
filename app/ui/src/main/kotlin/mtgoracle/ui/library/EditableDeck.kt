@@ -44,7 +44,7 @@ data class DeckRow(val card: DeckCard, val section: DeckSection, val group: Stri
 /** The deck pane's rows for [tab], in the order they are drawn (and the arrow keys walk). */
 fun deckRows(deck: Deck, tab: DeckTab): List<DeckRow> = when (tab) {
     DeckTab.CONSIDERING -> deck.considering.map { DeckRow(it, DeckSection.CONSIDERING, "Considering") }
-    DeckTab.HISTORY -> emptyList()
+    DeckTab.HISTORY, DeckTab.AI_COPY -> emptyList()
     DeckTab.DECK -> {
         val order = listOf("Commander") + TYPE_ORDER + listOf("Other", "Sideboard")
         deck.cards.map { c ->
@@ -106,12 +106,15 @@ internal fun EditableDeck(
     onEdit: (EditAction) -> Unit,
     onOpen: (String) -> Unit,
     onHover: (CardFace) -> Unit,
+    /** Stop the AI copy substituting for a card (the AI copy tab's [x]). */
+    onUnsubstitute: (String) -> Unit = {},
 ) {
     var menu by remember { mutableStateOf<Pair<DeckRow, Offset>?>(null) }
     Column {
         Tabs(deck, tab, history.size, onTab)
         when (tab) {
             DeckTab.HISTORY -> History(history, cols)
+            DeckTab.AI_COPY -> AiCopyTab(deck, cols, onOpen, onUnsubstitute)
             else -> {
                 val rows = deckRows(deck, tab)
                 if (rows.isEmpty()) GridText(fit(if (tab == DeckTab.CONSIDERING) "Nothing yet: a result's [?] puts a card here." else "No cards yet: a result's [+] adds one.", cols), color = Palette.dim)
@@ -165,8 +168,10 @@ private fun Tabs(deck: Deck, tab: DeckTab, revisions: Int, onTab: (DeckTab) -> U
                 DeckTab.DECK -> deck.mainCount
                 DeckTab.CONSIDERING -> deck.considering.sumOf { it.quantity }
                 DeckTab.HISTORY -> revisions
+                DeckTab.AI_COPY -> deck.substitutions.size
             }
-            val label = if (t == tab) "[ ${t.label} $count ]" else "  ${t.label} $count  "
+            // One cell either side, the same width chosen or not: four tabs fit the 58-column deck pane.
+            val label = if (t == tab) "[${t.label} $count]" else " ${t.label} $count "
             GridText(label, Modifier.clickTarget(ClickTarget.Control("tab:${t.name}"), { onTab(t) }).pointerHoverIcon(PointerIcon.Hand),
                 color = if (t == tab) Palette.background else Palette.foreground, background = if (t == tab) Palette.foreground else Color.Unspecified, bold = t == tab)
             GridText(" ")
@@ -213,6 +218,27 @@ private val STAMP = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:
 /** A revision's UTC stamp (`2026-09-30T11:00:03Z`) in the viewer's own time, as the TUI shows it. */
 fun localTime(utc: String): String =
     runCatching { java.time.Instant.parse(utc).atZone(java.time.ZoneId.systemDefault()).format(STAMP) }.getOrElse { utc }
+
+/**
+ * What the AI copy plays instead: one line per substitution, the card and its
+ * substitute both links, and an [x] that stops it. The deck itself is untouched.
+ */
+@Composable
+private fun AiCopyTab(deck: Deck, cols: Int, onOpen: (String) -> Unit, onUnsubstitute: (String) -> Unit) {
+    GridText(fit("Forge's AI plays these instead, in games and simulations; the deck keeps its own cards.", cols), color = Palette.dim)
+    GridText(fit("Right-click a card in the Deck tab > AI substitute... to add one.", cols), color = Palette.dim)
+    if (deck.substitutions.isEmpty()) { GridText(fit("No substitutions: the AI plays the deck as built.", cols), color = Palette.dim); return }
+    deck.substitutions.forEachIndexed { i, s ->
+        Row {
+            GridText("[x]", Modifier.clickTarget(ClickTarget.Control("unsubstitute:$i"), { onUnsubstitute(s.cardName) }).pointerHoverIcon(PointerIcon.Hand), color = Palette.accent)
+            GridText(" ")
+            val room = maxOf(8, (cols - 8) / 2)
+            GridText(fit(s.cardName, room), Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(s.cardName), linkAt(s.cardName, DeckSection.MAIN, 9)), { onOpen(s.cardName) }).pointerHoverIcon(PointerIcon.Hand))
+            GridText(" -> ", color = Palette.dim)
+            GridText(fit(s.substitute, room), Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(s.substitute), linkAt(s.substitute, DeckSection.MAIN, 10)), { onOpen(s.substitute) }).pointerHoverIcon(PointerIcon.Hand))
+        }
+    }
+}
 
 /** The history: every revision, newest first, each change on its own line. */
 @Composable

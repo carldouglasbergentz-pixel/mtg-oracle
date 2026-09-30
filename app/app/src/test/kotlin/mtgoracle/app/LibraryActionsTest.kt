@@ -8,6 +8,8 @@ import mtgoracle.data.Library
 import mtgoracle.data.LibraryWriter
 import mtgoracle.data.Lookup
 import mtgoracle.data.MtgDb
+import mtgoracle.data.Substitutions
+import mtgoracle.forge.ForgeSupport
 import mtgoracle.ui.library.LibraryIntent
 import mtgoracle.ui.lookup.Ask
 import mtgoracle.ui.lookup.LookupUi
@@ -54,6 +56,15 @@ class LibraryActionsTest {
             say = { said += it }, show = { r -> said += r.lines(100).joinToString("\n") { it.text } },
             readClipboard = { clipboard }, writeClipboard = { clipboard = it },
             printingsOf = { listOf(CardPrinting("c21", "263", "Commander 2021", "2021-04-23"), CardPrinting("lea", "270", "Limited Edition Alpha", "1993-08-05")) },
+            substitutions = Substitutions(db),
+            // A stand-in for Forge: it lacks one card and its AI can't play another.
+            forgeSupport = { name ->
+                when (name) {
+                    "Opt" -> ForgeSupport.UNKNOWN
+                    "Consider" -> ForgeSupport.AI_CANT_PLAY
+                    else -> ForgeSupport.PLAYABLE
+                }
+            },
         )
     }
 
@@ -217,5 +228,46 @@ class LibraryActionsTest {
         (ui.ask as Ask.Text).let { ui.ask = null; it.onOk("__Fresh__") }
         (ui.ask as Ask.Text).let { ui.ask = null; it.onOk("__InFresh__") }
         assertEquals(library.folders().single { it.name == "__Fresh__" }.id, deck("__InFresh__").folderId)
+    }
+
+    /** Answers the open text question with [answer]. */
+    private fun answer(answer: String) = assertIs<Ask.Text>(ui.ask).onOk(answer)
+
+    @Test
+    fun `an AI substitute is asked, judged by the deck's rules and Forge's, and can be taken back`() {
+        val deck = library.decks().firstOrNull { it.name == "Boros Death and Taxes" }
+        assumeTrue(deck != null, "the user's Boros Death and Taxes")
+        val id = deck!!.id
+        val subs = { Substitutions(db).list(id).associate { it.cardName to it.substitute } }
+        val before = subs()
+        val cards = library.deck(id)!!.cards.filter { !it.isSideboard }
+        val basic = cards.first { it.info?.typeLine?.startsWith("Basic Land") == true }.name
+        val (spell, other) = cards.filter { it.info?.typeLine?.contains("Land") == false }.map { it.name }.take(2)
+
+        actions.handle(LibraryIntent.AiSubstitute(id, "Crystal Vein"))
+        assertEquals(before["Crystal Vein"], assertIs<Ask.Text>(ui.ask).initial, "the current substitute is offered")
+        answer("Plains")
+        assertEquals("Plains", subs()["Crystal Vein"])
+        assertTrue(said.last().contains("plays Plains for Crystal Vein (was ${before["Crystal Vein"]})"), said.last())
+
+        // A card the deck already has: singleton, judged as `add` would.
+        actions.handle(LibraryIntent.AiSubstitute(id, spell))
+        answer(other)
+        assertTrue(said.last().startsWith("refused: $other for $spell: singleton format"), said.last())
+        assertNull(subs()[spell], "nothing stored")
+
+        actions.handle(LibraryIntent.AiSubstitute(id, spell)); answer("Opt")
+        assertTrue("unknown to Forge" in said.last(), said.last())
+        actions.handle(LibraryIntent.AiSubstitute(id, spell)); answer("Consider")
+        assertTrue("AI can't play 'Consider'" in said.last(), said.last())
+        actions.handle(LibraryIntent.AiSubstitute(id, basic)); answer(basic)
+        assertTrue("cannot substitute for itself" in said.last(), said.last())
+        assertEquals(before + ("Crystal Vein" to "Plains"), subs(), "only the good answer was stored")
+
+        actions.handle(LibraryIntent.RemoveAiSubstitute(id, "Crystal Vein"))
+        assertNull(subs()["Crystal Vein"])
+        assertTrue("plays Crystal Vein again" in said.last(), said.last())
+        actions.handle(LibraryIntent.RemoveAiSubstitute(id, "Crystal Vein"))
+        assertTrue("no substitution for Crystal Vein" in said.last(), said.last())
     }
 }

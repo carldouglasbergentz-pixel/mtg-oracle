@@ -151,6 +151,7 @@ fun DeckWorkspace(
                 e.key == Key.One -> lookup.deckTab = DeckTab.DECK
                 e.key == Key.Two -> lookup.deckTab = DeckTab.CONSIDERING
                 e.key == Key.Three -> lookup.deckTab = DeckTab.HISTORY
+                e.key == Key.Four -> lookup.deckTab = DeckTab.AI_COPY
                 e.key == Key.F && lookup.refusal?.forceable == true -> lookup.edit(EditAction.Force)
                 inDeck && e.key == Key.DirectionUp -> selectRow(-1)
                 inDeck && e.key == Key.DirectionDown -> selectRow(+1)
@@ -196,8 +197,16 @@ fun DeckWorkspace(
                             points = lookup::pointsOf, flags = lookup.flags, history = lookup.history,
                             extraMenu = { row ->
                                 if (row.section == DeckSection.CONSIDERING) emptyList()
-                                else listOf("choose printing..." to { lookup.intent(LibraryIntent.ChoosePrinting(deck.id, row.card.name, row.section)) })
+                                else {
+                                    val sub = deck.substitutions.firstOrNull { it.cardName.equals(row.card.name, ignoreCase = true) }
+                                    listOfNotNull(
+                                        "choose printing..." to { lookup.intent(LibraryIntent.ChoosePrinting(deck.id, row.card.name, row.section)) },
+                                        (if (sub == null) "AI substitute..." else "AI substitute (now ${sub.substitute})...") to { lookup.intent(LibraryIntent.AiSubstitute(deck.id, row.card.name)) },
+                                        sub?.let { "no AI substitute" to { lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, row.card.name)) } },
+                                    )
+                                }
                             },
+                            onUnsubstitute = { card -> lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, card)) },
                             onTab = { lookup.deckTab = it; deckRow = null }, onEdit = lookup.edit,
                             onOpen = { lookup.open(OutputLink.Card(it)) }, onHover = { zoom = it },
                         )
@@ -248,8 +257,8 @@ fun DeckWorkspace(
                 "deck-mode" to if (deckMode == CardMode.TEXT) "[ Deck as frames ]" else "[ Deck as lines ]",
             ), onClick)
             val hints = if (lookup.command.focused) TYPING_HINTS
-            else if (inDeck) listOf("↑↓" to "card", "+ -" to "copies", "Del" to "remove", "Enter" to "open", "Tab" to "results", "1 2 3" to "tabs", "right-click" to "menu", "Esc" to "library")
-            else listOf(":" to "search", "←→↑↓" to "select", "+ S C" to "deck / side / consider", "Tab" to "deck", "T" to "grid/lines", "1 2 3" to "tabs", "P" to "play", "Esc" to "library")
+            else if (inDeck) listOf("↑↓" to "card", "+ -" to "copies", "Del" to "remove", "Enter" to "open", "Tab" to "results", "1-4" to "tabs", "right-click" to "menu", "Esc" to "library")
+            else listOf(":" to "search", "←→↑↓" to "select", "+ S C" to "deck / side / consider", "Tab" to "deck", "T" to "grid/lines", "1-4" to "tabs", "P" to "play", "Esc" to "library")
             StatusLine(hints, notice, cols)
         }
     }

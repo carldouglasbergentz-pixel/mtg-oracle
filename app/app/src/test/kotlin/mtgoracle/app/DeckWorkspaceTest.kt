@@ -208,4 +208,31 @@ class DeckWorkspaceTest {
         driver.key(Key.Delete)
         assertTrue(app.deck!!.considering.none { it.name == card }, "Delete took it off the list")
     }
+
+    @Test
+    fun `the AI copy tab lists the substitutions, and its x takes one back`() {
+        assumeTrue(DbFixture.available, "needs data/mtg.db")
+        val copy = DbFixture.copy()
+        data = copy.parentFile
+        Scenario.startForge()
+        app = AppController(AppPaths(data, assets, forgeHome = Scenario.home))
+        app.boot()
+        val rakdos = app.decks.firstOrNull { it.name == "Rakdos Midrange" }
+        assumeTrue(rakdos != null, "the user's Rakdos Midrange, which has substitutions")
+        app.select(rakdos!!.id)
+        driver = OffscreenDriver(1800, 1200) { AppContent(app) {} }
+        driver.settle()
+        driver.key(Key.Enter)
+        driver.key(Key.Four)
+        driver.settle()
+        val subs = app.deckById(rakdos.id)!!.substitutions
+        assumeTrue(subs.isNotEmpty(), "substitutions to show")
+        val text = driver.text.all()
+        assertTrue("AI copy ${subs.size}" in text, "the tab counts them")
+        subs.forEach { assertTrue(it.cardName in text && it.substitute in text, "${it.cardName} -> ${it.substitute} is listed") }
+        driver.click(ClickTarget.Control("unsubstitute:0"))
+        driver.settle()
+        assertEquals(subs.size - 1, app.deckById(rakdos.id)!!.substitutions.size, "[x] took one back")
+        driver.savePng(File(Scenario.pngDir, "workspace-ai-copy.png"))
+    }
 }

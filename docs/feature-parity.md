@@ -77,12 +77,12 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | Feature | Today | Step | Status |
 |---|---|---|---|
 | Play vs AI on our own board, recorded | — (new) | 2 | ▶ |
-| AI copies from substitutions | `forge sub`, export | 2 (use) / 4 (edit) | ▶ |
+| AI copies from substitutions | `forge sub`, export | 2 (use) / 4 (edit) | ✓ 5c: a card's menu > AI substitute..., judged by `checkSwaps` (DeckParityTest) and Forge; the AI copy tab (4) lists them with [x] |
 | Matches best of 1 / 3 / 5: sideboarding between games, the result and score, the loser chooses play or draw; each game a `games` row sharing `match_id` | — (new) | 2 | ✓ |
 | The mana pool on the board, live, spendable by clicking during a payment; mana from resolving abilities on the trail | — (new) | 2 | ✓ |
 | Concede a game or the whole match (Ctrl+Q, Esc, `[ concede ]`), back to the library cleanly; closing the window records the game on as conceded | — (new) | 2 | ✓ |
-| Export `.dck` to Forge's folder, ownership marker; nav `[-> forge]` | `forge export` | superseded by in-process play; keep while Forge's own GUI is used | ○ decide |
-| AI vs AI sims with stored results, win matrix | `forge sim`, `forge results` | 5 | ○ (watch mode exists) |
+| Export `.dck` to Forge's folder, ownership marker; nav `[-> forge]` | `forge export` | dropped 2026-09-30: the app plays and simulates in-process | — |
+| AI vs AI sims with stored results, win matrix | `forge sim`, `forge results` | 5 | ✓ 5c: [ Simulate N ] on the setup screen (no board, a few seconds a game), stored in `games`; `results [<deck>]` and each opponent's record on the setup screen |
 | Launch Forge's own GUI | `forge play` | dropped (our board replaces it) | — |
 
 ## Data and maintenance
