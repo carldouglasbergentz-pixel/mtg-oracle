@@ -11,6 +11,8 @@ import mtgoracle.core.play.GameMode
 import mtgoracle.data.GameStore
 import mtgoracle.data.Library
 import mtgoracle.data.DeckWriter
+import mtgoracle.data.LibraryWriter
+import mtgoracle.forge.ForgeCards
 import mtgoracle.data.Lookup
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.face
@@ -85,15 +87,28 @@ class AppController(private val paths: AppPaths) {
             library = Library(db)
             sessions = Sessions(GameStore(db), paths.gameLogs)
             decks = library.decks()
+            folders = library.folders()
             decks.firstOrNull()?.let { select(it.id) }
             val started = System.nanoTime()
             val lookup = Lookup(db)
             Log.info("lookup ready in ${(System.nanoTime() - started) / 1_000_000} ms (${lookup.names.sorted.size} card names)")
-            commands = LookupCommands(
+            val writer = DeckWriter(db, lookup.names, lookup.formats)
+            val lookupCommands = LookupCommands(
                 lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
                 copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
-                writer = DeckWriter(db, lookup.names, lookup.formats), onDeckChanged = ::deckChanged, notify = { notice = it },
-            ).also { lookupUi = it.ui.apply { grid = settings.resultsGrid } }
+                writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
+            )
+            commands = lookupCommands
+            val actions = LibraryActions(
+                library, LibraryWriter(db), writer, lookup, lookupCommands.ui,
+                refresh = ::refreshLibrary, deckChanged = lookupCommands::refreshDeck,
+                openDeck = { id -> lookupCommands.enterDeck(id) }, openDeckId = { editing?.deckId }, leaveDeck = lookupCommands::leaveDeck,
+                say = { notice = it }, show = { r -> lookupCommands.output.add(r); lookupCommands.ui.showOutput = true },
+                readClipboard = { readClipboard() }, writeClipboard = ::copyToClipboard,
+                printingsOf = { name -> if (forgeReady) ForgeCards.printings(name) else emptyList() },
+                faceOf = { name, printing -> printingFace(lookup, name, printing) },
+            )
+            lookupUi = lookupCommands.ui.apply { grid = settings.resultsGrid; intent = actions::handle }
             screen = Screen.Library
         } catch (e: SchemaTooOldException) {
             screen = Screen.Blocked(e.message!!)
@@ -123,6 +138,30 @@ class AppController(private val paths: AppPaths) {
         if (selectedId == id) deck = deckById(id)
     }
 
+    /** Every folder, the empty ones too. */
+    var folders by mutableStateOf(emptyList<mtgoracle.core.deck.Folder>())
+
+    /** The library's shape changed (a deck made, renamed, moved or deleted; a folder): read it all again. */
+    private fun refreshLibrary() {
+        deckCache.clear()
+        decks = library.decks()
+        folders = library.folders()
+        val still = decks.firstOrNull { it.id == selectedId } ?: decks.firstOrNull()
+        if (still != null) select(still.id) else { selectedId = null; deck = null }
+    }
+
+    /** Where the app reads a pasted list from; the tests put their own list there. */
+    var readClipboard: () -> String? = {
+        runCatching { java.awt.Toolkit.getDefaultToolkit().systemClipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as String }.getOrNull()
+    }
+
+    /** A card in one printing, for the zoom pane while the art chooser is open. */
+    private fun printingFace(lookup: Lookup, name: String, printing: mtgoracle.core.deck.Printing?): CardFace? {
+        val (canonical, info) = lookup.cards.info(name) ?: return null
+        val card = DeckCard(canonical, quantity = 1, isCommander = false, isSideboard = false, setCode = printing?.setCode, collectorNumber = printing?.collectorNumber, info = info)
+        return card.face(keyFor(card))
+    }
+
     fun select(id: Int) {
         selectedId = id
         deck = deckById(id)
@@ -142,9 +181,12 @@ class AppController(private val paths: AppPaths) {
         return card.face(keyFor(card)) // the key is asked for each time: Forge may have come up since
     }
 
-    private fun copyToClipboard(text: String) {
+    /** Where the app puts what it copies (export, `copy`); the tests keep it off the system clipboard. */
+    var writeClipboard: (String) -> Unit = { text ->
         java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(text), null)
     }
+
+    private fun copyToClipboard(text: String) = writeClipboard(text)
 
     /** The deck open in the workspace; null in the library. */
     val editing: mtgoracle.core.lookup.DeckScope? get() = commands?.scope

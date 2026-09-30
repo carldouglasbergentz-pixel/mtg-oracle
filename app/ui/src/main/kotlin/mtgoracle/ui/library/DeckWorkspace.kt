@@ -43,6 +43,7 @@ import mtgoracle.ui.kit.WrapText
 import mtgoracle.ui.kit.ZoomPane
 import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.region
+import mtgoracle.ui.lookup.AskBar
 import mtgoracle.ui.lookup.CommandLine
 import mtgoracle.ui.lookup.DeckTab
 import mtgoracle.ui.lookup.EditAction
@@ -125,6 +126,9 @@ fun DeckWorkspace(
             "results" -> onToggleResults()
             "deck-mode" -> onToggleDeckMode()
             "force" -> lookup.edit(EditAction.Force)
+            "import" -> deck?.let { lookup.intent(LibraryIntent.ImportInto(it.id)) }
+            "export" -> deck?.let { lookup.intent(LibraryIntent.Export(it.id)) }
+            "format" -> deck?.let { lookup.intent(LibraryIntent.DeckFormat(it.id)) }
         }
     }
     BoxWithConstraints(
@@ -187,6 +191,10 @@ fun DeckWorkspace(
                         else EditableDeck(
                             deck, lookup.deckTab, deckMode, left - 2, selected = deckRow.takeIf { inDeck }, keyFor = keyFor,
                             points = lookup::pointsOf, flags = lookup.flags, history = lookup.history,
+                            extraMenu = { row ->
+                                if (row.section == DeckSection.CONSIDERING) emptyList()
+                                else listOf("choose printing..." to { lookup.intent(LibraryIntent.ChoosePrinting(deck.id, row.card.name, row.section)) })
+                            },
                             onTab = { lookup.deckTab = it; deckRow = null }, onEdit = lookup.edit,
                             onOpen = { lookup.open(OutputLink.Card(it)) }, onHover = { zoom = it },
                         )
@@ -209,8 +217,9 @@ fun DeckWorkspace(
                         )
                     }
                 }
-                ZoomPane(zoom, SIDE_COLS, imageRows = 20, textMode = false, modifier = Modifier.cellWidth(SIDE_COLS).fillMaxHeight())
+                ZoomPane(lookup.hoverFace ?: zoom, SIDE_COLS, imageRows = 20, textMode = false, modifier = Modifier.cellWidth(SIDE_COLS).fillMaxHeight())
             }
+            lookup.ask?.let { ask -> AskBar(ask) { lookup.ask = null; lookup.hoverFace = null; focus.requestFocus() } }
             lookup.refusal?.let { r ->
                 Row(Modifier.fillMaxWidth()) {
                     GridText(" ✗ ", color = Palette.tapped, bold = true)
@@ -228,7 +237,7 @@ fun DeckWorkspace(
                 count = lookup.count,
             )
             Buttons(listOf(
-                "library" to "[ Library ]", "play" to "[ Play ]",
+                "library" to "[ Library ]", "play" to "[ Play ]", "import" to "[ Import ]", "export" to "[ Export ]", "format" to "[ Format ]",
                 "results" to if (lookup.grid) "[ Results as lines ]" else "[ Results as grid ]",
                 "deck-mode" to if (deckMode == CardMode.TEXT) "[ Deck as frames ]" else "[ Deck as lines ]",
             ), onClick)

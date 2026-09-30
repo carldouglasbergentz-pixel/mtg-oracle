@@ -8,36 +8,25 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.isSecondaryPressed
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
 import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.DeckRevision
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.core.deck.Section
-import mtgoracle.ui.kit.BoxPane
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardFrame
 import mtgoracle.ui.kit.CardMode
+import mtgoracle.ui.kit.ContextMenu
+import mtgoracle.ui.kit.onRightClick
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.clickTarget
@@ -111,6 +100,8 @@ internal fun EditableDeck(
     points: (String) -> Int?,
     flags: Map<String, String>,
     history: List<DeckRevision>,
+    /** More of a row's menu, from the owner: choose a printing. */
+    extraMenu: (DeckRow) -> List<Pair<String, () -> Unit>> = { emptyList() },
     onTab: (DeckTab) -> Unit,
     onEdit: (EditAction) -> Unit,
     onOpen: (String) -> Unit,
@@ -132,10 +123,7 @@ internal fun EditableDeck(
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
                             inGroup.forEach { row ->
                                 val face = row.card.face(keyFor(row.card))
-                                var where by remember { mutableStateOf<LayoutCoordinates?>(null) }
-                                Column(Modifier.onGloballyPositioned { where = it }.onPointerEvent(PointerEventType.Press) { e ->
-                                    if (e.buttons.isSecondaryPressed) menu = row to (where?.localToWindow(e.changes.first().position) ?: e.changes.first().position)
-                                }) {
+                                Column(Modifier.onRightClick { menu = row to it }) {
                                     CardFrame(face, mode, target = ClickTarget.Link(OutputLink.Card(row.card.name), linkAt(row, 0)), onClick = { onOpen(row.card.name) },
                                         onHover = { onHover(face) }, mark = points(row.card.name)?.let { "($it)" },
                                         emphasis = if (rows.indexOf(row) == selected) mtgoracle.ui.kit.Emphasis.SELECTABLE else mtgoracle.ui.kit.Emphasis.NONE)
@@ -155,27 +143,9 @@ internal fun EditableDeck(
         }
     }
     menu?.let { (row, at) ->
-        // [at] is in window coordinates: the menu opens where the click was, kept inside the window.
-        val place = remember(at) {
-            object : PopupPositionProvider {
-                override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) = IntOffset(
-                    at.x.toInt().coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0),
-                    at.y.toInt().coerceAtMost(windowSize.height - popupContentSize.height).coerceAtLeast(0),
-                )
-            }
-        }
-        Popup(popupPositionProvider = place, onDismissRequest = { menu = null }, properties = PopupProperties(focusable = true)) {
-            BoxPane(row.card.name, borderColor = Palette.accent) {
-                Column {
-                    rowMenu(row).forEachIndexed { i, (label, action) ->
-                        GridText(" $label ", Modifier.clickTarget(ClickTarget.Control("menu:$i"), {
-                            menu = null
-                            if (action == null) onOpen(row.card.name) else onEdit(action)
-                        }).pointerHoverIcon(PointerIcon.Hand))
-                    }
-                }
-            }
-        }
+        ContextMenu(row.card.name, rowMenu(row).map { (label, action) ->
+            label to { if (action == null) onOpen(row.card.name) else onEdit(action) }
+        } + extraMenu(row), at) { menu = null }
     }
 }
 
@@ -229,10 +199,7 @@ private fun Line(
     val controls = if (row.section == DeckSection.CONSIDERING) 16 else if (row.section == DeckSection.COMMANDER) 3 else 6
     val name = row.card.name + (points(row.card.name)?.let { " ($it)" } ?: "")
     val rest = maxOf(8, cols - controls - 4)
-    var where by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    Row(Modifier.onGloballyPositioned { where = it }.onPointerEvent(PointerEventType.Press) { e ->
-        if (e.buttons.isSecondaryPressed) onMenu(where?.localToWindow(e.changes.first().position) ?: e.changes.first().position)
-    }) {
+    Row(Modifier.onRightClick(onMenu)) {
         Controls(row, onEdit)
         GridText(" %2d ".format(row.card.quantity), color = if (chosen) Palette.accent else Palette.foreground, bold = chosen)
         val text = fit("%-30s %s".format(name, face.manaCost) + (flag?.let { "  ! $it" } ?: ""), rest)

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (step 4b: managing decks in the app)
+- **The library:**
+  - **[ New deck ]**, **[ New folder ]** and **[ Import ]**;
+  - a right-click on a deck: open, play, rename, move to a folder, format, export, delete;
+  - a right-click on a folder: new deck here, import here, default format (optionally stamped on its decks without one), delete;
+  - every folder is shown, the empty ones too.
+- **Nothing is written before you answer.** A name to type, a choice from a list or a confirmation opens above the command line, and Esc or Cancel changes nothing. Delete says the considering list and the history go with the deck.
+- **Import from the clipboard,** as a new deck (which then opens) or into the open deck:
+  - **add to it**, or **replace it**;
+  - a replace runs dry first, its changes are listed in the output, and only then does it ask;
+  - names that resolve to nothing are named, and are left out only when you say yes;
+  - a list's maybeboard (`Maybeboard`, `Maybe`, `Considering`) fills the considering list.
+- **Export to the clipboard,** with full names or front faces only (split cards stay whole). The printings go with it, so export and then import keeps the art.
+- **Choose a card's printing:** a deck row's menu > choose printing… lists every printing Forge knows, newest first, and the zoom pane shows each one's art on hover. It is a `printing` revision and can be undone (the Jace-to-WWK-31 wish).
+- **The engine behind it is ported and checked.** DeckParser is held to Python on every reference list. DeckParityTest runs 103 changes, and the library, paste, replace, printing and export operations agree with Python's.
+
 ### Changed (the repository follows the app-first scope)
 - **The schema migrations moved to `scripts/migrations/`,** so `scripts/` holds the tools you run. They are still imported by their bare names (self_heal puts the folder on the path), so reports and tests name them as before. `python scripts/migrations/migrate_<name>.py` runs one directly.
 - **Reports and their reference lists moved to `docs/reports/`:** `docs/reports/*-report.html`, `report-style.md`, and `docs/reports/decklists/<name>/` (`uw-canlander`, `elminster-duel-commander`, `duel-commander-2026`), without the spaces in the old folder names. `docs/` itself is the plan, the design and the decisions.

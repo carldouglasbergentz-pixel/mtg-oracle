@@ -5,6 +5,7 @@ import forge.card.CardEdition
 import forge.deck.Deck
 import forge.deck.DeckSection
 import forge.item.PaperCard
+import mtgoracle.core.deck.CardPrinting
 import mtgoracle.core.deck.PlayCard
 import mtgoracle.core.deck.PlayDeck
 import mtgoracle.core.deck.Section
@@ -67,6 +68,21 @@ object ForgeCards {
             holding.firstOrNull()?.let { cards -> return db.getCard(forgeName, cards.first().edition) ?: cards.minBy { it.artIndex } }
         }
         return db.getCard(forgeName) ?: printings.first()
+    }
+
+    /**
+     * Every printing Forge knows of [name], newest first, as Scryfall spells
+     * it (the edition's ScryfallCode, else its Code, lower-cased): what the
+     * art chooser offers. Empty when Forge lacks the card.
+     */
+    fun printings(name: String): List<CardPrinting> {
+        val db = StaticData.instance().commonCards
+        val cards = db.getAllCards(forgeCardName(name)).ifEmpty { db.getAllCards(name) }
+        val editions = StaticData.instance().editions
+        return cards.mapNotNull { pc ->
+            val edition = editions.get(pc.edition) ?: return@mapNotNull null
+            CardPrinting(scryfallCode(edition), pc.collectorNumber?.takeIf { it.isNotBlank() }, edition.name, edition.date?.let { java.text.SimpleDateFormat("yyyy-MM-dd").format(it) }.orEmpty())
+        }.distinctBy { it.setCode to it.collectorNumber }.sortedWith(compareByDescending<CardPrinting> { it.date }.thenBy { it.setCode })
     }
 
     fun check(play: PlayDeck): DeckCheck {

@@ -30,6 +30,8 @@ enum class KeyRoute { HANDLED, TO_LINE, TO_SCREEN }
  * What is left is the screen's.
  */
 fun routeKey(e: KeyEvent, lookup: LookupUi, commandFocus: FocusRequester): KeyRoute {
+    // An open question has the keyboard: its field, its buttons, its Esc.
+    if (lookup.ask != null) return KeyRoute.TO_LINE
     if (e.isCtrlPressed && e.key == Key.L) { lookup.output.clear(); return KeyRoute.HANDLED }
     if (lookup.command.focused) return KeyRoute.TO_LINE
     if (e.utf16CodePoint == ':'.code || (e.isCtrlPressed && e.key == Key.K)) {

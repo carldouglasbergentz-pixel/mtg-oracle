@@ -45,22 +45,22 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 
 | Feature | Today | Step | Status |
 |---|---|---|---|
-| Folders and decks; unsorted decks; unique names per folder | `ls`, `cd`, `mkdir`, `rmdir` | 2 (read) / 4 (edit) | ▶ read-only library |
+| Folders and decks; unsorted decks; unique names per folder | `ls`, `cd`, `mkdir`, `rmdir` | 2 (read) / 4 (edit) | ✓ 4b: [ New deck ] [ New folder ], a folder's and a deck's right-click menu; every folder shown, the empty ones too |
 | Deck view grouped by type; commander pinned; CI badge; pointed cards `Name (3)` | nav pane, `show` | 2 | ▶ |
 | Deck workspace: the deck beside a search that follows it, results as a card grid or lines, arrow-key selection | — (new, 3.5; Moxfield's edit mode) | 3.5 | ✓ editing since 4a |
 | Considering list (Moxfield's maybeboard): not counted, exported or played; `!` where a rule would stop a card | — (new, 4a) | 4a | ✓ app: the Considering tab; TUI: `consider` and both deck views |
 | Live nav analytics: curve, avg MV, pips, sources by colour, combos in deck | nav pane | 5 | ○ |
 | Add / remove with format rules: CI, legality, singleton (incl. "up to N"), restricted, points; `--force` | `add`, `remove` | 4 | ✓ 4a: the workspace's buttons, keys, menu and `add`/`remove`; `add anyway` is `--force`; DeckParityTest checks every rule against Python |
 | Commander promote / demote, auto-set format | `commander` | 4 | ✓ 4a: the menu and `commander [--unset]` |
-| Deck format and folder default format | `format` | 4 | ○ |
+| Deck format and folder default format | `format` | 4 | ✓ 4b: format... in the menus and [ Format ] in the workspace, chosen from every known format; a folder default can be stamped on its decks without one |
 | Points spend vs budget | `points` | 4 | ✓ 4a: `9/10 pts` in the deck pane's title, pointed cards `(3)` in the deck and in search results |
-| Rename / move / delete deck | `rename`, `move`, `remove` | 4 | ○ |
-| Import / paste (append), tolerant parser (Moxfield, Archidekt, MTGO, mtgtop8, BOM, `SB:`, headers with counts) | `import`, `paste` | 4 | ○ |
-| Replace from a list with diff; abort on unknown cards | `paste --replace` | 4 | ○ |
+| Rename / move / delete deck | `rename`, `move`, `remove` | 4 | ✓ 4b: the deck's menu; delete asks first and says the history goes with it |
+| Import / paste (append), tolerant parser (Moxfield, Archidekt, MTGO, mtgtop8, BOM, `SB:`, headers with counts) | `import`, `paste` | 4 | ✓ 4b: [ Import ] from the clipboard, as a new deck or into the open one; DeckParser checked against Python on every reference list; the maybeboard fills the considering list |
+| Replace from a list with diff; abort on unknown cards | `paste --replace` | 4 | ✓ 4b: Import > Replace shows the changes first (a dry run), then asks; unknown names are named and left out only on yes |
 | History and undo / redo | `history`, `undo` | 4 | ✓ 4a: the History tab (every change, both apps' alike) and `undo` (undo of undo is redo) |
-| Printings (set + collector number) kept from the paste, used for art | parser + `deck_cards` | 2 | ▶ |
-| Choose a card's printing / art in the app (pick from its printings in the deck view or zoom pane; recorded in deck history, undoable) | — (new; wanted 2026-09-29 — Jace set to WWK 31 by hand) | 4 | ○ |
-| Export to clipboard / file, round-trips; `--front-face`, `--grouped` | `export` | 4 | ○ |
+| Printings (set + collector number) kept from the paste, used for art | parser + `deck_cards` | 2 | ✓ kept on import and replace, written back by export |
+| Choose a card's printing / art in the app (pick from its printings in the deck view or zoom pane; recorded in deck history, undoable) | — (new; wanted 2026-09-29 — Jace set to WWK 31 by hand) | 4 | ✓ 4b: a row's menu > choose printing..., every printing Forge knows, newest first, the art in the zoom pane on hover; a `printing` revision, undoable |
+| Export to clipboard / file, round-trips; `--front-face`, `--grouped` | `export` | 4 | ▶ 4b: to the clipboard, full names or front faces (split cards whole); `--grouped` needs the roles (step 5); to a file stays the TUI's |
 | Combos fully contained in a deck | `combos` in a deck | 5 | ○ |
 
 ## Analysis

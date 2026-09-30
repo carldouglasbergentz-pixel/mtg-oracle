@@ -75,6 +75,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             onSelect = app::select, onPlay = app::openSetup, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit,
             lookup = app.lookupUi,
             onEdit = app::edit,
+            folders = app.folders,
         )
         Screen.Setup -> {
             val me = app.decks.first { it.id == app.selectedId }

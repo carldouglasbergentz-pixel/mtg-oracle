@@ -43,7 +43,12 @@ import mtgoracle.ui.kit.ZoomPane
 import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.fit
+import mtgoracle.ui.lookup.AskBar
 import mtgoracle.ui.lookup.CommandLine
+import mtgoracle.ui.kit.ContextMenu
+import mtgoracle.ui.kit.onRightClick
+import mtgoracle.core.deck.Folder
+import androidx.compose.ui.geometry.Offset
 import mtgoracle.ui.lookup.KeyRoute
 import mtgoracle.ui.lookup.LookupUi
 import mtgoracle.ui.lookup.OutputLink
@@ -81,7 +86,11 @@ fun LibraryScreen(
     onQuit: () -> Unit,
     lookup: LookupUi? = null,
     onEdit: () -> Unit = {},
+    /** Every folder, the empty ones too: a folder just made has no deck yet. */
+    folders: List<Folder> = emptyList(),
 ) {
+    var menu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
+    val selectedFolder = decks.firstOrNull { it.id == selectedId }?.folderId
     var zoom by remember { mutableStateOf<CardFace?>(null) }
     val focus = remember { FocusRequester() }
     val commandFocus = remember { FocusRequester() }
@@ -103,6 +112,9 @@ fun LibraryScreen(
             name == "play" -> onPlay()
             name == "mode" -> onToggleMode()
             name == "prefetch" -> onPrefetch()
+            name == "new-deck" -> lookup?.intent?.invoke(LibraryIntent.NewDeck(selectedFolder))
+            name == "new-folder" -> lookup?.intent?.invoke(LibraryIntent.NewFolder)
+            name == "import" -> lookup?.intent?.invoke(LibraryIntent.Import(selectedFolder))
         }
     }
     fun move(by: Int) {
@@ -139,19 +151,27 @@ fun LibraryScreen(
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
                 BoxPane("decks", Modifier.cellWidth(DECK_LIST_COLS).fillMaxHeight()) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        var folder: String? = "\u0000"
-                        decks.forEach { d ->
-                            if (d.folderName != folder) {
-                                folder = d.folderName
-                                GridText(fit(d.folderName ?: "(no folder)", DECK_LIST_COLS - 2), color = Palette.dim, bold = true)
+                        // Every folder, empty or not, then the decks outside them. A right-click opens a menu.
+                        // The folders listed, and any a deck names that the list lacks: no deck may go missing.
+                        val known = folders.map { it.id as Int? to it.name }
+                        val unlisted = decks.filter { d -> d.folderId != null && known.none { it.first == d.folderId } }
+                            .map { it.folderId to (it.folderName ?: "folder #${it.folderId}") }.distinct()
+                        val groups = (known + unlisted).sortedBy { it.second.lowercase() } + (null to "(no folder)")
+                        for ((folderId, folderName) in groups) {
+                            val inFolder = decks.filter { it.folderId == folderId }
+                            if (folderId == null && inFolder.isEmpty()) continue
+                            GridText(fit(folderName + if (inFolder.isEmpty()) "  (empty)" else "", DECK_LIST_COLS - 2),
+                                Modifier.clickTarget(ClickTarget.Control("folder:${folderId ?: "none"}"), {}).onRightClick { at -> folderId?.let { menu = "folder:$it" to at } },
+                                color = Palette.dim, bold = true)
+                            inFolder.forEach { d ->
+                                val selected = d.id == selectedId
+                                GridText(
+                                    fit("  ${d.name}".padEnd(DECK_LIST_COLS - 8) + "%4d".format(d.cardCount), DECK_LIST_COLS - 2),
+                                    Modifier.clickTarget(ClickTarget.Control("deck:${d.id}"), onClick).onRightClick { at -> showDeck(d.id); menu = "deck:${d.id}" to at },
+                                    color = if (selected) Palette.background else Palette.foreground,
+                                    background = if (selected) Palette.foreground else Color.Unspecified,
+                                )
                             }
-                            val selected = d.id == selectedId
-                            GridText(
-                                fit("  ${d.name}".padEnd(DECK_LIST_COLS - 8) + "%4d".format(d.cardCount), DECK_LIST_COLS - 2),
-                                Modifier.clickTarget(ClickTarget.Control("deck:${d.id}"), onClick),
-                                color = if (selected) Palette.background else Palette.foreground,
-                                background = if (selected) Palette.foreground else Color.Unspecified,
-                            )
                         }
                     }
                 }
@@ -172,8 +192,9 @@ fun LibraryScreen(
                         }
                     }
                 }
-                ZoomPane(zoom, SIDE_COLS, imageRows = 20, textMode = mode == CardMode.TEXT, modifier = Modifier.cellWidth(SIDE_COLS).fillMaxHeight())
+                ZoomPane(lookup?.hoverFace ?: zoom, SIDE_COLS, imageRows = 20, textMode = mode == CardMode.TEXT, modifier = Modifier.cellWidth(SIDE_COLS).fillMaxHeight())
             }
+            lookup?.ask?.let { ask -> AskBar(ask) { lookup.ask = null; lookup.hoverFace = null; focus.requestFocus() } }
             if (lookup != null) {
                 CommandLine(
                     lookup.command, lookup.prompt, lookup.suggest,
@@ -185,11 +206,34 @@ fun LibraryScreen(
                     count = lookup.count,
                 )
             }
-            Buttons(listOf("edit" to "[ Edit ]", "play" to "[ Play ]", "mode" to if (mode == CardMode.ART) "[ Text ]" else "[ Art ]", "prefetch" to "[ Fetch images ]"), onClick)
+            Buttons(listOf(
+                "edit" to "[ Edit ]", "play" to "[ Play ]", "new-deck" to "[ New deck ]", "new-folder" to "[ New folder ]", "import" to "[ Import ]",
+                "mode" to if (mode == CardMode.ART) "[ Text ]" else "[ Art ]", "prefetch" to "[ Fetch images ]",
+            ), onClick)
             val hints = if (lookup?.command?.focused == true) TYPING_HINTS
             else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter" to "edit", "P" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
             StatusLine(hints, notice, cols)
         }
+    }
+    menu?.let { (what, at) ->
+        val intent = lookup?.intent ?: return@let
+        val id = what.substringAfter(':').toInt()
+        val items: List<Pair<String, () -> Unit>> = if (what.startsWith("deck:")) listOf(
+            "open to edit" to { onSelect(id); onEdit() },
+            "play" to { onSelect(id); onPlay() },
+            "rename..." to { intent(LibraryIntent.RenameDeck(id)) },
+            "move to folder..." to { intent(LibraryIntent.MoveDeck(id)) },
+            "format..." to { intent(LibraryIntent.DeckFormat(id)) },
+            "export to the clipboard" to { intent(LibraryIntent.Export(id)) },
+            "delete..." to { intent(LibraryIntent.DeleteDeck(id)) },
+        ) else listOf(
+            "new deck here..." to { intent(LibraryIntent.NewDeck(id)) },
+            "import a deck here..." to { intent(LibraryIntent.Import(id)) },
+            "default format..." to { intent(LibraryIntent.FolderFormat(id)) },
+            "delete folder..." to { intent(LibraryIntent.DeleteFolder(id)) },
+        )
+        val title = if (what.startsWith("deck:")) decks.firstOrNull { it.id == id }?.name.orEmpty() else folders.firstOrNull { it.id == id }?.name.orEmpty()
+        ContextMenu(title, items, at) { menu = null }
     }
     LaunchedEffect(Unit) { startFocus(lookup, focus, commandFocus) }
 }

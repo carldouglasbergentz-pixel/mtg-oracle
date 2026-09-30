@@ -92,10 +92,15 @@ class LookupCommands(
         return true
     }
 
-    /** After a change to deck [id]: its scope again (a new commander is a new identity), then the screen. */
+    /** After a change to deck [id]: its scope again (a new commander is a new identity, a rename a new prompt), then the screen. */
     private fun deckChanged(id: Int) {
-        if (scope?.deckId == id) lookup.deckScope(id)?.let { scope = it }
+        if (scope?.deckId == id) lookup.deckScope(id)?.let { scope = it; ui.prompt = "${it.deckName}> " }
         onDeckChanged(id)
+    }
+
+    /** Deck [id] was changed from outside the workspace's edits (a rename, a format, an import): read everything again. */
+    fun refreshDeck(id: Int) {
+        if (scope?.deckId == id && editing != null) editing.refresh(id) else deckChanged(id)
     }
 
     /** Back to the library: search covers the whole pool again. */

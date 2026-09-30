@@ -26,6 +26,12 @@ class LookupUi(
     /** A change to the open deck (the workspace's buttons, keys and menus). */
     val edit: (EditAction) -> Unit = {},
 ) {
+    /** A change to the library (a new deck, a rename, an import...): set by the app, which asks and writes. */
+    var intent: (mtgoracle.ui.library.LibraryIntent) -> Unit = {}
+    /** A question open over the screen (a name, a choice, a confirmation); it has the keyboard while it is. */
+    var ask by mutableStateOf<Ask?>(null)
+    /** What the zoom pane shows while a question offers cards (a printing under the mouse); over the screen's own. */
+    var hoverFace by mutableStateOf<CardFace?>(null)
     /** Why the last change was refused; null once something else happens. */
     var refusal by mutableStateOf<Refusal?>(null)
     var deckTab by mutableStateOf(DeckTab.DECK)

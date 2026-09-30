@@ -100,3 +100,6 @@ object DeckRules {
     /** Where two changes sort in a revision: by section, then by name ignoring case. */
     val CHANGE_ORDER: Comparator<Pair<String, DeckSection>> = compareBy({ it.second.ordinal }, { it.first.lowercase() })
 }
+
+/** One printing of a card as the art chooser lists it: Scryfall's set code and number, and what the set is. */
+data class CardPrinting(val setCode: String, val collectorNumber: String?, val setName: String, val date: String)
