@@ -43,6 +43,10 @@ ANALYSIS
                                       outside their ranges, and the cards they play that it lacks
   Import reference lists into a folder and they become a reference set.
 
+GAMES
+  results [<deck>]                    wins–losses–draws against each opponent: the games you
+                                      played, and the AI's (simulated on the setup screen, S)
+
 MORE
   copy [last|all]                     the last command's output, or all of it, to the clipboard
   clear                               clear the output (Ctrl+L)

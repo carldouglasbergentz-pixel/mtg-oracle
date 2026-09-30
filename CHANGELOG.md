@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (step 5c: simulations in the app)
+- **[ Simulate N ] on the setup screen** (S, with N cycling 1 / 5 / 10 / 20 / 50) plays that many AI-vs-AI games of the chosen pairing, with no board, one after another in the app's own Forge. Both AIs play their AI copies while "AI copy" is on.
+  - Each game is recorded as it ends, all under one `match_id` with `game_no` 1..N. A stopped simulation keeps what it played, and the game it stopped is not recorded.
+  - A game past 150 s is stopped as a draw.
+  - Progress is on the status line; S stops it. A game and a simulation exclude each other, since Forge holds one match at a time.
+- **Simulated games take seconds, not a minute.** With nobody watching, Forge's spectator playback (`FControlGamePlayback`) slept on every land, cast and resolve. A simulation unsubscribes it just before the game begins; watching keeps its pace. Two games went from 110 s to 7 s.
+- **`results [<deck>]`** gives each deck's record against each opponent: wins–losses–draws from that deck's side, your games apart from the AI's, and the average length. The setup screen shows your record against each opponent (`you 1–0 · AI 12–7–1`).
+- **`games.deck_ai_variant`** (migration `migrate_add_game_deck_ai_variant`) records whether seat A played its AI copy, as `opponent_ai_variant` does for the opponent. Applied to the live database after a backup (`data/backups/mtg-2026-09-30-pre-game-ai-variant.db`), with the user's go-ahead. Simulations are stored in `games`, the app's own table; the Python CLI's `forge_matches` (empty) goes when the schema moves to Kotlin.
+
 ### Changed
 - **Opening another deck empties the output pane,** so the last deck's searches and reports don't crowd the new one (from the user). The same deck again keeps its output, a `cd` keeps its own line, and `next` / `combo-info <N>` no longer reach into a list that is gone.
 

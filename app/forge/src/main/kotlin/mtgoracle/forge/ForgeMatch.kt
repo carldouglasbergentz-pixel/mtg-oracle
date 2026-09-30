@@ -37,6 +37,11 @@ data class MatchSpec(
     val startState: List<String>? = null,
     /** Best of 1, 3 or 5 (a human's match; watching is always one game). */
     val format: MatchFormat = MatchFormat.BO1,
+    /**
+     * AI vs AI at Forge's spectator pace, which sleeps on every event so a
+     * person can follow it. A simulation has nobody watching and turns it off.
+     */
+    val paced: Boolean = true,
 )
 
 /**
@@ -139,11 +144,15 @@ object ForgeMatch {
 
         val hosted = HostedMatch()
         val running = RunningMatch(spec, gui, recorder, Instant.now(), hosted)
-        spec.startState?.let { lines ->
+        val unpaced = spec.mode == GameMode.AI_VS_AI && !spec.paced
+        if (spec.startState != null || unpaced) {
             hosted.setStartGameHook {
-                val state = GameState()
-                state.parse(lines)
-                state.applyToGame(hosted.game)
+                if (unpaced) stopPacing(hosted, recorder)
+                spec.startState?.let { lines ->
+                    val state = GameState()
+                    state.parse(lines)
+                    state.applyToGame(hosted.game)
+                }
             }
         }
         gui.onFinished = { running.gameEnded(result(gui, seatPlayer, running)) }
@@ -160,6 +169,26 @@ object ForgeMatch {
             }
         }
         return running
+    }
+
+    /**
+     * With no human in the match, HostedMatch subscribes an FControlGamePlayback
+     * to the game, and it sleeps on every land, cast and resolve for a
+     * spectator's eyes: a simulated game took about a minute instead of
+     * seconds. Neither the playback nor the game's event bus is public, so it
+     * is unsubscribed through them here, just before the game begins. If a
+     * Forge release renames them, the game still plays, only at that pace.
+     */
+    private fun stopPacing(hosted: HostedMatch, recorder: GameRecorder) {
+        try {
+            val playback = HostedMatch::class.java.getDeclaredField("playbackControl").apply { isAccessible = true }.get(hosted) ?: return
+            val events = forge.game.Game::class.java.getDeclaredField("events").apply { isAccessible = true }.get(hosted.game)
+                as com.google.common.eventbus.EventBus
+            events.unregister(playback)
+        } catch (e: ReflectiveOperationException) {
+            Log.warn("could not turn off Forge's spectator pacing: ${e.message}")
+            recorder.note("WARNING Forge's spectator pacing is still on: ${e.message}")
+        }
     }
 
     private fun registered(deck: PlayDeck, commander: Boolean): RegisteredPlayer {

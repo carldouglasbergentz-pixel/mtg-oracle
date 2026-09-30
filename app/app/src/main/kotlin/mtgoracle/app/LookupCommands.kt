@@ -4,6 +4,8 @@ import mtgoracle.core.analysis.Archetype
 import mtgoracle.core.analysis.DeckList
 import mtgoracle.core.analysis.Roles
 import mtgoracle.core.deck.DeckSummary
+import mtgoracle.core.play.DeckKey
+import mtgoracle.core.play.Records
 import mtgoracle.core.lookup.ComboSummary
 import mtgoracle.core.lookup.DeckScope
 import mtgoracle.core.lookup.Explain
@@ -38,6 +40,7 @@ import mtgoracle.ui.lookup.renderComparison
 import mtgoracle.ui.lookup.renderCorrections
 import mtgoracle.ui.lookup.renderProfile
 import mtgoracle.ui.lookup.renderRanking
+import mtgoracle.ui.lookup.renderResults
 import mtgoracle.ui.lookup.renderDeckFilterNotice
 import mtgoracle.ui.lookup.renderRule
 import mtgoracle.ui.lookup.renderRulesSearch
@@ -189,6 +192,7 @@ class LookupCommands(
             "combos" -> if (arg.isEmpty() && currentDeck() != null) deckCombos() else combos(arg)
             "profile" -> profile(arg)
             "compare" -> compare(arg)
+            "results" -> results(arg)
             "combo-info" -> comboInfo(arg)
             "rule" -> if (arg.isEmpty()) say("usage: rule <rule_number>") else rule(arg)
             "search-rules" -> if (arg.isEmpty()) say("usage: search-rules <text>") else say(renderRulesSearch(arg, lookup.rules.search(arg, limit = 25)))
@@ -452,6 +456,23 @@ class LookupCommands(
     private fun currentDeck(): DeckSummary? = (scope?.deckId ?: selectedDeck())?.let { id -> decks().firstOrNull { it.id == id } }
 
     private fun deckList(d: DeckSummary) = lookup.analysis.deckList(d.id, d.name)
+
+    /**
+     * `results`: every deck's record against each opponent; `results <deck>`
+     * (or the deck you are in or on, with `results .`) just that deck's.
+     */
+    private fun results(arg: String) {
+        val games = lookup.games.played()
+        if (arg.isEmpty()) {
+            val keys = Records.decks(games).sortedBy { it.name.lowercase() }
+            return say(renderResults(keys.map { it.name to Records.of(it, games) }))
+        }
+        val deck = (if (arg == ".") currentDeck() else findDeck(arg).getOrElse { return say(it.message!!) })
+            ?: return say(if (arg == ".") "usage: results [<deck>]   (`results .` is the deck you are in or on)" else "results: no deck named '$arg'")
+        val matchups = Records.of(DeckKey(deck.id, deck.name), games)
+        if (matchups.isEmpty()) return say("(no games recorded for ${deck.name} yet: play one, or simulate from the setup screen)", Tone.DIM)
+        say(renderResults(listOf(deck.name to matchups)))
+    }
 
     /** `combos` in or on a deck: every combo it holds whole, numbered for `combo-info <N>`. */
     private fun deckCombos() {

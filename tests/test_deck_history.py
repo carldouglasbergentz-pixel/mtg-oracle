@@ -653,10 +653,12 @@ class TestPrintingsMigration(unittest.TestCase):
         self.run_migration()
         # games is widened by the match migration after this one, as
         # self_heal runs them; init_db has the end state.
+        import migrate_add_game_deck_ai_variant as ai_variant
         import migrate_add_game_matches as matches
-        with mock.patch.object(matches, "DB_PATH", self.db), \
-                contextlib.redirect_stdout(io.StringIO()):
-            matches.main()
+        for later in (matches, ai_variant):
+            with mock.patch.object(later, "DB_PATH", self.db), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                later.main()
         fresh = sqlite3.connect(":memory:")
         fresh.executescript(init_db.SCHEMA)
         migrated = sqlite3.connect(self.db)
@@ -770,6 +772,11 @@ class TestGameMatchesMigration(unittest.TestCase):
 
     def test_matches_init_db(self):
         self.run_migration()
+        # games is widened once more after this one, as self_heal runs them.
+        import migrate_add_game_deck_ai_variant as ai_variant
+        with mock.patch.object(ai_variant, "DB_PATH", self.db), \
+                contextlib.redirect_stdout(io.StringIO()):
+            ai_variant.main()
         fresh = sqlite3.connect(":memory:")
         fresh.executescript(init_db.SCHEMA)
         migrated = sqlite3.connect(self.db)
@@ -787,6 +794,8 @@ class TestGameMatchesMigration(unittest.TestCase):
         import self_heal
         order = [m.__name__ for m in self_heal.MIGRATIONS]
         self.assertGreater(order.index("migrate_add_game_matches"),
+                           order.index("migrate_add_printings_and_games"))
+        self.assertGreater(order.index("migrate_add_game_deck_ai_variant"),
                            order.index("migrate_add_printings_and_games"))
 
     def test_no_games_table_is_left_alone(self):

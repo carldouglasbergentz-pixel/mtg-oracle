@@ -32,6 +32,8 @@ data class GameRecord(
     val matchFormat: MatchFormat? = null,
     /** This seat conceded the game (the winner is then the opponent). */
     val conceded: Boolean = false,
+    /** Seat A played its AI copy: only in a simulation, since the human plays the deck as built. */
+    val deckAiVariant: Boolean = false,
 )
 
 /** Best of 1, 3 or 5: `games.match_format`. */

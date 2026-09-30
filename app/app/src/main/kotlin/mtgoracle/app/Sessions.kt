@@ -37,8 +37,9 @@ data class Prepared(
  */
 class Sessions(private val store: GameStore?, private val logDir: File) {
 
-    fun prepare(me: Deck, opponent: Deck, useAiCopy: Boolean): Prepared {
-        val seat = AiCopy.asBuilt(me)
+    /** [seatAiCopy]: seat A plays its AI copy too, as in a simulation; a human plays the deck as built. */
+    fun prepare(me: Deck, opponent: Deck, useAiCopy: Boolean, seatAiCopy: Boolean = false): Prepared {
+        val seat = (if (seatAiCopy) AiCopy.aiCopy(me) else null) ?: AiCopy.asBuilt(me)
         val opp = (if (useAiCopy) AiCopy.aiCopy(opponent) else null) ?: AiCopy.asBuilt(opponent)
         val notes = mutableListOf<String>()
         if (seat.gameType != opp.gameType) notes += "${me.name} is ${seat.gameType.name.lowercase()} and ${opponent.name} is ${opp.gameType.name.lowercase()}: they can't play each other."
@@ -59,10 +60,12 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         stops: PhaseStops = PhaseStops.DEFAULT,
         startState: List<String>? = null,
         format: MatchFormat = MatchFormat.BO1,
+        /** False for a simulation: no spectator, so no pause on every event. */
+        paced: Boolean = true,
     ): RunningMatch {
         val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
         val watched = if (mode == GameMode.AI_VS_AI) MatchFormat.BO1 else format
-        return ForgeMatch.start(MatchSpec(mode, prepared.seat, prepared.opponent, logDir.resolve("$stamp.log"), seed, stops, startState, watched))
+        return ForgeMatch.start(MatchSpec(mode, prepared.seat, prepared.opponent, logDir.resolve("$stamp.log"), seed, stops, startState, watched, paced))
     }
 
     /**
@@ -92,6 +95,25 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         )
         val id = store?.insert(row) ?: return null
         match.recorder.note("recorded as games #$id (unfinished: the app broke off)")
+        return id
+    }
+
+    /**
+     * One simulated game: `ai_vs_ai`, in the simulation [simId] as game
+     * [gameNo], with no best-of (a simulation is a count of games, not a
+     * match), and whether each side played its AI copy.
+     */
+    fun recordSimulated(match: RunningMatch, result: MatchResult, simId: String, gameNo: Int): Long? {
+        val spec = match.spec
+        val row = GameRecord(
+            playedAt = (result.startedAt ?: match.startedAt).truncatedTo(ChronoUnit.SECONDS), mode = GameMode.AI_VS_AI,
+            deckId = spec.seat.deckId, deckName = spec.seat.name, opponentDeckId = spec.opponent.deckId, opponentName = spec.opponent.name,
+            opponentAiVariant = spec.opponent.isAiCopy, seed = spec.seed, winner = result.winner, turns = result.turns,
+            durationMs = result.durationMs, forgeVersion = ForgeRuntime.version, logPath = spec.logFile.absolutePath,
+            matchId = simId, gameNo = gameNo, matchFormat = null, conceded = false, deckAiVariant = spec.seat.isAiCopy,
+        )
+        val id = store?.insert(row) ?: return null
+        match.recorder.note("recorded as games #$id (simulation $simId, game $gameNo)")
         return id
     }
 

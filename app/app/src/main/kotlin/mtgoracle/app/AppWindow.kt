@@ -88,6 +88,8 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 onSelect = { app.opponentId = it }, onToggleAiCopy = { app.useAiCopy = !app.useAiCopy }, onToggleWatch = { app.watch = !app.watch },
                 onStart = app::start, onBack = app::backToLibrary,
                 format = app.format.label, onCycleFormat = app::cycleFormat,
+                simGames = app.simGames, onCycleSimGames = app::cycleSimGames, simulation = app.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
+                onSimulate = app::simulate, onStopSimulation = app::stopSimulation,
             )
         }
         Screen.Playing -> {

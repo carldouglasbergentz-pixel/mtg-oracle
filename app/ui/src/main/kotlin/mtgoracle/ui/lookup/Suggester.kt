@@ -11,6 +11,8 @@ val COMMANDS = listOf(
     "add", "remove", "consider", "commander", "undo", "history",
     // Analysis.
     "profile", "compare",
+    // Games.
+    "results",
 )
 
 /** What a line's first word must be to run as a command; anything else is a search. */
@@ -41,6 +43,7 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "history" to "history: the open deck's changes (the History tab)",
     "profile" to "profile [<deck>|<folder>]: what the cards do and when each role is castable",
     "compare" to "compare <deck>|<folder>: this deck head to head, or against every deck in the folder",
+    "results" to "results [<deck>]: wins–losses–draws against each opponent, your games and the simulated ones",
 )
 
 /**
@@ -83,7 +86,7 @@ class Suggester(
                 complete(command, rest, cardNames, cardNamesLower)
             "combos" -> combos(command, rest)
             "rule" -> complete(command, rest, ruleNumbers)
-            "cd", "profile", "compare" -> complete(command, rest, deckNames())
+            "cd", "profile", "compare", "results" -> complete(command, rest, deckNames())
             "help", "?" -> complete(command, rest, helpTopics)
             "search" -> query("$command ", rest)
             in COMMAND_WORDS -> null

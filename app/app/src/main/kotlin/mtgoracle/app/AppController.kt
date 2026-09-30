@@ -108,6 +108,7 @@ class AppController(private val paths: AppPaths) {
                 selectedDeck = { selectedId },
             )
             analysis = lookup.analysis
+            lookupGames = lookup.games
             analyse()
             commands = lookupCommands
             val actions = LibraryActions(
@@ -276,8 +277,35 @@ class AppController(private val paths: AppPaths) {
 
     fun opponents(): List<OpponentChoice> {
         val me = deck ?: return emptyList()
-        return decks.mapNotNull { d -> deckById(d.id)?.takeIf { it.gameType == me.gameType }?.let { OpponentChoice(d, it.substitutions.size) } }
+        val records = records(me)
+        return decks.mapNotNull { d ->
+            deckById(d.id)?.takeIf { it.gameType == me.gameType }?.let { OpponentChoice(d, it.substitutions.size, records[d.id]) }
+        }
     }
+
+    /**
+     * [me]'s record against each deck, by deck id, as the setup screen shows
+     * it. Read once per simulated game and per game recorded, not per frame.
+     */
+    private fun records(me: Deck): Map<Int, String> {
+        val stamp = gamesRecorded to decks
+        recordCache?.takeIf { it.first == me.id && it.second == stamp }?.let { return it.third }
+        val games = try { lookupGames?.played() } catch (e: Exception) { Log.error("could not read the games", e); null } ?: return emptyMap()
+        val out = mtgoracle.core.play.Records.of(mtgoracle.core.play.DeckKey(me.id, me.name), games).mapNotNull { m ->
+            val id = m.opponent.id ?: return@mapNotNull null
+            val parts = listOfNotNull(
+                m.played.takeIf { it.games > 0 }?.let { "you ${it.score()}" },
+                m.simulated.takeIf { it.games > 0 }?.let { "AI ${it.score()}" },
+            )
+            id to parts.joinToString(" · ")
+        }.toMap()
+        recordCache = Triple(me.id, stamp, out)
+        return out
+    }
+    private var recordCache: Triple<Int, Pair<Int, List<DeckSummary>>, Map<Int, String>>? = null
+    /** Games written this session, played or simulated: the records are read again when it moves. */
+    @Volatile private var gamesRecorded = 0
+    private var lookupGames: mtgoracle.data.GameStore? = null
 
     fun prepared(): Prepared? {
         if (!forgeReady) return null
@@ -297,8 +325,46 @@ class AppController(private val paths: AppPaths) {
     /** Games of each match written so far: each game is recorded once, by whoever gets there first. */
     private val recorded = java.util.IdentityHashMap<RunningMatch, Int>()
 
+    /** The simulation running, or the last one, until the next starts: the setup screen and status line show it. */
+    var simulation by mutableStateOf<SimProgress?>(null)
+        private set
+    private var sim: Simulation? = null
+    /** How many games [simulate] plays; N cycles it. */
+    var simGames by mutableStateOf(Simulation.COUNTS[2])
+
+    fun cycleSimGames() {
+        simGames = Simulation.COUNTS[(Simulation.COUNTS.indexOf(simGames) + 1) % Simulation.COUNTS.size]
+    }
+
+    val simulating: Boolean get() = simulation?.running == true
+
+    /**
+     * [simGames] AI-vs-AI games of the chosen pairing, without a board, each
+     * recorded as it ends. Both AIs play their AI copies unless that is off.
+     * One match at a time in Forge, so a simulation and a game exclude each other.
+     */
+    fun simulate() {
+        if (simulating) return
+        if (match != null) { notice = "a game is on: finish it before simulating"; return }
+        val me = deck ?: return
+        val opp = opponentId?.let(::deckById) ?: return
+        if (!forgeReady) { notice = "Forge is still loading"; return }
+        val ready = sessions.prepare(me, opp, useAiCopy, seatAiCopy = useAiCopy)
+        if (ready.blocked) { notice = ready.notes.firstOrNull() ?: "these decks can't play each other"; return }
+        val run = Simulation(sessions, ready, simGames, onProgress = { p -> gamesRecorded++; simulation = p; notice = p.line() })
+        sim = run
+        simulation = run.progress
+        notice = run.progress.line()
+        run.start()
+    }
+
+    fun stopSimulation() {
+        sim?.takeIf { simulating }?.stop()
+    }
+
     /** Starts the chosen match; [startState] (a Forge GameState, every game) is for the tests' exact situations. */
     fun start(startState: List<String>? = null) {
+        if (simulating) { notice = "a simulation is running (${simulation?.line()}): stop it first"; return }
         val ready = prepared()?.takeIf { !it.blocked } ?: return
         val running = sessions.start(ready, mode = if (watch) GameMode.AI_VS_AI else GameMode.HUMAN_VS_AI, stops = settings.stops, format = format, startState = startState)
         begin(running)
@@ -337,7 +403,7 @@ class AppController(private val paths: AppPaths) {
                 null
             }
             recorded[running] = recorded.getValue(running) + 1
-            if (id != null) notice = "game ${result.gameNo}: ${result.summary} · recorded as games #$id"
+            if (id != null) { gamesRecorded++; notice = "game ${result.gameNo}: ${result.summary} · recorded as games #$id" }
         }
     }
 

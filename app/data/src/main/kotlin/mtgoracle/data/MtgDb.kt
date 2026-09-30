@@ -106,7 +106,7 @@ object SchemaCheck {
         "games" to listOf(
             "id", "played_at", "mode", "deck_id", "deck_name", "opponent_deck_id", "opponent_name",
             "opponent_ai_variant", "seed", "winner", "turns", "duration_ms", "forge_version", "log_path",
-            "match_id", "game_no", "match_format", "conceded",
+            "match_id", "game_no", "match_format", "conceded", "deck_ai_variant",
         ),
     )
 

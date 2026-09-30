@@ -32,8 +32,16 @@ import mtgoracle.ui.kit.WrapText
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 
+/** A simulation as the setup screen shows it: its status line, and whether it is still going. */
+data class SimLine(val line: String, val running: Boolean)
+
 /** An opponent the setup screen offers, with what its AI copy changes. */
-data class OpponentChoice(val deck: DeckSummary, val substitutions: Int)
+data class OpponentChoice(
+    val deck: DeckSummary,
+    val substitutions: Int,
+    /** Your deck's record against this one: `you 3–2 · AI 12–7`, or null before a game. */
+    val record: String? = null,
+)
 
 /**
  * Pick the opponent for [me]. The AI plays its AI copy (the deck's
@@ -58,7 +66,15 @@ fun SetupScreen(
     /** "best of 3"; B cycles it (watching is always one game). */
     format: String = "best of 1",
     onCycleFormat: () -> Unit = {},
+    /** How many games S simulates; N cycles it. */
+    simGames: Int = 10,
+    onCycleSimGames: () -> Unit = {},
+    /** The simulation running (or the last one): its line, and whether S stops it. */
+    simulation: SimLine? = null,
+    onSimulate: () -> Unit = {},
+    onStopSimulation: () -> Unit = {},
 ) {
+    val simRunning = simulation?.running == true
     val focus = remember { FocusRequester() }
     val onClick: (ClickTarget) -> Unit = { t ->
         val name = (t as? ClickTarget.Control)?.name.orEmpty()
@@ -67,7 +83,9 @@ fun SetupScreen(
             name == "ai-copy" -> onToggleAiCopy()
             name == "watch" -> onToggleWatch()
             name == "format" -> onCycleFormat()
-            name == "start" -> if (canStart) onStart()
+            name == "start" -> if (canStart && !simRunning) onStart()
+            name == "simulate" -> if (simRunning) onStopSimulation() else if (canStart) onSimulate()
+            name == "sim-games" -> onCycleSimGames()
             name == "back" -> onBack()
         }
     }
@@ -85,7 +103,9 @@ fun SetupScreen(
                 Key.A -> onToggleAiCopy()
                 Key.W -> onToggleWatch()
                 Key.B -> onCycleFormat()
-                Key.Enter -> if (canStart) onStart()
+                Key.N -> onCycleSimGames()
+                Key.S -> if (simRunning) onStopSimulation() else if (canStart) onSimulate()
+                Key.Enter -> if (canStart && !simRunning) onStart()
                 Key.Escape -> onBack()
                 else -> return@onPreviewKeyEvent false
             }
@@ -104,8 +124,9 @@ fun SetupScreen(
                     opponents.forEach { o ->
                         val selected = o.deck.id == selectedId
                         val copy = if (o.substitutions > 0) "  [AI copy: ${o.substitutions} substitutions]" else ""
+                        val record = o.record?.let { "  $it" }.orEmpty()
                         FitText(
-                            "  ${o.deck.name}  (${o.deck.format ?: "-"}, ${o.deck.cardCount})$copy",
+                            "  ${o.deck.name}  (${o.deck.format ?: "-"}, ${o.deck.cardCount})$copy$record",
                             Modifier.clickTarget(ClickTarget.Control("opponent:${o.deck.id}"), onClick),
                             color = if (selected) Palette.background else Palette.foreground,
                             background = if (selected) Palette.foreground else Color.Unspecified,
@@ -127,19 +148,31 @@ fun SetupScreen(
                         "  match: ${if (watch) "best of 1 (watching)" else format}  (B cycles 1 / 3 / 5; sideboarding between games)",
                         Modifier.clickTarget(ClickTarget.Control("format"), onClick), color = Palette.accent, hang = 7,
                     )
+                    WrapText(
+                        "  simulate: $simGames games, AI vs AI with no board, both AIs on their AI copies when that is on" +
+                            " (N cycles 1 / 5 / 10 / 20 / 50; S starts and stops). Each game is recorded as it ends; one past 150 s is a draw.",
+                        Modifier.clickTarget(ClickTarget.Control("sim-games"), onClick), color = Palette.accent, hang = 4,
+                    )
+                    simulation?.let { WrapText("  ${it.line}", color = if (it.running) Palette.foreground else Palette.dim, hang = 4) }
                     GridText("")
                     notes.forEach { WrapText(it, color = Palette.accent) }
                     GridText("")
                     Row {
+                        val startable = canStart && !simRunning
                         GridText("[ Start ]", Modifier.clickTarget(ClickTarget.Control("start"), onClick),
-                            color = if (canStart) Palette.background else Palette.dim, background = if (canStart) Palette.foreground else Color.Unspecified)
+                            color = if (startable) Palette.background else Palette.dim, background = if (startable) Palette.foreground else Color.Unspecified)
+                        GridText("  ")
+                        val simulable = canStart || simRunning
+                        GridText(if (simRunning) "[ Stop simulation ]" else "[ Simulate $simGames ]", Modifier.clickTarget(ClickTarget.Control("simulate"), onClick),
+                            color = if (simulable) Palette.background else Palette.dim, background = if (simulable) Palette.foreground else Color.Unspecified)
                         GridText("  ")
                         GridText("[ Back ]", Modifier.clickTarget(ClickTarget.Control("back"), onClick), color = Palette.background, background = Palette.foreground)
                         GridText(if (forgeReady) "" else "   Forge is loading…", color = Palette.dim)
                     }
                 }
             }
-            StatusLine(listOf("↑↓" to "opponent", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start", "Esc" to "back"), null, cols)
+            StatusLine(listOf("↑↓" to "opponent", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
+                "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "back"), null, cols)
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }

@@ -375,7 +375,9 @@ CREATE TABLE IF NOT EXISTS games (
     match_id TEXT,
     game_no INTEGER,
     match_format TEXT CHECK (match_format IN ('bo1', 'bo3', 'bo5')),
-    conceded INTEGER NOT NULL DEFAULT 0
+    conceded INTEGER NOT NULL DEFAULT 0,
+    -- 1 when `deck` played its AI copy; see migrate_add_game_deck_ai_variant.py.
+    deck_ai_variant INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_games_deck ON games(deck_id);
 CREATE INDEX IF NOT EXISTS idx_games_opponent_deck ON games(opponent_deck_id);

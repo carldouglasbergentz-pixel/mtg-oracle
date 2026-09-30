@@ -23,6 +23,7 @@ import migrate_add_corrections
 import migrate_add_custom_formats
 import migrate_add_deck_history
 import migrate_add_forge
+import migrate_add_game_deck_ai_variant
 import migrate_add_game_matches
 import migrate_add_decks
 import migrate_add_folder_format
@@ -61,6 +62,7 @@ MIGRATIONS = (
     migrate_add_printings_and_games,
     # Widens games, which the one above creates.
     migrate_add_game_matches,
+    migrate_add_game_deck_ai_variant,
     # Rebuilds deck_changes, which needs the printing columns above.
     migrate_add_considering,
     # card_tags must exist before its key can be fixed; the fix re-tags
