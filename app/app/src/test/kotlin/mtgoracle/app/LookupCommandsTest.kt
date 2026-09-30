@@ -278,6 +278,24 @@ class LookupCommandsTest {
     }
 
     @Test
+    fun `entering another deck empties the output, the same deck again keeps it`() {
+        val all = library.decks().filter { d -> library.decks().count { it.name.equals(d.name, true) } == 1 }
+        assumeTrue(all.size >= 2, "two decks with names of their own")
+        run("card Sol Ring")
+        run("cd ${all[0].name}")
+        val text = { commands.output.entries.flatMap { it.rendering.lines(100) }.joinToString("\n") { it.text } }
+        assertTrue("> card Sol Ring" !in text(), "the library's output went with the new deck")
+        assertTrue(text().startsWith("> cd ${all[0].name}"), "the cd itself stays: ${text()}")
+        run("search t:instant")
+        run("cd ..")
+        run("cd ${all[0].name}")
+        assertTrue("> search t:instant" in text(), "the same deck again keeps its output")
+        run("cd ${all[1].name}")
+        assertTrue("> search t:instant" !in text())
+        assertTrue("(no prior search" in run("next"), "paging has nothing left to turn")
+    }
+
+    @Test
     fun `autofill knows the decks for cd`() {
         val prefix = library.decks().first().name.take(3)
         val suggestion = assertNotNull(commands.ui.suggest("cd ${prefix.lowercase()}"))

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Opening another deck empties the output pane,** so the last deck's searches and reports don't crowd the new one (from the user). The same deck again keeps its output, a `cd` keeps its own line, and `next` / `combo-info <N>` no longer reach into a list that is gone.
+
 ### Added (on curve in the full profile, after Moxfield)
 - **`profile` has an "on curve" table by mana value,** after Moxfield's. It shows the cards at each value (and how many are permanents), and the chance, on the play and on the draw, that the lands and rocks drawn by turn N pay for a card costing N if you hold one. It is exact, like the rest of the draw maths. It counts rocks and land backs, and it uses the effective cost. Checked against Moxfield: with its assumptions (43 land sources, 99 cards, no rocks, on the draw) it gives the same 99.17% for one-drops.
 - **A mana value in that table is a link to its cards,** each of them a link to the card.

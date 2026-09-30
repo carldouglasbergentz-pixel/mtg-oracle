@@ -91,6 +91,17 @@ class LookupCommands(
     /** Opens deck [id] to work on: search follows it from now on. False when it is gone. */
     fun enterDeck(id: Int): Boolean {
         val entered = lookup.deckScope(id) ?: return false
+        // Another deck starts with an empty output: the last deck's searches and reports only crowd it.
+        // The same deck again keeps what it had; a `cd` keeps its own echo.
+        if (id != lastDeck) {
+            val echo = output.entries.lastOrNull()?.takeIf { it.isEcho }
+            output.clear()
+            echo?.let { output.entries += it }
+            lastSearch = null
+            lastCombos = emptyList()
+            ui.selected = null
+        }
+        lastDeck = id
         scope = entered
         ui.prompt = "${entered.deckName}> "
         ui.refusal = null
@@ -119,6 +130,8 @@ class LookupCommands(
         ui.points = emptyMap()
         ui.pointsBudget = null
     }
+    /** The deck last opened: entering another one empties the output. */
+    private var lastDeck: Int? = null
     private var lastSearch: SearchPage? = null
     private var lastCombos: List<ComboSummary> = emptyList()
 
