@@ -58,6 +58,11 @@ object Formats {
         "gladiator", "paupercommander", "predh", "tlr",
     )
 
+    /** Singleton community formats no definition file covers, by their folded name (queries.SINGLETON_COMMUNITY_FORMATS). */
+    val SINGLETON_COMMUNITY: Set<String> = setOf(
+        "highlander", "canadianhighlander", "canlander", "australianhighlander", "ozziehighlander", "ozhighlander", "leviathan",
+    )
+
     private val SEPARATORS = Regex("[\\s_-]+")
 
     /** Lower case, no spaces / hyphens / underscores, aliases resolved. */
@@ -76,6 +81,12 @@ class FormatCatalog(custom: List<CustomFormat>) {
     private val byName: Map<String, CustomFormat> = buildMap {
         custom.forEach { put(it.key, it) }
         custom.forEach { f -> f.aliases.forEach { putIfAbsent(Formats.fold(it), f) } }
+    }
+
+    /** Whether [raw] carries a one-copy rule: its definition says so, else the community list (queries.is_singleton_format). */
+    fun isSingleton(raw: String?): Boolean {
+        if (raw.isNullOrBlank()) return false
+        return resolve(raw)?.singleton ?: (Formats.fold(raw) in Formats.SINGLETON_COMMUNITY)
     }
 
     fun resolve(raw: String?): FormatInfo? {

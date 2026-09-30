@@ -54,6 +54,8 @@ data class Deck(
     val folderName: String?,
     val cards: List<DeckCard>,
     val substitutions: List<Substitution> = emptyList(),
+    /** The considering list (deck_considering): weighed for the deck, not in it — never counted, exported or played. */
+    val considering: List<DeckCard> = emptyList(),
 ) {
     /** Commander when the deck has a commander row: Forge can't run a Commander game without one, whatever `format` says. */
     val gameType: GameType get() = if (cards.any { it.isCommander }) GameType.COMMANDER else GameType.CONSTRUCTED

@@ -62,8 +62,16 @@ object SchemaCheck {
     /** Everything the app reads or writes. `games` and the printing columns come from the step-2 migrations. */
     val REQUIRED: Map<String, List<String>> = mapOf(
         "deck_folders" to listOf("id", "name", "format"),
-        "decks" to listOf("id", "folder_id", "name", "format"),
-        "deck_cards" to listOf("deck_id", "card_name", "quantity", "is_commander", "is_sideboard", "set_code", "collector_number"),
+        "decks" to listOf("id", "folder_id", "name", "format", "updated_at"),
+        "deck_cards" to listOf("id", "deck_id", "card_name", "quantity", "category", "is_commander", "is_sideboard", "added_at", "set_code", "collector_number"),
+        // Deck editing (step 4): the history both apps write, and the considering list.
+        "deck_revisions" to listOf("id", "deck_id", "at", "action", "note"),
+        "deck_changes" to listOf(
+            "revision_id", "card_name", "section", "qty_before", "qty_after",
+            "set_code_before", "collector_number_before", "set_code_after", "collector_number_after",
+        ),
+        "deck_considering" to listOf("id", "deck_id", "card_name", "quantity", "added_at"),
+        "custom_format_points" to listOf("format", "card_name", "points"),
         "cards" to listOf(
             "name", "mana_cost", "type_line", "oracle_text", "power", "toughness",
             "colors", "color_identity", "mana_value", "rarity", "layout", "games", "reserved", "edhrec_rank",

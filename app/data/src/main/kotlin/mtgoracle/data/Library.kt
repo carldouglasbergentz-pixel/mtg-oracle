@@ -78,7 +78,24 @@ class Library(private val db: MtgDb) {
             st.setInt(1, id)
             st.executeQuery().use { rs -> rs.rows { Substitution(getString("card_name"), getString("substitute")) } }
         }
-        Deck(id, head.first, head.second, head.third, cards, subs)
+        val considering = conn.prepareStatement(
+            """
+            SELECT dc.card_name, dc.quantity, c.name AS known, c.mana_cost, c.type_line, c.oracle_text, c.power, c.toughness
+            FROM deck_considering dc LEFT JOIN cards c ON c.name = dc.card_name
+            WHERE dc.deck_id = ? ORDER BY dc.card_name COLLATE NOCASE
+            """.trimIndent(),
+        ).use { st ->
+            st.setInt(1, id)
+            st.executeQuery().use { rs ->
+                rs.rows {
+                    DeckCard(
+                        name = getString("card_name"), quantity = getInt("quantity"), isCommander = false, isSideboard = false,
+                        info = getString("known")?.let { CardInfo(getString("mana_cost"), getString("type_line"), getString("oracle_text"), getString("power"), getString("toughness")) },
+                    )
+                }
+            }
+        }
+        Deck(id, head.first, head.second, head.third, cards, subs, considering)
     }
 }
 
