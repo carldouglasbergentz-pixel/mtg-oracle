@@ -2,3 +2,4 @@
 # the batch file keeps CRLF for cmd.exe.
 app/gradlew text eol=lf
 *.bat text eol=crlf
+app/*.sh text eol=lf

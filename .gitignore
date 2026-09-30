@@ -15,11 +15,17 @@ tools/forge/
 # Gradle distribution used once to bootstrap app/'s wrapper (the wrapper itself is tracked)
 tools/gradle/
 
-# JVM app (docs/adr/0001): build output, Gradle state, Kotlin caches. The Forge
-# sandbox (redirected APPDATA, copied decks) and game logs live under app/build/.
+# JVM app (docs/adr/0001): build output (incl. the copied Forge res/ in
+# app/build/forge-assets), Gradle state, Kotlin caches.
 app/build/
+app/*/build/
 app/.gradle/
+# installLocal's snapshots: what the user plays (run app/run-mtg-oracle.cmd)
+app/dist/
 app/.kotlin/
+# The app's own data: Forge user data + image cache + settings, and game logs.
+data/app/
+data/game_logs/
 
 # User preferences (theme, etc.) — per-machine, not source
 data/config.json

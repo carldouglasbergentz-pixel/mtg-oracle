@@ -1,88 +1,77 @@
-// Step-1 spike for docs/adr/0001: Forge embedded in a Kotlin/Compose desktop app.
+// MTG Oracle's JVM app (docs/adr/0001). Modules: core, data, forge, ui, app.
 //
-// Forge is a local file dependency on the pinned install in ../tools/forge —
-// never vendored, never copied. Every JVM this build launches gets a sandbox:
-// APPDATA / LOCALAPPDATA point under build/forge-sandbox, so Forge's user
-// data (prefs, logs, decks) never touches the real %APPDATA%\Forge.
+// Forge is the pinned 2.0.14 desktop jar in ../tools/forge, a local file
+// dependency of :forge only — never vendored. Moving to Forge's own
+// forge-game / forge-ai / forge-gui modules is deferred (docs/project-plan.md).
+//
+// Forge reads its data from an assets directory we own: build/forge-assets
+// holds a copy of the install's res/ (minus what the engine never reads), and
+// the app writes forge.profile.properties next to it at start-up, pointing
+// Forge's user data at data/app/forge/. Nothing redirects APPDATA, and the
+// user's real %APPDATA%\Forge is never written.
+
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
-    kotlin("jvm") version "2.4.20"
-    id("org.jetbrains.kotlin.plugin.compose") version "2.4.20"
-    id("org.jetbrains.compose") version "1.12.1"
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.compose) apply false
 }
 
-repositories {
-    mavenCentral()
-    google()
-}
+val forgeJvmArgs = listOf(
+    "-Dfile.encoding=UTF-8",
+    "-Dio.netty.tryReflectionSetAccessible=true",
+    // Forge's own Main sets this: its comparators violate the TimSort contract.
+    "-Djava.util.Arrays.useLegacyMergeSort=true",
+    "--enable-native-access=ALL-UNNAMED",
+)
 
-val forgeDir: File = rootDir.resolve("../tools/forge").canonicalFile
-val forgeJar: File = forgeDir.resolve("forge-gui-desktop-2.0.14-jar-with-dependencies.jar")
-val sandboxDir: File = layout.buildDirectory.dir("forge-sandbox").get().asFile
-val gameLogDir: File = layout.buildDirectory.dir("game-logs").get().asFile
+val repoRoot: File = rootDir.resolve("..").canonicalFile
+val forgeDir: File = repoRoot.resolve("tools/forge")
+val forgeAssets: File = layout.buildDirectory.dir("forge-assets").get().asFile
 
-dependencies {
-    implementation(compose.desktop.currentOs)
-    implementation(files(forgeJar))
-}
+extra["repoRoot"] = repoRoot
+extra["forgeDir"] = forgeDir
+extra["forgeJar"] = forgeDir.resolve("forge-gui-desktop-2.0.14-jar-with-dependencies.jar")
+extra["forgeAssets"] = forgeAssets
+extra["forgeJvmArgs"] = forgeJvmArgs
 
-kotlin {
-    jvmToolchain(25)
-}
-
-// The user's exported decks, copied read-only into the sandbox. Forge is
-// pointed at the copies; the originals are never opened by Forge.
-val realDecksDir = File(System.getenv("APPDATA") ?: "", "Forge/decks/constructed")
-val prepareSandbox by tasks.registering(Copy::class) {
-    from(realDecksDir) {
-        include("UW Draw Go - Control.dck", "Rakdos Midrange.dck", "Rakdos Midrange (AI).dck")
+// Forge's res/, less the parts the engine never reads: the adventure mode
+// (130 MB), music, sounds, skins and card-name translations.
+val prepareForgeAssets by tasks.registering(Sync::class) {
+    description = "Copies Forge's res/ into build/forge-assets for the app to own."
+    from(forgeDir.resolve("res")) {
+        exclude("adventure/**", "music/**", "sound/**", "skins/**", "languages/cardnames-*")
+        exclude { it.path.startsWith("languages/") && it.name != "en-US.properties" && !it.isDirectory }
     }
-    into(sandboxDir.resolve("decks"))
+    // The profile beside res/ is the app's to write (it knows where its home is).
+    into(forgeAssets.resolve("res"))
 }
 
-tasks.withType<JavaExec>().configureEach {
-    dependsOn(prepareSandbox)
-    workingDir = sandboxDir
-    doFirst {
-        sandboxDir.resolve("appdata").mkdirs()
-        sandboxDir.resolve("localappdata").mkdirs()
+subprojects {
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        extensions.configure<KotlinJvmProjectExtension> { jvmToolchain(25) }
     }
-    // Forge's defaults for userDir/cacheDir come from these on Windows.
-    environment("APPDATA", sandboxDir.resolve("appdata").path)
-    environment("LOCALAPPDATA", sandboxDir.resolve("localappdata").path)
-    systemProperty("mtgoracle.forgeDir", forgeDir.path)
-    systemProperty("mtgoracle.sandbox", sandboxDir.path)
-    systemProperty("mtgoracle.logDir", gameLogDir.path)
-    systemProperty("mtgoracle.pngOut", layout.buildDirectory.file("spike-board.png").get().asFile.path)
-    jvmArgs(
-        "-Xmx4096m",
-        "-Dfile.encoding=UTF-8",
-        "-Dio.netty.tryReflectionSetAccessible=true",
-        // Forge's own Main sets this: its comparators violate the TimSort contract.
-        "-Djava.util.Arrays.useLegacyMergeSort=true",
-        "--enable-native-access=ALL-UNNAMED",
-    )
-}
-
-compose.desktop {
-    application {
-        mainClass = "mtgoracle.MainKt"
-        args += listOf("window", "human")
+    tasks.withType<Test>().configureEach {
+        useJUnitPlatform()
+        dependsOn(prepareForgeAssets)
+        // One JVM per module: Forge initialises once (~7 s) and is shared.
+        maxParallelForks = 1
+        systemProperty("mtgoracle.repoRoot", repoRoot.path)
+        systemProperty("mtgoracle.forgeAssets", forgeAssets.path)
+        systemProperty("mtgoracle.testHome", layout.buildDirectory.dir("test-home").get().asFile.path)
+        systemProperty("mtgoracle.pngDir", layout.buildDirectory.dir("test-png").get().asFile.path)
+        jvmArgs(forgeJvmArgs)
+        maxHeapSize = "4g"
+        testLogging {
+            events("passed", "failed", "skipped")
+            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        }
+    }
+    tasks.withType<JavaExec>().configureEach {
+        dependsOn(prepareForgeAssets)
+        jvmArgs(forgeJvmArgs)
+        maxHeapSize = "4g"
     }
 }
 
-fun registerSpikeTask(name: String, description: String, vararg mainArgs: String) =
-    tasks.register<JavaExec>(name) {
-        group = "spike"
-        this.description = description
-        classpath = sourceSets["main"].runtimeClasspath
-        mainClass.set("mtgoracle.MainKt")
-        args(*mainArgs)
-    }
-
-registerSpikeTask("runAi", "Window: watch AI vs AI.", "window", "ai")
-registerSpikeTask("spikeScripted", "Headless: scripted human seat vs AI; writes the log and spike-board.png.", "scripted").configure {
-    // A fixed shuffle so the evidence run is repeatable; -Pseed=N to try another.
-    systemProperty("mtgoracle.seed", findProperty("seed")?.toString() ?: "20260929")
-}
-registerSpikeTask("spikeAi", "Headless: AI vs AI through the same seam; writes the log.", "headless-ai")
