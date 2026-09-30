@@ -38,7 +38,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | Comprehensive Rules: rule + children (natural order), text search | `rule`, `search-rules` | 3 | ✓ |
 | Combos with a card; with all of several cards; detail with steps, prerequisites, results; `+` for template slots; user combos | `combo`, `combos`, `combo-info` | 3 | ✓ |
 | Corrections list (the feedback loop) | `correction` | 3 | ✓ |
-| Scryfall-style search language (`o: t: n: kw: c: ci: mv: pow: tou: r: layout: f: banned: restricted: game: is:`, or/not/parens, `order:`), paging, `card <N>` | `search`, `next/prev/page` | 3 | ✓ 47 queries checked against Python (`SearchParityTest`) |
+| Scryfall-style search language (`o: t: n: kw: c: ci: mv: pow: tou: r: layout: f: banned: restricted: game: is:`, or/not/parens, `order:`), paging, `card <N>` | `search`, `next/prev/page` | 3 | ✓ 74 queries checked against Python (`SearchParityTest`); since 3.5 both also have free text over name/type/text, `m:`, `c:m`, `otag:` and more `is:` |
 | Inside a deck, search is restricted to the deck's CI and format | `search` in a deck | 3 | ✓ after `cd <deck>`; `order:` works there (it broke in Python, fixed) |
 
 ## Decks
@@ -47,6 +47,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 |---|---|---|---|
 | Folders and decks; unsorted decks; unique names per folder | `ls`, `cd`, `mkdir`, `rmdir` | 2 (read) / 4 (edit) | ▶ read-only library |
 | Deck view grouped by type; commander pinned; CI badge; pointed cards `Name (3)` | nav pane, `show` | 2 | ▶ |
+| Deck workspace: the deck beside a search that follows it, results as a card grid or lines, arrow-key selection | — (new, 3.5; Moxfield's edit mode) | 3.5 | ✓ read-only; adding from it is step 4 |
 | Live nav analytics: curve, avg MV, pips, sources by colour, combos in deck | nav pane | 5 | ○ |
 | Add / remove with format rules: CI, legality, singleton (incl. "up to N"), restricted, points; `--force` | `add`, `remove` | 4 | ○ |
 | Commander promote / demote, auto-set format | `commander` | 4 | ○ |

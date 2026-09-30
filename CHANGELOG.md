@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (the deck workspace in the Kotlin app)
+- **Enter opens a deck to work on, as Moxfield opens one:** the deck on the left, search in the middle, the zoom pane on the right. `cd <deck>` opens it too, and Esc or `cd ..` goes back to the library. **In the library, P now plays** (Enter used to).
+- **Search follows the open deck:** the commander's colour identity and the deck's format, named in the search pane's title.
+- **Results are a grid of cards, the house frames with their art**, and T switches them to lines; the choice is remembered. Only the newest page is drawn as a grid; older pages in the scrollback stay lines.
+- **The arrow keys select a result** (Up/Down move a whole row of the grid), the zoom pane shows it, and Enter opens its profile. Shift+T switches the deck pane between lines (the default beside a search) and frames.
+- Read-only for now: adding and removing from the results is step 4.
+
+### Changed (the search language: free text, and more of Scryfall's syntax)
+- **A bare word or a quoted phrase now matches the name, the type line or the oracle text**; it used to be oracle text only. `bolt` finds Lightning Bolt, `goblin` every Goblin. Without `order:`, cards whose name matches come first: the exact name, then names that start with it, then names that contain every word, then type-line matches. `o:`, `t:` and `n:` still search one field. The TUI and the app changed together.
+- **New:**
+  - `m:` / `mana:`: the mana cost has these symbols, counted, so `m:{U}{1}` finds `{1}{U}` (also `m:2uu`); `m=` means exactly these.
+  - `c:m`: multicoloured.
+  - `otag:` / `function:`: a Scryfall Tagger function. It takes Scryfall's hyphens (`otag:mana-rock`) and finds a tag's children, so `otag:removal` works although no tag is plain `removal`.
+  - `is:commander`, `permanent`, `spell`, `historic`, `dfc`, `mdfc`, `split`. A two-faced card is its front face.
+
+### Changed (the Kotlin app's command line)
+- **Its own pane, the border in the accent while it has the keyboard, and a hint line under it.** The hint reads the line back: a command's usage, or the query in words (`type has "instant" · colours include U · mana value ≤ 2`) with the number of cards it finds, or what is wrong with it.
+- **A line that is no command is a search,** as in an address bar. A command typo that finds nothing is named (`did you mean card?`), and so is a typo in the query (`typ:` → `type:`, `is:comander`, `f:comander`).
+- **Autofill knows the search language.** After a field it offers that field's values, most used first: types, keywords, Tagger functions, formats, `is:`, `order:`. Free words complete to a card name.
+- **A click in the panes ends typing,** so T and the arrows answer again. **F7 switches text and art everywhere**, even while typing. Typing that opens another screen (`cd`) keeps the keyboard in the line.
+
 ### Added (step 3: lookup and search in the Kotlin app)
 - **A command line in the library** (`:` or Ctrl+K to type, Esc to leave). Everything the TUI looks up works there: `card <name|N>`, `ruling`, `rule`, `search-rules`, `combo`, `combos a; b`, `combo-info <id|N>`, `correction`, `search` with `next` / `prev` / `page N`, `help [search]`, `copy [last|all]`, `clear` (Ctrl+L) and `quit`. The messages are the TUI's.
 - **The output replaces the deck in the middle pane,** and Tab switches between them. A new command scrolls to its own start, and the text re-flows to the pane's width.
