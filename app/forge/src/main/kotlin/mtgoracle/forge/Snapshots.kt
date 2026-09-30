@@ -46,7 +46,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
         val players = game.players.threadSafeIterable().map { player(it, it.id in seatPlayerIds, mayView, mayPeek, stand) }
         val stack = game.stack?.threadSafeIterable()?.map { item ->
             val source = item.sourceCard
-            val seen = source == null || mayView(source)
+            val seen = source == null || mayView(source) || abilityNamesItsSource(item.isAbility || item.isTrigger, source.isFaceDown)
             val unseen = if (source?.isFaceDown == true) "face-down" else "hidden"
             // Targets by name only when this seat may see them; "face-down" only for one that is.
             val cardTargets = item.targetCards?.threadSafeIterable()?.toList().orEmpty()

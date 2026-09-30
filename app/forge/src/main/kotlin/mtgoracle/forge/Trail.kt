@@ -66,7 +66,7 @@ internal class Trail(
     fun onCast(event: GameEventSpellAbilityCast) {
         val item = event.si() ?: return
         val source = item.sourceCard
-        val name = source?.takeIf(named)?.currentState?.name
+        val name = source?.takeIf { named(it) || abilityNamesItsSource(item.isAbility || item.isTrigger, it.isFaceDown) }?.currentState?.name
         val text = when {
             item.isTrigger -> "${name ?: "a hidden card"} triggered"
             item.isAbility -> "activated ${name ?: "a hidden card"}"

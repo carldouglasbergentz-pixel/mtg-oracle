@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (an ability on the stack showed as "hidden" once its source had left the battlefield)
+- **The AI's Hawkeye trigger read "a hidden spell".** Hawkeye's Trick Arrows was on the stack when Condemn put Hawkeye on the bottom of the library. The "explosive" trigger that followed came from a card that was now in the library, so the stack box and the trail treated it as hidden. An ability on the stack is public together with its source (CR 400.2, 113.7a), so it now names Hawkeye, and so does an ability activated from a hand (cycling, channel). Only a face-down source stays unnamed. The tests for hidden information still pass: nothing hidden is named.
+
 ### Added (the deck workspace in the Kotlin app)
 - **Enter opens a deck to work on, as Moxfield opens one:** the deck on the left, search in the middle, the zoom pane on the right. `cd <deck>` opens it too, and Esc or `cd ..` goes back to the library. **In the library, P now plays** (Enter used to).
 - **Search follows the open deck:** the commander's colour identity and the deck's format, named in the search pane's title.
