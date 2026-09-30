@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (step 3: lookup and search in the Kotlin app)
+- **A command line in the library** (`:` or Ctrl+K to type, Esc to leave). Everything the TUI looks up works there: `card <name|N>`, `ruling`, `rule`, `search-rules`, `combo`, `combos a; b`, `combo-info <id|N>`, `correction`, `search` with `next` / `prev` / `page N`, `help [search]`, `copy [last|all]`, `clear` (Ctrl+L) and `quit`. The messages are the TUI's.
+- **The output replaces the deck in the middle pane,** and Tab switches between them. A new command scrolls to its own start, and the text re-flows to the pane's width.
+- **The output is clickable:**
+  - a card name opens its profile, and hovering it shows the card in the zoom pane;
+  - a combo's `[ N ]` or id opens that combo;
+  - a rule number opens that rule;
+  - `next` and `prev` page through a search.
+
+  A click works on the value itself, so a name containing `//` or `;` is never parsed again.
+- **Search follows a deck after `cd <deck>`.** It is limited to the commander's colour identity and the deck's format, and the filters are named above the results. The prompt shows the deck (`UW Draw Go>`), and `cd ..` goes back to the whole pool. `cd` only navigates. Decks are still edited in the TUI.
+- **Autofill and history.** Commands, card names (including the last `;` segment of `combos`), rule numbers, deck names and help topics complete in grey; Tab or → takes the suggestion. Up and Down walk the history, and Down past the newest entry restores what you were typing.
+- **The Kotlin port of the search language and the lookups** (`core/lookup`, `data`). `SearchParityTest` runs 47 queries and 17 names through Python and Kotlin on the same database, and they agree on counts, order and resolved names. The app's schema check now names every table the lookups read.
+
+### Fixed (search inside a deck, and the corrections filter)
+- **`search … order:asc_mv` inside a deck failed** with `unknown field: 'order'`. The deck's filters wrapped the query in parentheses, and that hid the sort token from the extractor. The sort is now taken out first and put back at the end.
+- **`correction 100%` matched every correction:** `%` and `_` in the text filter worked as wildcards. They are now literal, as in every other search.
+
 ### Fixed (the Kotlin board said "face-down" of cards that were only hidden, and the trail named a hideaway card)
 - **"Face-down" now means face down.** A card you may not see (the opponent's hand, a card you aren't allowed to look at) is a "hidden card", and a hidden stack target is "a hidden card". Only a card that really lies face down (a hideaway card, a morph) is called face-down.
 - **The trail no longer names a card the opponent exiled face down.** When the AI's Shelldock Isle hid a card, the trail showed its name ("Opposition Agent library → exile"), because Forge turns the card face down only after the move. A card moving out of a hidden zone is now named from what it is once it lands: "a face-down card library → exile" for a hideaway, and "Duress library → exile" for Laelia's face-up exile.

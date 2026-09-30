@@ -4,9 +4,9 @@ The Kotlin app (ADR 0001) replaces the Textual TUI and the CLI piece by piece. T
 
 Steps refer to Phase 6 in `project-plan.md`:
 
-- **2** is the current step: foundation and play.
-- **3** covers lookup and search.
-- **4** covers deck editing.
+- **2** covers foundation and play.
+- **3** covers lookup and search (done 2026-09-30).
+- **4** covers deck editing, the next step.
 - **5** covers analysis.
 - **6** covers sync and packaging.
 
@@ -17,14 +17,14 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | Feature | Today (TUI) | Step | Status |
 |---|---|---|---|
 | Theme switching, persisted between runs (the user runs `rose-pine`) | Ctrl+P palette → theme, saved to `data/config.json` | 2 | ✓ F8 cycles five two-tone themes; the first run takes the TUI's |
-| Command line / palette: type any command, `:` to focus | command input | 3 | ○ |
-| Autofill: card names, rule numbers, commands, `;` segments | Suggester | 3 | ○ |
-| Command history with Up/Down, restoring a pending draft | input history | 3 | ○ |
-| Clickable output: card names → profile, folders/decks → open, combo rows → detail | LinkSpan + tickets | 3 | ○ |
+| Command line / palette: type any command, `:` to focus | command input | 3 | ✓ `:` or Ctrl+K; Esc leaves it |
+| Autofill: card names, rule numbers, commands, `;` segments | Suggester | 3 | ✓ plus deck names for `cd`, help topics |
+| Command history with Up/Down, restoring a pending draft | input history | 3 | ✓ |
+| Clickable output: card names → profile, folders/decks → open, combo rows → detail | LinkSpan + tickets | 3 | ✓ also rule numbers and next/prev; hover shows the card in the zoom pane. Decks open from the list (the output has no deck rows until step 4) |
 | Resizable nav pane, width persisted; Ctrl+←/→ | PaneDivider | 2 | ✓ zone and right columns: drag the border, Ctrl(+Shift)+←/→ |
-| Copy pane contents to clipboard (`copy last/all/nav`) | OSC 52 | 3 | ○ |
-| Clear output (`clear`, Ctrl+L), quit (Ctrl+Q) | bindings | 2 | ○ |
-| Help per topic (`help`, `help decks/search/forge`) | help.py | 3 | ○ |
+| Copy pane contents to clipboard (`copy last/all/nav`) | OSC 52 | 3 | ✓ `last`, `all`; `nav` is `export` in step 4 |
+| Clear output (`clear`, Ctrl+L), quit (Ctrl+Q) | bindings | 2 | ✓ `clear` / Ctrl+L; `quit` or Q in the library (Ctrl+Q concedes on the board) |
+| Help per topic (`help`, `help decks/search/forge`) | help.py | 3 | ✓ `help`, `help search`; decks and forge get theirs with steps 4 and 5 |
 | Errors shown in the app, never a crash; "database predates this version" hint | `_run_guarded` | 2 | ▶ (schema check) |
 | Schema self-heal on start | `self_heal.py` | 2 | ✓ (Python owns it; app checks) |
 
@@ -32,14 +32,14 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 
 | Feature | Today | Step | Status |
 |---|---|---|---|
-| Card profile: text, cost, type, tags, parsed abilities, rulings, legalities (incl. `no_commander`), combos, corrections | `card` | 3 | ○ |
-| Tolerant name resolution: case, `/` vs ` // `, front face, diacritics, quotes | `resolve_card_name` | 3 | ○ |
-| Rulings | `ruling` | 3 | ○ |
-| Comprehensive Rules: rule + children (natural order), text search | `rule`, `search-rules` | 3 | ○ |
-| Combos with a card; with all of several cards; detail with steps, prerequisites, results; `+` for template slots; user combos | `combo`, `combos`, `combo-info` | 3 | ○ |
-| Corrections list (the feedback loop) | `correction` | 3 | ○ |
-| Scryfall-style search language (`o: t: n: kw: c: ci: mv: pow: tou: r: layout: f: banned: restricted: game: is:`, or/not/parens, `order:`), paging, `card <N>` | `search`, `next/prev/page` | 3 | ○ |
-| Inside a deck, search is restricted to the deck's CI and format | `search` in a deck | 3 | ○ |
+| Card profile: text, cost, type, tags, parsed abilities, rulings, legalities (incl. `no_commander`), combos, corrections | `card` | 3 | ✓ |
+| Tolerant name resolution: case, `/` vs ` // `, front face, diacritics, quotes | `resolve_card_name` | 3 | ✓ `CardNames`, checked against Python (`SearchParityTest`) |
+| Rulings | `ruling` | 3 | ✓ |
+| Comprehensive Rules: rule + children (natural order), text search | `rule`, `search-rules` | 3 | ✓ |
+| Combos with a card; with all of several cards; detail with steps, prerequisites, results; `+` for template slots; user combos | `combo`, `combos`, `combo-info` | 3 | ✓ |
+| Corrections list (the feedback loop) | `correction` | 3 | ✓ |
+| Scryfall-style search language (`o: t: n: kw: c: ci: mv: pow: tou: r: layout: f: banned: restricted: game: is:`, or/not/parens, `order:`), paging, `card <N>` | `search`, `next/prev/page` | 3 | ✓ 47 queries checked against Python (`SearchParityTest`) |
+| Inside a deck, search is restricted to the deck's CI and format | `search` in a deck | 3 | ✓ after `cd <deck>`; `order:` works there (it broke in Python, fixed) |
 
 ## Decks
 
@@ -89,6 +89,6 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 |---|---|---|---|
 | Sync: cards, rulings, rules, combos, tags, oracle tags, formats; skip-unchanged, `--force`, `--only`, changelog | `sync.py`, `sync` in the TUI | 6 | ○ (Python keeps it) |
 | Prune stale cards | `prune_stale_cards.py` | 6 | ○ |
-| User combos | `add_user_combo.py` | 3 | ○ |
+| User combos | `add_user_combo.py` | 3 (show) / 4 (add) | ▶ shown in every combo lookup; adding one moves to step 4 with the other writes |
 | Export scripts (land fetchers, typal matters) | `scripts/export_*.py` | 6 | ○ decide |
 | CLI for scripting and `--json` | `mtg_cli.py` | 6 | ○ decide: keep a Kotlin CLI or keep Python's |
