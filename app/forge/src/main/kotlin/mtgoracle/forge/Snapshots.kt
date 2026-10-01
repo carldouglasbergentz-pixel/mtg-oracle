@@ -5,6 +5,7 @@ import forge.game.GameView
 import forge.game.card.CardView
 import forge.game.player.PlayerView
 import forge.game.zone.ZoneType
+import forge.util.Localizer
 import mtgoracle.core.model.BoardRef
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.StackKind
@@ -140,10 +141,18 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             // A back says face-down only when the card is (face-down is public; what it is, is not).
             graveyard = cards(p, ZoneType.Graveyard).map { if (sees(it)) card(it) else CardState.back(stand(), it.isFaceDown) },
             exile = cards(p, ZoneType.Exile).map { if (sees(it)) card(it) else CardState.back(stand(), it.isFaceDown) },
-            command = cards(p, ZoneType.Command).map { if (sees(it)) card(it) else CardState.back(stand(), it.isFaceDown) },
+            command = cards(p, ZoneType.Command).map { if (sees(it)) commandCard(p, it) else CardState.back(stand(), it.isFaceDown) },
             manaPool = manaPool(p),
             poison = p.counters?.entrySet()?.firstOrNull { it.element.name.equals("poison", ignoreCase = true) }?.count ?: 0,
         )
+    }
+
+    /** A command-zone card, with Duel Commander's partner lock and Forge's own words for it. */
+    private fun commandCard(p: PlayerView, cv: CardView): CardState {
+        val state = card(cv)
+        if (!cv.isCommander || !p.isCommanderLockedInCommandZone(cv)) return state
+        val why = Localizer.getInstance().getMessage("lblDuelCommanderLockedInCommandZone")
+        return state.copy(castLocked = true, text = listOf(state.text, why).filter { it.isNotBlank() }.joinToString("\n\n"))
     }
 
     private fun cards(p: PlayerView, zone: ZoneType): List<CardView> =

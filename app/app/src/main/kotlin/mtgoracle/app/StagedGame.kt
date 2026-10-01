@@ -48,6 +48,8 @@ open class StagedGame(
     height: Int = 2400,
     /** The seat's deck; the staged cards are what matter, so 60 Islands unless a test needs more. */
     seatDeck: mtgoracle.core.deck.PlayDeck = basics(1, "Island"),
+    /** The AI's deck; it must be of the seat deck's game type. */
+    opponentDeck: mtgoracle.core.deck.PlayDeck = basics(2, "Swamp"),
 ) : AutoCloseable {
     companion object {
         /** 60 basics: a deck that never does anything on its own, so only the staged cards matter. */
@@ -67,7 +69,7 @@ open class StagedGame(
 
     init {
         log.delete()
-        match = ForgeMatch.start(MatchSpec(gameMode, seatDeck, basics(2, "Swamp"), log, seed = 1, startState = startState))
+        match = ForgeMatch.start(MatchSpec(gameMode, seatDeck, opponentDeck, log, seed = 1, startState = startState))
         driver = OffscreenDriver(width, height) {
             CompositionLocalProvider(LocalArt provides images) { BoardScreen(match.seat, name, modeState.value) }
         }

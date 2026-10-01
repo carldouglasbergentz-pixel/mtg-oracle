@@ -42,7 +42,7 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         val seat = (if (seatAiCopy) AiCopy.aiCopy(me) else null) ?: AiCopy.asBuilt(me)
         val opp = (if (useAiCopy) AiCopy.aiCopy(opponent) else null) ?: AiCopy.asBuilt(opponent)
         val notes = mutableListOf<String>()
-        if (seat.gameType != opp.gameType) notes += "${me.name} is ${seat.gameType.name.lowercase()} and ${opponent.name} is ${opp.gameType.name.lowercase()}: they can't play each other."
+        if (seat.gameType != opp.gameType) notes += "${me.name} is ${seat.gameType.label} and ${opponent.name} is ${opp.gameType.label}: they can't play each other."
         val mine = ForgeCards.check(seat)
         val theirs = ForgeCards.check(opp)
         val how = "open the deck, right-click the card, AI substitute..."
@@ -50,7 +50,11 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         if (theirs.unknown.isNotEmpty()) notes += "Forge lacks ${theirs.unknown.joinToString()} in ${opp.name}; give its AI copy a substitute ($how)."
         if (theirs.aiUnplayable.isNotEmpty()) notes += "The AI can't play ${theirs.aiUnplayable.joinToString()} in ${opp.name}; a substitute fixes that ($how)."
         if (seatAiCopy && mine.aiUnplayable.isNotEmpty()) notes += "The AI can't play ${mine.aiUnplayable.joinToString()} in ${me.name} either; a substitute fixes that ($how)."
-        if (seat.gameType == GameType.COMMANDER) notes += "Forge plays Commander at 40 life, with 21 commander damage lethal — not Duel Commander's 20 life."
+        if (seat.gameType == GameType.COMMANDER) notes += "Forge plays Commander at 40 life, with 21 commander damage lethal; a deck whose format is duel plays Duel Commander at 20."
+        if (seat.gameType == GameType.DUEL_COMMANDER && seat.gameType == opp.gameType) {
+            ForgeMatch.duelCommanderProblem(seat)?.let { notes += "Forge says ${me.name} isn't a legal Duel Commander deck: $it" }
+            ForgeMatch.duelCommanderProblem(opp)?.let { notes += "Forge says ${opponent.name} isn't a legal Duel Commander deck: $it" }
+        }
         notes += opp.notes
         return Prepared(seat, opp, notes, blocked = mine.unknown.isNotEmpty() || theirs.unknown.isNotEmpty() || seat.gameType != opp.gameType)
     }

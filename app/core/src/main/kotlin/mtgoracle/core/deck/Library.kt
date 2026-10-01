@@ -1,5 +1,7 @@
 package mtgoracle.core.deck
 
+import mtgoracle.core.lookup.Formats
+
 /*
  * The user's decks as the data layer reads them from data/mtg.db. Plain data;
  * the database, not this app, owns them (the Textual TUI edits them).
@@ -57,9 +59,16 @@ data class Deck(
     /** The considering list (deck_considering): weighed for the deck, not in it — never counted, exported or played. */
     val considering: List<DeckCard> = emptyList(),
 ) {
-    /** Commander when the deck has a commander row: Forge can't run a Commander game without one, whatever `format` says. */
-    val gameType: GameType get() = if (cards.any { it.isCommander }) GameType.COMMANDER else GameType.CONSTRUCTED
+    /**
+     * A commander row makes a commander game: Forge can't run one without it, whatever `format` says.
+     * The format then picks which: `duel` (or any alias of it) is Duel Commander, anything else Commander.
+     */
+    val gameType: GameType get() = when {
+        cards.none { it.isCommander } -> GameType.CONSTRUCTED
+        format != null && Formats.fold(format) == "duel" -> GameType.DUEL_COMMANDER
+        else -> GameType.COMMANDER
+    }
     val mainCount: Int get() = cards.filter { it.section == Section.MAIN }.sumOf { it.quantity }
 }
 
-enum class GameType { CONSTRUCTED, COMMANDER }
+enum class GameType(val label: String) { CONSTRUCTED("constructed"), COMMANDER("Commander"), DUEL_COMMANDER("Duel Commander") }

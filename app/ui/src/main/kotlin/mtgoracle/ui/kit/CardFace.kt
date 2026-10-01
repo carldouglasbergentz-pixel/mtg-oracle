@@ -16,6 +16,8 @@ data class CardFace(
     val quantity: Int = 1,
     /** A card back: this seat may not see the card. */
     val hidden: Boolean = false,
+    /** A commander that may not be cast from the command zone this game (CardState.castLocked). */
+    val castLocked: Boolean = false,
 )
 
 /** A mana cost for display: compact (`{1}{R}`), and empty for a card with none (Forge says "no cost"). */
@@ -46,6 +48,7 @@ fun CardState.face(): CardFace = if (hidden) (if (faceDown) FACE_DOWN_FACE else 
         if (attacking) add("ATK")
         if (blocking) add("BLK")
         if (isToken) add("token")
+        if (castLocked) add("LOCKED")
         // Loyalty is already "L3"; the rest of the counters as "+1/+1×2".
         val shown = counters.split(", ").filter { it.isNotBlank() && !(loyalty != null && it.startsWith("Loyalty", ignoreCase = true)) }
         if (shown.isNotEmpty()) add(shown.joinToString(" ") { it.replace(" x", "×") })
@@ -53,6 +56,7 @@ fun CardState.face(): CardFace = if (hidden) (if (faceDown) FACE_DOWN_FACE else 
     text = text,
     imageKey = imageKey,
     tapped = tapped,
+    castLocked = castLocked,
 )
 
 /** A deck row's card, front face first: `cards` stores both faces joined with " // ". */

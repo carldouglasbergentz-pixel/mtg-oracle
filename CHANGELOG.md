@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Duel Commander games.** A deck whose format is Duel Commander (`duel`, `DC`, `1v1 commander`) and that has a commander now plays Forge's own Duel Commander, not Commander. It starts at 20 life, without Commander's 21-damage rule, and has the 903.9 command-zone choices. Partners are locked: once one is cast from the command zone, the other stays there for the game (DC 404). The board marks the locked one `[Kediss, Emberclaw Familiar] locked`, and its text says why. Setting up a game notes what Forge's Duel Commander rules say against a deck (bans, deck size, companion) without refusing it. A Duel Commander deck plays only against another one.
+  - The app builds against a build of our Duel Commander PR to Forge (#12090), staged in `tools/forge-dc/`, until a Forge release has it. The README says how to stage it.
 - **Every paper printing from Scryfall, for a card's art.** Before, "choose printing…" listed only the printings Forge knows. Now it lists every paper printing Scryfall has, newest first, with what sets each apart (`borderless`, `showcase`, `extended art`, `full art`, `promo`, and the language when not English). The zoom pane previews each as you hover, as before.
   - A printing Forge lacks is drawn from Scryfall's images in the library and the workspace, and on the board in a game. Forge still plays the card in its default printing.
   - Images are fetched only when shown, one at a time, into `data/app/scryfall/`, and kept. The art crop is credited to its artist, as Forge's are.

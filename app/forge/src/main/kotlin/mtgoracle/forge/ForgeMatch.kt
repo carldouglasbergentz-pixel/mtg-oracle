@@ -130,15 +130,15 @@ object ForgeMatch {
         val recorder = GameRecorder(spec.logFile)
         val gui = SeatGui(recorder, ForgeRuntime.edt, spec.stops)
         ForgeRuntime.guiBase.activeSeat = gui // one game at a time: Forge's static dialogs reach this seat
-        val commander = spec.seat.gameType == DeckGameType.COMMANDER
+        val type = forgeType(spec.seat.gameType)
 
         val seatPlayer: LobbyPlayer = when (spec.mode) {
             GameMode.HUMAN_VS_AI -> LobbyPlayerHuman("You")
             GameMode.AI_VS_AI -> GamePlayerUtil.createAiPlayer("AI 1 (${spec.seat.name})", 0)
         }
         val aiPlayer = GamePlayerUtil.createAiPlayer("AI (${spec.opponent.name})", 1)
-        val a = registered(spec.seat, commander).apply { player = seatPlayer }
-        val b = registered(spec.opponent, commander).apply { player = aiPlayer }
+        val a = registered(spec.seat, type).apply { player = seatPlayer }
+        val b = registered(spec.opponent, type).apply { player = aiPlayer }
         gui.setArtOverrides(mapOf(seatPlayer.name to missingPrintings(spec.seat), aiPlayer.name to missingPrintings(spec.opponent)))
         recorder.note("${spec.mode}: ${spec.seat.name} vs ${spec.opponent.name}; seed ${spec.seed ?: "none"}; Forge ${ForgeRuntime.version}")
         spec.seat.notes.plus(spec.opponent.notes).forEach(recorder::note)
@@ -158,7 +158,6 @@ object ForgeMatch {
         }
         gui.onFinished = { running.gameEnded(result(gui, seatPlayer, running)) }
 
-        val type = if (commander) GameType.Commander else GameType.Constructed
         val games = if (spec.mode == GameMode.AI_VS_AI) 1 else spec.format.games
         val rules = GameRules(type).apply { gamesPerMatch = games }
         when (spec.mode) {
@@ -199,9 +198,24 @@ object ForgeMatch {
         else card.forgeName to ForgeCards.printingKey(card.forgeName, set, card.collectorNumber)
     }.toMap()
 
-    private fun registered(deck: PlayDeck, commander: Boolean): RegisteredPlayer {
+    fun forgeType(type: DeckGameType): GameType = when (type) {
+        DeckGameType.CONSTRUCTED -> GameType.Constructed
+        DeckGameType.COMMANDER -> GameType.Commander
+        DeckGameType.DUEL_COMMANDER -> GameType.DuelCommander
+    }
+
+    /** What Forge's own lobby would say against [deck] in Duel Commander (deck size, bans, commanders, companion); null when it has nothing. */
+    fun duelCommanderProblem(deck: PlayDeck): String? =
+        GameType.DuelCommander.deckFormat.getDeckConformanceProblem(ForgeCards.toForgeDeck(deck))
+
+    /** As Forge's own lobby registers its players: Commander at 40 life, Duel Commander at the base 20. */
+    private fun registered(deck: PlayDeck, type: GameType): RegisteredPlayer {
         val forgeDeck = ForgeCards.toForgeDeck(deck)
-        return if (commander) RegisteredPlayer.forCommander(forgeDeck) else RegisteredPlayer(forgeDeck)
+        return when (type) {
+            GameType.Commander -> RegisteredPlayer.forCommander(forgeDeck)
+            GameType.DuelCommander -> RegisteredPlayer.forVariants(2, EnumSet.of(type), forgeDeck, null, false, null, null)
+            else -> RegisteredPlayer(forgeDeck)
+        }
     }
 
     private fun result(gui: SeatGui, seatPlayer: LobbyPlayer, running: RunningMatch): MatchResult {

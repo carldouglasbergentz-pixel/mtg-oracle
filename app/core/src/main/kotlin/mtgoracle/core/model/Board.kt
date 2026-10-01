@@ -39,6 +39,8 @@ data class CardState(
     val hidden: Boolean = false,
     /** Face down, which the table sees: a morph's 2/2 on the battlefield, a hideaway card in exile. */
     val faceDown: Boolean = false,
+    /** A commander in the command zone that may not be cast from there this game (Duel Commander 404: its partner was cast first). */
+    val castLocked: Boolean = false,
 ) {
     companion object {
         /** The back of a card this seat may not see; [stand] is a stand-in id unique on the board. */

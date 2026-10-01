@@ -14,8 +14,9 @@ class Scenario(
     mode: CardMode = CardMode.TEXT,
     gameMode: GameMode = GameMode.HUMAN_VS_AI,
     seatDeck: mtgoracle.core.deck.PlayDeck = basics(1, "Island"),
+    opponentDeck: mtgoracle.core.deck.PlayDeck = basics(2, "Swamp"),
     policy: Policy,
-) : StagedGame(name, startState.also { startForge() }, File(home, "scenario-logs"), pngDir, mode, gameMode, policy = policy, seatDeck = seatDeck) {
+) : StagedGame(name, startState.also { startForge() }, File(home, "scenario-logs"), pngDir, mode, gameMode, policy = policy, seatDeck = seatDeck, opponentDeck = opponentDeck) {
     companion object {
         val home = File(System.getProperty("mtgoracle.testHome"), "forge-home")
         val pngDir = File(System.getProperty("mtgoracle.pngDir")).also { it.mkdirs() }

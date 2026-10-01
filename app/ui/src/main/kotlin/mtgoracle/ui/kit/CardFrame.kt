@@ -209,7 +209,7 @@ fun CardChip(
     val color = when {
         emphasis != Emphasis.NONE || mark != null -> Palette.accent
         face.tapped -> Palette.tapped
-        face.hidden -> Palette.dim
+        face.hidden || face.castLocked -> Palette.dim
         else -> Palette.foreground
     }
     // A tapped chip leans: /Island/ rather than [Island]. A legal pick gets «guillemets».
@@ -219,7 +219,7 @@ fun CardChip(
         else -> "[" to "]"
     }
     GridText(
-        "$prefix$open${face.name}$close",
+        "$prefix$open${face.name}$close" + if (face.castLocked) " locked" else "",
         modifier = Modifier.clickTarget(target, onClick, onHover),
         color = color,
         bold = emphasis == Emphasis.SELECTABLE || mark != null,
