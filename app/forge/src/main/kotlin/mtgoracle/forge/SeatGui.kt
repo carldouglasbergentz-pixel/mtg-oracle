@@ -318,6 +318,8 @@ class SeatGui(
             inputSerial = System.identityHashCode(top),
             okLabel = okLabel, cancelLabel = cancelLabel, okEnabled = okEnabled, cancelEnabled = cancelEnabled,
             selectableCardIds = selectableIds, actionableCardIds = actionableIds,
+            // InputPassPriority names the cancel button "Undo (n)" exactly when the last action can be undone.
+            cancelUndoes = cancelLabel.startsWith(forge.util.Localizer.getInstance().getMessage("lblUndo")),
         )
         if (current is InputPrompt && current.copy(id = 0, selectableElsewhere = emptyList()) == candidate) return
         snapshot() // the engine is parked on this Input: the board is consistent now
@@ -671,15 +673,30 @@ class SeatGui(
     }
 
     /**
-     * "Choose X for Wrath of the Skies": the largest X the mana this seat can
-     * make right now pays for (Forge's own estimate of its sources, plus the
-     * pool), with the rest of the spell's cost paid first. Only a hint — a
-     * larger X can be typed, and Forge then refuses the payment.
+     * "Choose X for Wrath of the Skies": the largest X this seat can pay right
+     * now. Only a hint — a larger X can be typed, and Forge then refuses the
+     * payment.
+     *
+     * A spell is on the stack by the time X is asked, carrying the ability
+     * actually cast, so its cost is the one being paid: a miracle's {X}{W}{W},
+     * not Entreat the Angels' printed {X}{X}{W}{W}{W}. Forge's own payment
+     * check (the one its AI plays by) then tries each X: it knows which
+     * sources really make mana and in which colours, where counting lands
+     * took a fetchland for a mana.
      */
     private fun affordableX(message: String): Int? {
         val name = Regex("Choose X for (.+)", RegexOption.IGNORE_CASE).find(message)?.groupValues?.get(1)?.trim()?.removeSuffix(".") ?: return null
         val player = gameView?.game?.players?.firstOrNull { it.id in seatPlayerIds } ?: return null
-        val card = (player.getCardsIn(ZoneType.Stack) + player.getCardsIn(ZoneType.Hand)).firstOrNull { it.name == name } ?: return null
+        val cast = player.getCardsIn(ZoneType.Stack).firstOrNull { it.name == name }?.castSA
+        if (cast != null && cast.payCosts.totalMana.countX() > 0) {
+            fun payable(x: Int) = forge.ai.ComputerUtilMana.canPayManaCost(cast, player, x, false)
+            if (!payable(0)) return 0
+            var x = 0
+            while (x < MAX_SUGGESTED_X && payable(x + 1)) x++
+            return x
+        }
+        // An activated ability (Walking Ballista): nothing on the stack yet, so the printed cost and Forge's estimate of its sources.
+        val card = player.getCardsIn(ZoneType.Battlefield).firstOrNull { it.name == name } ?: player.getCardsIn(ZoneType.Hand).firstOrNull { it.name == name } ?: return null
         val xs = card.manaCost.countX().takeIf { it > 0 } ?: return null
         val pool = MANA_BYTES.values.sumOf { player.manaPool.getAmountOfColor(it) }
         val available = forge.ai.ComputerUtilMana.getAvailableManaEstimate(player, false) + pool
@@ -754,6 +771,8 @@ class SeatGui(
     private companion object {
         /** What F4 stops for and F6 ignores. */
         val HIDDEN_ZONES = setOf(ZoneType.Hand, ZoneType.Library)
+        /** Where the affordable-X search stops: each step is one of Forge's payment checks. */
+        const val MAX_SUGGESTED_X = 99
         /** The pool's letters (as Snapshots writes them) to Forge's mana atoms, which the pool click takes (colourless has its own bit). */
         val MANA_BYTES = mapOf(
             'W' to forge.card.mana.ManaAtom.WHITE, 'U' to forge.card.mana.ManaAtom.BLUE, 'B' to forge.card.mana.ManaAtom.BLACK,
