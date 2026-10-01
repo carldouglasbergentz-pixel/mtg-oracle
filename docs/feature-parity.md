@@ -1,6 +1,6 @@
 # Feature parity: Python TUI/CLI → Kotlin app
 
-> **History.** The port is finished: Python was retired on 2026-10-01 (step 7), and its code is at the git tag `python-final`. This list is kept as the record of what moved where. The one row still marked ▶ is a feature the TUI never had, and its work is tracked in `project-plan.md`.
+> **History.** The port is finished: Python was retired on 2026-10-01 (step 7), and its code is at the git tag `python-final`. This list is kept as the record of what moved where. Every row is done.
 
 The Kotlin app (ADR 0001) replaced the Textual TUI and the CLI piece by piece. This list recorded everything the Python build did, so nothing was lost in the move. Each feature was ticked when the new app had it.
 
@@ -78,7 +78,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 
 | Feature | Today | Step | Status |
 |---|---|---|---|
-| Play vs AI on our own board, recorded | — (new) | 2 | ▶ |
+| Play vs AI on our own board, recorded | — (new) | 2 | ✓ every finished game is a `games` row, Bo3/Bo5 grouped by `match_id`; `results` per opponent; AI-vs-AI simulations too (5c) |
 | AI copies from substitutions | `forge sub`, export | 2 (use) / 4 (edit) | ✓ 5c: a card's menu > AI substitute..., judged by `checkSwaps` (DeckParityTest) and Forge; the AI copy tab (4) lists them with [x] |
 | Matches best of 1 / 3 / 5: sideboarding between games, the result and score, the loser chooses play or draw; each game a `games` row sharing `match_id` | — (new) | 2 | ✓ |
 | The mana pool on the board, live, spendable by clicking during a payment; mana from resolving abilities on the trail | — (new) | 2 | ✓ |
