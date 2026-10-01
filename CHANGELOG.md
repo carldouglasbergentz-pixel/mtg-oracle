@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (step 6c: the last of what Python did)
+- **`app\mtg.cmd`, the command line,** from the newest snapshot (the app's `cli` mode; `gradlew :app:cli -Pargs="..."` too). The commands:
+  - lookups: `card`, `search [--page N]`, `rule`, `combo`, `combos`, `combo-info`;
+  - decks: `deck list | show | export [--front-face] [--grouped]`;
+  - analysis: `profile <deck>|<folder>`, `compare <deck> --against <deck>|<folder>`;
+  - games and data: `results`, `sync`, `prune`.
+
+  Text is the app's own output, through the same commands and renderings. `--json` is structured, and for `profile` and `compare` it has the shape `analyse_archetype.py --json` had. The console is switched to UTF-8 while it runs.
+- **`combo add <card>; <card>[; ...]`:** a combo of your own, for the ones Spellbook doesn't list. It asks what the combo does and, optionally, its name, takes the cards' colour identity, and shows the combo as every lookup will. `combo remove <user-NNN>` removes one after a yes; Spellbook's can't be removed.
+- **`prune [--yes]`:** card rows no export writes any more, which read as colourless in every `ci<=`.
+  - Without `--yes` it is a dry run. With it, the app asks first; in the terminal `--yes` is the confirmation.
+  - A card a deck names is always kept, and more stale rows than is believable deletes nothing.
+  - The lookup is rebuilt afterwards. The live database has none today.
+
+### Removed
+- `scripts/export_land_fetchers.py` and `scripts/export_typal_matters.py`: one-off tests, and the search language answers both (`otag:`, `t:`).
+
 ### Added (step 6b: the data sync in the app)
 - **[ Sync ] in the library, `sync [--force] [<source> ...]` on the command line, `gradlew :app:sync` in a terminal.**
   - It fetches what moved upstream: Scryfall cards, legalities and rulings; the Comprehensive Rules; Commander Spellbook's combos; the local tags; Tagger's oracle tags; the community formats.

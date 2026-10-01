@@ -78,6 +78,8 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             onEdit = app::edit,
             folders = app.folders,
             insight = app.insight?.takeIf { it.deckId == app.selectedId },
+            pointsOf = { name -> app.deckPoints[name.lowercase()] },
+            badges = app.deckBadges,
         )
         Screen.Setup -> {
             val me = app.decks.first { it.id == app.selectedId }

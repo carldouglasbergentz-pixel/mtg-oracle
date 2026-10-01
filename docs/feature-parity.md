@@ -25,7 +25,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | Copy pane contents to clipboard (`copy last/all/nav`) | OSC 52 | 3 | ✓ `last`, `all`; `nav` is `export` in step 4 |
 | Clear output (`clear`, Ctrl+L), quit (Ctrl+Q) | bindings | 2 | ✓ `clear` / Ctrl+L; `quit` or Q in the library (Ctrl+Q concedes on the board) |
 | Help per topic (`help`, `help decks/search/forge`) | help.py | 3 | ✓ `help`, `help search`; decks and forge get theirs with steps 4 and 5 |
-| Errors shown in the app, never a crash; "database predates this version" hint | `_run_guarded` | 2 | ▶ (schema check) |
+| Errors shown in the app, never a crash; "database predates this version" hint | `_run_guarded` | 2 | ✓ a failing command is one ERR line; a short schema stops at start with the one command that completes it; the app migrates its own (6a) |
 | Schema self-heal on start | `self_heal.py` | 2 | ✓ (Python owns it; app checks) |
 
 ## Card, rules, combos, corrections (lookup)
@@ -46,7 +46,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | Feature | Today | Step | Status |
 |---|---|---|---|
 | Folders and decks; unsorted decks; unique names per folder | `ls`, `cd`, `mkdir`, `rmdir` | 2 (read) / 4 (edit) | ✓ 4b: [ New deck ] [ New folder ], a folder's and a deck's right-click menu; every folder shown, the empty ones too |
-| Deck view grouped by type; commander pinned; CI badge; pointed cards `Name (3)` | nav pane, `show` | 2 | ▶ |
+| Deck view grouped by type; commander pinned; CI badge; pointed cards `Name (3)` | nav pane, `show` | 2 | ✓ the library and the workspace: `{U}{W}` and `9/10 pts` in the title, `(3)` on pointed cards in text and art |
 | Deck workspace: the deck beside a search that follows it, results as a card grid or lines, arrow-key selection | — (new, 3.5; Moxfield's edit mode) | 3.5 | ✓ editing since 4a |
 | Considering list (Moxfield's maybeboard): not counted, exported or played; `!` where a rule would stop a card | — (new, 4a) | 4a | ✓ app: the Considering tab; TUI: `consider` and both deck views |
 | Live nav analytics: curve, avg MV, pips, sources by colour, combos in deck | nav pane | 5 | ✓ the analysis block, fixed at the top of the middle column above the deck (library) and above the search (workspace), recomputed on every edit; also the primary roles and their T2/T4 odds |
@@ -60,7 +60,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | History and undo / redo | `history`, `undo` | 4 | ✓ 4a: the History tab (every change, both apps' alike) and `undo` (undo of undo is redo) |
 | Printings (set + collector number) kept from the paste, used for art | parser + `deck_cards` | 2 | ✓ kept on import and replace, written back by export |
 | Choose a card's printing / art in the app (pick from its printings in the deck view or zoom pane; recorded in deck history, undoable) | — (new; wanted 2026-09-29 — Jace set to WWK 31 by hand) | 4 | ✓ 4b: a row's menu > choose printing..., every printing Forge knows, newest first, the art in the zoom pane on hover; a `printing` revision, undoable |
-| Export to clipboard / file, round-trips; `--front-face`, `--grouped` | `export` | 4 | ▶ to the clipboard: full names, front faces (split cards whole), or grouped by role (5); to a file stays the TUI's |
+| Export to clipboard / file, round-trips; `--front-face`, `--grouped` | `export` | 4 | ✓ to the clipboard (full names, front faces, grouped by role), and to a file with `mtg deck export <deck> [--front-face] [--grouped] > file.txt` |
 | Combos fully contained in a deck | `combos` in a deck | 5 | ✓ `combos` with no argument in or on a deck, and the block's `[ N combos in the deck ]` |
 
 ## Analysis
@@ -69,7 +69,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 |---|---|---|---|
 | Deck profile: role densities, reach, exact castable-on-turn odds, low-confidence cards | `profile` | 5 | ✓ `profile [<deck>]` and the block's `[ full profile ]`; the numbers are Python's (AnalysisParityTest); the layout is the app's own, only the roles the deck holds and a note under each table |
 | Head-to-head comparison | `compare` | 5 | ✓ `compare <deck>` |
-| Reference-set ranges over a folder of lists, `--json` | `scripts/analyse_archetype.py` | 5 | ▶ in the app over a library folder: `profile <folder>` (side by side, most played per role) and `compare <folder>` (ranges); import the lists into a folder first. A folder of files and `--json` are the Kotlin CLI's (6c) |
+| Reference-set ranges over a folder of lists, `--json` | `scripts/analyse_archetype.py` | 5 | ✓ the app over a library folder (`profile <folder>`, `compare <folder>`); the CLI also over a folder of .txt files (`mtg profile --dir <path>`, `mtg compare <deck> --against --dir <path>`), identical files counted once, and `--json` in analyse_archetype's shape |
 | Role classifier (Tagger tags + text rules, face-burn veto, drawback vetoes) | `roles.py` | 5 | ✓ `core/analysis`; AnalysisParityTest classifies all 35k cards against Python, and checks every deck's analytics and every profile, ranking and comparison at 12 decimals |
 
 ## Forge and playtesting
@@ -90,8 +90,8 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | Feature | Today | Step | Status |
 |---|---|---|---|
 | Sync: cards, rulings, rules, combos, tags, oracle tags, formats; skip-unchanged, `--force`, `--only`, changelog | `sync.py`, `sync` in the TUI | 6 | ✓ 6b: `data/sync/`; [ Sync ] and `sync [--force] [<source> ...]` in the app, `gradlew :app:sync` in a terminal. SyncParityTest (`-PsyncParity`) finds all 14 tables identical to Python's on the cached exports. First real run 2026-10-01 |
-| Prune stale cards | `prune_stale_cards.py` | 6 | ○ |
+| Prune stale cards | `prune_stale_cards.py` | 6 | ✓ 6c: `prune [--yes]` (a dry run; --yes asks first) and `mtg prune`; a deck's cards are kept, and too many "stale" rows refuse |
 | Schema: create, migrate, backup | `init_db.py`, `self_heal.py` + `scripts/migrations/` | 6a | ✓ the app's `Schema` (`user_version`): creates v1, adopts a Python-made database unchanged, backs up before migrating; v2 dropped the empty `forge_matches`. `self_heal` leaves a versioned database alone |
-| User combos | `add_user_combo.py` | 3 (show) / 4 (add) | ▶ shown in every combo lookup; adding one moves to step 4 with the other writes |
-| Export scripts (land fetchers, typal matters) | `scripts/export_*.py` | 6 | ○ decide |
-| CLI for scripting and `--json` | `mtg_cli.py` | 6 | ○ decide: keep a Kotlin CLI or keep Python's |
+| User combos | `add_user_combo.py` | 3 (show) / 4 (add) | ✓ 6c: `combo add <card>; <card>` asks what it does and its name; `combo remove <user-NNN>` after a yes |
+| Export scripts (land fetchers, typal matters) | `scripts/export_*.py` | 6 | — dropped 2026-10-01: one-off tests; the search language covers them (`otag:`, `t:`) |
+| CLI for scripting and `--json` | `mtg_cli.py` | 6 | ✓ 6c: `app\mtg.cmd` (the snapshot's `cli` mode): card, search, rule, combos, deck list/show/export, profile, compare --against, results, sync, prune; text is the app's own output, `--json` structured (analyse_archetype's shape for profile and compare) |

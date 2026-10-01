@@ -31,6 +31,7 @@ fun main(args: Array<String>) {
             "check-schema" -> checkSchema(paths)
             "migrate" -> migrate(paths)
             "sync" -> sync(paths, args.drop(1))
+            "cli" -> Cli.run(paths, args.drop(1))
             "prefetch" -> Headless.prefetch(paths, args.drop(1).joinToString(" ").ifBlank { null })
             "scripted" -> Scripted.run(paths, args.drop(1))
             "snapshots" -> StagedPictures.run(paths, java.io.File(System.getProperty("mtgoracle.evidence") ?: "build/evidence", "staged"), args.drop(1).toSet())

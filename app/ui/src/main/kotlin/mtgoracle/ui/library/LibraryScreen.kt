@@ -92,6 +92,10 @@ fun LibraryScreen(
     folders: List<Folder> = emptyList(),
     /** The analysis block above the selected deck; null while it is being read. */
     insight: DeckInsight? = null,
+    /** The selected deck's points per card (a points format), for `Mana Drain (3)`; null for none. */
+    pointsOf: (String) -> Int? = { null },
+    /** The selected deck's colour identity when it has a commander (`{U}{W}`), and its points spent of its budget (`9/10 pts`). */
+    badges: List<String> = emptyList(),
 ) {
     var menu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
     val selectedFolder = decks.firstOrNull { it.id == selectedId }?.folderId
@@ -184,7 +188,7 @@ fun LibraryScreen(
                 }
                 val middle = cols - DECK_LIST_COLS - SIDE_COLS
                 val right = deck?.let { d ->
-                    listOfNotNull(d.format?.let(Formats::shortName), "${d.mainCount} cards", d.substitutions.takeIf { it.isNotEmpty() }?.let { "AI copy: ${it.size} substitutions" }).joinToString(" · ")
+                    (listOfNotNull(d.format?.let(Formats::shortName)) + badges + listOfNotNull("${d.mainCount} cards", d.substitutions.takeIf { it.isNotEmpty() }?.let { "AI copy: ${it.size} substitutions" })).joinToString(" · ")
                 }
                 if (lookup?.showOutput == true) {
                     BoxPane("output", Modifier.weight(1f).fillMaxHeight(), right = "Tab: ${deck?.name ?: "deck"}") {
@@ -198,7 +202,7 @@ fun LibraryScreen(
                         BoxPane(deck?.name ?: "no deck selected", Modifier.fillMaxWidth().weight(1f), right = right) {
                             Column(Modifier.verticalScroll(rememberScrollState())) {
                                 if (deck == null) GridText("Pick a deck on the left.", color = Palette.dim)
-                                else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it })
+                                else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it }, points = pointsOf)
                             }
                         }
                     }

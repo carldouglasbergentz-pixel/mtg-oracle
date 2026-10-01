@@ -35,7 +35,7 @@ fun primaryType(card: DeckCard): String {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun DeckView(deck: Deck, keyFor: (DeckCard) -> String?, mode: CardMode, cols: Int, onHover: (CardFace) -> Unit) {
+internal fun DeckView(deck: Deck, keyFor: (DeckCard) -> String?, mode: CardMode, cols: Int, onHover: (CardFace) -> Unit, points: (String) -> Int? = { null }) {
     val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
     for (section in Section.entries) {
         val cards = deck.cards.filter { it.section == section }
@@ -48,14 +48,15 @@ internal fun DeckView(deck: Deck, keyFor: (DeckCard) -> String?, mode: CardMode,
                 groupCards.forEachIndexed { i, card ->
                     val face = card.face(keyFor(card))
                     val printing = card.setCode?.let { " (${it.uppercase()}) ${card.collectorNumber.orEmpty()}" }.orEmpty()
-                    GridText(fit("%2d %-32s %-10s %s".format(card.quantity, card.name, face.manaCost, face.typeLine) + printing, cols),
+                    val name = card.name + (points(card.name)?.let { " ($it)" } ?: "")
+                    GridText(fit("%2d %-32s %-10s %s".format(card.quantity, name, face.manaCost, face.typeLine) + printing, cols),
                         Modifier.clickTarget(ClickTarget.Control("card:${section}:$group:$i"), {}) { onHover(face) })
                 }
             } else {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
                     groupCards.forEachIndexed { i, card ->
                         val face = card.face(keyFor(card))
-                        CardFrame(face, mode, target = ClickTarget.Control("card:${section}:$group:$i"), onHover = { onHover(face) })
+                        CardFrame(face, mode, target = ClickTarget.Control("card:${section}:$group:$i"), onHover = { onHover(face) }, mark = points(card.name)?.let { "($it)" })
                     }
                 }
             }

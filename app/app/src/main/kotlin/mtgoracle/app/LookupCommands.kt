@@ -77,6 +77,8 @@ class LookupCommands(
     private val selectedDeck: () -> Int? = { null },
     /** `sync`: runs the data pipeline (in the background) with these options; null where there is none (tests of lookup alone). */
     private val sync: ((force: Boolean, only: Set<Source>) -> Unit)? = null,
+    /** The cards changed under the lookup (a prune): rebuild it, as after a sync. */
+    private val onCardsChanged: () -> Unit = {},
     /** The scrollback and the command line, carried over when the lookup is rebuilt after a sync. */
     val output: OutputLog = OutputLog(),
     command: CommandLineState = CommandLineState(),
@@ -194,7 +196,12 @@ class LookupCommands(
             "help", "?" -> help(arg)
             "card" -> cardOrRow(arg)
             "ruling", "rulings" -> rulings(arg)
-            "combo" -> combo(arg)
+            "combo" -> when {
+                arg.startsWith("add ", ignoreCase = true) || arg.equals("add", ignoreCase = true) -> addCombo(arg.drop(3).trim())
+                arg.startsWith("remove ", ignoreCase = true) -> removeCombo(arg.drop(6).trim())
+                else -> combo(arg)
+            }
+            "prune" -> prune(arg)
             "combos" -> if (arg.isEmpty() && currentDeck() != null) deckCombos() else combos(arg)
             "profile" -> profile(arg)
             "compare" -> compare(arg)
@@ -464,6 +471,63 @@ class LookupCommands(
 
     private fun deckList(d: DeckSummary) = lookup.analysis.deckList(d.id, d.name)
 
+    /**
+     * `combo add <card>; <card>[; ...]`: a combo of the user's own, which
+     * Spellbook doesn't list. Asks what it does (and, optionally, its name),
+     * then shows it as every combo lookup will.
+     */
+    private fun addCombo(arg: String) {
+        val cards = arg.split(';').map { it.trim() }.filter { it.isNotEmpty() }
+        if (cards.size < 2) return say("usage: combo add <card>; <card>[; ...]   (then it asks what the combo does)")
+        val unknown = cards.filter { lookup.names.resolve(it) == null }
+        if (unknown.isNotEmpty()) return say("(card(s) not found: ${unknown.joinToString(", ")})")
+        val named = cards.map { lookup.names.resolve(it)!! }
+        ui.ask = mtgoracle.ui.lookup.Ask.Text("What does ${named.joinToString(" + ")} do? (the steps, or the result)", ok = "Next") { description ->
+            ui.ask = mtgoracle.ui.lookup.Ask.Text("A name for it (optional)", ok = "Add combo") { name ->
+                guarded {
+                    try {
+                        val id = lookup.userCombos.add(named, description, name)
+                        say("added your combo $id", Tone.DIM)
+                        showCombo(id)
+                    } catch (e: mtgoracle.core.deck.DeckRefusal) { say("refused: ${e.message}", Tone.ERROR) }
+                }
+            }
+        }
+    }
+
+    /** `combo remove <user-NNN>`: one of the user's own combos, after a yes. */
+    private fun removeCombo(id: String) {
+        if (id.isEmpty()) return say("usage: combo remove <user-NNN>")
+        if (!id.startsWith("user-")) return say("refused: '$id' is a Spellbook combo: only your own (user-NNN) can be removed", Tone.ERROR)
+        val combo = lookup.combos.detail(id) ?: return say("(combo not found: $id)")
+        ui.ask = mtgoracle.ui.lookup.Ask.Buttons("Remove combo $id (${combo.cards.joinToString(" + ") { it.name }})?", listOf("Remove" to {
+            guarded {
+                try {
+                    say(if (lookup.userCombos.remove(id)) "removed your combo $id" else "(combo not found: $id)", Tone.DIM)
+                } catch (e: mtgoracle.core.deck.DeckRefusal) { say("refused: ${e.message}", Tone.ERROR) }
+            }
+        }))
+    }
+
+    /**
+     * `prune`: the card rows no export writes any more (renamed cards, retired
+     * rebalances), which read as colourless in every `ci<=`. A dry run; `prune
+     * --yes` asks, then removes them. A card a deck names is always kept.
+     */
+    private fun prune(arg: String) {
+        val delete = arg.split(' ').any { it == "--yes" }
+        val dry = mtgoracle.data.sync.Prune.run(lookup.db)
+        say(message(pruneText(dry), Tone.PLAIN))
+        if (!delete || dry.refused || dry.prunable.isEmpty()) return
+        ui.ask = mtgoracle.ui.lookup.Ask.Buttons("Delete ${dry.prunable.size} stale card row(s) and their rulings, tags and legalities? Decks keep theirs.", listOf("Delete" to {
+            guarded {
+                val done = mtgoracle.data.sync.Prune.run(lookup.db, delete = true)
+                say(done.deleted.entries.joinToString("\n", "deleted ${done.prunable.size} stale card row(s):\n") { "  ${it.key}: ${it.value}" }, Tone.DIM)
+                onCardsChanged()
+            }
+        }))
+    }
+
     /** `sync [--force] [<source> ...]`: the whole pipeline, or the sources named, in their own order. */
     private fun sync(arg: String) {
         val run = sync ?: return say("(sync is not available here)", Tone.DIM)
@@ -559,6 +623,21 @@ class LookupCommands(
     }
 
     companion object {
+        /** A prune's dry run as text: the CLI prints the same. */
+        fun pruneText(r: mtgoracle.data.sync.Prune.Report): String = buildString {
+            if (r.ignored.isNotEmpty()) append("(not trusting ${r.ignored.joinToString(", ")}: no card has it yet; a sync fills it)\n")
+            if (r.prunable.isEmpty() && r.kept.isEmpty()) { append("No stale card rows among ${r.total}."); return@buildString }
+            append("${r.prunable.size + r.kept.size} stale card row(s) of ${r.total}:\n")
+            (r.prunable.map { it to false } + r.kept.map { it to true }).sortedBy { it.first }.take(60).forEach { (name, kept) ->
+                append("  - $name").append(if (kept) "  KEEP (a deck uses it)" else "").append('\n')
+            }
+            if (r.prunable.size + r.kept.size > 60) append("  ... and ${r.prunable.size + r.kept.size - 60} more\n")
+            when {
+                r.refused -> append("Refused: more than ${r.limit} look stale, which means a column isn't filled yet, not that the table is junk. Sync first. Nothing was deleted.")
+                r.deleted.isEmpty() -> append(if (r.prunable.isEmpty()) "Nothing to delete: every stale row is in a deck." else "A dry run: nothing deleted. `prune --yes` removes the ${r.prunable.size} no deck uses.")
+            }
+        }.trimEnd()
+
         const val PAGE_SIZE = 50
         /** How `cd` names the decks outside every folder (the TUI's path for them). */
         const val UNSORTED = "(unsorted)"

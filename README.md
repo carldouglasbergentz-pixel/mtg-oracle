@@ -34,7 +34,11 @@ cd app
 gradlew :app:installLocal            # builds a snapshot into app/dist/<timestamp>/
 run-mtg-oracle.cmd                   # plays the newest snapshot (run-mtg-oracle.sh elsewhere)
 
-# 3. Or the Python front-ends over the same database
+# 3. The command line, from the same snapshot
+mtg.cmd card "Deathrite Shaman"
+mtg.cmd search kw:flying c:u t:creature mv<=3 --json
+
+# 4. Or the Python front-ends over the same database
 python scripts/mtg_app.py            # the Textual TUI
 python scripts/mtg_cli.py card "Deathrite Shaman"
 python scripts/mtg_cli.py search "kw:flying c:u t:creature mv<=3"

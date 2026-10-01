@@ -14,7 +14,7 @@ val COMMANDS = listOf(
     // Games.
     "results",
     // The data.
-    "sync",
+    "sync", "prune",
 )
 
 /** What a line's first word must be to run as a command; anything else is a search. */
@@ -24,7 +24,7 @@ val COMMAND_WORDS: Set<String> = COMMANDS.toSet() + setOf("rulings", "correction
 val COMMAND_HINTS: Map<String, String> = mapOf(
     "card" to "card <name>: the full profile · card <N>: row N of the last search",
     "ruling" to "ruling <name>: the card's rulings", "rulings" to "rulings <name>: the card's rulings",
-    "combo" to "combo <card>: combos with that card",
+    "combo" to "combo <card>: combos with that card · combo add <card>; <card>: your own · combo remove <user-NNN>",
     "combos" to "combos <card>; <card>[; ...]: combos with all of them · combos: the ones the deck holds whole",
     "combo-info" to "combo-info <id|N>: one combo in full",
     "rule" to "rule <number>: the rule and its sub-rules",
@@ -46,6 +46,7 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "profile" to "profile [<deck>|<folder>]: what the cards do and when each role is castable",
     "compare" to "compare <deck>|<folder>: this deck head to head, or against every deck in the folder",
     "results" to "results [<deck>]: wins–losses–draws against each opponent, your games and the simulated ones",
+    "prune" to "prune [--yes]: the card rows no export writes any more (a dry run without --yes; decks keep theirs)",
     "sync" to "sync [--force] [cards|rules|combos|tags|oracletags|formats ...]: fetch what moved upstream (decks are never touched)",
 )
 

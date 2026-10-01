@@ -10,6 +10,7 @@ plugins {
 }
 
 dependencies {
+    implementation(libs.serialization.json) // the CLI's --json
     implementation(project(":core"))
     implementation(project(":data"))
     implementation(project(":forge"))
@@ -127,6 +128,7 @@ tasks.register("installLocal") {
 
 registerMode("checkSchema", "Checks, read-only, that data/mtg.db has its schema version's every table and column.", "check-schema")
 registerMode("migrate", "Brings data/mtg.db to this build's schema version, as the app does at start (backup first).", "migrate")
+registerMode("cli", "The command line: -Pargs=\"card Sol Ring --json\" (or app\\mtg.cmd card Sol Ring --json).", "cli")
 registerMode("sync", "Fetches what moved upstream into data/mtg.db: -Pargs=\"[--force] [cards rules combos tags oracletags formats]\".", "sync")
 registerMode("prefetchImages", "Downloads card art for the cards in your decks (-Pargs=\"<deck name>\" for one).", "prefetch")
 registerMode("stagedPictures", "Headless: the staged boards (table, lands, stack box, trail, hidden info, reveal, watch) rendered with real art; -Pargs=\"<board names>\" for some.", "snapshots")

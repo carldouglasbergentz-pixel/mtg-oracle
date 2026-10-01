@@ -62,6 +62,27 @@ class AppController(private val paths: AppPaths) {
     var decks by mutableStateOf(emptyList<DeckSummary>())
     var selectedId by mutableStateOf<Int?>(null)
     var deck by mutableStateOf<Deck?>(null)
+    /** `{U}{W}` for a commander deck, `9/10 pts` in a points format; read with the analysis, not per frame. */
+    private fun badges() {
+        val lookup = currentLookup ?: return
+        val d = deck ?: run { deckPoints = emptyMap(); deckBadges = emptyList(); return }
+        val scope = runCatching { lookup.deckScope(d.id) }.getOrNull()
+        val info = scope?.format
+        deckPoints = info?.pointsBudget?.let { lookup.points(info.key) } ?: emptyMap()
+        val spent = d.cards.filter { !it.isSideboard }.sumOf { (deckPoints[it.name.lowercase()] ?: 0) * it.quantity }
+        deckBadges = listOfNotNull(
+            scope?.commanderCi?.let { ci -> if (ci.isEmpty()) "{C}" else ci.joinToString("") { "{$it}" } },
+            info?.pointsBudget?.let { "$spent/$it pts" + if (spent > it) "!" else "" },
+        )
+    }
+    private var currentLookup: Lookup? = null
+
+    /** The selected deck's points list (lower-cased name -> points) and its title's badges: what the library shows. */
+    var deckPoints by mutableStateOf<Map<String, Int>>(emptyMap())
+        private set
+    var deckBadges by mutableStateOf<List<String>>(emptyList())
+        private set
+
     /** The analysis block's numbers for [deck], computed again whenever it changes. */
     var insight by mutableStateOf<DeckInsight?>(null)
         private set
@@ -107,10 +128,12 @@ class AppController(private val paths: AppPaths) {
             copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
             writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
             selectedDeck = { selectedId }, sync = ::sync,
+            onCardsChanged = { commands?.let { current -> buildLookup(db, carry = current) } },
             output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
         )
         analysis = lookup.analysis
         lookupGames = lookup.games
+        currentLookup = lookup
         zoomInfo.clear()
         insightCache.clear()
         analyse()
@@ -260,6 +283,7 @@ class AppController(private val paths: AppPaths) {
      * show the numbers from before the edit.
      */
     private fun analyse() {
+        badges()
         val a = analysis ?: return
         val d = deck ?: return run { insight = null }
         insight = try {

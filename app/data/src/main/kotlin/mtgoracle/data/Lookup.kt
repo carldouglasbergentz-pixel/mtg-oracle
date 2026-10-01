@@ -11,7 +11,7 @@ import mtgoracle.core.lookup.SearchVocabulary
  * Cards, rules, combos and corrections, read-only: everything the lookup
  * commands ask. Reads the card names and the formats once, at construction.
  */
-class Lookup(private val db: MtgDb) {
+class Lookup(val db: MtgDb) {
     val names: CardNames = CardNames(db.read { conn ->
         // Table order, not sorted: the fold fallback picks the first card in it, as Python's scan does.
         conn.prepareStatement("SELECT name FROM cards").use { st -> st.executeQuery().use { rs -> rs.rows { getString(1) } } }
@@ -25,6 +25,8 @@ class Lookup(private val db: MtgDb) {
     val analysis = Analysis(db, names, combos)
     /** The games played and simulated, for `results`. */
     val games = GameStore(db)
+    /** The user's own combos, beside Spellbook's. */
+    val userCombos = UserCombos(db, names)
 
     /**
      * What autofill offers after each field, the most used first: types and

@@ -19,6 +19,8 @@ COMBOS
   combos <card1>; <card2>[; ...]      combos with ALL of the cards
   combo-info <id-or-number>           a combo in full; <N> is a row of the last list
   combos                              in or on a deck: the combos it holds whole
+  combo add <card1>; <card2>[; ...]   a combo of your own (it asks what it does)
+  combo remove <user-NNN>             one of your own, after a yes
 
 SEARCH
   search <query>                      Scryfall-style card search — `help search` for the syntax
@@ -47,6 +49,8 @@ DATA
   sync [--force] [<source> ...]       fetch what moved upstream: cards, rules, combos, tags,
                                       oracletags, formats (decks are never touched); --force
                                       fetches it all again
+  prune [--yes]                       card rows no export writes any more; a dry run
+                                      without --yes, and a deck's cards are always kept
 
 GAMES
   results [<deck>]                    wins–losses–draws against each opponent: the games you
