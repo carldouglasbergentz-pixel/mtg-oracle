@@ -15,6 +15,9 @@ tools/forge/
 # Gradle distribution used once to bootstrap app/'s wrapper (the wrapper itself is tracked)
 tools/gradle/
 
+# Maven 3.9.16, for building Forge from source (the Duel Commander PR)
+tools/maven/
+
 # JVM app (docs/adr/0001): build output (incl. the copied Forge res/ in
 # app/build/forge-assets), Gradle state, Kotlin caches.
 app/build/
