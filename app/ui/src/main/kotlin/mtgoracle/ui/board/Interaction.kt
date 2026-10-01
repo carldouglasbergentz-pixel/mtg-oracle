@@ -96,21 +96,25 @@ fun reduce(state0: Interaction, prompt: Prompt?, event: UiEvent, manaAtRisk: Str
     }
 }
 
-/** What [event] passes priority with, if it does: OK or End Turn at a priority prompt, or F2, F4, F6. */
+/**
+ * What [event] passes priority with, if it does: OK or End Turn at a priority prompt, or F2, F4, F6.
+ * Cancel passes only as End Turn: as Undo it gives the floating mana back.
+ */
 private fun passOf(prompt: Prompt?, event: UiEvent): Pair<SeatAction?, SeatCommand?>? {
     val priority = (prompt as? InputPrompt)?.takeIf { it.kind == InputKind.PRIORITY }
+    val cancelPasses = priority?.cancelEnabled == true && !priority.cancelUndoes
     return when (event) {
         is UiEvent.Key -> when (event.key) {
             UiKey.F2 -> null to SeatCommand.PASS
             UiKey.F4 -> null to SeatCommand.END_TURN
             UiKey.F6 -> null to SeatCommand.SKIP_TURN
             UiKey.ENTER -> (SeatAction.Ok to null).takeIf { priority?.okEnabled == true }
-            UiKey.ESCAPE -> (SeatAction.Cancel to null).takeIf { priority?.cancelEnabled == true }
+            UiKey.ESCAPE -> (SeatAction.Cancel to null).takeIf { cancelPasses }
             else -> null
         }
         is UiEvent.Click -> when (event.target) {
             ClickTarget.Ok -> (SeatAction.Ok to null).takeIf { priority?.okEnabled == true }
-            ClickTarget.Cancel -> (SeatAction.Cancel to null).takeIf { priority?.cancelEnabled == true }
+            ClickTarget.Cancel -> (SeatAction.Cancel to null).takeIf { cancelPasses }
             else -> null
         }
     }

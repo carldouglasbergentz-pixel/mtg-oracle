@@ -52,6 +52,8 @@ data class InputPrompt(
     val actionableCardIds: Set<Int>,
     /** Selectable cards the board doesn't show — a library being searched, a graveyard. */
     val selectableElsewhere: List<CardState> = emptyList(),
+    /** Cancel is Forge's Undo here (a mana ability can be undone), not End Turn: it gives the mana back rather than passing. */
+    val cancelUndoes: Boolean = false,
 ) : Prompt
 
 /** Pick [min]..[max] options. min = max = -1 is Forge's reveal: look, then continue. */

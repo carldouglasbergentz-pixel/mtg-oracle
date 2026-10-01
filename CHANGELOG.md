@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **"max affordable" on the X prompt prices the cost actually paid, with the mana you really have.**
+  - **The cost.** It is taken from the spell on the stack, so a miracle is priced by its miracle cost. Entreat the Angels by miracle with 8 Plains now suggests 6, where it said 2 from the printed {X}{X}{W}{W}{W}.
+  - **The mana.** Each X is checked with Forge's own payment check, which knows which sources make mana and in what colours. It used to count every land as a mana. With Wrath of the Skies and 8 lands, including Arid Mesa and Urza's Saga with no lore counter, it now says 4, where it said 6.
+  - An activated ability with X keeps the old estimate, since there is nothing on the stack yet. `AffordableXTest` covers the user's cases.
+- **Undo after a mana ability is no longer stopped by the floating-mana warning.** Library of Alexandria tapped by mistake left "Undo (1)" on the cancel button, but pressing it asked "{C} is floating … pass anyway?", because Cancel at priority counted as a pass. The prompt now says when Cancel is Forge's Undo (`InputPrompt.cancelUndoes`). Undo goes through at once and gives the mana back. As End Turn, Cancel still asks. `UndoManaTest` plays the user's case.
+
 ### Removed (step 7: Python retired)
 - **The Python code:** `mtg_oracle/` (the TUI and its layers), `scripts/` (the sync, migrations, the CLI, `analyse_archetype.py`), `tests/` and `requirements.txt`. The last commit with them is tagged `python-final`.
 

@@ -67,6 +67,19 @@ class ManaWarningTest {
     }
 
     @Test
+    fun `Undo is not a pass - it gives the mana back, so it goes through at once`() {
+        // A Library of Alexandria tapped by mistake: Forge's cancel button is "Undo (1)".
+        val undo = priority.copy(cancelLabel = "Undo (1)", cancelUndoes = true)
+        for (event in listOf(UiEvent.Key(UiKey.ESCAPE), UiEvent.Click(ClickTarget.Cancel))) {
+            val out = reduce(Interaction.start(undo), undo, event, "{C}")
+            assertNull(out.state.pendingPass, "$event is not held behind the warning")
+            assertEquals(SeatAction.Cancel, out.action, "$event undoes")
+        }
+        val ok = reduce(Interaction.start(undo), undo, UiEvent.Key(UiKey.ENTER), "{C}")
+        assertNotNull(ok.state.pendingPass, "OK still passes, so it still asks")
+    }
+
+    @Test
     fun `Stay keeps priority, and nothing else acts while the warning is up`() {
         val held = reduce(Interaction.start(priority), priority, UiEvent.Key(UiKey.ENTER), "{W}").state
         for (stay in listOf(UiEvent.Key(UiKey.ESCAPE), UiEvent.Click(ManaWarningTargets.STAY))) {
