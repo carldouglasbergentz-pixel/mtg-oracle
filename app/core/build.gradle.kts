@@ -1,6 +1,6 @@
 // Pure logic and the plain data every other module speaks: the board and
 // prompt model, decks, AI copies, phase stops, game records. No I/O, no Forge,
-// no Compose — the equivalent of the Python pure layer.
+// no Compose.
 plugins {
     alias(libs.plugins.kotlin.jvm)
 }

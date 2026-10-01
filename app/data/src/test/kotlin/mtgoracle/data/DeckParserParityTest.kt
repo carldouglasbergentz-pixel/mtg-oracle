@@ -7,10 +7,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The deck-list parser against its original: every reference list in
- * docs/reports/decklists, and the shapes that once lost cards, through
- * mtg_oracle/deck_parser.py and through DeckParser. Row for row the same
- * name, count, section and printing.
+ * The deck-list parser against its original: every reference list in the
+ * fixture, and the shapes that once lost cards, parse row for row to the
+ * name, count, section and printing Python's deck_parser gave
+ * (`expected/deck-parser.txt`).
  */
 class DeckParserParityTest {
 
@@ -27,27 +27,16 @@ class DeckParserParityTest {
         "Companion\n1 Lurrus of the Dream-Den\nmaybe board\n1 Opt",
     )
 
-    private val python = """
-        import sys
-        from mtg_oracle.deck_parser import parse_deckstring
-        texts = open(sys.argv[1], encoding='utf-8').read().split('\x1e')
-        for t in texts:
-            for r in parse_deckstring(t):
-                print('|'.join([r['name'], str(r['quantity']), r['section'], r.get('set_code') or '', r.get('collector_number') or '']))
-            print('---')
-    """.trimIndent()
-
     private fun kotlin(texts: List<String>): List<String> = texts.flatMap { t ->
         DeckParser.parse(t).map { r -> listOf(r.name, r.quantity.let { if (it == Int.MAX_VALUE) "99999999999999999999" else "$it" }, r.section, r.setCode.orEmpty(), r.collectorNumber.orEmpty()).joinToString("|") } + "---"
     }
 
     @Test
     fun `every reference list and every tricky shape parses as Python parses it`() {
-        val lists = File(DbFixture.repoRoot, "docs/reports/decklists").walkTopDown().filter { it.isFile && it.extension == "txt" }.sortedBy { it.path }.toList()
+        val lists = FixtureDb.decklists.walkTopDown().filter { it.isFile && it.extension == "txt" }.sortedBy { it.path }.toList()
         assertTrue(lists.size >= 10, "the reference lists are where the test expects them: ${lists.size}")
         val texts = lists.map { it.readText(Charsets.UTF_8) } + tricky
-        val input = File.createTempFile("parser-parity-", ".txt").apply { writeText(texts.joinToString("\u001E"), Charsets.UTF_8); deleteOnExit() }
-        val expected = DbFixture.python(python, input.path).replace("\r\n", "\n").trimEnd('\n').split('\n')
+        val expected = FixtureDb.expected("deck-parser.txt")
         val actual = kotlin(texts)
         assertEquals(expected.size, actual.size, "row count")
         expected.indices.forEach { i -> assertEquals(expected[i], actual[i], "row ${i + 1}") }

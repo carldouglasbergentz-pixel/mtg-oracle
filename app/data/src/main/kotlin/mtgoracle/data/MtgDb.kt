@@ -5,8 +5,8 @@ import java.io.File
 import java.sql.Connection
 
 /**
- * data/mtg.db. The app owns its schema ([Schema], [migrate]); the Python
- * side still syncs the cards into it until step 6b.
+ * data/mtg.db. The app owns its schema ([Schema], [migrate]) and fills it
+ * with its own sync (`data.sync`).
  *
  * Reads go through a read-only connection, so a bug here cannot touch the
  * user's decks; every write opens its own short-lived read-write one.
@@ -17,11 +17,21 @@ class MtgDb(val file: File) {
         if (!file.isFile) throw MissingDatabaseException(file)
     }
 
+    companion object {
+        /** An empty database at [file], schema and all, for a first start: [migrate] creates the schema, a sync the rows. */
+        fun create(file: File): MtgDb {
+            check(!file.exists()) { "$file already exists" }
+            file.parentFile?.mkdirs()
+            file.createNewFile()
+            return MtgDb(file).also { it.migrate(backups = null) }
+        }
+    }
+
     fun <T> read(block: (Connection) -> T): T = connect(readOnly = true).use(block)
 
     /**
      * [block] in one transaction. [foreignKeys] off only for the sync, which
-     * replaces whole card tables as the Python pipeline did (never with them
+     * replaces whole card tables, as the Python pipeline it was ported from did (never with them
      * enforced): `INSERT OR REPLACE` on a combo id seen twice would otherwise
      * trip over the first one's cards.
      */
@@ -71,7 +81,7 @@ class MtgDb(val file: File) {
     /**
      * Brings the database to [Schema.VERSION]. An empty file gets version 1
      * and every migration. A database without a version (the Python
-     * migrations made it) is checked against version 1 and, when it has all
+     * migrations made it, before 2026-10) is checked against version 1 and, when it has all
      * of it, stamped 1; nothing else changes. Then each pending migration runs
      * in its own transaction, after one backup in [backups] (none when null:
      * tests on copies). Afterwards the database must have its version's shape.
@@ -123,14 +133,15 @@ class MtgDb(val file: File) {
 }
 
 class MissingDatabaseException(val file: File) :
-    IllegalStateException("No database at $file. Build it with `python scripts/sync.py` (see README.md).")
+    IllegalStateException("No database at $file. Start the app and press [ Sync ], or run `mtg.cmd sync`: either creates it.")
 
 /**
  * A database without a schema version that lacks part of version 1: made by
- * an older Python build, whose migrations can still complete it. (The app
- * migrates from version 1 on, and a versioned database is never short.)
+ * an older Python build, whose migrations can still complete it. They live
+ * at the git tag `python-final`. (The app migrates from version 1 on, and a
+ * versioned database is never short.)
  */
 class SchemaTooOldException(val file: File, val missing: List<String>) : IllegalStateException(
     "$file lacks part of the schema: ${missing.joinToString(", ")}. " +
-        "Run `python scripts/self_heal.py` once to complete it, then start the app again.",
+        "It predates the app: check out the git tag `python-final`, run `python scripts/self_heal.py` once, then start the app again.",
 )

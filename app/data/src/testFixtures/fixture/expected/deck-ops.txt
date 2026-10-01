@@ -1,0 +1,126 @@
+OK
+OK
+ERR SINGLETON
+ERR COLOR_IDENTITY
+OK
+OK
+OK
+OK
+ERR SINGLETON
+ERR BANNED
+OK
+OK
+ERR QUANTITY
+ERR CARD_NOT_FOUND
+OK
+OK
+OK
+ERR SINGLETON
+OK
+OK
+ERR BAD_MOVE
+ERR NOT_IN_DECK
+ERR COLOR_IDENTITY
+OK
+OK
+OK
+ERR NOT_IN_DECK
+ERR NOT_IN_DECK
+OK
+ERR NOT_A_COMMANDER
+OK
+OK
+OK
+OK
+OK
+OK
+OK
+OK
+OK
+ERR SINGLETON
+ERR COLOR_IDENTITY
+OK
+OK
+OK
+ERR POINTS
+OK
+ERR POINTS
+OK
+ERR SINGLETON
+OK
+ERR POINTS
+OK
+OK
+SWAPS Strip Mine>Wasteland
+SWAPS Sol Ring>Mana Crypt
+SWAPS Sol Ring>Mana Drain
+SWAPS Sol Ring>Wasteland;Strip Mine>Wasteland
+OK
+OK
+OK
+OK
+ERR SINGLETON
+ERR SINGLETON
+SWAPS Sol Ring>Brainstorm
+OK
+ERR BAD_SUBSTITUTE
+ERR NOT_IN_DECK
+ERR CARD_NOT_FOUND
+ERR COLOR_IDENTITY
+SWAPS Swords to Plowshares>Path to Exile
+SWAPS Tymna the Weaver>Thrasios, Triton Hero
+OK
+ERR RESTRICTED
+ERR RESTRICTED
+OK
+OK
+OK
+OK
+OK
+OK
+ERR BANNED_AS_COMMANDER
+OK
+OK
+OK
+OK
+OK
+OK
+ERR NAME_TAKEN
+ERR BAD_NAME
+ERR BAD_NAME
+OK
+OK
+ERR NAME_TAKEN
+OK
+ERR BAD_NAME
+OK
+OK
+ERR NAME_TAKEN
+OK
+ERR FOLDER_NOT_EMPTY
+OK
+OK
+OK
+OK
+OK
+OK
+OK
+OK
+ERR UNRESOLVED_CARDS
+OK
+OK
+OK
+ERR BAD_MOVE
+ERR NOT_IN_DECK
+OK
+ERR NAME_TAKEN
+EXPORT Commander~1 Tymna the Weaver~~Deck~4 Plains~1 Sol Ring (C18) 263~~Sideboard~1 Duress~
+EXPORT Commander~1 Thrasios, Triton Hero~~Deck~999 Plains~1 Sol Ring (C21) 263~
+EXPORT Commander~1 Savra, Queen of the Golgari~1 Tymna the Weaver~~Deck~1 Arcane Signet~1 Counterspell~1 Mana Crypt~9 Nazgûl~5 Relentless Rats~1 Swords to Plowshares~~Sideboard~1 Arcane Signet~1 Sol Ring~
+EXPORT Commander~// Single-target removal (1)~1 Savra, Queen of the Golgari~// Threats / win conditions (1)~1 Tymna the Weaver~~Deck~// Mana sources (2)~1 Arcane Signet~1 Mana Crypt~// Counterspells (1)~1 Counterspell~// Single-target removal (1)~1 Swords to Plowshares~// Threats / win conditions (14)~9 Nazgûl~5 Relentless Rats~~Sideboard~// Mana sources (2)~1 Arcane Signet~1 Sol Ring~
+EXPORT Commander~// Mana sources (1)~1 Thrasios, Triton Hero~~Deck~// Lands (999)~999 Plains~// Mana sources (1)~1 Sol Ring (C21) 263~
+OK
+OK
+OK
+OK
+ERR NO_SUCH_DECK

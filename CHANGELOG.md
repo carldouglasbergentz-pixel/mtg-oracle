@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed (step 7: Python retired)
+- **The Python code:** `mtg_oracle/` (the TUI and its layers), `scripts/` (the sync, migrations, the CLI, `analyse_archetype.py`), `tests/` and `requirements.txt`. The last commit with them is tagged `python-final`.
+
+### Changed
+- **The parity tests compare with recorded answers, not a live Python.** `app/data/src/testFixtures/fixture/` holds the frozen data and the answers:
+  - a 3,000-card cut of the upstream exports: cards, rulings, tags, 126 Spellbook combos, the full rules and the points list;
+  - the reference decklists;
+  - Python's version-0 schema;
+  - `expected/`, what Python answered on that data. That covers search counts and pages, names, the deck engine's ops with the decks and history they leave, the parser, every card's classification, deck analytics, archetype reports, and the sync's table digests.
+
+  `FixtureDb` builds the database once per test run with the app's own migrate, sync and imports. SearchParityTest, DeckParityTest, DeckParserParityTest, AnalysisParityTest, SyncParityTest and SchemaTest need neither Python nor `data/mtg.db`. SyncParityTest is no longer opt-in: on the fixture it takes seconds.
+- **A first start makes the database.** With no `data/mtg.db` the app creates an empty one at the current schema and asks for [ Sync ]. Before, it stopped with "run `python scripts/sync.py`". `mtg.cmd sync` also creates it. Other CLI commands without a database exit with code 2 and the way to make one.
+- An old Python-made database that is short of schema version 1 now points to `self_heal.py` at the `python-final` tag.
+- `/sync` runs `app\mtg.cmd sync`.
+- README and CLAUDE.md describe the app alone. `docs/feature-parity.md` is kept as history.
+
 ### Added (step 6c: the last of what Python did)
 - **`app\mtg.cmd`, the command line,** from the newest snapshot (the app's `cli` mode; `gradlew :app:cli -Pargs="..."` too). The commands:
   - lookups: `card`, `search [--page N]`, `rule`, `combo`, `combos`, `combo-info`;

@@ -1,6 +1,7 @@
 package mtgoracle.app
 
 import mtgoracle.data.DbFixture
+import mtgoracle.data.FixtureDb
 import mtgoracle.data.sync.Bulk
 import mtgoracle.data.sync.Upstream
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -78,5 +79,26 @@ class SyncAppTest {
         assertTrue("Zyzzyx, Sync Tester" in text() && "(card not found" !in text().substringAfterLast("> card zyzzyx"), "the new card resolves at once")
         assertEquals(decksBefore, count(copy, "SELECT COUNT(*) FROM deck_cards"), "no deck was touched")
         assertEquals(1, count(copy, "SELECT COUNT(*) FROM combos"))
+    }
+
+    @Test
+    fun `a first start creates an empty database, and the first sync fills it`() {
+        data = kotlin.io.path.createTempDirectory("mtg-oracle-first-start-").toFile()
+        val app = AppController(AppPaths(data, assets, forgeHome = Scenario.home))
+        app.upstream = FixtureDb.Exports(FixtureDb.raw)
+        app.boot()
+        assertEquals(Screen.Library, app.screen)
+        assertTrue(app.notice!!.contains("[ Sync ]"), app.notice)
+        assertEquals(0, count(File(data, "mtg.db"), "SELECT COUNT(*) FROM cards"))
+        app.lookupUi!!.submit("sync")
+        val deadline = System.currentTimeMillis() + 120_000
+        while (app.notice?.startsWith("sync done") != true) {
+            if (System.currentTimeMillis() > deadline) fail("the sync did not finish: ${app.notice}")
+            Thread.sleep(100)
+        }
+        assertTrue(count(File(data, "mtg.db"), "SELECT COUNT(*) FROM cards") > 2_000)
+        val ui = app.lookupUi!!
+        ui.submit("card sol ring")
+        assertTrue(ui.output.entries.flatMap { it.rendering.lines(120) }.any { "IS MANA ABILITY" in it.text }, "a card can be looked up")
     }
 }

@@ -43,7 +43,7 @@ object Themes {
     fun byKey(key: String?): Theme? = ALL.firstOrNull { it.key == key }
 
     /**
-     * The Python TUI's saved Textual theme (`data/config.json` → "theme"),
+     * The retired Python TUI's saved Textual theme (`data/config.json` → "theme"),
      * as the nearest of ours: its own name when we have it, a light one for
      * Textual's light themes, else null.
      */

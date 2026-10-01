@@ -3,3 +3,5 @@
 app/gradlew text eol=lf
 *.bat text eol=crlf
 app/*.sh text eol=lf
+# The frozen test fixture is compared byte for byte: no line-ending conversion.
+app/data/src/testFixtures/fixture/** -text

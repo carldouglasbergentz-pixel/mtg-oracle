@@ -1,0 +1,144 @@
+1 Elminster (CLB) 274
+1 Adarkar Wastes (M3C) 316
+1 Brainsurge (MH3) 53
+1 Castle Ardenvale (WOC) 154
+1 Celestial Colonnade (EOS) 7
+1 Chrome Host Seedshark (MOM) 51
+1 Command Tower (C21) 284
+1 Condemn (CMR) 369
+1 Consult the Star Charts (EOE) 51
+1 Council's Judgment (OTC) 79
+1 Counterspell (DMR) 45
+1 Day of Judgment (FDN) 140
+1 Deduce (MKM) 293
+1 Deserted Beach (MID) 281
+1 Dispel (RTR) 36
+1 Disruptor Flute (MH3) 209
+1 Dovin's Veto (WAR) 193
+1 Elspeth's Smite (MOM) 13
+1 Essence Scatter (DMU) 49
+1 Exorcise (DSK) 8
+1 Fabled Passage (PW21) 4 *F*
+1 Fact or Fiction (NCC) 221
+1 Field of Ruin (LTC) 308
+1 Force Spike (PLST) DDJ-14
+1 Glacial Fortress (XLN) 255
+1 Hall of Storm Giants (AFR) 257
+1 Hallowed Fountain (RNA) 251
+1 Horned Loch-Whale / Lagoon Breach (WOE) 278
+1 Irrigated Farmland (WHO) 288
+11 Island (C18) 296
+1 Joust Through (FDN) 19
+1 Jwari Disruption / Jwari Ruins (ZNR) 64
+1 Keep Out (ECL) 19
+1 Long River's Pull (BLB) 58
+1 Lose Focus (MH2) 49
+1 Mana Leak (2X2) 58
+1 Mana Tithe (TSR) 26
+1 March of Otherworldly Light (NEO) 28
+1 Memory Deluge (MID) 62
+1 Memory Lapse (DDM) 24
+1 Mystic Gate (CMM) 1013
+1 Mystical Dispute (ELD) 58
+1 Narset, Parter of Veils (CMM) 853
+1 Negate (STA) 18
+1 Nimbus Maze (AFC) 252
+1 No More Lies (MKM) 221
+1 Out of Time (MH2) 23
+1 Phantom Interference (OTJ) 61
+1 Pinnacle Starcage (EOE) 27
+10 Plains (DTK) 251
+1 Ponder (M10) 68
+1 Port Town (SCD) 313
+1 Portable Hole (PLST) AFR-33
+1 Prairie Stream (VOC) 179
+1 Propaganda (ACR) 85
+1 Razorgrass Ambush / Razorgrass Field (MH3) 238
+1 Reprieve (LTR) 26
+1 Ride's End (DFT) 25
+1 Seam Rip (EOE) 34
+1 Secluded Starforge (EOE) 257
+1 Shatter the Sky (THB) 37
+1 Shorikai, Genesis Engine (NEC) 4
+1 SOLDIER Military Program (FIC) 25
+1 Spell Pierce (PRM) 102233
+1 Spell Snare (BBD) 132
+1 Stern Scolding (LTR) 71
+1 Stroke of Midnight (WOE) 33
+1 Sunfall (PMOM) 40p
+1 Sunset Revelry (DBL) 38
+1 Supreme Verdict (LTC) 272
+1 Swords to Plowshares (CMM) 841
+1 Tale's End (M20) 77
+1 Teferi, Temporal Pilgrim (BRO) 66
+1 Teferi, Time Raveler (MB2) 91
+1 Temple of Enlightenment (MKC) 302
+1 Temporary Lockdown (DMU) 36
+1 The Wandering Emperor (NEO) 42
+1 Tranquil Cove (DFT) 267
+1 Unable to Scream (DSK) 78
+1 Wash Away (DBL) 354
+1 Wrath of God (DMR) 279
+
+SIDEBOARD:
+1 Aang's Iceberg (TLA) 336
+1 Approach of the Second Sun (PLST) AKH-4
+1 Avatar's Wrath (TLA) 12
+1 Battle Menu (FIN) 9
+1 Behold the Multiverse (KHM) 46
+1 Beyond the Quiet (EOE) 7
+1 Blast Zone (M3C) 322
+1 Blessed Alliance (EMN) 13
+1 Brainstorm (C15) 90
+1 Cactus Preserve (OTC) 76
+1 Castle Vantress (DSC) 267
+1 Circle of Protection: White (5ED) 21
+1 Commence the Endgame (WAR) 45
+1 Cryptic Coat (MKM) 394
+1 Dennick, Pious Apprentice / Dennick, Pious Apparition (MID) 317
+1 Depopulate (SNC) 10
+1 Doomskar (KHM) 9
+1 Dovin Baan (KLD) 179
+1 Elspeth, Sun's Champion (CMM) 820
+1 Emergency Eject (EOE) 14
+1 Faithful Mending (MID) 221
+1 Faramir, Prince of Ithilien (LTR) 202
+1 Ghostly Prison (MKC) 67
+1 Gitaxian Probe (NPH) 35
+1 Grand Abolisher (E01) 12
+1 Kinbinding (ECL) 20
+1 Kykar, Zephyr Awakener (FDN) 122
+1 Leadership Vacuum (C19) 9
+1 Lórien Revealed (LTR) 60
+1 Make Disappear (SNC) 49
+1 Marang River Regent / Coil and Catch (PTDM) 51p
+1 Mental Misstep (MB2) 30
+1 Moon-Blessed Cleric (DSC) 69
+1 Nevermore (ISD) 25
+1 Not on My Watch (MKM) 28
+1 Opt (TDC) 158
+1 Order of Succession (C13) 52
+1 Oust (CLU) 67
+1 Path to Exile (CMM) 49
+1 Planar Disruption (ONE) 28
+1 Reckoner Bankbuster (NEO) 255
+1 Remand (J25) 349
+1 Restless Anchorage (LCI) 347
+1 Revitalize (STA) 72
+1 Scavenger Grounds (CMM) 1027
+1 Seal from Existence (MOM) 35
+1 Sejiri Refuge (C18) 280
+1 Shadow of the Second Sun (MH3) 70
+1 Shark Typhoon (DSC) 127
+1 Silver Scrutiny (DMU) 65
+1 Sink into Stupor / Soporific Springs (MH3) 241
+1 Soul Partition (BRO) 26
+1 Split Up (PDSK) 32p
+1 Sunken Citadel (LCI) 285
+1 The Eternal Wanderer (PONE) 11p
+1 The Restoration of Eiganjo / Architect of Restoration (NEO) 34
+1 Timely Reinforcements (PLST) M12-40
+1 Unexpectedly Absent (C20) 106
+1 Union of the Third Path (BRO) 31
+1 Witch Enchanter / Witch-Blessed Meadow (MH3) 239
+1 Witness Protection (FDN) 168

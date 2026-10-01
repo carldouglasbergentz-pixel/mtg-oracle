@@ -2,16 +2,16 @@ package mtgoracle.data
 
 import mtgoracle.core.lookup.SearchError
 import mtgoracle.core.lookup.SearchLanguage
-import org.junit.jupiter.api.Assumptions.assumeTrue
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * The port against its original: every query here runs through Python's
- * scryfall_search and through ours, on the same database, and the count and
- * the first page (order included) must agree. One query per operator and
- * sort field at least, plus the inputs name resolution has to tolerate.
+ * The port against its original: every query here ran through Python's
+ * scryfall_search on the fixture (`expected/search.txt`), and ours must give
+ * the same count and the same first page, order included. One query per
+ * operator and sort field at least, plus the inputs name resolution has to
+ * tolerate (`expected/names.txt`). A deliberate change to the language edits
+ * the expected line with it.
  */
 class SearchParityTest {
 
@@ -100,29 +100,10 @@ class SearchParityTest {
         "  Lightning Bolt  ", "emeritus of ideation", "thassa’s oracle", "LIGHTNING BOLT", "brazen borrower",
     )
 
-    private fun python(mode: String, lines: List<String>): List<String> {
-        val input = File.createTempFile("parity-", ".txt").apply { writeText(lines.joinToString("\n"), Charsets.UTF_8); deleteOnExit() }
-        val code = """
-            import sys
-            from mtg_oracle import scryfall_search as ss, queries as q
-            mode, path = sys.argv[1], sys.argv[2]
-            for line in open(path, encoding='utf-8').read().split('\n'):
-                if mode == 'search':
-                    try:
-                        print(str(ss.count_query(line)) + '\t' + '\x1f'.join(r['name'] for r in ss.run_query(line, limit=25)))
-                    except ss.SearchError:
-                        print('ERR')
-                else:
-                    print(q.resolve_card_name(line) or '-')
-        """.trimIndent()
-        return DbFixture.python(code, mode, input.absolutePath).trimEnd('\n', '\r').lines().map { it.trimEnd('\r') }
-    }
-
     @Test
     fun `every query counts and orders as Python's does`() {
-        assumeTrue(DbFixture.available, "needs data/mtg.db")
-        val lookup = Lookup(DbFixture.readOnly())
-        val expected = python("search", queries)
+        val lookup = Lookup(MtgDb(FixtureDb.file))
+        val expected = FixtureDb.expected("search.txt")
         val actual = queries.map { q ->
             try {
                 val page = lookup.search.page(SearchLanguage.parse(q), pageSize = 25)
@@ -136,16 +117,9 @@ class SearchParityTest {
     }
 
     @Test
-    fun `the syntax help is Python's, word for word`() {
-        val python = DbFixture.python("from mtg_oracle.scryfall_search import SYNTAX_HELP; import sys; sys.stdout.write(SYNTAX_HELP)")
-        assertEquals(python.replace("\r\n", "\n").trim(), mtgoracle.core.lookup.SEARCH_SYNTAX_HELP.trim())
-    }
-
-    @Test
     fun `every name resolves as Python resolves it`() {
-        assumeTrue(DbFixture.available, "needs data/mtg.db")
-        val lookup = Lookup(DbFixture.readOnly())
-        val expected = python("names", names)
+        val lookup = Lookup(MtgDb(FixtureDb.file))
+        val expected = FixtureDb.expected("names.txt")
         names.indices.forEach { i -> assertEquals(expected[i], lookup.names.resolve(names[i]) ?: "-", "name '${names[i]}'") }
     }
 }

@@ -1,0 +1,67 @@
+{
+  "format": "canadianhighlander",
+  "name": "Canadian Highlander",
+  "aliases": ["canlander", "canadian highlander", "canhighlander", "canhl"],
+  "derives_from": "vintage",
+  "points_budget": 10,
+  "singleton": true,
+  "source_url": "https://canadianhighlander.ca/points-list/",
+  "list_current_as_of": "2026-06-01",
+  "verified_at": "2026-08-19",
+  "notes": [
+    "Legality is inherited from Vintage: the format's own page states 'Canadian Highlander shares a banned list with Vintage', and every category it names separately (ante, sub-game, conspiracy, acorn, dexterity, silver-bordered, stickers/attractions) is already banned in Vintage. Spot-checked with Contract from Below, Shahrazad, Advantageous Proclamation, '_____ Goblin' and Chaos Orb.",
+    "Vintage's restricted list is moot here: the format is singleton, so every card is already limited to one copy.",
+    "Cross-check when updating: the March 2026 announcement moved Thassa's Oracle 6->5, Time Walk 6->5, Tamiyo 0->1, The One Ring 0->1, Minsc & Boo 1->0. All five agree with the values below, and the June 1 2026 announcement was 'no changes'. Points updates land roughly quarterly — re-verify against the source URL, don't trust a stale copy.",
+    "43 cards. Tiers in use: 1, 2, 3, 5, 7, 8. Ancestral Recall is the only 8."
+  ],
+  "points": {
+    "Ancestral Recall": 8,
+
+    "Black Lotus": 7,
+    "Flash": 7,
+    "Time Vault": 7,
+
+    "Mana Crypt": 5,
+    "Thassa's Oracle": 5,
+    "Time Walk": 5,
+
+    "Demonic Tutor": 3,
+    "Mox Emerald": 3,
+    "Mox Jet": 3,
+    "Mox Pearl": 3,
+    "Mox Ruby": 3,
+    "Mox Sapphire": 3,
+    "Sol Ring": 3,
+    "Tinker": 3,
+    "Underworld Breach": 3,
+
+    "Mystical Tutor": 2,
+    "Vampiric Tutor": 2,
+
+    "Ancient Tomb": 1,
+    "Balance": 1,
+    "Dig Through Time": 1,
+    "Forth Eorlingas!": 1,
+    "Gifts Ungiven": 1,
+    "Imperial Seal": 1,
+    "Intuition": 1,
+    "Mana Drain": 1,
+    "Mana Vault": 1,
+    "Merchant Scroll": 1,
+    "Nadu, Winged Wisdom": 1,
+    "Natural Order": 1,
+    "Psychic Frog": 1,
+    "Reanimate": 1,
+    "Strip Mine": 1,
+    "Tainted Pact": 1,
+    "Tamiyo, Inquisitive Student": 1,
+    "The One Ring": 1,
+    "Tolarian Academy": 1,
+    "Treasure Cruise": 1,
+    "True-Name Nemesis": 1,
+    "Urza's Saga": 1,
+    "White Plume Adventurer": 1,
+    "Wishclaw Talisman": 1,
+    "Wrenn and Six": 1
+  }
+}

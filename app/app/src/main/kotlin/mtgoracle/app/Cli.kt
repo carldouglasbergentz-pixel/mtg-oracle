@@ -27,7 +27,10 @@ import mtgoracle.core.sync.Source
 import mtgoracle.core.sync.SyncReport
 import mtgoracle.data.Library
 import mtgoracle.data.Lookup
+import mtgoracle.data.MissingDatabaseException
 import mtgoracle.data.MtgDb
+import mtgoracle.data.SchemaTooNewException
+import mtgoracle.data.SchemaTooOldException
 import mtgoracle.data.sync.HttpUpstream
 import mtgoracle.data.sync.Prune
 import mtgoracle.data.sync.Sync
@@ -79,9 +82,17 @@ object Cli {
         val words = args.filter { it != "--json" }
         val command = words.firstOrNull() ?: return usage()
         val rest = words.drop(1)
-        val db = MtgDb(paths.db).also { it.migrate(paths.backups) }
+        if (command in listOf("help", "--help", "-h")) return usage(ok = true)
+        // The first sync of a new install makes the database; every other command needs one.
+        val db = try {
+            if (command == "sync" && !paths.db.exists()) MtgDb.create(paths.db) else MtgDb(paths.db).also { it.migrate(paths.backups) }
+        } catch (e: IllegalStateException) {
+            // No database, or one from before the app or after it: the message says what to do.
+            if (e !is MissingDatabaseException && e !is SchemaTooOldException && e !is SchemaTooNewException) throw e
+            System.err.println(e.message)
+            return 2
+        }
         return when (command) {
-            "help", "--help", "-h" -> usage(ok = true)
             "sync" -> sync(paths, db, rest, asJson)
             "prune" -> prune(db, rest, asJson)
             else -> lookup(db, command, rest, asJson)

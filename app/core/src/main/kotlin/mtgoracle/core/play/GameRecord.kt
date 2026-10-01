@@ -8,8 +8,8 @@ enum class GameMode(val column: String) { HUMAN_VS_AI("human_vs_ai"), AI_VS_AI("
 enum class Winner(val column: String) { ME("me"), OPPONENT("opponent"), DRAW("draw") }
 
 /**
- * One row of the `games` table — the contract with the Python side, which
- * creates the table (scripts/self_heal.py). `deck*` is the human seat, or
+ * One row of the `games` table — its columns are schema version 1's
+ * (data/Schema.kt). `deck*` is the human seat, or
  * seat A in an AI-vs-AI game.
  */
 data class GameRecord(

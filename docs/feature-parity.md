@@ -1,6 +1,8 @@
 # Feature parity: Python TUI/CLI → Kotlin app
 
-The Kotlin app (ADR 0001) replaces the Textual TUI and the CLI piece by piece. This list records everything the Python build does today, so nothing is lost in the move. Each feature is ticked here when the new app has it. The TUI keeps working until every row it owns is ticked.
+> **History.** The port is finished: Python was retired on 2026-10-01 (step 7), and its code is at the git tag `python-final`. This list is kept as the record of what moved where. The one row still marked ▶ is a feature the TUI never had, and its work is tracked in `project-plan.md`.
+
+The Kotlin app (ADR 0001) replaced the Textual TUI and the CLI piece by piece. This list recorded everything the Python build did, so nothing was lost in the move. Each feature was ticked when the new app had it.
 
 Steps refer to Phase 6 in `project-plan.md`:
 

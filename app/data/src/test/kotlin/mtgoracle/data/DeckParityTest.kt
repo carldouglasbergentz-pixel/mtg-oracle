@@ -5,7 +5,6 @@ import mtgoracle.core.deck.DeckParser
 import mtgoracle.core.deck.DeckRefusal
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.core.deck.Printing
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.File
 import java.nio.file.Files
 import java.sql.DriverManager
@@ -13,11 +12,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * The deck engine against its original: one sequence of changes runs
- * through mtg_oracle/decks.py on one copy of the database and through
- * DeckWriter on another, and every outcome (done, or refused for which
- * reason), every deck row, the considering lists and the whole history
- * must come out the same. The sequence walks each rule: identity,
+ * The deck engine against its original: one sequence of changes ran
+ * through mtg_oracle/decks.py on the fixture, and through DeckWriter every
+ * outcome (done, or refused for which reason) must be the same
+ * (`expected/deck-ops.txt`), and so must every deck row, the considering
+ * lists and the whole history (`deck-state.txt`). A new rule adds its ops
+ * here and its expected lines with them. The sequence walks each rule: identity,
  * singleton (basics, any number, up to N), banned, points, restricted,
  * banned as commander, promote and demote, moves, removals, undo and redo.
  */
@@ -179,70 +179,6 @@ class DeckParityTest {
         return Op(op, deck, line.split(' ', limit = 3).getOrNull(2)?.split('|').orEmpty())
     }
 
-    private val python = """
-        import sys
-        from pathlib import Path
-        from mtg_oracle import decks as d, queries as q, scryfall_search as ss, services as svc
-        from mtg_oracle.deck_parser import parse_deckstring
-        db, ops_path, decks_path = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-        pastes = open(sys.argv[5], encoding='utf-8').read().split('\x1e') if len(sys.argv) > 5 else []
-        for m in (q, d, ss):
-            m.DB_PATH = db
-        q.clear_format_cache()
-        KINDS = [('quantity must be', 'QUANTITY'), ('card not found', 'CARD_NOT_FOUND'), ('outside the deck', 'COLOR_IDENTITY'),
-                 ('banned as a commander', 'BANNED_AS_COMMANDER'), ('is banned in', 'BANNED'), ('is not legal in', 'NOT_IN_POOL'),
-                 ('is restricted in', 'RESTRICTED'), ('singleton format', 'SINGLETON'), ('point(s) in', 'POINTS'),
-                 ('a commander is a single card', 'COMMANDER_COPIES'), ('already a commander', 'ALREADY_COMMANDER'),
-                 ('already in the main deck', 'ALREADY_IN_MAIN'), ('card not in', 'NOT_IN_DECK'), ('cannot move', 'NOT_IN_DECK'),
-                 ('not currently a commander', 'NOT_A_COMMANDER'), ('nothing to undo', 'NOTHING_TO_UNDO'), ('cannot undo', 'UNDO_DRIFT'),
-                 ('move is between', 'BAD_MOVE'), ('is already in the', 'BAD_MOVE'),
-                 ('a printing is chosen in the deck', 'BAD_MOVE'), ('folder already exists', 'NAME_TAKEN'),
-                 ('already exists in', 'NAME_TAKEN'), ('cannot move the decks in', 'NAME_TAKEN'), ('which separates folder and deck', 'BAD_NAME'),
-                 ('is reserved', 'BAD_NAME'), ('name required', 'BAD_NAME'), ('deck(s); pass force', 'FOLDER_NOT_EMPTY'),
-                 ('cannot substitute for itself', 'BAD_SUBSTITUTE'),
-                 ('nothing was replaced', 'UNRESOLVED_CARDS'), ('folder not found', 'NO_SUCH_DECK'), ('deck not found', 'NO_SUCH_DECK')]
-        def kind(e):
-            return next((k for p, k in KINDS if p in str(e)), 'UNKNOWN: ' + str(e))
-        if sys.argv[4] == 'create':
-            for line in open(decks_path, encoding='utf-8').read().splitlines():
-                name, fmt = line.split('|')
-                d.create_deck(name, format=fmt or None)
-            sys.exit(0)
-        for line in open(ops_path, encoding='utf-8').read().splitlines():
-            op, deck, rest = (line.split(' ', 2) + [''])[:3]
-            a = rest.split('|')
-            opt = lambda v: None if v == '-' else v
-            try:
-                if op == 'add': d.add_card_to_deck(deck, a[0], quantity=int(a[1]), is_sideboard=a[2] == '1', force=a[3] == '1')
-                elif op == 'consider': d.consider_card(deck, a[0], quantity=int(a[1]))
-                elif op == 'remove': d.remove_card_from_deck(deck, a[0], quantity=None if a[1] == '-' else int(a[1]), section=opt(a[2]))
-                elif op == 'move': d.move_card(deck, a[0], to_section=a[2], from_section=a[1], quantity=int(a[3]), force=a[4] == '1')
-                elif op == 'commander': d.set_commander(deck, a[0], unset=a[1] == '1', force=a[2] == '1')
-                elif op == 'undo': d.undo_last_change(deck)
-                elif op == 'mkdir': d.create_folder(deck)
-                elif op == 'rmdir': d.delete_folder(deck, force=a[0] == '1')
-                elif op == 'folderformat': d.set_folder_format(deck, opt(a[0]), apply_to_decks=a[1] == '1')
-                elif op == 'newdeck': d.create_deck(deck, folder=opt(a[0]), format=opt(a[1]))
-                elif op == 'rename': d.rename_deck(deck, a[0])
-                elif op == 'movedeck': d.move_deck(deck, opt(a[0]))
-                elif op == 'deckformat': d.set_deck_format(deck, opt(a[0]))
-                elif op == 'delete': d.delete_deck(deck)
-                elif op == 'load': d.load_parsed_into_deck(deck, parse_deckstring(pastes[int(a[0])]))
-                elif op == 'import': d.import_deck(deck, parse_deckstring(pastes[int(a[2])]), folder=opt(a[0]), format=opt(a[1]))
-                elif op == 'replace': d.replace_deck_contents(deck, parse_deckstring(pastes[int(a[0])]), force=a[1] == '1')
-                elif op == 'printing': d.set_printing(deck, a[0], a[1], opt(a[2]), opt(a[3]))
-                elif op == 'swaps':
-                    pairs = [tuple(x.split('>')) for x in rest.split(';')]
-                    print('SWAPS ' + ';'.join(c + '>' + s for c, s in d.check_swaps(deck, pairs)))
-                    continue
-                elif op == 'export':
-                    print('EXPORT ' + svc.export_deck_text(svc.DeckRef(deck), front_face=a[0] == '1', group_by_role=len(a) > 1 and a[1] == '1').text.replace('\n', '~'))
-                    continue
-                print('OK')
-            except d.DeckError as e:
-                print('ERR ' + kind(e))
-    """.trimIndent()
-
     /** A deck's or folder's id by name, looked up at each op: ops create, rename and delete them. */
     private fun MtgDb.id(table: String, name: String): Int? = read { c -> c.query("SELECT id FROM $table WHERE name = ? COLLATE NOCASE", name) { getInt(1) }.firstOrNull() }
 
@@ -318,29 +254,20 @@ class DeckParityTest {
 
     @Test
     fun `the same changes give the same decks, history and refusals as Python`() {
-        assumeTrue(DbFixture.available, "needs data/mtg.db")
-        val first = DbFixture.copy() // healed: it has deck_considering
-        val tmp = Files.createTempDirectory("mtg-oracle-parity-").toFile()
+        val copy = FixtureDb.copy()
         try {
-            val opsFile = File(tmp, "ops.txt").apply { writeText(ops.joinToString("\n"), Charsets.UTF_8) }
-            val pastesFile = File(tmp, "pastes.txt").apply { writeText(pastes.joinToString("\u001E"), Charsets.UTF_8) }
-            val decksFile = File(tmp, "decks.txt").apply { writeText(decks.entries.joinToString("\n") { "${it.key}|${it.value.orEmpty()}" }, Charsets.UTF_8) }
-            DbFixture.python(python, first.path, opsFile.path, decksFile.path, "create")
-            val second = File(tmp, "mtg.db").also { Files.copy(first.toPath(), it.toPath()) }
-
-            val expected = DbFixture.python(python, first.path, opsFile.path, decksFile.path, "run", pastesFile.path).trimEnd().lines().map { it.trimEnd('\r') }
-
-            val kotlinDb = MtgDb(second)
+            val kotlinDb = MtgDb(copy)
+            val library = LibraryWriter(kotlinDb)
+            decks.forEach { (name, format) -> library.createDeck(name, null, format) }
             val lookup = Lookup(kotlinDb)
             val writer = DeckWriter(kotlinDb, lookup.names, lookup.formats)
-            val library = LibraryWriter(kotlinDb)
             val actual = ops.map { runKotlin(kotlinDb, lookup, writer, library, parse(it)) }
 
+            val expected = FixtureDb.expected("deck-ops.txt")
             ops.indices.forEach { i -> assertEquals(expected[i], actual[i], "op ${i + 1}: ${ops[i]}") }
-            assertEquals(state(first), state(second), "the folders, the decks and their history")
+            assertEquals(FixtureDb.expected("deck-state.txt").joinToString("\n"), state(copy), "the folders, the decks and their history")
         } finally {
-            tmp.deleteRecursively()
-            first.parentFile.deleteRecursively()
+            copy.parentFile.deleteRecursively()
         }
     }
 }

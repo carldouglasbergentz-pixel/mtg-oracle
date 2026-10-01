@@ -20,7 +20,6 @@ import mtgoracle.data.Lookup
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.lookup.LookupUi
-import mtgoracle.data.MissingDatabaseException
 import mtgoracle.data.MtgDb
 import mtgoracle.data.SchemaTooNewException
 import mtgoracle.data.SchemaTooOldException
@@ -42,7 +41,7 @@ fun tuiTheme(config: File): String? = runCatching {
 
 sealed interface Screen {
     data object Loading : Screen
-    /** The app can't run: the message says what to do (run self_heal, build the DB...). */
+    /** The app can't run: the message says what to do (an old or a newer database). */
     data class Blocked(val message: String) : Screen
     data object Library : Screen
     data object Setup : Screen
@@ -197,11 +196,16 @@ class AppController(private val paths: AppPaths) {
     /** Opens the database (migrating it to this build's schema first), then brings Forge up in the background. */
     fun boot() {
         try {
-            val db = MtgDb(paths.db)
+            val created = !paths.db.exists()
+            val db = if (created) MtgDb.create(paths.db) else MtgDb(paths.db)
             val migrated = db.migrate(paths.backups)
             if (migrated.changed) {
                 Log.info("schema v${migrated.from} -> v${migrated.to}: ${migrated.lines.joinToString("; ")}")
                 notice = "database schema updated to version ${migrated.to}" + (migrated.backup?.let { "; backup in ${it.name}" } ?: "")
+            }
+            if (created) {
+                Log.info("created an empty database at ${paths.db}")
+                notice = "a new, empty database: press [ Sync ] to fetch the cards, rules and combos (a few minutes)"
             }
             library = Library(db)
             sessions = Sessions(GameStore(db), paths.gameLogs)
@@ -215,9 +219,6 @@ class AppController(private val paths: AppPaths) {
             screen = Screen.Blocked(e.message!!)
             return
         } catch (e: SchemaTooNewException) {
-            screen = Screen.Blocked(e.message!!)
-            return
-        } catch (e: MissingDatabaseException) {
             screen = Screen.Blocked(e.message!!)
             return
         }

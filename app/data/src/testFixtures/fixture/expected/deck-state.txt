@@ -1,0 +1,133 @@
+folders: []
+
+# __P_New__ (commander in (unsorted))
+Plains|999|0|0|||
+Sol Ring|1|0|0||c18|263
+Thrasios, Triton Hero|1|1|0|||
+considering:
+Brainstorm|1
+history:
+load||Tymna the Weaver|commander|0|1||
+load||Plains|main|0|4||
+load||Sol Ring|main|0|1||c18
+load||Duress|sideboard|0|1||
+load||Opt|considering|0|2||
+replace||Plains|main|4|3||
+replace||Swords to Plowshares|main|0|1||ema
+replace||Duress|sideboard|1|0||
+replace||Brainstorm|considering|0|1||
+replace||Opt|considering|2|0||
+replace||Tymna the Weaver|commander|1|1||cmr
+replace||Plains|main|3|2||
+replace||Swords to Plowshares|main|1|0|ema|
+replace||Thrasios, Triton Hero|commander|0|1||
+replace||Tymna the Weaver|commander|1|0|cmr|
+replace||Plains|main|2|3||
+replace||Swords to Plowshares|main|0|1||ema
+replace||Plains|main|3|2||
+replace||Swords to Plowshares|main|1|0|ema|
+replace||Plains|main|2|0||
+replace||Plains|main|0|999||
+printing|Sol Ring|Sol Ring|main|1|1|c18|c21
+undo|undo of #88 (printing)|Sol Ring|main|1|1|c21|c18
+
+# __p_other__ (vintage in (unsorted))
+considering:
+history:
+
+# __parity_can__ (canlander in (unsorted))
+Ancestral Recall|1|0|0|||
+Mana Drain|1|0|0|||
+Sol Ring|1|0|1|||
+Strip Mine|1|0|0|||
+considering:
+Black Lotus|1
+history:
+add|Ancestral Recall|Ancestral Recall|main|0|1||
+add|Mana Drain|Mana Drain|main|0|1||
+add|Sol Ring|Sol Ring|sideboard|0|1||
+add|Strip Mine|Strip Mine|main|0|1||
+consider|Black Lotus|Black Lotus|considering|0|1||
+move|Black Lotus: considering -> main|Black Lotus|main|0|1||
+move|Black Lotus: considering -> main|Black Lotus|considering|1|0||
+undo|undo of #66 (move)|Black Lotus|main|1|0||
+undo|undo of #66 (move)|Black Lotus|considering|0|1||
+
+# __parity_cmd__ (commander in (unsorted))
+Arcane Signet|1|0|0|||
+Arcane Signet|1|0|1|||
+Counterspell|1|0|0|||
+Mana Crypt|1|0|0|||
+Nazgûl|9|0|0|||
+Relentless Rats|5|0|0|||
+Savra, Queen of the Golgari|1|1|0|||
+Sol Ring|1|0|1|||
+Swords to Plowshares|1|0|0|||
+Tymna the Weaver|1|1|0|||
+considering:
+Counterspell|1
+history:
+add|Sol Ring|Sol Ring|main|0|1||
+promote|Savra, Queen of the Golgari|Savra, Queen of the Golgari|commander|0|1||
+add|Counterspell|Counterspell|main|0|1||
+add|Forest|Forest|main|0|10||
+add|Relentless Rats|Relentless Rats|main|0|5||
+add|Nazgûl|Nazgûl|main|0|9||
+add|Mana Crypt|Mana Crypt|main|0|1||
+add|Sol Ring|Sol Ring|sideboard|0|1||
+consider|Counterspell|Counterspell|considering|0|1||
+consider|Arcane Signet|Arcane Signet|considering|0|2||
+move|Arcane Signet: considering -> main|Arcane Signet|main|0|1||
+move|Arcane Signet: considering -> main|Arcane Signet|considering|2|1||
+move|Arcane Signet: considering -> sideboard|Arcane Signet|sideboard|0|1||
+move|Arcane Signet: considering -> sideboard|Arcane Signet|considering|1|0||
+move|Sol Ring: main -> considering|Sol Ring|main|1|0||
+move|Sol Ring: main -> considering|Sol Ring|considering|0|1||
+remove|Forest|Forest|main|10|7||
+remove|Forest|Forest|main|7|0||
+remove|Sol Ring|Sol Ring|considering|1|0||
+demote|Savra, Queen of the Golgari|Savra, Queen of the Golgari|commander|1|0||
+demote|Savra, Queen of the Golgari|Savra, Queen of the Golgari|main|0|1||
+promote|Savra, Queen of the Golgari|Savra, Queen of the Golgari|commander|0|1||
+promote|Savra, Queen of the Golgari|Savra, Queen of the Golgari|main|1|0||
+add|Relentless Rats|Relentless Rats|main|5|7||
+undo|undo of #53 (add)|Relentless Rats|main|7|5||
+undo|undo of #54 (undo)|Relentless Rats|main|5|7||
+undo|undo of #55 (undo)|Relentless Rats|main|7|5||
+promote|Tymna the Weaver|Tymna the Weaver|commander|0|1||
+add|Swords to Plowshares|Swords to Plowshares|main|0|1||
+
+# __parity_duel__ (duel in (unsorted))
+Krark, the Thumbless|1|1|0|||
+considering:
+history:
+add|Krark, the Thumbless|Krark, the Thumbless|main|0|1||
+promote|Krark, the Thumbless|Krark, the Thumbless|commander|0|1||
+promote|Krark, the Thumbless|Krark, the Thumbless|main|1|0||
+add|Krark, the Thumbless|Krark, the Thumbless|main|0|2||
+undo|undo of #77 (add)|Krark, the Thumbless|main|2|0||
+
+# __parity_none__ (commander in (unsorted))
+Nazgûl|1|1|0|||
+considering:
+history:
+promote|Nazgûl|Nazgûl|commander|0|1||
+promote|Forest|Forest|commander|0|1||
+undo|undo of #60 (promote)|Forest|commander|1|0||
+
+# __parity_vin__ (vintage in (unsorted))
+Ancestral Recall|1|0|0|||
+Black Lotus|1|1|0|||
+Lightning Bolt|3|0|1|||
+Mana Vault|1|0|0|||
+considering:
+history:
+add|Ancestral Recall|Ancestral Recall|main|0|1||
+add|Lightning Bolt|Lightning Bolt|main|0|4||
+add|Lightning Bolt|Lightning Bolt|sideboard|0|4||
+add|Mana Vault|Mana Vault|main|0|1||
+remove|Lightning Bolt|Lightning Bolt|main|4|0||
+remove|Lightning Bolt|Lightning Bolt|sideboard|4|3||
+add|Black Lotus|Black Lotus|main|0|1||
+promote|Black Lotus|Black Lotus|commander|0|1||
+promote|Black Lotus|Black Lotus|main|1|0||

@@ -1,0 +1,3257 @@
+Ellie, Brick Master|1|commander||
+Ellie, Vengeful Hunter|1|commander||
+Abundant Countryside|1|main||
+Arid Mesa|1|main||
+Badlands|1|main||
+Blackcleave Cliffs|1|main||
+Blazemire Verge|1|main||
+Blightstep Pathway|1|main||
+Blood Crypt|1|main||
+Bloodstained Mire|1|main||
+Command Beacon|1|main||
+Command Tower|1|main||
+Den of the Bugbear|1|main||
+Dragonskull Summit|1|main||
+Graven Cairns|1|main||
+Hammerheim|1|main||
+Hive of the Eye Tyrant|1|main||
+Marsh Flats|1|main||
+Mishra's Factory|1|main||
+Mount Doom|1|main||
+Mountain|1|main||
+Multiversal Passage|1|main||
+Phyrexian Tower|1|main||
+Polluted Delta|1|main||
+Prismatic Vista|1|main||
+Raucous Theater|1|main||
+Scalding Tarn|1|main||
+Shinka, the Bloodsoaked Keep|1|main||
+Shizo, Death's Storehouse|1|main||
+Snow-Covered Mountain|1|main||
+Snow-Covered Swamp|1|main||
+Sokenzan, Crucible of Defiance|1|main||
+Spymaster's Vault|1|main||
+Starting Town|1|main||
+Sulfurous Springs|1|main||
+Swamp|1|main||
+Takenuma, Abandoned Mire|1|main||
+Urborg|1|main||
+Urza's Saga|1|main||
+Verdant Catacombs|1|main||
+Wooded Foothills|1|main||
+Bloodsoaked Champion|1|main||
+Bomat Courier|1|main||
+Carrion Feeder|1|main||
+Cult Conscript|1|main||
+Dauthi Voidwalker|1|main||
+Detective's Phoenix|1|main||
+Dread Wanderer|1|main||
+Emperor of Bones|1|main||
+Forsaken Miner|1|main||
+Fury|1|main||
+Gau, Feral Youth|1|main||
+Gravecrawler|1|main||
+Grief|1|main||
+Grim Initiate|1|main||
+Gut, True Soul Zealot|1|main||
+Gutterbones|1|main||
+Harried Spearguard|1|main||
+Hexing Squelcher|1|main||
+Hired Claw|1|main||
+Infestation Sage|1|main||
+Inti, Seneschal of the Sun|1|main||
+Juri, Master of the Revue|1|main||
+Kari Zev, Skyship Raider|1|main||
+Kellan, Planar Trailblazer|1|main||
+Loyal Apprentice|1|main||
+Marionette Apprentice|1|main||
+Moonshadow|1|main||
+Nested Shambler|1|main||
+Nezumi Linkbreaker|1|main||
+Norin, Swift Survivalist|1|main||
+Orcish Bowmasters|1|main||
+Scrapheap Scrounger|1|main||
+Seasoned Pyromancer|1|main||
+Sephiroth, Fabled SOLDIER|1|main||
+Simian Spirit Guide|1|main||
+Snarling Gorehound|1|main||
+Stadium Headliner|1|main||
+Stalactite Stalker|1|main||
+Wriggling Grub|1|main||
+Chain Lightning|1|main||
+Demonic Consultation|1|main||
+Demonic Tutor|1|main||
+Dismember|1|main||
+Fatal Push|1|main||
+Flare of Malice|1|main||
+Gamble|1|main||
+Ghostfire Slice|1|main||
+Inquisition of Kozilek|1|main||
+Lightning Bolt|1|main||
+Pyrokinesis|1|main||
+Rotten Reunion|1|main||
+Sundering Eruption|1|main||
+Tainted Pact|1|main||
+Thoughtseize|1|main||
+Unearth|1|main||
+Goblin Bombardment|1|main||
+Skullclamp|1|main||
+Smuggler's Copter|1|main||
+Spiked Corridor // Torture Pit|1|main||
+---
+Judith, the Scourge Diva|1|commander||
+Abundant Countryside|1|main||
+Arid Mesa|1|main||
+Badlands|1|main||
+Blackcleave Cliffs|1|main||
+Blazemire Verge|1|main||
+Blightstep Pathway|1|main||
+Blood Crypt|1|main||
+Bloodstained Mire|1|main||
+Command Tower|1|main||
+Den of the Bugbear|1|main||
+Graven Cairns|1|main||
+Great Furnace|1|main||
+Haunted Ridge|1|main||
+Hive of the Eye Tyrant|1|main||
+Lazotep Quarry|1|main||
+Marsh Flats|1|main||
+Mishra's Factory|1|main||
+Mount Doom|1|main||
+Mountain|1|main||
+Multiversal Passage|1|main||
+Mutavault|1|main||
+Polluted Delta|1|main||
+Prismatic Vista|1|main||
+Raucous Theater|1|main||
+Scalding Tarn|1|main||
+Shizo, Death's Storehouse|1|main||
+Snow-Covered Mountain|1|main||
+Snow-Covered Swamp|1|main||
+Sokenzan, Crucible of Defiance|1|main||
+Spymaster's Vault|1|main||
+Starting Town|1|main||
+Sulfurous Springs|1|main||
+Swamp|1|main||
+Takenuma, Abandoned Mire|1|main||
+Urborg, Tomb of Yawgmoth|1|main||
+Urza's Saga|1|main||
+Vault of Whispers|1|main||
+Verdant Catacombs|1|main||
+Wooded Foothills|1|main||
+Accursed Marauder|1|main||
+Bloodsoaked Champion|1|main||
+Boggart Trawler|1|main||
+Bomat Courier|1|main||
+Broadside Bombardiers|1|main||
+Cacophony Scamp|1|main||
+Carrion Feeder|1|main||
+Cult Conscript|1|main||
+Detective's Phoenix|1|main||
+Dragon's Rage Channeler|1|main||
+Dread Wanderer|1|main||
+Embereth Veteran|1|main||
+Emperor of Bones|1|main||
+Fear of Missing Out|1|main||
+Fireblade Charger|1|main||
+Flamecache Gecko|1|main||
+Forsaken Miner|1|main||
+Fury|1|main||
+Gau, Feral Youth|1|main||
+Gravecrawler|1|main||
+Greasewrench Goblin|1|main||
+Grief|1|main||
+Gutterbones|1|main||
+Knight of the Ebon Legion|1|main||
+Marionette Apprentice|1|main||
+Memnite|1|main||
+Moonshadow|1|main||
+Nested Shambler|1|main||
+Nethergoyf|1|main||
+Orcish Bowmasters|1|main||
+Pyrogoyf|1|main||
+Rakdos Cackler|1|main||
+Scrapheap Scrounger|1|main||
+Sephiroth, Fabled SOLDIER|1|main||
+Stalactite Stalker|1|main||
+Stitcher's Supplier|1|main||
+Super Shredder|1|main||
+Umbral Collar Zealot|1|main||
+Viscera Seer|1|main||
+Chain Lightning|1|main||
+Claim / Fame|1|main||
+Demonic Consultation|1|main||
+Demonic Tutor|1|main||
+Dismember|1|main||
+Fatal Push|1|main||
+Flare of Malice|1|main||
+Galvanic Discharge|1|main||
+Gamble|1|main||
+Lightning Bolt|1|main||
+Malakir Rebirth|1|main||
+Pyroblast|1|main||
+Pyrokinesis|1|main||
+Rotten Reunion|1|main||
+Snuff Out|1|main||
+Tainted Pact|1|main||
+Thoughtseize|1|main||
+Unearth|1|main||
+Unholy Heat|1|main||
+Goblin Bombardment|1|main||
+Skullclamp|1|main||
+---
+Lier, Disciple of the Drowned|1|commander||
+Flooded Strand|1|main||
+Island|31|main||
+Misty Rainforest|1|main||
+Mystic Sanctuary|1|main||
+Polluted Delta|1|main||
+Scalding Tarn|1|main||
+Spellseeker|1|main||
+Archmage's Charm|1|main||
+Brain Freeze|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Chain of Vapor|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Curate|1|main||
+Deduce|1|main||
+Dizzy Spell|1|main||
+Dream's Grip|1|main||
+Flow State|1|main||
+Force Spike|1|main||
+Frantic Search|1|main||
+Gigadrowse|1|main||
+Gitaxian Probe|1|main||
+Hidden Strings|1|main||
+High Tide|1|main||
+Impulse|1|main||
+Into the Flood Maw|1|main||
+Intuition|1|main||
+Lose Focus|1|main||
+Lórien Revealed|1|main||
+Mana Leak|1|main||
+Mana Short|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Mental Note|1|main||
+Merchant Scroll|1|main||
+Moment of Truth|1|main||
+Mystical Dispute|1|main||
+Opt|1|main||
+Pact of Negation|1|main||
+Peek|1|main||
+Personal Tutor|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Remand|1|main||
+Rewind|1|main||
+Serum Visions|1|main||
+Sleight of Hand|1|main||
+Snap|1|main||
+Solve the Equation|1|main||
+Spell Pierce|1|main||
+Spell Snare|1|main||
+Stern Scolding|1|main||
+Stifle|1|main||
+Stock Up|1|main||
+Suspend|1|main||
+Tale's End|1|main||
+Thought Scour|1|main||
+Three Steps Ahead|1|main||
+Turnabout|1|main||
+Twiddle|1|main||
+Unsubstantiate|1|main||
+Unwind|1|main||
+Wash Away|1|main||
+Extraplanar Lens|1|main||
+Sapphire Medallion|1|main||
+Unable to Scream|1|main||
+---
+Brigid, Clachan's Heart|1|commander||
+Abandoned Air Temple|1|main||
+Ancient Den|1|main||
+Arid Mesa|1|main||
+Ba Sing Se|1|main||
+Boseiju, Who Endures|1|main||
+Brushland|1|main||
+Command Tower|1|main||
+Dryad Arbor|1|main||
+Flooded Strand|1|main||
+Gathering Place|1|main||
+Horizon Canopy|1|main||
+Hushwood Verge|1|main||
+Lush Portico|1|main||
+Marsh Flats|1|main||
+Misty Rainforest|1|main||
+Multiversal Passage|1|main||
+Prismatic Vista|1|main||
+Razorverge Thicket|1|main||
+Savannah|1|main||
+Snow-Covered Forest|6|main||
+Snow-Covered Plains|5|main||
+Sunpetal Grove|1|main||
+Temple Garden|1|main||
+Urza's Saga|1|main||
+Verdant Catacombs|1|main||
+Windswept Heath|1|main||
+Wooded Bastion|1|main||
+Wooded Foothills|1|main||
+Yavimaya, Cradle of Growth|1|main||
+Arbor Elf|1|main||
+Avacyn's Pilgrim|1|main||
+Badgermole Cub|1|main||
+Benevolent Bodyguard|1|main||
+Birds of Paradise|1|main||
+Boreal Druid|1|main||
+Brightglass Gearhulk|1|main||
+Burrenton Forge-Tender|1|main||
+Cloud, Midgar Mercenary|1|main||
+Delighted Halfling|1|main||
+Devoted Druid|1|main||
+Drannith Magistrate|1|main||
+Elvish Mystic|1|main||
+Endurance|1|main||
+Formidable Speaker|1|main||
+Fyndhorn Elves|1|main||
+Giver of Runes|1|main||
+Guide of Souls|1|main||
+Haywire Mite|1|main||
+Jennifer Walters|1|main||
+Keen-Eyed Curator|1|main||
+Llanowar Elves|1|main||
+Mother of Runes|1|main||
+Ocelot Pride|1|main||
+Quirion Ranger|1|main||
+Ranger of Eos|1|main||
+Ranger-Captain of Eos|1|main||
+Recruiter of the Guard|1|main||
+Sanctifier en-Vec|1|main||
+Seedcradle Witch|1|main||
+Six|1|main||
+Skyclave Apparition|1|main||
+Solitude|1|main||
+Springheart Nantuko|1|main||
+Starfield Shepherd|1|main||
+Stoneforge Mystic|1|main||
+Voice of Resurgence|1|main||
+Voice of Victory|1|main||
+Walking Ballista|1|main||
+Witch Enchanter|1|main||
+Chord of Calling|1|main||
+Eladamri's Call|1|main||
+Eldritch Evolution|1|main||
+Enlightened Tutor|1|main||
+Finale of Devastation|1|main||
+Green Sun's Zenith|1|main||
+Nature's Rhythm|1|main||
+Summoner's Pact|1|main||
+Swords to Plowshares|1|main||
+Worldly Tutor|1|main||
+Birthing Pod|1|main||
+Earthcraft|1|main||
+On Thin Ice|1|main||
+Parallax Wave|1|main||
+Pre-War Formalwear|1|main||
+Skullclamp|1|main||
+Static Prison|1|main||
+Survival of the Fittest|1|main||
+Swift Reconfiguration|1|main||
+Utopia Sprawl|1|main||
+Wild Growth|1|main||
+---
+Commodore Guff|1|commander||
+Arid Mesa|1|main||
+Bloodstained Mire|1|main||
+Clifftop Retreat|1|main||
+Command Tower|1|main||
+Deserted Beach|1|main||
+Elegant Parlor|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Interplanar Beacon|1|main||
+Island|2|main||
+Marsh Flats|1|main||
+Meticulous Archive|1|main||
+Misty Rainforest|1|main||
+Mountain|1|main||
+Mystic Sanctuary|1|main||
+Nesting Grounds|1|main||
+Plains|2|main||
+Plateau|1|main||
+Polluted Delta|1|main||
+Prismatic Vista|1|main||
+Reflecting Pool|1|main||
+Riverpyre Verge|1|main||
+Sacred Foundry|1|main||
+Scalding Tarn|1|main||
+Steam Vents|1|main||
+Stormcarved Coast|1|main||
+Sulfur Falls|1|main||
+Sunbillow Verge|1|main||
+Sundown Pass|1|main||
+Thundering Falls|1|main||
+Tundra|1|main||
+Volcanic Island|1|main||
+Windswept Heath|1|main||
+Wooded Foothills|1|main||
+Fury|1|main||
+Phlage, Titan of Fire's Fury|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Subtlety|1|main||
+Anger of the Gods|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Enlightened Tutor|1|main||
+Fact or Fiction|1|main||
+Fire // Ice|1|main||
+Fire Magic|1|main||
+Flame of Anor|1|main||
+Force Spike|1|main||
+Force of Negation|1|main||
+Forth Eorlingas!|1|main||
+Gitaxian Probe|1|main||
+Improvisation Capstone|1|main||
+Lightning Bolt|1|main||
+Lose Focus|1|main||
+Lórien Revealed|1|main||
+Mana Leak|1|main||
+Mana Tithe|1|main||
+March of Otherworldly Light|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Mystic Confluence|1|main||
+No More Lies|1|main||
+Orim's Chant|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Sink into Stupor|1|main||
+Spell Snare|1|main||
+Stern Scolding|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tale's End|1|main||
+Tithe|1|main||
+Wash Away|1|main||
+Wrath of the Skies|1|main||
+Chandra, Awakened Inferno|1|main||
+Chandra, Hope's Beacon|1|main||
+Chandra, Torch of Defiance|1|main||
+Elspeth, Storm Slayer|1|main||
+Jace, the Mind Sculptor|1|main||
+Narset, Parter of Veils|1|main||
+Parallax Wave|1|main||
+Rest in Peace|1|main||
+Roaring Furnace // Steaming Sauna|1|main||
+Shark Typhoon|1|main||
+Shorikai, Genesis Engine|1|main||
+Swift Reconfiguration|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+The Wandering Emperor|1|main||
+---
+Deadpool, Trading Card|1|commander||
+Arena of Glory|1|main||
+Arid Mesa|1|main||
+Badlands|1|main||
+Blackcleave Cliffs|1|main||
+Blazemire Verge|1|main||
+Blightstep Pathway|1|main||
+Blood Crypt|1|main||
+Bloodstained Mire|1|main||
+City of Traitors|1|main||
+Command Tower|1|main||
+Den of the Bugbear|1|main||
+Dragonskull Summit|1|main||
+Graven Cairns|1|main||
+Haunted Ridge|1|main||
+Hive of the Eye Tyrant|1|main||
+Lazotep Quarry|1|main||
+Marsh Flats|1|main||
+Mount Doom|1|main||
+Mountain|1|main||
+Phyrexian Tower|1|main||
+Polluted Delta|1|main||
+Prismatic Vista|1|main||
+Raucous Theater|1|main||
+Reflecting Pool|1|main||
+Scalding Tarn|1|main||
+Shinka, the Bloodsoaked Keep|1|main||
+Shizo, Death's Storehouse|1|main||
+Snow-Covered Mountain|1|main||
+Snow-Covered Swamp|1|main||
+Sokenzan, Crucible of Defiance|1|main||
+Sulfurous Springs|1|main||
+Swamp|1|main||
+Takenuma, Abandoned Mire|1|main||
+Urborg, Tomb of Yawgmoth|1|main||
+Verdant Catacombs|1|main||
+Wooded Foothills|1|main||
+Barrowgoyf|1|main||
+Bloodtithe Harvester|1|main||
+Boggart Trawler|1|main||
+Broadside Bombardiers|1|main||
+Chaos Defiler|1|main||
+Dauthi Voidwalker|1|main||
+Detective's Phoenix|1|main||
+Dragon's Rage Channeler|1|main||
+Emperor of Bones|1|main||
+Fear of Missing Out|1|main||
+Fury|1|main||
+Graveyard Trespasser|1|main||
+Grief|1|main||
+Headliner Scarlett|1|main||
+Hexing Squelcher|1|main||
+Inti, Seneschal of the Sun|1|main||
+Kellogg, Dangerous Mind|1|main||
+Kroxa, Titan of Death's Hunger|1|main||
+Laelia, the Blade Reforged|1|main||
+Magus of the Moon|1|main||
+Mai, Scornful Striker|1|main||
+Nethergoyf|1|main||
+Oliphaunt|1|main||
+Opposition Agent|1|main||
+Orcish Bowmasters|1|main||
+Party Thrasher|1|main||
+Pyrogoyf|1|main||
+Screaming Nemesis|1|main||
+Simian Spirit Guide|1|main||
+Spider-Punk|1|main||
+Tersa Lightshatter|1|main||
+Tokka & Rahzar, Terrible Twos|1|main||
+Tourach, Dread Cantor|1|main||
+Troll of Khazad-dûm|1|main||
+Chain Lightning|1|main||
+Cling to Dust|1|main||
+Demonic Tutor|1|main||
+Dismember|1|main||
+Duress|1|main||
+Fatal Push|1|main||
+Fiery Confluence|1|main||
+Galvanic Discharge|1|main||
+Ghostfire Slice|1|main||
+Hymn to Tourach|1|main||
+Inquisition of Kozilek|1|main||
+Kolaghan's Command|1|main||
+Lightning Bolt|1|main||
+Malakir Rebirth|1|main||
+Molten Collapse|1|main||
+Pyroblast|1|main||
+Pyrokinesis|1|main||
+Requiting Hex|1|main||
+Snuff Out|1|main||
+Sundering Eruption|1|main||
+Tainted Pact|1|main||
+Terminate|1|main||
+Thoughtseize|1|main||
+Unearth|1|main||
+Unholy Heat|1|main||
+Untimely Malfunction|1|main||
+Animate Dead|1|main||
+Disruptor Flute|1|main||
+Fable of the Mirror-Breaker|1|main||
+---
+Phelia, Exuberant Shepherd|1|commander||
+Ancient Den|1|main||
+City of Traitors|1|main||
+Command Beacon|1|main||
+Crystal Vein|1|main||
+Dust Bowl|1|main||
+Eiganjo Castle|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Flagstones of Trokair|1|main||
+Lazotep Quarry|1|main||
+Mishra's Factory|1|main||
+Mutavault|1|main||
+Rishadan Port|1|main||
+Scavenger Grounds|1|main||
+Shefet Dunes|1|main||
+Snow-Covered Plains|19|main||
+Talon Gates of Madara|1|main||
+Tectonic Edge|1|main||
+Urza's Cave|1|main||
+Urza's Saga|1|main||
+Anointed Peacekeeper|1|main||
+Aven Interrupter|1|main||
+Aven Mindcensor|1|main||
+Benevolent Bodyguard|1|main||
+Blade Splicer|1|main||
+Cathar Commando|1|main||
+Cloud, Midgar Mercenary|1|main||
+Containment Priest|1|main||
+Drannith Magistrate|1|main||
+Elite Spellbinder|1|main||
+Esper Sentinel|1|main||
+Extraction Specialist|1|main||
+Flickerwisp|1|main||
+Giver of Runes|1|main||
+Guide of Souls|1|main||
+Lion Sash|1|main||
+Mother of Runes|1|main||
+Ocelot Pride|1|main||
+Overlord of the Mistmoors|1|main||
+Palace Jailer|1|main||
+Ranger of Eos|1|main||
+Ranger-Captain of Eos|1|main||
+Recruiter of the Guard|1|main||
+Restoration Angel|1|main||
+Seasoned Dungeoneer|1|main||
+Skrelv, Defector Mite|1|main||
+Skyclave Apparition|1|main||
+Solitude|1|main||
+Spectacular Spider-Man|1|main||
+Starfield Shepherd|1|main||
+Steel Seraph|1|main||
+Stoneforge Mystic|1|main||
+Summon: Yojimbo|1|main||
+Thalia, Heretic Cathar|1|main||
+Toby, Beastie Befriender|1|main||
+Voice of Victory|1|main||
+Witch Enchanter|1|main||
+Enlightened Tutor|1|main||
+Ephemerate|1|main||
+Erode|1|main||
+Mana Tithe|1|main||
+Path to Exile|1|main||
+Razorgrass Ambush|1|main||
+Reprieve|1|main||
+Reverent Mantra|1|main||
+Steelshaper's Gift|1|main||
+Arcum's Astrolabe|1|main||
+Disruptor Flute|1|main||
+Ghost Vacuum|1|main||
+Glimmer Lens|1|main||
+On Thin Ice|1|main||
+Parallax Wave|1|main||
+Portable Hole|1|main||
+Pre-War Formalwear|1|main||
+Seam Rip|1|main||
+Skateboard|1|main||
+Skullclamp|1|main||
+Staff of the Storyteller|1|main||
+Tangle Wire|1|main||
+The Wandering Emperor|1|main||
+Umezawa's Jitte|1|main||
+Winter Moon|1|main||
+---
+Zurgo Bellstriker|1|commander||
+Arena of Glory|1|main||
+Arid Mesa|1|main||
+Barbarian Ring|1|main||
+Bloodstained Mire|1|main||
+Den of the Bugbear|1|main||
+Fire Nation Palace|1|main||
+Horizon of Progress|1|main||
+Mishra's Factory|1|main||
+Mountain|20|main||
+Mutavault|1|main||
+Prismatic Vista|1|main||
+Ramunap Ruins|1|main||
+Scalding Tarn|1|main||
+Shinka, the Bloodsoaked Keep|1|main||
+Sokenzan, Crucible of Defiance|1|main||
+Wooded Foothills|1|main||
+Bloodthirsty Adversary|1|main||
+Bonecrusher Giant|1|main||
+Broadside Bombardiers|1|main||
+Cemetery Gatekeeper|1|main||
+Detective's Phoenix|1|main||
+Dragon's Rage Channeler|1|main||
+Eidolon of the Great Revel|1|main||
+Emberheart Challenger|1|main||
+Feldon, Ronom Excavator|1|main||
+Fury|1|main||
+Goblin Guide|1|main||
+Grim Lavamancer|1|main||
+Headliner Scarlett|1|main||
+Hexing Squelcher|1|main||
+Kellan, Planar Trailblazer|1|main||
+Laelia, the Blade Reforged|1|main||
+Loyal Apprentice|1|main||
+Magus of the Moon|1|main||
+Monastery Swiftspear|1|main||
+Pinnacle Monk|1|main||
+Rampaging Ferocidon|1|main||
+Razorkin Needlehead|1|main||
+Robber of the Rich|1|main||
+Screaming Nemesis|1|main||
+Simian Spirit Guide|1|main||
+Slickshot Show-Off|1|main||
+Spider-Punk|1|main||
+Sunspine Lynx|1|main||
+Tersa Lightshatter|1|main||
+Zhao, the Moon Slayer|1|main||
+Burst Lightning|1|main||
+Chain Lightning|1|main||
+Exquisite Firecraft|1|main||
+Fiery Confluence|1|main||
+Fireblast|1|main||
+Flame Rift|1|main||
+Flame Slash|1|main||
+Flare of Duplication|1|main||
+Force of Rage|1|main||
+Forked Bolt|1|main||
+Galvanic Blast|1|main||
+Ghostfire Slice|1|main||
+Incendiary Flow|1|main||
+Incinerate|1|main||
+Lava Spike|1|main||
+Light Up the Stage|1|main||
+Lightning Bolt|1|main||
+Lightning Strike|1|main||
+Mine Collapse|1|main||
+Play with Fire|1|main||
+Pyrokinesis|1|main||
+Rift Bolt|1|main||
+Roil Eruption|1|main||
+Searing Blaze|1|main||
+Searing Blood|1|main||
+Shock|1|main||
+Skewer the Critics|1|main||
+Skullcrack|1|main||
+Sundering Eruption|1|main||
+Tarfire|1|main||
+Wild Slash|1|main||
+Fable of the Mirror-Breaker|1|main||
+Seal of Fire|1|main||
+Sulfuric Vortex|1|main||
+---
+Magda, Brazen Outlaw|1|commander||
+Arena of Glory|1|main||
+Arid Mesa|1|main||
+Bloodstained Mire|1|main||
+Dwarven Mine|1|main||
+Gemstone Caverns|1|main||
+Holdout Settlement|1|main||
+Kavaron, Memorial World|1|main||
+Mountain|27|main||
+Mutavault|1|main||
+Scalding Tarn|1|main||
+Survivors' Encampment|1|main||
+Urza's Saga|1|main||
+Wooded Foothills|1|main||
+Axgard Cavalry|1|main||
+Bloodfire Dwarf|1|main||
+Bogardan Hellkite|1|main||
+Broadside Bombardiers|1|main||
+Dori, Bearer of Friends|1|main||
+Dwarven Bloodboiler|1|main||
+Dwarven Grunt|1|main||
+Dwarven Mauler|1|main||
+Dwarven Scorcher|1|main||
+Dáin Ironfoot|1|main||
+Enslaved Dwarf|1|main||
+Fury|1|main||
+Fíli and Kíli, Joyous|1|main||
+Glóin, Dwarf Emissary|1|main||
+Gogo, Mysterious Mime|1|main||
+Hexing Squelcher|1|main||
+Laelia, the Blade Reforged|1|main||
+Liberated Dwarf|1|main||
+Magda, the Hoardmaster|1|main||
+Magus of the Moon|1|main||
+Party Thrasher|1|main||
+Plundering Barbarian|1|main||
+Roaming Throne|1|main||
+Rubble Rouser|1|main||
+Screaming Nemesis|1|main||
+Simian Spirit Guide|1|main||
+Smaug the Magnificent|1|main||
+Spark Mage|1|main||
+Universal Automaton|1|main||
+Óin the Brave|1|main||
+Abrade|1|main||
+Bottle-Cap Blast|1|main||
+Chain Lightning|1|main||
+Crowd's Favor|1|main||
+Flame Slash|1|main||
+Galvanic Blast|1|main||
+Galvanic Discharge|1|main||
+Ghostfire Slice|1|main||
+HULK SMASH!|1|main||
+Impractical Joke|1|main||
+Lightning Bolt|1|main||
+Pyrokinesis|1|main||
+Ruination|1|main||
+Sear|1|main||
+Untimely Malfunction|1|main||
+Voltage Surge|1|main||
+Clown Car|1|main||
+Disruptor Flute|1|main||
+Fable of the Mirror-Breaker|1|main||
+Flywheel Racer|1|main||
+High-Speed Hoverbike|1|main||
+Pithing Needle|1|main||
+Portal to Phyrexia|1|main||
+Smuggler's Copter|1|main||
+Soul-Guide Lantern|1|main||
+Springleaf Drum|1|main||
+Tangle Wire|1|main||
+Tezzeret, Cruel Captain|1|main||
+Unlicensed Hearse|1|main||
+Winter Moon|1|main||
+---
+Elminster|1|main|clb|274
+Absorb|1|main|dmr|354
+Approach of the Second Sun|1|main|akh|4
+Archmage's Charm|1|main|mh1|40
+Arid Mesa|1|main|zen|211
+Balance|1|main|v09|1
+Brainstorm|1|main|cns|91
+Brainsurge|1|main|mh3|53
+Castle Ardenvale|1|main|eld|238
+Castle Vantress|1|main|eld|242
+Celestial Colonnade|1|main|wwk|133
+Command Tower|1|main|cmm|420
+Condemn|1|main|10e|13
+Council's Judgment|1|main|cns|16
+Counterspell|1|main|dmr|281
+Cryptic Command|1|main|p09|1
+Day of Judgment|1|main|p11|1
+Deserted Beach|1|main|mid|260
+Dovin's Veto|1|main|war|193
+Eiganjo, Seat of the Empire|1|main|neo|268
+Enlightened Tutor|1|main|dmr|6
+Farewell|1|main|pwcs|2022-5
+Fateful Absence|1|main|mid|18
+Flooded Strand|1|main|pnat|2018
+Floodfarm Verge|1|main|dsk|259
+Force of Negation|1|main|mh1|52
+Force of Will|1|main|all|28
+Force Spike|1|main|f07|12
+Fractured Identity|1|main|who|477
+Get Lost|1|main|lci|14
+Glacial Fortress|1|main|m11|225
+Hall of Storm Giants|1|main|afr|257
+Hallowed Fountain|1|main|rtr|241
+Helm of Obedience|1|main|all|121
+Hengegate Pathway / Mistgate Pathway|1|main|slu|18
+Irrigated Farmland|1|main|akh|245
+Jace, the Mind Sculptor|1|main|2xm|56
+Lórien Revealed|1|main|ltr|60
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|m12|63
+Mana Tithe|1|main|tsr|26
+March of Otherworldly Light|1|main|neo|28
+Marsh Flats|1|main|zen|219
+Memory Deluge|1|main|mid|62
+Memory Lapse|1|main|hml|32a
+Mental Misstep|1|main|nph|38
+Meticulous Archive|1|main|mkm|264
+Miscalculation|1|main|ulg|36
+Misty Rainforest|1|main|zen|220
+Muddle the Mixture|1|main|rvr|50
+Mystic Confluence|1|main|j16|5
+Mystic Gate|1|main|2xm|324
+Mystic Sanctuary|1|main|eld|247
+Nimbus Maze|1|main|ima|242
+No More Lies|1|main|mkm|221
+Otawara, Soaring City|1|main|neo|271
+Oust|1|main|roe|40
+Personal Tutor|1|main|cmm|110
+Polluted Delta|1|main|mh3|224
+Ponder|1|main|m12|73
+Prairie Stream|1|main|bfz|241
+Preordain|1|main|m11|70
+Prismatic Ending|1|main|mh2|25
+Prismatic Vista|1|main|mh1|244
+Reflecting Pool|1|main|cns|210
+Remand|1|main|f08|1
+Reprieve|1|main|ltr|26
+Rest in Peace|1|main|big|4
+Scalding Tarn|1|main|zen|223
+Seachrome Coast|1|main|som|229
+Shark Typhoon|1|main|iko|67
+Shorikai, Genesis Engine|1|main|nec|4
+Snapcaster Mage|1|main|isd|78
+Snow-Covered Island|8|main|csp|152
+Snow-Covered Plains|3|main|csp|151
+Solitude|1|main|mh2|32
+Solve the Equation|1|main|stx|54
+Spell Snare|1|main|mma|64
+Sunset Revelry|1|main|mid|38
+Supreme Verdict|1|main|rtr|201
+Swords to Plowshares|1|main|cns|84
+Tale's End|1|main|m20|77
+Teferi, Hero of Dominaria|1|main|dom|207
+Teferi, Time Raveler|1|main|rvr|232
+Terminus|1|main|avr|38
+The Wandering Emperor|1|main|neo|42
+Tundra|1|main|sum|289
+Unexpectedly Absent|1|main|ema|33
+Wash Away|1|main|vow|87
+Windswept Heath|1|main|mh3|235
+Wrath of God|1|main|10e|61
+---
+Elminster|1|main|clb|362
+Approach of the Second Sun|1|main|sta|64
+Archmage's Charm|1|main|sch|2
+Arid Mesa|1|main|exp|24
+Beza, the Bounding Spring|1|main|blb|287
+Brainstorm|1|main|sta|76
+Brainsurge|1|main|mh3|53
+Castle Vantress|1|main|eld|390
+Celestial Colonnade|1|main|zne|23
+Command Tower|1|main|cmm|659
+Condemn|1|main|rvr|14
+Council's Judgment|1|main|2xm|336
+Counterspell|1|main|sta|78
+Cryptic Command|1|main|ima|48
+Demolition Field|1|main|bro|260
+Deserted Beach|1|main|mid|281
+Eiganjo, Seat of the Empire|1|main|neo|413
+Farewell|1|main|neo|365
+Field of Ruin|1|main|thb|242
+Flooded Strand|1|main|exp|16
+Floodfarm Verge|1|main|dsk|330
+Force of Negation|1|main|2x2|346
+Force of Will|1|main|2xm|340
+Force Spike|1|main|7ed|76★
+Fractured Identity|1|main|otp|76
+Get Lost|1|main|lci|14
+Glacial Fortress|1|main|sld|456
+Hall of Storm Giants|1|main|afr|257
+Hallowed Fountain|1|main|exp|6
+Hengegate Pathway / Mistgate Pathway|1|main|khm|293
+Irrigated Farmland|1|main|akh|245
+Island|6|main|neo|296
+Jace, the Mind Sculptor|1|main|med|WS3
+Lórien Revealed|1|main|ltr|60
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|2x2|58
+Mana Tithe|1|main|sta|71
+March of Otherworldly Light|1|main|neo|369
+Marsh Flats|1|main|exp|21
+Memory Lapse|1|main|sta|79
+Mental Misstep|1|main|sld|1179
+Meticulous Archive|1|main|mkm|328
+Miscalculation|1|main|ulg|36
+Misty Rainforest|1|main|exp|25
+Mystic Gate|1|main|exp|26
+Mystic Sanctuary|1|main|eld|247
+Narset, Parter of Veils|1|main|war|61★
+No More Lies|1|main|mkm|221
+Opt|1|main|sta|82
+Otawara, Soaring City|1|main|neo|414
+Oust|1|main|roe|40
+Personal Tutor|1|main|cmm|110
+Plains|4|main|neo|293
+Polluted Delta|1|main|exp|17
+Ponder|1|main|slc|2007
+Prairie Stream|1|main|exp|1
+Preordain|1|main|sld|1719
+Prismatic Vista|1|main|spg|38
+Reflecting Pool|1|main|clb|604
+Remand|1|main|mm2|55
+Reprieve|1|main|ltr|26
+Restless Anchorage|1|main|lci|347
+Scalding Tarn|1|main|exp|22
+Sea Gate Restoration / Sea Gate, Reborn|1|main|znr|333
+Seachrome Coast|1|main|zne|11
+Serum Visions|1|main|sld|31
+Shorikai, Genesis Engine|1|main|sld|1880
+Sink into Stupor / Soporific Springs|1|main|mh3|241
+Snapcaster Mage|1|main|puma|U5
+Solitude|1|main|mh2|307
+Solve the Equation|1|main|stx|54
+Spell Snare|1|main|bbd|132
+Stern Scolding|1|main|ltr|71
+Subtlety|1|main|mh2|309
+Sunset Revelry|1|main|mid|38
+Supreme Verdict|1|main|2x2|388
+Swords to Plowshares|1|main|sta|73
+Tale's End|1|main|m20|77
+Teferi, Hero of Dominaria|1|main|sld|248
+Teferi, Time Raveler|1|main|war|221★
+Teferi's Protection|1|main|sta|74
+Temporal Mastery|1|main|inr|307
+Temporary Lockdown|1|main|dmu|389
+Terminus|1|main|mm3|26
+The Wandering Emperor|1|main|neo|316
+Tithe|1|main|vis|23
+Triumph of Saint Katherine|1|main|40k|17★
+Unexpectedly Absent|1|main|ema|33
+Wash Away|1|main|vow|87
+Windswept Heath|1|main|ktk|248
+Wrath of God|1|main|dmr|416
+Wrath of the Skies|1|main|mh3|325
+---
+Elminster|1|main|clb|274
+Absorb|1|main|rna|151
+Archmage's Charm|1|main|mh1|40
+Arid Mesa|1|main|mm3|229
+Brainstorm|1|main|ddj|13
+Brainsurge|1|main|mh3|53
+Castle Ardenvale|1|main|eld|238
+Castle Vantress|1|main|eld|242
+Change the Equation|1|main|mom|50
+Command Tower|1|main|afc|230
+Condemn|1|main|ddl|17
+Condescend|1|main|ima|46
+Consult the Star Charts|1|main|eoe|51
+Counterspell|1|main|7ed|67
+Cryptic Command|1|main|ima|48
+Day of Judgment|1|main|m12|12
+Demolition Field|1|main|m3c|335
+Deserted Beach|1|main|pmid|260p
+Divert Disaster|1|main|eoe|55
+Eiganjo, Seat of the Empire|1|main|neo|268
+Emeria's Call / Emeria, Shattered Skyclave|1|main|znr|12
+Farewell|1|main|neo|13
+Field of Ruin|1|main|mid|262
+Flooded Strand|1|main|ktk|233
+Floodfarm Verge|1|main|dsk|259
+Force of Negation|1|main|2x2|50
+Force Spike|1|main|5ed|88
+Get Lost|1|main|plci|14p
+Glacial Fortress|1|main|blc|307
+Hallowed Fountain|1|main|prna|251p
+Irrigated Farmland|1|main|mkc|267
+Logic Knot|1|main|mma|51
+Lórien Revealed|1|main|ltr|60
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|plst|DDN-64
+Mana Tithe|1|main|tsr|26
+March of Otherworldly Light|1|main|pneo|28p
+Marsh Flats|1|main|zen|219
+Memory Lapse|1|main|ddm|24
+Mental Misstep|1|main|nph|38
+Meticulous Archive|1|main|mkm|264
+Mirrex|1|main|pone|254p
+Miscalculation|1|main|plst|ULG-36
+Misty Rainforest|1|main|mm3|240
+Mystic Gate|1|main|m3c|359
+Mystic Sanctuary|1|main|eld|247
+No More Lies|1|main|mkm|427
+Otawara, Soaring City|1|main|neo|271
+Oust|1|main|plst|DDP-7
+Polluted Delta|1|main|mh3|224
+Ponder|1|main|dsc|73
+Prairie Stream|1|main|c19|265
+Preordain|1|main|m11|70
+Prismatic Ending|1|main|mh2|25
+Prismatic Vista|1|main|mh1|244
+Quick Study|1|main|woe|65
+Razorgrass Ambush / Razorgrass Field|1|main|mh3|238
+Reflecting Pool|1|main|eos|36
+Remand|1|main|rav|63
+Reprieve|1|main|ltr|26
+Scalding Tarn|1|main|mh2|254
+Sea Gate Restoration / Sea Gate, Reborn|1|main|znr|76
+Seachrome Coast|1|main|blc|328
+Shark Typhoon|1|main|otc|113
+Shorikai, Genesis Engine|1|main|nec|4
+Sink into Stupor / Soporific Springs|1|main|mh3|241
+Snapcaster Mage|1|main|isd|78
+Snow-Covered Island|6|main|khm|279
+Snow-Covered Plains|3|main|khm|276
+Solitude|1|main|mh2|32
+Solve the Equation|1|main|stx|54
+Spell Snare|1|main|dis|33
+Stern Scolding|1|main|ltr|71
+Stifle|1|main|mb2|173
+Stock Up|1|main|dft|67
+Subtlety|1|main|mh2|67
+Sunken Palace|1|main|m3c|133
+Sunset Revelry|1|main|mid|38
+Supreme Verdict|1|main|rtr|201
+Swords to Plowshares|1|main|ddf|22
+Tale's End|1|main|m20|77
+Teferi, Hero of Dominaria|1|main|mb2|90
+Teferi, Time Raveler|1|main|war|221
+Temple of the False God|1|main|plst|C18-285
+Temporary Lockdown|1|main|dmu|36
+Tithe|1|main|vis|23
+Tundra|1|main|sum|289
+Ultima|1|main|fin|38
+Unexpectedly Absent|1|main|c20|106
+Wash Away|1|main|vow|87
+Windswept Heath|1|main|ktk|248
+Wrath of God|1|main|dmr|37
+Wrath of the Skies|1|main|mh3|49
+---
+Elminster|1|main|clb|362
+Absorb|1|main|rna|151
+Approach of the Second Sun|1|main|akh|4
+Archmage's Charm|1|main|h1r|7
+Arid Mesa|1|main|zen|211
+Brainstorm|1|main|cns|91
+Brainsurge|1|main|mh3|399
+Castle Ardenvale|1|main|eld|238
+Castle Vantress|1|main|eld|242
+Command Tower|1|main|cmm|420
+Condemn|1|main|10e|13
+Consult the Star Charts|1|main|eoe|51
+Council's Judgment|1|main|cns|16
+Counterspell|1|main|dmr|281
+Cryptic Command|1|main|p09|1
+Demolition Field|1|main|bro|260
+Deserted Beach|1|main|mid|260
+Dovin's Veto|1|main|p30a|27
+Eiganjo, Seat of the Empire|1|main|neo|268
+Elspeth, Storm Slayer|1|main|tdm|11
+Farewell|1|main|neo|365
+Field of Ruin|1|main|xln|254
+Flooded Strand|1|main|pnat|2018
+Floodfarm Verge|1|main|dsk|259
+Force of Negation|1|main|mh1|52
+Force Spike|1|main|f07|12
+Fractured Identity|1|main|who|477
+Get Lost|1|main|lci|14
+Glacial Fortress|1|main|m11|225
+Hall of Storm Giants|1|main|afr|257
+Hallowed Fountain|1|main|rtr|241
+Irrigated Farmland|1|main|akh|245
+Island|6|main|unh|137
+Jace, the Mind Sculptor|1|main|a25|62
+Logic Knot|1|main|fut|52
+Lórien Revealed|1|main|ltr|60
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|9ed|86★
+Mana Tithe|1|main|plc|25
+March of Otherworldly Light|1|main|neo|369
+Marsh Flats|1|main|zen|219
+Memory Deluge|1|main|inr|361
+Memory Lapse|1|main|g99|1
+Mental Misstep|1|main|nph|38
+Meticulous Archive|1|main|mkm|264
+Miscalculation|1|main|ulg|36
+Mistrise Village|1|main|tdm|261
+Misty Rainforest|1|main|zen|220
+Mystic Confluence|1|main|j16|5
+Mystic Gate|1|main|shm|277
+Mystic Sanctuary|1|main|eld|247
+Nimbus Maze|1|main|fut|178
+No More Lies|1|main|mkm|427
+Otawara, Soaring City|1|main|neo|271
+Oust|1|main|roe|40
+Personal Tutor|1|main|cmm|110
+Plains|3|main|unh|136
+Polluted Delta|1|main|mh3|224
+Ponder|1|main|m12|73
+Prairie Stream|1|main|bfz|241
+Preordain|1|main|m11|70
+Prismatic Vista|1|main|mh1|244
+Remand|1|main|f08|1
+Reprieve|1|main|ltr|26
+Restless Anchorage|1|main|lci|280
+Scalding Tarn|1|main|zen|223
+Sea Gate Restoration / Sea Gate, Reborn|1|main|znr|76
+Shorikai, Genesis Engine|1|main|nec|4
+Sink into Stupor / Soporific Springs|1|main|mh3|241
+Snapcaster Mage|1|main|isd|78
+Solitude|1|main|h2r|3
+Spell Snare|1|main|mma|64
+Stern Scolding|1|main|ltr|71
+Stock Up|1|main|dft|67
+Subtlety|1|main|h2r|6
+Sunset Revelry|1|main|mid|38
+Supreme Verdict|1|main|rtr|201
+Swords to Plowshares|1|main|j13|1
+Tale's End|1|main|m20|77
+Teferi, Hero of Dominaria|1|main|dom|207
+Teferi, Time Raveler|1|main|war|221
+Temple of the False God|1|main|p30a|11
+Terminus|1|main|avr|38
+The Wandering Emperor|1|main|neo|303
+Tithe|1|main|vis|23
+Triumph of Saint Katherine|1|main|40k|17★
+Tundra|1|main|3ed|289
+Ultima|1|main|fin|38
+Unexpectedly Absent|1|main|ema|33
+Wash Away|1|main|vow|87
+Windswept Heath|1|main|mh3|235
+Wrath of God|1|main|p07|1
+Wrath of the Skies|1|main|mh3|325
+---
+Elminster|1|main|clb|362
+Absorb|1|main|inv|226
+Arid Mesa|1|main|zen|211
+Cactus Preserve|1|main|otc|40
+Castle Ardenvale|1|main|eld|238
+Celestial Colonnade|1|main|wwk|133
+Change the Equation|1|main|mom|50
+Chemister's Insight|1|main|grn|32
+Command Tower|1|main|cmd|269
+Condemn|1|main|m11|11
+Condescend|1|main|5dn|27
+Council's Judgment|1|main|cns|16
+Counterspell|1|main|mmq|69
+Cryptic Command|1|main|lrw|56
+Day of Judgment|1|main|zen|9
+Daze|1|main|nem|30
+Demolition Field|1|main|bro|260
+Deprive|1|main|roe|59
+Deserted Beach|1|main|mid|260
+Dismiss|1|main|tmp|58
+Eiganjo, Seat of the Empire|1|main|neo|268
+Emergency Eject|1|main|eoe|14
+Exclude|1|main|inv|56
+Fateful Absence|1|main|mid|18
+Field of Ruin|1|main|xln|254
+Flash of Insight|1|main|jud|40
+Flooded Strand|1|main|ktk|233
+Floodfarm Verge|1|main|dsk|259
+Force of Negation|1|main|mh1|52
+Force Spike|1|main|ddj|14
+Fountainport|1|main|blb|253
+Get Lost|1|main|lci|14
+Glacial Fortress|1|main|m10|226
+Hall of Storm Giants|1|main|afr|257
+Hallowed Fountain|1|main|rtr|241
+Island|4|main|zen|236
+Logic Knot|1|main|mma|51
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|m11|62
+Mana Tithe|1|main|plc|25
+March of Otherworldly Light|1|main|neo|28
+Marsh Flats|1|main|zen|219
+Memory Deluge|1|main|mid|62
+Memory Lapse|1|main|ema|60
+Mental Misstep|1|main|nph|38
+Meticulous Archive|1|main|mkm|264
+Mirrex|1|main|one|254
+Miscalculation|1|main|ulg|36
+Mission Briefing|1|main|grn|44
+Misty Rainforest|1|main|zen|220
+Myriad Landscape|1|main|c14|61
+Mystic Gate|1|main|shm|277
+Mystic Sanctuary|1|main|eld|247
+No More Lies|1|main|mkm|221
+Otawara, Soaring City|1|main|neo|271
+Oust|1|main|roe|40
+Pinnacle Starcage|1|main|eoe|27
+Plains|2|main|zen|231
+Polluted Delta|1|main|ktk|239
+Prismatic Ending|1|main|mh2|25
+Prismatic Vista|1|main|mh1|244
+Razorgrass Ambush / Razorgrass Field|1|main|mh3|238
+Reject|1|main|stx|50
+Remand|1|main|rav|63
+Reprieve|1|main|ltr|26
+Restless Anchorage|1|main|lci|280
+Revitalize|1|main|m19|35
+Scalding Tarn|1|main|zen|223
+Seachrome Coast|1|main|one|258
+Secluded Starforge|1|main|eoe|257
+Sink into Stupor / Soporific Springs|1|main|mh3|241
+Snapcaster Mage|1|main|isd|78
+Solitude|1|main|mh2|32
+Soul Partition|1|main|bro|26
+Spell Snare|1|main|dis|33
+Sphinx's Revelation|1|main|rtr|200
+Stern Scolding|1|main|ltr|71
+Stroke of Midnight|1|main|tdc|132
+Subtlety|1|main|mh2|67
+Sunken Citadel|1|main|lci|285
+Sunset Revelry|1|main|mid|38
+Supreme Verdict|1|main|rtr|201
+Swords to Plowshares|1|main|ddf|22
+Tale's End|1|main|m20|77
+Temple of Enlightenment|1|main|bng|163
+Temple of the False God|1|main|c13|327
+Temporary Lockdown|1|main|dmu|36
+Think Twice|1|main|isd|83
+Timely Reinforcements|1|main|m12|40
+Tundra|1|main|3ed|289
+Unexpectedly Absent|1|main|c20|106
+Union of the Third Path|1|main|bro|31
+Wash Away|1|main|vow|87
+Windswept Heath|1|main|ktk|248
+Wrath of God|1|main|ema|38
+Wrath of the Skies|1|main|mh3|49
+---
+Elminster|1|main|clb|274
+Approach of the Second Sun|1|main|akh|4
+Arid Mesa|1|main|mm3|229
+Brainstorm|1|main|mmq|61
+Brainsurge|1|main|mh3|53
+Cactus Preserve|1|main|otc|76
+Castle Vantress|1|main|m3c|327
+Celestial Colonnade|1|main|wwk|133
+Command Tower|1|main|brc|178
+Condemn|1|main|dis|8
+Confounding Conundrum|1|main|znr|53
+Consult the Star Charts|1|main|eoe|51
+Council's Judgment|1|main|cns|16
+Counterspell|1|main|ice|64
+Demolition Field|1|main|bro|260
+Deserted Beach|1|main|mid|281
+Eiganjo, Seat of the Empire|1|main|pneo|268p
+Emeria's Call / Emeria, Shattered Skyclave|1|main|znr|12
+Farewell|1|main|m3c|170
+Field of Ruin|1|main|tsr|407
+Flooded Strand|1|main|ktk|233
+Floodfarm Verge|1|main|dsk|259
+Force of Negation|1|main|2x2|50
+Force Spike|1|main|leg|58
+Fractured Identity|1|main|c17|37
+Get Lost|1|main|lci|333
+Glacial Fortress|1|main|m12|227
+Hall of Storm Giants|1|main|afr|257
+Hallowed Fountain|1|main|rtr|241
+Island|5|main|woe|270
+Jace, the Mind Sculptor|1|main|wwk|31
+Lórien Revealed|1|main|ltr|60
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|sth|36
+Mana Tithe|1|main|plst|PLC-25
+March of Otherworldly Light|1|main|pneo|28p
+Marsh Flats|1|main|pmh2|248s
+Memory Lapse|1|main|mir|74
+Mental Misstep|1|main|nph|38
+Meticulous Archive|1|main|mkm|328
+Miscalculation|1|main|ulg|36
+Mistrise Village|1|main|tdm|261
+Misty Rainforest|1|main|mh2|250
+Myriad Landscape|1|main|c20|292
+Mystic Gate|1|main|shm|277
+Mystic Sanctuary|1|main|mkc|277
+Narset, Parter of Veils|1|main|cmm|853
+No More Lies|1|main|mkm|221
+Opt|1|main|inv|64
+Otawara, Soaring City|1|main|pneo|271s
+Oust|1|main|roe|40
+Parallax Tide|1|main|nem|37
+Personal Tutor|1|main|por|64
+Plains|3|main|mkm|278
+Polluted Delta|1|main|ktk|239
+Ponder|1|main|m10|68
+Prairie Stream|1|main|m3c|365
+Preordain|1|main|m11|70
+Prismatic Vista|1|main|mh1|244
+Quicken|1|main|rvr|318
+Remand|1|main|rav|63
+Reprieve|1|main|ltr|26
+Restless Anchorage|1|main|plci|280p
+Scalding Tarn|1|main|mm3|244
+Sea Gate Restoration / Sea Gate, Reborn|1|main|znr|76
+Serum Visions|1|main|5dn|36
+Shorikai, Genesis Engine|1|main|nec|4
+Sink into Stupor / Soporific Springs|1|main|mh3|241
+Snapcaster Mage|1|main|isd|78
+Solitude|1|main|mh2|32
+Solve the Equation|1|main|stx|54
+Spell Snare|1|main|plst|DIS-33
+Stern Scolding|1|main|ltr|71
+Stifle|1|main|mb2|173
+Stock Up|1|main|dft|67
+Subtlety|1|main|mh2|67
+Sunken Palace|1|main|m3c|133
+Sunset Revelry|1|main|mid|38
+Supreme Verdict|1|main|rvr|461
+Swords to Plowshares|1|main|ice|54
+Tale's End|1|main|m20|77
+Teferi, Hero of Dominaria|1|main|dom|207
+Teferi, Time Raveler|1|main|war|221
+Temple of the False God|1|main|scg|143
+Temporal Mastery|1|main|mm3|54
+Temporary Lockdown|1|main|dmu|36
+Terminus|1|main|avr|38
+Tithe|1|main|vis|23
+Tundra|1|main|3ed|289
+Ultima|1|main|fin|38
+Wash Away|1|main|vow|87
+Windswept Heath|1|main|ktk|248
+Wrath of God|1|main|por|39
+Wrath of the Skies|1|main|mh3|49
+---
+Elminster|1|main|clb|274
+Absorb|1|main|rna|151
+Agna Qel'a|1|main|tla|264
+Approach of the Second Sun|1|main|sta|64
+Archmage's Charm|1|main|mh1|40
+Arid Mesa|1|main|zen|211
+Brainstorm|1|main|sta|76
+Brainsurge|1|main|mh3|399
+Cactus Preserve|1|main|otc|76
+Castle Ardenvale|1|main|eld|238
+Castle Vantress|1|main|eld|242
+Change the Equation|1|main|mom|50
+Command Tower|1|main|j12|8
+Condemn|1|main|m11|11
+Consult the Star Charts|1|main|eoe|51
+Counterspell|1|main|sta|78
+Cryptic Command|1|main|lrw|56
+Deserted Beach|1|main|mid|260
+Dress Down|1|main|mh2|39
+Eiganjo, Seat of the Empire|1|main|neo|268
+Emeritus of Ideation / Ancestral Recall|1|main|sos|45
+Erode|1|main|sos|15
+Farewell|1|main|neo|365
+Fateful Absence|1|main|mid|18
+Field of Ruin|1|main|thb|242
+Flooded Strand|1|main|g09|7
+Floodfarm Verge|1|main|dsk|259
+Flow State|1|main|sos|49
+Force of Negation|1|main|h1r|9
+Force Spike|1|main|7ed|76★
+Fractured Identity|1|main|sld|272
+Get Lost|1|main|lci|14
+Glacial Fortress|1|main|m11|225
+Hall of Storm Giants|1|main|afr|257
+Hallowed Fountain|1|main|rtr|241
+Hengegate Pathway / Mistgate Pathway|1|main|khm|260
+Irrigated Farmland|1|main|akh|245
+Island|6|main|inv|337
+Jace, the Mind Sculptor|1|main|wwk|31
+Lórien Revealed|1|main|ltr|60
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|9ed|86★
+Mana Tithe|1|main|sta|71
+March of Otherworldly Light|1|main|neo|28
+Marsh Flats|1|main|zen|219
+Memory Lapse|1|main|sta|79
+Mental Misstep|1|main|nph|38
+Meticulous Archive|1|main|mkm|264
+Mistrise Village|1|main|tdm|261
+Misty Rainforest|1|main|zen|220
+Mystic Confluence|1|main|j16|5
+Mystic Gate|1|main|shm|277
+Mystic Sanctuary|1|main|eld|247
+No More Lies|1|main|mkm|221
+Opt|1|main|sta|82
+Otawara, Soaring City|1|main|neo|271
+Oust|1|main|roe|40
+Personal Tutor|1|main|cmm|633
+Plains|3|main|inv|333
+Polluted Delta|1|main|g09|8
+Ponder|1|main|sld|245
+Prairie Stream|1|main|bfz|241
+Preordain|1|main|soa|151
+Prismatic Vista|1|main|h1r|40
+Remand|1|main|tsr|316
+Reprieve|1|main|soa|139
+Scalding Tarn|1|main|zen|223
+Sea Gate Restoration / Sea Gate, Reborn|1|main|znr|76
+Shorikai, Genesis Engine|1|main|nec|4
+Sink into Stupor / Soporific Springs|1|main|mh3|241
+Snapcaster Mage|1|main|isd|78
+Solitude|1|main|mh2|307
+Solve the Equation|1|main|stx|54
+Spell Snare|1|main|dis|33
+Stern Scolding|1|main|ltr|71
+Stock Up|1|main|soa|154
+Subtlety|1|main|mh2|309
+Supreme Verdict|1|main|2x2|388
+Swords to Plowshares|1|main|sta|73
+Tale's End|1|main|m20|77
+Teferi, Hero of Dominaria|1|main|sld|248
+Teferi, Time Raveler|1|main|war|221
+Temple of the False God|1|main|scg|143
+Temporal Mastery|1|main|inr|307
+Terminus|1|main|avr|38
+Tithe|1|main|vis|23
+Treachery|1|main|uds|50
+Tundra|1|main|3ed|289
+Unexpectedly Absent|1|main|ema|33
+Wash Away|1|main|vow|87
+Windswept Heath|1|main|g09|9
+Wrath of God|1|main|p07|1
+Wrath of the Skies|1|main|mh3|49
+---
+Elminster|1|main|clb|274
+Adarkar Wastes|1|main|m3c|316
+Brainsurge|1|main|mh3|53
+Castle Ardenvale|1|main|woc|154
+Celestial Colonnade|1|main|eos|7
+Chrome Host Seedshark|1|main|mom|51
+Command Tower|1|main|c21|284
+Condemn|1|main|cmr|369
+Consult the Star Charts|1|main|eoe|51
+Council's Judgment|1|main|otc|79
+Counterspell|1|main|dmr|45
+Day of Judgment|1|main|fdn|140
+Deduce|1|main|mkm|293
+Deserted Beach|1|main|mid|281
+Dispel|1|main|rtr|36
+Disruptor Flute|1|main|mh3|209
+Dovin's Veto|1|main|war|193
+Elspeth's Smite|1|main|mom|13
+Essence Scatter|1|main|dmu|49
+Exorcise|1|main|dsk|8
+Fabled Passage|1|main|pw21|4
+Fact or Fiction|1|main|ncc|221
+Field of Ruin|1|main|ltc|308
+Force Spike|1|main|plst|DDJ-14
+Glacial Fortress|1|main|xln|255
+Hall of Storm Giants|1|main|afr|257
+Hallowed Fountain|1|main|rna|251
+Horned Loch-Whale / Lagoon Breach|1|main|woe|278
+Irrigated Farmland|1|main|who|288
+Island|11|main|c18|296
+Joust Through|1|main|fdn|19
+Jwari Disruption / Jwari Ruins|1|main|znr|64
+Keep Out|1|main|ecl|19
+Long River's Pull|1|main|blb|58
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|2x2|58
+Mana Tithe|1|main|tsr|26
+March of Otherworldly Light|1|main|neo|28
+Memory Deluge|1|main|mid|62
+Memory Lapse|1|main|ddm|24
+Mystic Gate|1|main|cmm|1013
+Mystical Dispute|1|main|eld|58
+Narset, Parter of Veils|1|main|cmm|853
+Negate|1|main|sta|18
+Nimbus Maze|1|main|afc|252
+No More Lies|1|main|mkm|221
+Out of Time|1|main|mh2|23
+Phantom Interference|1|main|otj|61
+Pinnacle Starcage|1|main|eoe|27
+Plains|10|main|dtk|251
+Ponder|1|main|m10|68
+Port Town|1|main|scd|313
+Portable Hole|1|main|plst|AFR-33
+Prairie Stream|1|main|voc|179
+Propaganda|1|main|acr|85
+Razorgrass Ambush / Razorgrass Field|1|main|mh3|238
+Reprieve|1|main|ltr|26
+Ride's End|1|main|dft|25
+Seam Rip|1|main|eoe|34
+Secluded Starforge|1|main|eoe|257
+Shatter the Sky|1|main|thb|37
+Shorikai, Genesis Engine|1|main|nec|4
+SOLDIER Military Program|1|main|fic|25
+Spell Pierce|1|main|prm|102233
+Spell Snare|1|main|bbd|132
+Stern Scolding|1|main|ltr|71
+Stroke of Midnight|1|main|woe|33
+Sunfall|1|main|pmom|40p
+Sunset Revelry|1|main|dbl|38
+Supreme Verdict|1|main|ltc|272
+Swords to Plowshares|1|main|cmm|841
+Tale's End|1|main|m20|77
+Teferi, Temporal Pilgrim|1|main|bro|66
+Teferi, Time Raveler|1|main|mb2|91
+Temple of Enlightenment|1|main|mkc|302
+Temporary Lockdown|1|main|dmu|36
+The Wandering Emperor|1|main|neo|42
+Tranquil Cove|1|main|dft|267
+Unable to Scream|1|main|dsk|78
+Wash Away|1|main|dbl|354
+Wrath of God|1|main|dmr|279
+Aang's Iceberg|1|sideboard|tla|336
+Approach of the Second Sun|1|sideboard|plst|AKH-4
+Avatar's Wrath|1|sideboard|tla|12
+Battle Menu|1|sideboard|fin|9
+Behold the Multiverse|1|sideboard|khm|46
+Beyond the Quiet|1|sideboard|eoe|7
+Blast Zone|1|sideboard|m3c|322
+Blessed Alliance|1|sideboard|emn|13
+Brainstorm|1|sideboard|c15|90
+Cactus Preserve|1|sideboard|otc|76
+Castle Vantress|1|sideboard|dsc|267
+Circle of Protection: White|1|sideboard|5ed|21
+Commence the Endgame|1|sideboard|war|45
+Cryptic Coat|1|sideboard|mkm|394
+Dennick, Pious Apprentice / Dennick, Pious Apparition|1|sideboard|mid|317
+Depopulate|1|sideboard|snc|10
+Doomskar|1|sideboard|khm|9
+Dovin Baan|1|sideboard|kld|179
+Elspeth, Sun's Champion|1|sideboard|cmm|820
+Emergency Eject|1|sideboard|eoe|14
+Faithful Mending|1|sideboard|mid|221
+Faramir, Prince of Ithilien|1|sideboard|ltr|202
+Ghostly Prison|1|sideboard|mkc|67
+Gitaxian Probe|1|sideboard|nph|35
+Grand Abolisher|1|sideboard|e01|12
+Kinbinding|1|sideboard|ecl|20
+Kykar, Zephyr Awakener|1|sideboard|fdn|122
+Leadership Vacuum|1|sideboard|c19|9
+Lórien Revealed|1|sideboard|ltr|60
+Make Disappear|1|sideboard|snc|49
+Marang River Regent / Coil and Catch|1|sideboard|ptdm|51p
+Mental Misstep|1|sideboard|mb2|30
+Moon-Blessed Cleric|1|sideboard|dsc|69
+Nevermore|1|sideboard|isd|25
+Not on My Watch|1|sideboard|mkm|28
+Opt|1|sideboard|tdc|158
+Order of Succession|1|sideboard|c13|52
+Oust|1|sideboard|clu|67
+Path to Exile|1|sideboard|cmm|49
+Planar Disruption|1|sideboard|one|28
+Reckoner Bankbuster|1|sideboard|neo|255
+Remand|1|sideboard|j25|349
+Restless Anchorage|1|sideboard|lci|347
+Revitalize|1|sideboard|sta|72
+Scavenger Grounds|1|sideboard|cmm|1027
+Seal from Existence|1|sideboard|mom|35
+Sejiri Refuge|1|sideboard|c18|280
+Shadow of the Second Sun|1|sideboard|mh3|70
+Shark Typhoon|1|sideboard|dsc|127
+Silver Scrutiny|1|sideboard|dmu|65
+Sink into Stupor / Soporific Springs|1|sideboard|mh3|241
+Soul Partition|1|sideboard|bro|26
+Split Up|1|sideboard|pdsk|32p
+Sunken Citadel|1|sideboard|lci|285
+The Eternal Wanderer|1|sideboard|pone|11p
+The Restoration of Eiganjo / Architect of Restoration|1|sideboard|neo|34
+Timely Reinforcements|1|sideboard|plst|M12-40
+Unexpectedly Absent|1|sideboard|c20|106
+Union of the Third Path|1|sideboard|bro|31
+Witch Enchanter / Witch-Blessed Meadow|1|sideboard|mh3|239
+Witness Protection|1|sideboard|fdn|168
+---
+Elminster|1|commander||
+Adarkar Wastes|1|main||
+Agna Qel'a|1|main||
+Castle Ardenvale|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Command Tower|1|main||
+Field of Ruin|1|main||
+Glacial Fortress|1|main||
+Great Hall of the Biblioplex|1|main||
+Hall of Storm Giants|1|main||
+Irrigated Farmland|1|main||
+Island|12|main||
+Mystic Gate|1|main||
+Plains|9|main||
+Port Town|1|main||
+Prairie Stream|1|main||
+Restless Anchorage|1|main||
+Scavenger Grounds|1|main||
+Seachrome Coast|1|main||
+Temple of Enlightenment|1|main||
+Brazen Borrower|1|main||
+Dream Trawler|1|main||
+Horned Loch-Whale|1|main||
+Absorb|1|main||
+Approach of the Second Sun|1|main||
+Archmage's Charm|1|main||
+Blessed Alliance|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Change the Equation|1|main||
+Condemn|1|main||
+Council's Judgment|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Day of Judgment|1|main||
+Dispel|1|main||
+Dovin's Veto|1|main||
+Fact or Fiction|1|main||
+Farewell|1|main||
+Fateful Absence|1|main||
+Force Spike|1|main||
+Logic Knot|1|main||
+Lose Focus|1|main||
+Mana Leak|1|main||
+Mana Tithe|1|main||
+March of Otherworldly Light|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Miscalculation|1|main||
+Mystic Confluence|1|main||
+Mystical Dispute|1|main||
+No More Lies|1|main||
+Opt|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Peek|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Remand|1|main||
+Remove Soul|1|main||
+Spell Pierce|1|main||
+Spell Snare|1|main||
+Stern Scolding|1|main||
+Stock Up|1|main||
+Sunset Revelry|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tale's End|1|main||
+Unexpectedly Absent|1|main||
+Wash Away|1|main||
+Wrath of God|1|main||
+Wrath of the Skies|1|main||
+Narset, Parter of Veils|1|main||
+Pinnacle Starcage|1|main||
+Shark Typhoon|1|main||
+Shorikai, Genesis Engine|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+The Wandering Emperor|1|main||
+---
+Elminster|1|main|pclb|274s
+Archmage's Charm|1|main|prm|91233
+Arid Mesa|1|main|mh2|244
+Brainstorm|1|main|dsc|113
+Brainsurge|1|main|mh3|53
+Castle Vantress|1|main|eld|242
+Command Tower|1|main|plst|OTC-280
+Condemn|1|main|m11|11
+Consult the Star Charts|1|main|eoe|51
+Counterspell|1|main|plst|A25-50
+Daze|1|main|plst|DD2-23
+Demolition Field|1|main|otc|283
+Deserted Beach|1|main|dbl|260
+Dovin's Veto|1|main|war|193
+Dress Down|1|main|mh2|39
+Eiganjo, Seat of the Empire|1|main|neo|268
+Emeria's Call / Emeria, Shattered Skyclave|1|main|znr|12
+Erode|1|main|sos|15
+Fact or Fiction|1|main|plst|CM2-42
+Farewell|1|main|mkc|64
+Field of Ruin|1|main|dbl|262
+Flooded Strand|1|main|zne|1
+Floodfarm Verge|1|main|dsk|330
+Force of Negation|1|main|mh1|52
+Force Spike|1|main|plst|DDJ-14
+Fountainport|1|main|blb|253
+Glacial Fortress|1|main|eoc|160
+Hallowed Fountain|1|main|exp|6
+Irrigated Farmland|1|main|pip|499
+Island|8|main|6ed|335
+Jace, the Mind Sculptor|1|main|med|WS3
+Lórien Revealed|1|main|ltr|60
+Lose Focus|1|main|mh2|49
+Mana Leak|1|main|plst|DDN-64
+Mana Tithe|1|main|plst|PLC-25
+March of Otherworldly Light|1|main|neo|369
+Marsh Flats|1|main|zne|6
+Memory Lapse|1|main|sta|79
+Mental Misstep|1|main|nph|38
+Meticulous Archive|1|main|mkm|328
+Mirrex|1|main|one|254
+Miscalculation|1|main|plst|ULG-36
+Misty Rainforest|1|main|zne|10
+Mystic Gate|1|main|2xm|324
+Mystic Sanctuary|1|main|mkc|277
+Mystical Dispute|1|main|eld|58
+Narset, Parter of Veils|1|main|war|61
+No More Lies|1|main|mkm|427
+Orim's Chant|1|main|mh3|265
+Otawara, Soaring City|1|main|neo|414
+Oust|1|main|plst|DDP-7
+Path to Exile|1|main|plst|E02-3
+Pinnacle Starcage|1|main|eoe|27
+Plains|4|main|6ed|331
+Polluted Delta|1|main|zne|2
+Ponder|1|main|who|217
+Prairie Stream|1|main|exp|1
+Preordain|1|main|cmr|84
+Prismatic Ending|1|main|mh2|25
+Prismatic Vista|1|main|mh1|244
+Remand|1|main|f08|1
+Reprieve|1|main|ltr|26
+Rest in Peace|1|main|ss2|4
+Restless Anchorage|1|main|lci|280
+Scalding Tarn|1|main|zne|7
+Sea Gate Restoration / Sea Gate, Reborn|1|main|znr|76
+Settle the Wreckage|1|main|plst|XLN-34
+Shorikai, Genesis Engine|1|main|nec|4
+Sink into Stupor / Soporific Springs|1|main|mh3|241
+Snapcaster Mage|1|main|puma|U5
+Solitude|1|main|spg|44
+Spell Snare|1|main|mma|64
+Stern Scolding|1|main|ltr|71
+Stock Up|1|main|dft|67
+Subtlety|1|main|spg|45
+Supreme Verdict|1|main|prtr|201★
+Swords to Plowshares|1|main|voc|99
+Tale's End|1|main|m20|77
+Teferi, Hero of Dominaria|1|main|plst|DOM-207
+Teferi, Time Raveler|1|main|war|221★
+Temporary Lockdown|1|main|dmu|36
+The Wandering Emperor|1|main|neo|418
+Three Steps Ahead|1|main|otj|323
+Tithe|1|main|vis|23
+Tundra|1|main|3ed|289
+Ultima|1|main|fin|38
+Unexpectedly Absent|1|main|cma|27
+Wash Away|1|main|dbl|354
+Windswept Heath|1|main|zne|5
+Wrath of the Skies|1|main|mh3|49
+---
+Elminster|1|commander||
+Arid Mesa|1|main||
+Cactus Preserve|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Command Tower|1|main||
+Demolition Field|1|main||
+Deserted Beach|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Glacial Fortress|1|main||
+Hall of Storm Giants|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Irrigated Farmland|1|main||
+Island|6|main||
+Marsh Flats|1|main||
+Meticulous Archive|1|main||
+Mistrise Village|1|main||
+Misty Rainforest|1|main||
+Myriad Landscape|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Otawara, Soaring City|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Prairie Stream|1|main||
+Prismatic Vista|1|main||
+Restless Anchorage|1|main||
+Scalding Tarn|1|main||
+Tundra|1|main||
+Windswept Heath|1|main||
+Beza, the Bounding Spring|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Subtlety|1|main||
+Wall of Omens|1|main||
+Wan Shi Tong, Librarian|1|main||
+Approach of the Second Sun|1|main||
+Archmage's Charm|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Condemn|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Fact or Fiction|1|main||
+Flow State|1|main||
+Force Spike|1|main||
+Force of Negation|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Lose Focus|1|main||
+Lórien Revealed|1|main||
+Mana Leak|1|main||
+Mana Tithe|1|main||
+March of Otherworldly Light|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Miscalculation|1|main||
+Mystic Confluence|1|main||
+No More Lies|1|main||
+Oust|1|main||
+Personal Tutor|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Sink into Stupor|1|main||
+Solve the Equation|1|main||
+Spell Snare|1|main||
+Stern Scolding|1|main||
+Stock Up|1|main||
+Sunset Revelry|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tale's End|1|main||
+Terminus|1|main||
+Tithe|1|main||
+Unexpectedly Absent|1|main||
+Wash Away|1|main||
+Wrath of God|1|main||
+Wrath of the Skies|1|main||
+Jace, the Mind Sculptor|1|main||
+Shorikai, Genesis Engine|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+The Wandering Emperor|1|main||
+Unable to Scream|1|main||
+---
+Elminster|1|commander||
+Arid Mesa|1|main||
+Azorius Chancery|1|main||
+Cactus Preserve|1|main||
+Castle Ardenvale|1|main||
+Command Tower|1|main||
+Demolition Field|1|main||
+Deserted Beach|1|main||
+Dust Bowl|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Glacial Fortress|1|main||
+Hall of Storm Giants|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Irrigated Farmland|1|main||
+Island|6|main||
+Marsh Flats|1|main||
+Meticulous Archive|1|main||
+Misty Rainforest|1|main||
+Myriad Landscape|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Otawara, Soaring City|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Prairie Stream|1|main||
+Prismatic Vista|1|main||
+Scalding Tarn|1|main||
+Temple of the False God|1|main||
+Tundra|1|main||
+Windswept Heath|1|main||
+Marang River Regent|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Subtlety|1|main||
+Akroma's Vengeance|1|main||
+Archmage's Charm|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Change the Equation|1|main||
+Condemn|1|main||
+Condescend|1|main||
+Consult the Star Charts|1|main||
+Council's Judgment|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Day of Judgment|1|main||
+Erode|1|main||
+Fact or Fiction|1|main||
+Farewell|1|main||
+Flow State|1|main||
+Force Spike|1|main||
+Force of Negation|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Logic Knot|1|main||
+Lose Focus|1|main||
+Lórien Revealed|1|main||
+Mana Leak|1|main||
+Mana Tithe|1|main||
+March of Otherworldly Light|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Miscalculation|1|main||
+Mystic Confluence|1|main||
+No More Lies|1|main||
+Oust|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Sea Gate Restoration|1|main||
+Sink into Stupor|1|main||
+Spell Snare|1|main||
+Stern Scolding|1|main||
+Stock Up|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tale's End|1|main||
+Tithe|1|main||
+Unexpectedly Absent|1|main||
+Wash Away|1|main||
+Wrath of God|1|main||
+Wrath of the Skies|1|main||
+Shorikai, Genesis Engine|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+Temporary Lockdown|1|main||
+The Wandering Emperor|1|main||
+---
+Elminster|1|commander||
+Arid Mesa|1|main||
+Cactus Preserve|1|main||
+Command Tower|1|main||
+Demolition Field|1|main||
+Deserted Beach|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Glacial Fortress|1|main||
+Hall of Storm Giants|1|main||
+Hallowed Fountain|1|main||
+Irrigated Farmland|1|main||
+Island|6|main||
+Marsh Flats|1|main||
+Meticulous Archive|1|main||
+Mistrise Village|1|main||
+Misty Rainforest|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Nimbus Maze|1|main||
+Otawara, Soaring City|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Prairie Stream|1|main||
+Prismatic Vista|1|main||
+Restless Anchorage|1|main||
+Scalding Tarn|1|main||
+Seachrome Coast|1|main||
+Tundra|1|main||
+Urza's Cave|1|main||
+Windswept Heath|1|main||
+Aang, Swift Savior|1|main||
+Beza, the Bounding Spring|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Subtlety|1|main||
+Approach of the Second Sun|1|main||
+Archmage's Charm|1|main||
+Battle Menu|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Condemn|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Deprive|1|main||
+Farewell|1|main||
+Fateful Absence|1|main||
+Force Spike|1|main||
+Force of Negation|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Lose Focus|1|main||
+Lórien Revealed|1|main||
+Mana Leak|1|main||
+Mana Tithe|1|main||
+March of Otherworldly Light|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Miscalculation|1|main||
+Mystic Confluence|1|main||
+No More Lies|1|main||
+Oust|1|main||
+Personal Tutor|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Razorgrass Ambush|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Sea Gate Restoration|1|main||
+Sink into Stupor|1|main||
+Solve the Equation|1|main||
+Spell Snare|1|main||
+Split Up|1|main||
+Stern Scolding|1|main||
+Stifle|1|main||
+Stock Up|1|main||
+Sunset Revelry|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tale's End|1|main||
+Temporal Mastery|1|main||
+Terminus|1|main||
+Tithe|1|main||
+Unexpectedly Absent|1|main||
+Wash Away|1|main||
+Wrath of God|1|main||
+Wrath of the Skies|1|main||
+Shorikai, Genesis Engine|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+The Wandering Emperor|1|main||
+---
+Agna Qel'a|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Condemn|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Deduce|1|main||
+Demolition Field|1|main||
+Deserted Beach|1|main||
+Dig Through Time|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Faerie Mastermind|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Force of Negation|1|main||
+Force of Will|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Ghost Vacuum|1|main||
+Gitaxian Probe|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Island|6|main||
+Karakas|1|main||
+Library of Alexandria|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Lush Portico|1|main||
+Mana Drain|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Meticulous Archive|1|main||
+Miscalculation|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Murktide Regent|1|main||
+Mystic Confluence|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+Narset, Parter of Veils|1|main||
+No More Lies|1|main||
+Opt|1|main||
+Otawara, Soaring City|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Permission Denied|1|main||
+Plains|2|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Remand|1|main||
+Scalding Tarn|1|main||
+Seachrome Coast|1|main||
+Settle the Wreckage|1|main||
+Shadow of the Second Sun|1|main||
+Shark Typhoon|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Sphinx's Revelation|1|main||
+Stock Up|1|main||
+Subtlety|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tamiyo, Inquisitive Student|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+Terminus|1|main||
+The Wandering Emperor|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Triumph of Saint Katherine|1|main||
+Tundra|1|main||
+Undercity Sewers|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of the Skies|1|main||
+---
+Agna Qel'a|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Calciform Pools|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Condemn|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Deduce|1|main||
+Deserted Beach|1|main||
+Dig Through Time|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Faerie Mastermind|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Force of Negation|1|main||
+Force of Will|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Ghost Vacuum|1|main||
+Gitaxian Probe|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Island|6|main||
+Karakas|1|main||
+Library of Alexandria|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Lush Portico|1|main||
+Mana Drain|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Meticulous Archive|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Murktide Regent|1|main||
+Mystic Confluence|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+Narset, Parter of Veils|1|main||
+No More Lies|1|main||
+Opt|1|main||
+Otawara, Soaring City|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Permission Denied|1|main||
+Plains|2|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Remand|1|main||
+Scalding Tarn|1|main||
+Seachrome Coast|1|main||
+Settle the Wreckage|1|main||
+Shadow of the Second Sun|1|main||
+Shark Typhoon|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Sphinx's Revelation|1|main||
+Stock Up|1|main||
+Subtlety|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tamiyo, Inquisitive Student|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+Terminus|1|main||
+The Wandering Emperor|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Tithe|1|main||
+Triumph of Saint Katherine|1|main||
+Tundra|1|main||
+Undercity Sewers|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of the Skies|1|main||
+---
+Agna Qel'a|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Condemn|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Deduce|1|main||
+Demolition Field|1|main||
+Deserted Beach|1|main||
+Dig Through Time|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Faerie Mastermind|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Force of Negation|1|main||
+Force of Will|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Ghost Vacuum|1|main||
+Gitaxian Probe|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Island|6|main||
+Karakas|1|main||
+Library of Alexandria|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Lush Portico|1|main||
+Mana Drain|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Meticulous Archive|1|main||
+Miscalculation|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Murktide Regent|1|main||
+Mystic Confluence|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+Narset, Parter of Veils|1|main||
+No More Lies|1|main||
+Opt|1|main||
+Otawara, Soaring City|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Permission Denied|1|main||
+Plains|2|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Remand|1|main||
+Scalding Tarn|1|main||
+Seachrome Coast|1|main||
+Settle the Wreckage|1|main||
+Shadow of the Second Sun|1|main||
+Shark Typhoon|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Sphinx's Revelation|1|main||
+Stock Up|1|main||
+Subtlety|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tamiyo, Inquisitive Student|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+Terminus|1|main||
+The Wandering Emperor|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Triumph of Saint Katherine|1|main||
+Tundra|1|main||
+Undercity Sewers|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of the Skies|1|main||
+---
+Adarkar Wastes|1|main||
+Approach of the Second Sun|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Calciform Pools|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Condemn|1|main||
+Consult the Star Charts|1|main||
+Council's Judgment|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Deduce|1|main||
+Dress Down|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Fact or Fiction|1|main||
+Farewell|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Forbid|1|main||
+Force of Negation|1|main||
+Force of Will|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Glacial Fortress|1|main||
+Hall of Storm Giants|1|main||
+Hallowed Fountain|1|main||
+Island|2|main||
+Jace, the Mind Sculptor|1|main||
+Karakas|1|main||
+Kor Haven|1|main||
+Library of Alexandria|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Mana Drain|1|main||
+Mana Leak|1|main||
+Marang River Regent|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Meticulous Archive|1|main||
+Misty Rainforest|1|main||
+Mox Sapphire|1|main||
+Mystic Confluence|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+No More Lies|1|main||
+Otawara, Soaring City|1|main||
+Oust|1|main||
+Parting Gust|1|main||
+Path to Exile|1|main||
+Personal Tutor|1|main||
+Plains|2|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Portent|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Remand|1|main||
+Render Silent|1|main||
+Reprieve|1|main||
+Restless Anchorage|1|main||
+Scalding Tarn|1|main||
+Search for Azcanta|1|main||
+Shadow of the Second Sun|1|main||
+Snapcaster Mage|1|main||
+Snow-Covered Island|2|main||
+Snow-Covered Plains|1|main||
+Sol Ring|1|main||
+Solitude|1|main||
+Solve the Equation|1|main||
+Spell Pierce|1|main||
+Sphinx's Revelation|1|main||
+Stock Up|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+Temple of Enlightenment|1|main||
+Terminus|1|main||
+Three Steps Ahead|1|main||
+Tithe|1|main||
+Treasure Cruise|1|main||
+Tundra|1|main||
+Ultima|1|main||
+Undercity Sewers|1|main||
+Underground Sea|1|main||
+Unexpectedly Absent|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of God|1|main||
+Wrath of the Skies|1|main||
+---
+Absorb|1|main||
+Adarkar Wastes|1|main||
+Arch of Orazca|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Blue Sun's Zenith|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Calciform Pools|1|main||
+Castle Ardenvale|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Condemn|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Day of Judgment|1|main||
+Deduce|1|main||
+Deserted Beach|1|main||
+Devastation Tide|1|main||
+Dovin's Veto|1|main||
+Elixir of Immortality|1|main||
+Entreat the Angels|1|main||
+Fact or Fiction|1|main||
+Farewell|1|main||
+Fateful Absence|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Force of Will|1|main||
+Get Lost|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Irrigated Farmland|1|main||
+Island|3|main||
+Karakas|1|main||
+Kor Haven|1|main||
+Logic Knot|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Mana Drain|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Meticulous Archive|1|main||
+Miscalculation|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+No More Lies|1|main||
+Ojutai's Command|1|main||
+Ondu Inversion|1|main||
+Opt|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Personal Tutor|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Portent|1|main||
+Prairie Stream|1|main||
+Prismatic Ending|1|main||
+Pull from Tomorrow|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Restless Anchorage|1|main||
+Scalding Tarn|1|main||
+Sea Gate Restoration|1|main||
+Seachrome Coast|1|main||
+Shark Typhoon|1|main||
+Skycloud Expanse|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Spell Snare|1|main||
+Sphinx's Revelation|1|main||
+Sunken Citadel|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tectonic Edge|1|main||
+Temple of Enlightenment|1|main||
+Terminus|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Treasure Cruise|1|main||
+Tundra|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of God|1|main||
+---
+Absorb|1|main||
+Adarkar Wastes|1|main||
+Arch of Orazca|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Blue Sun's Zenith|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Calciform Pools|1|main||
+Castle Ardenvale|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Condemn|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Day of Judgment|1|main||
+Deduce|1|main||
+Deserted Beach|1|main||
+Devastation Tide|1|main||
+Dovin's Veto|1|main||
+Elixir of Immortality|1|main||
+Entreat the Angels|1|main||
+Fact or Fiction|1|main||
+Farewell|1|main||
+Fateful Absence|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Force of Will|1|main||
+Get Lost|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Irrigated Farmland|1|main||
+Island|3|main||
+Karakas|1|main||
+Kor Haven|1|main||
+Logic Knot|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Mana Drain|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Meticulous Archive|1|main||
+Miscalculation|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+No More Lies|1|main||
+Ojutai's Command|1|main||
+Ondu Inversion|1|main||
+Opt|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Personal Tutor|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Portent|1|main||
+Prairie Stream|1|main||
+Prismatic Ending|1|main||
+Pull from Tomorrow|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Restless Anchorage|1|main||
+Scalding Tarn|1|main||
+Sea Gate Restoration|1|main||
+Seachrome Coast|1|main||
+Shark Typhoon|1|main||
+Skycloud Expanse|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Spell Snare|1|main||
+Sphinx's Revelation|1|main||
+Sunken Citadel|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tectonic Edge|1|main||
+Temple of Enlightenment|1|main||
+Terminus|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Treasure Cruise|1|main||
+Tundra|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of God|1|main||
+---
+Adarkar Wastes|1|main||
+Ancestral Recall|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Bloodstained Mire|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Brotherhood's End|1|main||
+Castle Vantress|1|main||
+Condemn|1|main||
+Consecrated Sphinx|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Council's Judgment|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Day of Judgment|1|main||
+Dig Through Time|1|main||
+Dispel|1|main||
+Dovin's Veto|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Fact or Fiction|1|main||
+Farewell|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Forbid|1|main||
+Force of Negation|1|main||
+Force of Will|1|main||
+Forth Eorlingas!|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Hullbreacher|1|main||
+Impulse|1|main||
+Island|2|main||
+Jace, the Mind Sculptor|1|main||
+Karakas|1|main||
+Library of Alexandria|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Mana Leak|1|main||
+Marang River Regent|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Mental Misstep|1|main||
+Meticulous Archive|1|main||
+Misty Rainforest|1|main||
+Mountain|1|main||
+Mystic Confluence|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Narset, Parter of Veils|1|main||
+No More Lies|1|main||
+Opt|1|main||
+Otawara, Soaring City|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Personal Tutor|1|main||
+Plains|2|main||
+Plateau|1|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Portent|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Remand|1|main||
+Render Silent|1|main||
+Reprieve|1|main||
+Scalding Tarn|1|main||
+Settle the Wreckage|1|main||
+Shadow of the Second Sun|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Spell Pierce|1|main||
+Spell Snare|1|main||
+Sphinx's Revelation|1|main||
+Steam Vents|1|main||
+Stock Up|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+Terminus|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Tundra|1|main||
+Ultima|1|main||
+Unexpectedly Absent|1|main||
+Volcanic Island|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wooded Foothills|1|main||
+Wrath of God|1|main||
+Wrath of the Skies|1|main||
+---
+Abhorrent Oculus|1|main||
+Agna Qel'a|1|main||
+Arid Mesa|1|main||
+Brainstorm|1|main||
+Celestial Colonnade|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Deduce|1|main||
+Demolition Field|1|main||
+Deserted Beach|1|main||
+Dig Through Time|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Elspeth, Storm Slayer|1|main||
+Entreat the Angels|1|main||
+Erode|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Flow State|1|main||
+Force of Negation|1|main||
+Force of Will|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Ghost Vacuum|1|main||
+Gitaxian Probe|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Island|6|main||
+Karakas|1|main||
+Library of Alexandria|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Lush Portico|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Mental Misstep|1|main||
+Mental Note|1|main||
+Meticulous Archive|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Murktide Regent|1|main||
+Mystic Confluence|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+Narset, Parter of Veils|1|main||
+No More Lies|1|main||
+Opt|1|main||
+Otawara, Soaring City|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Quantum Riddler|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Scalding Tarn|1|main||
+Seachrome Coast|1|main||
+Shark Typhoon|1|main||
+Sleight of Hand|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Spell Pierce|1|main||
+Spell Snare|1|main||
+Stock Up|1|main||
+Subtlety|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tamiyo, Inquisitive Student|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+Terminus|1|main||
+The Wandering Emperor|1|main||
+Thought Scour|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Tithe|1|main||
+Triumph of Saint Katherine|1|main||
+Tundra|1|main||
+Ultima|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of the Skies|1|main||
+---
+Abhorrent Oculus|1|main||
+Agna Qel'a|1|main||
+Arid Mesa|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Celestial Colonnade|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Deduce|1|main||
+Demolition Field|1|main||
+Deserted Beach|1|main||
+Dig Through Time|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Elspeth, Storm Slayer|1|main||
+Entreat the Angels|1|main||
+Erode|1|main||
+Field of Ruin|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Flow State|1|main||
+Force of Negation|1|main||
+Force of Will|1|main||
+Fractured Identity|1|main||
+Get Lost|1|main||
+Ghost Vacuum|1|main||
+Gitaxian Probe|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Island|6|main||
+Karakas|1|main||
+Library of Alexandria|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Lush Portico|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Mental Misstep|1|main||
+Mental Note|1|main||
+Meticulous Archive|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Murktide Regent|1|main||
+Mystic Confluence|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+Narset, Parter of Veils|1|main||
+No More Lies|1|main||
+Opt|1|main||
+Otawara, Soaring City|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Quantum Riddler|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Scalding Tarn|1|main||
+Seachrome Coast|1|main||
+Shark Typhoon|1|main||
+Sleight of Hand|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Spell Pierce|1|main||
+Spell Snare|1|main||
+Stock Up|1|main||
+Subtlety|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tamiyo, Inquisitive Student|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+Terminus|1|main||
+The Wandering Emperor|1|main||
+Thought Scour|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Triumph of Saint Katherine|1|main||
+Tundra|1|main||
+Ultima|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of the Skies|1|main||
+---
+Abhorrent Oculus|1|main||
+Ancestral Recall|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Brazen Borrower|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Condemn|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Daze|1|main||
+Deduce|1|main||
+Demolition Field|1|main||
+Deserted Beach|1|main||
+Dig Through Time|1|main||
+Dovin's Veto|1|main||
+Dress Down|1|main||
+Eiganjo, Seat of the Empire|1|main||
+Emeritus of Ideation|1|main||
+Erode|1|main||
+Fact or Fiction|1|main||
+Fateful Absence|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Flow State|1|main||
+Force of Negation|1|main||
+Force of Will|1|main||
+Get Lost|1|main||
+Glacial Fortress|1|main||
+Hallowed Fountain|1|main||
+Harbinger of the Seas|1|main||
+Into the Flood Maw|1|main||
+Island|6|main||
+Karakas|1|main||
+Ledger Shredder|1|main||
+Library of Alexandria|1|main||
+Logic Knot|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Lapse|1|main||
+Mental Misstep|1|main||
+Meticulous Archive|1|main||
+Misty Rainforest|1|main||
+Murktide Regent|1|main||
+Mystic Sanctuary|1|main||
+No More Lies|1|main||
+Opt|1|main||
+Otawara, Soaring City|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Plains|4|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Preordain|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Quantum Riddler|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Scalding Tarn|1|main||
+Seachrome Coast|1|main||
+Seam Rip|1|main||
+Serum Visions|1|main||
+Settle the Wreckage|1|main||
+Sink into Stupor|1|main||
+Sleight of Hand|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Spell Pierce|1|main||
+Spell Snare|1|main||
+Stock Up|1|main||
+Subtlety|1|main||
+Sunfall|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Teferi, Hero of Dominaria|1|main||
+Teferi, Time Raveler|1|main||
+The Wandering Emperor|1|main||
+Triumph of Saint Katherine|1|main||
+True-Name Nemesis|1|main||
+Tundra|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Waterlogged Teachings|1|main||
+Windswept Heath|1|main||
+Wrath of the Skies|1|main||
+---
+Absorb|1|main||
+Adarkar Wastes|1|main||
+Arch of Orazca|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Blue Sun's Zenith|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Calciform Pools|1|main||
+Castle Ardenvale|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Day of Judgment|1|main||
+Deserted Beach|1|main||
+Dovin's Veto|1|main||
+Elixir of Immortality|1|main||
+Entreat the Angels|1|main||
+Erode|1|main||
+Fact or Fiction|1|main||
+Farewell|1|main||
+Fateful Absence|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Force of Will|1|main||
+Get Lost|1|main||
+Glacial Fortress|1|main||
+Great Hall of the Biblioplex|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Irrigated Farmland|1|main||
+Island|3|main||
+Karakas|1|main||
+Kor Haven|1|main||
+Logic Knot|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Mana Drain|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Meticulous Archive|1|main||
+Miscalculation|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+No More Lies|1|main||
+Ojutai's Command|1|main||
+Ondu Inversion|1|main||
+Opt|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Personal Tutor|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Portent|1|main||
+Prairie Stream|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Pull from Tomorrow|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Restless Anchorage|1|main||
+Scalding Tarn|1|main||
+Sea Gate Restoration|1|main||
+Seachrome Coast|1|main||
+Shark Typhoon|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Spell Snare|1|main||
+Sphinx's Revelation|1|main||
+Stern Scolding|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tectonic Edge|1|main||
+Teferi, Hero of Dominaria|1|main||
+Temple of Enlightenment|1|main||
+Terminus|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Treasure Cruise|1|main||
+Tundra|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of God|1|main||
+---
+Absorb|1|main||
+Adarkar Wastes|1|main||
+Arch of Orazca|1|main||
+Archmage's Charm|1|main||
+Arid Mesa|1|main||
+Blue Sun's Zenith|1|main||
+Brainstorm|1|main||
+Brainsurge|1|main||
+Calciform Pools|1|main||
+Castle Ardenvale|1|main||
+Castle Vantress|1|main||
+Celestial Colonnade|1|main||
+Consider|1|main||
+Consult the Star Charts|1|main||
+Counterspell|1|main||
+Cryptic Command|1|main||
+Day of Judgment|1|main||
+Deserted Beach|1|main||
+Dovin's Veto|1|main||
+Elixir of Immortality|1|main||
+Entreat the Angels|1|main||
+Erode|1|main||
+Fact or Fiction|1|main||
+Farewell|1|main||
+Fateful Absence|1|main||
+Flooded Strand|1|main||
+Floodfarm Verge|1|main||
+Force of Will|1|main||
+Get Lost|1|main||
+Glacial Fortress|1|main||
+Great Hall of the Biblioplex|1|main||
+Hallowed Fountain|1|main||
+Hengegate Pathway|1|main||
+Irrigated Farmland|1|main||
+Island|3|main||
+Karakas|1|main||
+Kor Haven|1|main||
+Logic Knot|1|main||
+Lórien Revealed|1|main||
+Lose Focus|1|main||
+Mana Drain|1|main||
+Mana Leak|1|main||
+March of Otherworldly Light|1|main||
+Marsh Flats|1|main||
+Memory Deluge|1|main||
+Memory Lapse|1|main||
+Meticulous Archive|1|main||
+Miscalculation|1|main||
+Misty Rainforest|1|main||
+Mox Pearl|1|main||
+Mox Sapphire|1|main||
+Mystic Gate|1|main||
+Mystic Sanctuary|1|main||
+Mystical Tutor|1|main||
+No More Lies|1|main||
+Ojutai's Command|1|main||
+Ondu Inversion|1|main||
+Opt|1|main||
+Oust|1|main||
+Path to Exile|1|main||
+Personal Tutor|1|main||
+Plains|3|main||
+Polluted Delta|1|main||
+Ponder|1|main||
+Portent|1|main||
+Prairie Stream|1|main||
+Prismatic Ending|1|main||
+Prismatic Vista|1|main||
+Pull from Tomorrow|1|main||
+Remand|1|main||
+Reprieve|1|main||
+Restless Anchorage|1|main||
+Scalding Tarn|1|main||
+Sea Gate Restoration|1|main||
+Seachrome Coast|1|main||
+Shark Typhoon|1|main||
+Snapcaster Mage|1|main||
+Solitude|1|main||
+Spell Snare|1|main||
+Sphinx's Revelation|1|main||
+Stern Scolding|1|main||
+Supreme Verdict|1|main||
+Swords to Plowshares|1|main||
+Tectonic Edge|1|main||
+Teferi, Hero of Dominaria|1|main||
+Temple of Enlightenment|1|main||
+Terminus|1|main||
+Three Steps Ahead|1|main||
+Thundering Falls|1|main||
+Thundertrap Trainer|1|main||
+Treasure Cruise|1|main||
+Tundra|1|main||
+Wan Shi Tong, Librarian|1|main||
+Wasteland|1|main||
+Windswept Heath|1|main||
+Wrath of God|1|main||
+---
+Lightning Bolt|4|main||
+Lightning Bolt|4|main||
+Lightning Bolt|1|main||
+Lightning Bolt|4|main||
+Jace, Vryn's Prodigy|1|main||
+Fire/Ice|1|main||
+---
+Lightning Bolt|4|main|clb|146
+Lightning Bolt|4|main||
+Sol Ring|1|main|c21|263
+Mana Leak|1|main|plst|DDN-64
+Opt|1|main|7ed|76★
+---
+Unearth (Theme)|1|main||
+Hazmat Suit (Used)|1|main||
+Island|2|main||
+Sol Ring|1|main||
+---
+Sol Ring|1|main||
+Duress|2|sideboard||
+Pithing Needle|1|sideboard||
+Savra, Queen of the Golgari|1|commander||
+---
+Elminster|1|commander||
+Island|1|main||
+Opt|1|main||
+Lands|40|main||
+---
+Opt|1|maybeboard||
+Brainstorm|1|maybeboard||
+Sol Ring|1|main||
+---
+Sol Ring|1|main||
+Island|2|main||
+Mountain|3|main||
+Forest|4|main||
+---
+Mountain|99999999999999999999|main||
+Island|0|main||
+Lightning Bolt|4|main||
+---
+Lurrus of the Dream-Den|1|sideboard||
+Opt|1|maybeboard||
+---

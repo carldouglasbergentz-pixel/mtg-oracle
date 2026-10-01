@@ -66,7 +66,7 @@ private fun sync(paths: AppPaths, args: List<String>): Int = schemaErrors {
     val force = "--force" in args
     val named = args.filter { it != "--force" && it != "--only" }
     val sources = named.map { mtgoracle.core.sync.Source.of(it) ?: error("no source '$it' (have: ${mtgoracle.core.sync.Source.entries.joinToString { s -> s.key }})") }
-    val db = MtgDb(paths.db).also { it.migrate(paths.backups) }
+    val db = if (paths.db.exists()) MtgDb(paths.db).also { it.migrate(paths.backups) } else MtgDb.create(paths.db)
     val report = mtgoracle.data.sync.Sync(db, mtgoracle.data.sync.HttpUpstream(), paths.data.resolve("raw"), paths.data.resolve("formats"), log = { println("-- $it") })
         .run(force, sources.ifEmpty { mtgoracle.core.sync.Source.entries }.toSet())
     mtgoracle.ui.lookup.renderSyncReport(report).lines(100).forEach { println(it.text) }

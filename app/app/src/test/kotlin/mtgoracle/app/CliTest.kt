@@ -71,4 +71,13 @@ class CliTest {
         assertTrue("Deck" in run(paths, "deck", "export", *two[0].split(' ').toTypedArray()).second)
         assertEquals(64, run(paths, "nosuch").first)
     }
+
+    @Test
+    fun `without a database a lookup says how to get one, and help needs none`() {
+        data = kotlin.io.path.createTempDirectory("mtg-oracle-cli-empty-").toFile()
+        val paths = AppPaths(data, File(System.getProperty("mtgoracle.forgeAssets")))
+        assertEquals(0, run(paths, "help").first)
+        assertEquals(2, run(paths, "card", "Sol", "Ring").first)
+        assertTrue(!File(data, "mtg.db").exists(), "a lookup does not create it")
+    }
 }

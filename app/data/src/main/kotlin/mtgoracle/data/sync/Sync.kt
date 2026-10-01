@@ -10,7 +10,7 @@ import java.io.File
 import java.sql.Connection
 
 /**
- * The data pipeline (scripts/sync.py): each source in [Source] order, each
+ * The data pipeline (ported from scripts/sync.py, retired 2026-10): each source in [Source] order, each
  * skipped when its upstream marker hasn't moved (unless [run]'s `force`), a
  * failing source recorded without stopping the rest, and a before/after
  * changelog. Downloads land in [rawDir]; the format files are [formatsDir].

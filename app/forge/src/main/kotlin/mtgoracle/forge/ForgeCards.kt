@@ -19,7 +19,7 @@ data class DeckCheck(val unknown: List<String>, val aiUnplayable: List<String>)
  *
  * A printing is a Scryfall set code plus collector number (`c18` / `222`,
  * from `deck_cards.set_code` / `collector_number`). The mapping is the one in
- * CLAUDE.md "Printings in Forge", which the Python export implements
+ * CLAUDE.md "Printings in Forge", which the Python export implemented
  * (`forge_format.forge_printing`); here it runs over Forge's loaded editions
  * and PaperCards instead of re-reading res/editions:
  *

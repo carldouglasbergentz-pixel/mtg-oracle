@@ -32,7 +32,7 @@ data class AppPaths(
     val settings: File get() = home.resolve("settings.properties")
     /** The app's own log (Log.toFile): every warning and error, crash traces in full. */
     val appLog: File get() = home.resolve("app.log")
-    /** The Python TUI's own settings (its theme); read, never written. */
+    /** The retired Python TUI's settings: its theme is the first-start default. Read, never written. */
     val tuiConfig: File get() = data.resolve("config.json")
 
     companion object {

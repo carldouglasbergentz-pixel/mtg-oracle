@@ -10,8 +10,8 @@ import java.time.format.DateTimeFormatter
  * The app owns the schema (ADR 0001, step 6a). `PRAGMA user_version` is the
  * database's version: 1 is scripts/init_db.py's schema as the last Python
  * migration left it (resources/schema-v1.sql, verbatim), and each later
- * version is one [Migration]. The Python side stops migrating a database
- * that has a version.
+ * version is one [Migration]. The Python migrations (git tag
+ * `python-final`) leave a database that has a version alone.
  */
 
 /**

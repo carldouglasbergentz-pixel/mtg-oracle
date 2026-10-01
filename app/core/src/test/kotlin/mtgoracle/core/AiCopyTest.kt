@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The same rules as the Python `forge export` (tests/test_forge.py covers that side). */
+/** The same rules as the Python `forge export` (tests/test_forge.py covered that side until 2026-10). */
 class AiCopyTest {
     private fun card(name: String, qty: Int = 1, side: Boolean = false, commander: Boolean = false, set: String? = null, cn: String? = null) =
         DeckCard(name, qty, commander, side, set, cn)

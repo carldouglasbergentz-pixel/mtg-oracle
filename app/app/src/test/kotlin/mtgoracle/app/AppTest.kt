@@ -20,7 +20,7 @@ class AppTest {
     private val assets = File(System.getProperty("mtgoracle.forgeAssets"))
 
     @Test
-    fun `an old database blocks the app with the self_heal instruction`() {
+    fun `an old database blocks the app with the way to complete it`() {
         val dir = kotlin.io.path.createTempDirectory("mtg-oracle-app-old-").toFile()
         DriverManager.getConnection("jdbc:sqlite:${File(dir, "mtg.db").path}").use { c ->
             c.createStatement().use { st ->
@@ -31,7 +31,7 @@ class AppTest {
         val app = AppController(AppPaths(dir, assets))
         app.boot()
         val screen = assertIs<Screen.Blocked>(app.screen)
-        assertContains(screen.message, "python scripts/self_heal.py")
+        assertContains(screen.message, "python-final")
         assertContains(screen.message, "table games")
         dir.deleteRecursively()
     }

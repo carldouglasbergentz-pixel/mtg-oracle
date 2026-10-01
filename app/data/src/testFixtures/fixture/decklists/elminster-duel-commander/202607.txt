@@ -1,0 +1,90 @@
+1 Elminster (PCLB) 274s *F*
+1 Archmage's Charm (PRM) 91233
+1 Arid Mesa (MH2) 244
+1 Brainstorm (DSC) 113
+1 Brainsurge (MH3) 53
+1 Castle Vantress (ELD) 242
+1 Command Tower (PLST) OTC-280
+1 Condemn (M11) 11
+1 Consult the Star Charts (EOE) 51 *F*
+1 Counterspell (PLST) A25-50
+1 Daze (PLST) DD2-23
+1 Demolition Field (OTC) 283
+1 Deserted Beach (DBL) 260
+1 Dovin's Veto (WAR) 193
+1 Dress Down (MH2) 39
+1 Eiganjo, Seat of the Empire (NEO) 268
+1 Emeria's Call / Emeria, Shattered Skyclave (ZNR) 12
+1 Erode (SOS) 15
+1 Fact or Fiction (PLST) CM2-42
+1 Farewell (MKC) 64
+1 Field of Ruin (DBL) 262
+1 Flooded Strand (ZNE) 1
+1 Floodfarm Verge (DSK) 330 *F*
+1 Force of Negation (MH1) 52
+1 Force Spike (PLST) DDJ-14
+1 Fountainport (BLB) 253
+1 Glacial Fortress (EOC) 160
+1 Hallowed Fountain (EXP) 6 *F*
+1 Irrigated Farmland (PIP) 499
+8 Island (6ED) 335
+1 Jace, the Mind Sculptor (MED) WS3 *F*
+1 Lórien Revealed (LTR) 60
+1 Lose Focus (MH2) 49
+1 Mana Leak (PLST) DDN-64
+1 Mana Tithe (PLST) PLC-25
+1 March of Otherworldly Light (NEO) 369 *F*
+1 Marsh Flats (ZNE) 6
+1 Memory Lapse (STA) 79
+1 Mental Misstep (NPH) 38
+1 Meticulous Archive (MKM) 328
+1 Mirrex (ONE) 254
+1 Miscalculation (PLST) ULG-36
+1 Misty Rainforest (ZNE) 10
+1 Mystic Gate (2XM) 324
+1 Mystic Sanctuary (MKC) 277
+1 Mystical Dispute (ELD) 58
+1 Narset, Parter of Veils (WAR) 61
+1 No More Lies (MKM) 427
+1 Orim's Chant (MH3) 265
+1 Otawara, Soaring City (NEO) 414
+1 Oust (PLST) DDP-7
+1 Path to Exile (PLST) E02-3
+1 Pinnacle Starcage (EOE) 27
+4 Plains (6ED) 331
+1 Polluted Delta (ZNE) 2
+1 Ponder (WHO) 217
+1 Prairie Stream (EXP) 1 *F*
+1 Preordain (CMR) 84
+1 Prismatic Ending (MH2) 25
+1 Prismatic Vista (MH1) 244
+1 Remand (F08) 1 *F*
+1 Reprieve (LTR) 26
+1 Rest in Peace (SS2) 4
+1 Restless Anchorage (LCI) 280
+1 Scalding Tarn (ZNE) 7
+1 Sea Gate Restoration / Sea Gate, Reborn (ZNR) 76
+1 Settle the Wreckage (PLST) XLN-34
+1 Shorikai, Genesis Engine (NEC) 4
+1 Sink into Stupor / Soporific Springs (MH3) 241
+1 Snapcaster Mage (PUMA) U5 *F*
+1 Solitude (SPG) 44
+1 Spell Snare (MMA) 64
+1 Stern Scolding (LTR) 71
+1 Stock Up (DFT) 67 *F*
+1 Subtlety (SPG) 45
+1 Supreme Verdict (PRTR) 201★ *F*
+1 Swords to Plowshares (VOC) 99
+1 Tale's End (M20) 77
+1 Teferi, Hero of Dominaria (PLST) DOM-207
+1 Teferi, Time Raveler (WAR) 221★ *F*
+1 Temporary Lockdown (DMU) 36
+1 The Wandering Emperor (NEO) 418 *E*
+1 Three Steps Ahead (OTJ) 323
+1 Tithe (VIS) 23
+1 Tundra (3ED) 289
+1 Ultima (FIN) 38
+1 Unexpectedly Absent (CMA) 27
+1 Wash Away (DBL) 354
+1 Windswept Heath (ZNE) 5
+1 Wrath of the Skies (MH3) 49

@@ -10,8 +10,8 @@ import java.sql.Types
 
 /**
  * The one table this app writes: one `games` row per finished game, in a
- * transaction, with parameterised SQL. The table itself is the Python
- * migration's (scripts/self_heal.py).
+ * transaction, with parameterised SQL. The table itself is the
+ * schema's ([Schema]).
  */
 class GameStore(private val db: MtgDb) {
 

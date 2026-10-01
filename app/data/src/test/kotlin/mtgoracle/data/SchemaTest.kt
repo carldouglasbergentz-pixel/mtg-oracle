@@ -1,6 +1,5 @@
 package mtgoracle.data
 
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.File
 import java.sql.DriverManager
 import kotlin.io.path.createTempDirectory
@@ -16,21 +15,19 @@ import kotlin.test.assertTrue
  * The app's schema: version 1 is Python's, table for table; a database the
  * Python migrations made is adopted unchanged and migrated after a backup;
  * an empty file becomes the latest version; a gap or a newer version stops it.
+ * Python's database is its schema as init_db and every self_heal migration
+ * left it on 2026-10-01 (`fixture/python-v0-schema.sql`, version 0).
  */
 class SchemaTest {
     private val dir: File = createTempDirectory("mtg-oracle-schema-").toFile()
 
     @AfterTest fun clean() { dir.deleteRecursively() }
 
-    /** A database as Python builds one: init_db's schema, then every self_heal migration. Version 0. */
+    /** A database as Python built one: init_db's schema, then every self_heal migration. Version 0. */
     private fun python(name: String = "mtg.db"): File {
         val file = File(dir, name)
-        DbFixture.python(
-            "import sys, sqlite3; from pathlib import Path; sys.path.insert(0, 'scripts'); import init_db, self_heal; " +
-                "p = Path(sys.argv[1]); c = sqlite3.connect(p); c.executescript(init_db.SCHEMA); c.close(); " +
-                "r, f = self_heal.run(db_path=p); sys.exit(1 if f else 0)",
-            file.absolutePath,
-        )
+        val script = File(FixtureDb.dir, "python-v0-schema.sql").readText(Charsets.UTF_8)
+        DriverManager.getConnection("jdbc:sqlite:${file.path}").use { c -> c.createStatement().use { it.executeUpdate(script) } } // every statement; execute() runs the first
         return file
     }
 
@@ -103,7 +100,7 @@ class SchemaTest {
         sql(short, "ALTER TABLE games DROP COLUMN deck_ai_variant")
         val error = assertFailsWith<SchemaTooOldException> { MtgDb(short).migrate(File(dir, "backups")) }
         assertEquals(listOf("column games.deck_ai_variant"), error.missing)
-        assertContains(error.message!!, "python scripts/self_heal.py")
+        assertContains(error.message!!, "python-final")
         assertEquals(0, version(short), "not stamped")
         assertTrue(!File(dir, "backups").exists(), "no backup either: nothing was going to change")
 
@@ -126,20 +123,12 @@ class SchemaTest {
     }
 
     @Test
-    fun `a missing database says how to build one`() {
-        val error = assertFailsWith<MissingDatabaseException> { MtgDb(File(dir, "does-not-exist.db")) }
-        assertContains(error.message!!, "sync.py")
-    }
-
-    @Test
-    fun `the user's database copy is migrated, and Python leaves a versioned database alone`() {
-        assumeTrue(DbFixture.available, "needs data/mtg.db")
-        val copy = DbFixture.copy() // migrated by the app's migrations
-        assertEquals(Schema.VERSION, version(copy))
-        val out = DbFixture.python("import sys; from pathlib import Path; sys.path.insert(0, 'scripts'); import self_heal; " +
-            "r, f = self_heal.run(db_path=Path(sys.argv[1])); print(chr(10).join(r))", copy.absolutePath)
-        assertContains(out, "is the app's: nothing to migrate here")
-        assertTrue("forge_matches" !in shape(copy).tables, "self_heal did not bring it back")
-        copy.parentFile.deleteRecursively()
+    fun `a missing database says how to build one, and create makes it the latest version`() {
+        val file = File(dir, "new/mtg.db")
+        val error = assertFailsWith<MissingDatabaseException> { MtgDb(file) }
+        assertContains(error.message!!, "[ Sync ]")
+        MtgDb.create(file).checkSchema()
+        assertEquals(Schema.VERSION, version(file))
+        assertFailsWith<IllegalStateException> { MtgDb.create(file) }
     }
 }

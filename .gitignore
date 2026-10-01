@@ -6,7 +6,7 @@ data/mtg.db-shm
 # Manual snapshots taken before risky writes
 data/backups/
 
-# Bulk source/raw data (fetched on demand by sync_*.py)
+# Bulk source/raw data (downloaded by the sync)
 data/raw/
 
 # Forge release (GPL-3, ~300 MB) — an external tool, unpacked locally, never vendored
@@ -27,14 +27,14 @@ app/.kotlin/
 data/app/
 data/game_logs/
 
-# User preferences (theme, etc.) — per-machine, not source
+# The retired Python TUI's preferences (its theme is the app's first-start default)
 data/config.json
 
 # Forge integration: full sim logs, and the card index cached per Forge version
 data/forge_logs/
 data/forge_card_index.*
 
-# Generated spreadsheets / dumps from scripts/export_*.py
+# Generated spreadsheets / dumps (the retired export scripts)
 data/exports/
 
 # Python

@@ -180,8 +180,8 @@ class LookupCommands(
             block()
         } catch (e: SQLException) {
             Log.error("lookup failed", e)
-            // A gap in the schema means the database predates this build; the raw message says nothing actionable.
-            val hint = if ("no such" in e.message.orEmpty()) " — your database predates this app: run `python scripts/self_heal.py`" else ""
+            // A gap in the schema means the database changed under the running app; the raw message says nothing actionable.
+            val hint = if ("no such" in e.message.orEmpty()) " — restart the app: it brings the database to its schema" else ""
             say("ERR database: ${e.message}$hint", Tone.ERROR)
         } catch (e: Exception) {
             Log.error("lookup failed", e)

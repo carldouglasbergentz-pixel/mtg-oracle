@@ -1,0 +1,2745 @@
+Waterknot	spot	spot	3	3		tagged	0	0	-		0	0
+Aura Graft	spot	spot	2	2		derived	0	0	-		0	0
+Wall of Fortune	threat	threat	2	2		derived	0	0	-		0	0
+Spike, Tournament Grinder	threat	draw,threat	2	4	Phyrexian mana — payable with life	derived	0	1	-		0	0
+Shizo, Death's Storehouse	land	land	0	0		derived	0	0	-		1	0
+Courageous Outrider	threat	draw,threat	4	4		derived	0	0	-		0	0
+Blur	draw	draw,utility	3	3		tagged	0	0	-		0	0
+Utopia Sprawl	mana	mana	1	1		tagged	0	0	-		0	0
+Talisman of Progress	mana	mana	2	2		tagged	0	0	-		0	0
+Fracturing Gust	sweeper	spot,sweeper,utility	5	5		tagged	0	0	-		0	0
+Bull Rush	utility	utility	1	1		derived	1	0	-		0	0
+Kykar, Zephyr Awakener	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Giant's Amulet	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Fear of Infinity	threat	threat	3	3		tagged	0	0	-		0	0
+Vampire Hounds	threat	threat	3	3		derived	0	0	-		0	0
+Embermaw Hellion	threat	threat	5	5		derived	0	0	-		0	0
+Akki Rockspeaker	threat	threat	2	2		derived	0	0	-		0	0
+Airship Engine Room	land	draw,land	0	0		tagged	0	0	-		1	0
+Nim Lasher	threat	threat	3	3		derived	0	0	-		0	0
+Ponder	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Beza, the Bounding Spring	mana	draw,mana,threat	4	4		tagged	0	0	-		0	0
+Omo, Queen of Vesuva	threat	threat	3	3		derived	0	0	-		0	0
+Gluntch, the Bestower	mana	draw,mana,threat	3	3		tagged	0	1	-		0	0
+Seasoned Pyromancer	threat	draw,threat	3	3		derived	0	0	-		0	0
+Supreme Verdict	sweeper	spot,sweeper,utility	4	4		tagged	0	0	-		0	0
+Tundra	land	land	0	0		derived	0	0	-		1	0
+Moss Diamond	mana	mana	2	2		tagged	0	0	-		0	0
+Nature's Rhythm	tutor	tutor	4	2	{X} at X=2	tagged	0	0	-		0	0
+Mirrorweave	utility	utility	4	4		derived	1	0	-		0	0
+Glacial Fortress	land	land	0	0		derived	0	0	-		1	0
+Freewind Equenaut	spot	burn,spot,threat,utility	3	3		tagged	0	0	-		0	0
+Cathedral Membrane	spot	burn,spot,threat	1	2	Phyrexian mana — payable with life	tagged	0	0	-		0	0
+Hixus, Prison Warden	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Azusa's Many Journeys // Likeness of the Seeker	mana	mana,utility	2	2		tagged	0	0	-		0	0
+Ancient Den	land	land	0	0		derived	0	0	-		1	0
+Hired Claw	threat	burn,threat	1	1		tagged	0	0	-		0	0
+Rending Volley	spot	burn,spot,utility	1	1		tagged	0	0	-		0	0
+Prismatic Vista	land	land,tutor	0	0		tagged	0	0	-		1	0
+Cosmic Spider-Man	threat	threat	5	5		derived	0	0	-		0	0
+Witch Enchanter // Witch-Blessed Meadow	spot	spot,threat	4	4		tagged	0	0	-		0	1
+Sol Grail	mana	mana	3	3		tagged	0	0	-		0	0
+Flywheel Racer	threat	threat	2	2		tagged	0	0	-		0	0
+Spider-Punk	threat	threat	2	2		derived	0	0	-		0	0
+Baffling End	spot	spot	2	2		tagged	0	0	-		0	0
+Party Thrasher	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Nethergoyf	threat	threat	1	1		tagged	0	0	-		0	0
+Breaking // Entering	recursion	recursion	2	8	Breaking costs 2	tagged	0	0	-		0	0
+Cryptolith Rite	mana	mana	2	2		tagged	0	0	-		0	0
+Pit of Offerings	land	land,utility	0	0		tagged	0	0	-		1	0
+Titans' Nest	mana	mana	4	4		tagged	0	0	-		0	0
+Heartlash Cinder	threat	threat	2	2		derived	0	0	-		0	0
+Yamabushi's Flame	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Surging Might	utility	utility	3	3		derived	1	0	-		0	0
+Amazing Acrobatics	counter	counter	3	3		tagged	0	0	-		0	0
+Atomic Microsizer	utility	utility	1	1		derived	1	0	-		0	0
+Courier of Comestibles	tutor	threat,tutor	2	2		tagged	0	0	-		0	0
+Raucous Theater	land	land	0	0		derived	0	0	-		1	0
+Gitrog, Horror of Zhava	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Up the Beanstalk	draw	draw	2	2		tagged	0	1	-		0	0
+Bejeweled Warg	threat	threat	2	2		derived	0	0	-		0	0
+Devastation	sweeper	spot,sweeper,utility	7	7		tagged	0	0	-		0	0
+Fell the Profane // Fell Mire	spot	spot	4	4		tagged	0	0	-		0	1
+Alter Reality	utility	utility	2	2		derived	1	0	-		0	0
+Boltbender	threat	threat	4	4		derived	0	0	-		0	0
+Ambush	utility	utility	4	4		derived	1	0	-		0	0
+Sleight of Hand	cantrip	cantrip	1	1		derived	0	0	-		0	0
+Angelic Shield	spot	spot	2	2		tagged	0	0	-		0	0
+Volcanic Offering	spot	burn,spot,utility	5	5		tagged	0	0	-		0	0
+Elspeth, Sun's Champion	threat	spot,sweeper,threat,utility	6	6		tagged	0	0	-		0	0
+Ambassador of Evendo	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Aetherjacket	spot	spot,threat	3	3		tagged	0	0	-		0	0
+Beluna Grandsquall // Seek Thrills	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Wings of Aesthir	utility	utility	2	2		derived	1	0	-		0	0
+Rapid Hybridization	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Mox Jet	mana	mana	0	0		derived	0	0	-		0	0
+Akawalli, the Seething Tower	threat	threat	3	3		derived	0	0	-		0	0
+Avacyn's Pilgrim	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Ormos, Archive Keeper	threat	draw,threat	6	6		tagged	0	0	-		0	0
+Corpse Augur	threat	draw,threat	4	4		tagged	0	0	-		0	0
+Interplanar Beacon	land	land	0	0		derived	0	0	-		1	0
+Battle at the Helvault	spot	spot,threat	6	6		tagged	0	0	-		0	0
+Aerial Toastmaster	threat	threat	4	4		derived	0	0	-		0	0
+Muddle the Mixture	counter	counter,tutor	2	2		tagged	0	0	-		0	0
+Transcantation	spot	burn,spot,utility	2	2		tagged	0	0	-		0	0
+Assert Authority	counter	counter	7	7		tagged	0	0	-		0	0
+Assure // Assemble	threat	threat,utility	2	8	Assure costs 2	tagged	0	0	-		0	0
+Hall of Storm Giants	land	land	0	0		derived	0	0	-		1	0
+Primal Adversary	threat	threat	3	3		derived	0	0	-		0	0
+Rest in Peace	utility	utility	2	2		tagged	0	0	-		0	0
+Chaoslace	utility	utility	1	1		derived	1	0	-		0	0
+Command Tower	land	land	0	0		derived	0	0	-		1	0
+Goblin Clearcutter	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Princess Yue	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Undercity Sewers	land	land	0	0		derived	0	0	-		1	0
+Brightstone Ritual	ritual	mana,ritual,utility	1	1		tagged	0	0	-		0	0
+Shining Armor	utility	utility	2	2		derived	1	0	-		0	0
+Sumala Rumblers	threat	threat	4	4		derived	0	0	-		0	0
+Rune of Protection: Blue	draw	draw,utility	2	2		tagged	0	0	-		0	0
+Vault of Whispers	land	land	0	0		derived	0	0	-		1	0
+Need for Speed (Not the Odyssey One)	utility	utility	4	4		derived	1	0	-		0	0
+Marang River Regent // Coil and Catch	draw	draw,spot,threat	4	6	Coil and Catch costs 4	override	0	0	-		0	0
+Wasteland	land	land,spot,utility	0	0		tagged	0	0	-		1	0
+Misty Rainforest	land	land,tutor	0	0		tagged	0	0	-		1	0
+Woodland Guidance	ritual	recursion,ritual	4	4		tagged	0	0	-		0	0
+Gravecrawler	threat	threat	1	1		tagged	0	0	-		0	0
+Detention Sphere	spot	spot	3	3		tagged	0	0	-		0	0
+Nevermore	utility	utility	3	3		derived	1	0	-		0	0
+Hexgold Slith	threat	threat	2	2		derived	0	0	-		0	0
+Parallax Wave	spot	spot,utility	4	4		tagged	0	0	-		0	0
+Scrap	spot	draw,spot	3	3		tagged	0	0	-		0	0
+Pillage	spot	spot,utility	3	3		tagged	0	0	-		0	0
+Merfolk Observer	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Ancient Ziggurat	land	land	0	0		derived	0	0	-		1	0
+Kabira Takedown // Kabira Plateau	spot	burn,spot	2	2		tagged	0	0	-		0	1
+Graveyard Trespasser // Graveyard Glutton	discard	discard,threat,utility	3	3		tagged	0	0	-		0	0
+Arcane Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Chardalyn Dragon	threat	threat	6	6		derived	0	0	-		0	0
+Dragon's Rage Channeler	threat	cantrip,threat	1	1		derived	0	0	-		0	0
+Anowon, the Ruin Sage	spot	spot,threat,utility	5	5		tagged	0	0	-		0	0
+Exploration	mana	mana	1	1		tagged	0	0	-		0	0
+Chandra, Flamecaller	threat	burn,draw,spot,sweeper,threat	6	6		tagged	0	1	-		0	0
+Domri Rade	threat	spot,threat,utility	3	3		tagged	0	0	-		0	0
+Staff of the Storyteller	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Gate of the Black Dragon	land	land	0	0		derived	0	0	-		1	0
+Brightglass Gearhulk	tutor	threat,tutor	4	4		tagged	0	0	-		0	0
+The Wandering Emperor	threat	spot,threat,utility	4	4		tagged	0	0	-		0	0
+Fabled Passage	land	land,tutor	0	0		tagged	0	0	-		1	0
+Phyrexian War Beast	threat	threat	3	3		derived	0	0	-		0	0
+Tourach, Dread Cantor	discard	discard,threat,utility	2	2		tagged	0	0	-		0	0
+Aetherplasm	threat	threat	4	4		derived	0	0	-		0	0
+Hamza, Guardian of Arashin	threat	threat	6	6		derived	0	0	-		0	0
+Alaborn Zealot	spot	spot,threat	1	1		tagged	0	0	-		0	0
+Lazotep Quarry	land	land,recursion	0	0		tagged	0	0	-		1	0
+Grizzled Outrider	threat	threat	5	5		derived	0	0	-		0	0
+Teferi's Protection	utility	utility	3	3		tagged	0	0	-		0	0
+Grief	discard	discard,threat	0	4	evoke — exile a card	tagged	0	0	-		0	0
+Green Sun's Zenith	tutor	tutor	3	1	{X} at X=2	tagged	0	0	-		0	0
+Ajani Fells the Godsire	spot	spot,threat,utility	5	5		tagged	0	0	-		0	0
+Phantom Interference	counter	counter,threat	1	1		tagged	0	0	-		0	0
+Regna, the Redeemer	tutor	threat,tutor	6	6		tagged	0	0	-		0	0
+Mindbender Spores	threat	threat	3	3		derived	0	0	-		0	0
+Nadaar, Selfless Paladin	threat	threat	3	3		derived	0	0	-		0	0
+Boxing Ring	spot	mana,spot	2	2		tagged	0	0	-		0	0
+Wall of Shadows	threat	threat	3	3		derived	0	0	-		0	0
+Tezzeret, Cruel Captain	threat	threat,tutor	3	3		tagged	0	0	-		0	0
+Plumecreed Mentor	threat	threat	3	3		derived	0	0	-		0	0
+Shifting Loyalties	utility	utility	6	6		derived	1	0	-		0	0
+Abandoned Campground	land	land	0	0		derived	0	0	-		1	0
+Spotcycle Scouter	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Geth's Verdict	spot	spot	2	2		tagged	0	0	-		0	0
+Amass the Components	draw	draw	4	4		derived	0	0	-		0	0
+Eldritch Evolution	tutor	tutor	3	3		tagged	0	0	-		0	0
+Sand Golem	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Equinox	counter	counter,utility	1	1		tagged	0	0	-		0	0
+Pincher Beetles	threat	threat	3	3		derived	0	0	-		0	0
+Ephemerate	utility	utility	1	1		tagged	0	0	-		0	0
+Nadu, Winged Wisdom	mana	mana,threat,utility	3	3		tagged	0	0	-		0	0
+Mob Justice	burn	burn	2	2		tagged	0	0	-		0	0
+_____ _____ Rocketship	threat	threat	4	4		derived	0	0	-		0	0
+Relentless Rats	threat	threat	3	3		derived	0	0	-		0	0
+Fatehold Chronologist // Peer Review	threat	threat	2	2		derived	0	0	-		0	0
+Deprive	counter	counter	2	2		tagged	0	0	-		0	0
+Akroma, Angel of Wrath	threat	threat,utility	8	8		tagged	0	0	-		0	0
+Wrenn and Six	threat	burn,recursion,spot,threat	2	2		tagged	0	0	-		0	0
+A.I.M. Synthoids	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Elvish Soultiller	threat	threat	5	5		derived	0	0	-		0	0
+Daring Leap	utility	utility	3	3		derived	1	0	-		0	0
+Goblin Balloon Brigade	threat	threat	1	1		derived	0	0	-		0	0
+Pinnacle Starcage	sweeper	spot,sweeper,threat	3	3		tagged	0	0	-		0	0
+Melt Through	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Friendly Neighborhood	threat	threat	4	4		derived	0	0	-		0	0
+True-Name Nemesis	threat	threat	3	3		derived	0	0	-		0	0
+Tranquilize	utility	utility	2	2		derived	1	0	-		0	0
+A Little Chat	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Obsessive Search	cantrip	cantrip,utility	1	1		tagged	0	0	-		0	0
+Glimmer Bairn	threat	threat	1	1		derived	0	0	-		0	0
+Survival of the Fittest	tutor	tutor	2	2		tagged	0	0	-		0	0
+Joven and Chandler	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Cyberdrive Awakener	threat	threat	6	6		derived	0	0	-		0	0
+Frost Bite	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Chandra, Torch of Defiance	threat	burn,draw,mana,spot,threat	4	4		tagged	0	1	-		0	0
+Umbral Collar Zealot	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Goblin Goliath	threat	threat	6	6		derived	0	0	-		0	0
+Garruk's Packleader	threat	draw,threat	5	5		tagged	0	1	-		0	0
+Absorb	counter	counter	3	3		tagged	0	0	-		0	0
+Hell's Kitchen	land	land	0	0		derived	0	0	-		1	0
+Acrobatic Leap	utility	utility	1	1		derived	1	0	-		0	0
+Altar of Mogis	utility	utility	0	0		derived	1	0	-		0	0
+Charcoal Diamond	mana	mana	2	2		tagged	0	0	-		0	0
+Thalia, Heretic Cathar	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Conclave Evangelist	threat	threat	5	5		derived	0	0	-		0	0
+Branching Bolt	spot	burn,spot,utility	3	3		tagged	0	0	-		0	0
+Badlands	land	land	0	0		derived	0	0	-		1	0
+Anthousa, Setessan Hero	threat	threat	5	5		derived	0	0	-		0	0
+Selesnya Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Clearwater Pathway // Murkwater Pathway	land	land	0	0		derived	0	0	-		1	0
+Dewdrop Spy	threat	draw,threat	3	3		derived	0	0	-		0	0
+Agent Venom	threat	draw,threat	3	3		tagged	0	1	-		0	0
+Benalish Sleeper	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Talisman of Creativity	mana	mana	2	2		tagged	0	0	-		0	0
+Worzel, the Protector	threat	draw,threat	4	4		derived	0	1	-		0	0
+Fractured Identity	spot	spot,threat	5	5		override	0	0	-		0	0
+Afterlife from the Loam	recursion	recursion	3	8	delve with 6 cards in the yard	tagged	0	0	-		0	0
+Survivors' Encampment	land	land	0	0		derived	0	0	-		1	0
+Skylasher	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Sunscour	sweeper	spot,sweeper	0	7	free alternative cost	tagged	0	0	-		0	0
+A Display of My Dark Power	mana	mana	0	0		tagged	0	0	-		0	0
+Aethermage's Touch	draw	draw	4	4		derived	0	0	-		0	0
+Storrev, Devkarin Lich	recursion	recursion,threat	4	4		tagged	0	0	-		0	0
+Spinal Parasite	threat	threat	5	5		derived	0	0	-		0	0
+Ajani's Comrade	threat	threat	2	2		derived	0	0	-		0	0
+Academy at Tolaria West	draw	draw	0	0		tagged	0	1	-		0	0
+Divine Reckoning	sweeper	spot,sweeper	4	4		tagged	0	0	-		0	0
+Nissa of Shadowed Boughs	threat	mana,recursion,threat	4	4		tagged	0	0	-		0	0
+Ondu Inversion // Ondu Skyruins	sweeper	spot,sweeper	8	8		tagged	0	0	-		0	1
+Cinder Wall	threat	threat	1	1		derived	0	0	-		0	0
+Ashaya, Soul of the Wild	mana	mana,threat	5	5		tagged	0	0	-		0	0
+Fatal Push	spot	spot	1	1		tagged	0	0	-		0	0
+Wojek Siren	utility	utility	1	1		derived	1	0	-		0	0
+Boulderborn Dragon	threat	draw,threat	5	5		derived	0	0	-		0	0
+Ruin Ghost	spot	spot,threat	2	2		derived	0	0	-		0	0
+Wall of Corpses	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Helm of Obedience	utility	utility	4	4		derived	1	0	-		0	0
+Imperial Seal	tutor	tutor	1	1		tagged	0	0	-		0	0
+Gush	draw	draw	0	5	free alternative cost	tagged	0	0	-		0	0
+Claim // Fame	recursion	recursion	1	3	Claim costs 1	tagged	0	0	-		0	0
+Frantic Search	ritual	ritual	3	3		tagged	0	0	-		0	0
+Bone Saw	utility	utility	0	0		derived	1	0	-		0	0
+Akki Blizzard-Herder	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Ramses, Assassin Lord	threat	threat	4	4		tagged	0	0	-		0	0
+Steam Vents	land	land	0	0		derived	0	0	-		1	0
+Arboretum Elemental	threat	threat	9	9		derived	0	0	-		0	0
+Champion of the Weird	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Sun-Blessed Healer	recursion	recursion,threat	2	2		tagged	0	0	-		0	0
+Aerid Konstrari	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Scrapyard Steelbreaker	threat	threat	4	4		derived	0	0	-		0	0
+Ano'thr, Equipment Commander	threat	threat	2	2		derived	0	0	-		0	0
+Inti, Seneschal of the Sun	threat	draw,threat,utility	2	2		tagged	0	0	-		0	0
+Multiversal Passage	land	land	0	0		derived	0	0	-		1	0
+Voltage Surge	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Mystic Sanctuary	land	land	0	0		derived	0	0	-		1	0
+Demolisher Spawn	threat	threat	7	7		derived	0	0	-		0	0
+Temple Acolyte	threat	threat	2	2		derived	0	0	-		0	0
+Balance	sweeper	discard,spot,sweeper,utility	2	2		tagged	0	0	-		0	0
+Palace Jailer	spot	draw,spot,threat	4	4		tagged	0	0	-		0	0
+Razorgrass Screen	threat	threat	1	1		derived	0	0	-		0	0
+Goblin Firestarter	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Root Elemental	threat	threat	6	6		derived	0	0	-		0	0
+Deceptive Landscape	land	draw,land,tutor	0	0		tagged	0	0	-		1	0
+Trail of Crumbs	draw	draw	2	2		derived	0	1	-		0	0
+Phyrexian Tower	land	land,mana	0	0		tagged	0	0	-		1	0
+Flesh Duplicate	threat	threat	2	2		derived	0	0	-		0	0
+Oliphaunt	tutor	threat,tutor	6	6		tagged	0	0	-		0	0
+Azorius Chancery	land	land	0	0		derived	0	0	-		1	0
+Air Response Unit	threat	threat	3	3		derived	0	0	-		0	0
+Flowstone Embrace	spot	spot	2	2		tagged	0	0	-		0	0
+Krark, the Thumbless	threat	threat	2	2		derived	0	0	-		0	0
+Chandra's Dragonmech	sweeper	burn,spot,sweeper,threat	5	5		tagged	0	0	-		0	0
+Adamaro, First to Desire	threat	threat	3	3		derived	0	0	-		0	0
+Lyev Skyknight	threat	threat	3	3		derived	0	0	-		0	0
+Aggravate	sweeper	burn,spot,sweeper	5	5		tagged	0	0	-		0	0
+Blade Splicer	threat	threat	3	3		derived	0	0	-		0	0
+Atarka's Command	mana	burn,mana,utility	2	2		tagged	0	0	-		0	0
+Ornitharch	threat	threat	5	5		derived	0	0	-		0	0
+Collision // Colossus	spot	burn,spot,utility	2	4	Collision costs 2	tagged	0	0	-		0	0
+Spider-Man 2099	spot	burn,spot,threat	2	2		tagged	0	0	-		0	0
+Krark-Clan Shaman	sweeper	burn,spot,sweeper,threat	1	1		tagged	0	0	-		0	0
+Reject	counter	counter	2	2		tagged	0	0	-		0	0
+Sorcerer Class	mana	burn,mana	2	2		tagged	0	0	-		0	0
+Aura Mutation	spot	spot,threat,utility	2	2		tagged	0	0	-		0	0
+Wall of Razors	threat	threat	2	2		derived	0	0	-		0	0
+Morphling	threat	threat	5	5		derived	0	0	-		0	0
+Boltwing Marauder	threat	threat	5	5		derived	0	0	-		0	0
+Mental Misstep	counter	counter	0	1	Phyrexian mana — payable with life	tagged	0	0	-		0	0
+Chaos Mutation	spot	spot	5	5		tagged	0	0	-		0	0
+At Least It's a Dry Heat	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Apocalypse Hydra	spot	burn,spot,threat	4	2	{X} at X=2	tagged	0	0	-		0	0
+Tainted Pact	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Tahngarth, First Mate	threat	threat	4	4		derived	0	0	-		0	0
+Guardian Angel	utility	utility	3	1	{X} at X=2	derived	1	0	-		0	0
+Armor Wars	burn	burn,draw	4	4		tagged	0	0	-		0	0
+Burden of Guilt	spot	spot	1	1		tagged	0	0	-		0	0
+Thran Weaponry	utility	utility	4	4		derived	1	0	-		0	0
+Sentry Oak	threat	threat	5	5		derived	0	0	-		0	0
+Dovin's Veto	counter	counter,utility	2	2		tagged	0	0	-		0	0
+Mortuary Mire	land	land	0	0		derived	0	0	-		1	0
+Soul-Guide Lantern	draw	draw,utility	1	1		tagged	0	0	-		0	0
+Nimrodel Watcher	threat	threat	2	2		derived	0	0	-		0	0
+Order of Succession	utility	utility	4	4		derived	1	0	-		0	0
+Astral Cornucopia	mana	mana	6	0	{X} at X=2 (×3)	tagged	0	0	-		0	0
+Balduvian Rage	draw	draw	3	1	{X} at X=2	derived	0	0	-		0	0
+Rotten Reunion	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Reveillark	recursion	recursion,threat	5	5		tagged	0	0	-		0	0
+Sporemound	threat	threat	5	5		derived	0	0	-		0	0
+Mana Cache	mana	mana	3	3		tagged	0	0	-		0	0
+Jaheira's Respite	mana	mana,tutor,utility	5	5		tagged	0	0	-		0	0
+Conduit of Storms // Conduit of Emrakul	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Dromoka Monument	mana	mana	3	3		tagged	0	0	-		0	0
+Brightclimb Pathway // Grimclimb Pathway	land	land	0	0		derived	0	0	-		1	0
+Necropolis of Azar	utility	utility	4	4		derived	1	0	-		0	0
+Abrupt Decay	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Sphinx of the Steel Wind	threat	threat,utility	8	8		tagged	0	0	-		0	0
+Accumulated Knowledge	draw	draw	2	2		tagged	0	0	-		0	0
+Firespitter Whelp	threat	burn,threat	3	3		tagged	0	0	-		0	0
+Lose Focus	counter	counter	2	2		tagged	0	0	-		0	0
+Golgari Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Questing Cosplayer	spot	burn,spot,threat	2	2		tagged	0	0	-		0	0
+Sentinel Sliver	threat	threat	2	2		derived	0	0	-		0	0
+Obeka, Splitter of Seconds	threat	threat	4	4		derived	0	0	-		0	0
+Ace Flockbringer	threat	threat	3	3		derived	0	0	-		0	0
+Standard Procedure	utility	utility	0	0		derived	1	0	-		0	0
+Wall of Pine Needles	threat	threat	4	4		derived	0	0	-		0	0
+Gitaxian Probe	cantrip	cantrip	0	1	Phyrexian mana — payable with life	tagged	0	0	-		0	0
+Genghis Frog	threat	threat	2	2		derived	0	0	-		0	0
+Vogar, Necropolis Tyrant	threat	draw,threat	5	5		tagged	0	0	-		0	0
+Old Stickfingers	threat	draw,threat	4	2	{X} at X=2	derived	0	0	-		0	0
+Magister Sphinx	threat	threat	7	7		derived	0	0	-		0	0
+Talisman of Indulgence	mana	mana	2	2		tagged	0	0	-		0	0
+Umezawa's Jitte	spot	spot	2	2		tagged	0	0	-		0	0
+Kitsune Ace	threat	threat	2	2		derived	0	0	-		0	0
+Earth Tremor	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Thassa's Oracle	threat	threat	2	2		tagged	0	0	-		0	0
+Aether Burst	spot	spot	2	2		tagged	0	0	-		0	0
+Wall of Earth	threat	threat	2	2		derived	0	0	-		0	0
+Cave of the Frost Dragon	land	land	0	0		derived	0	0	-		1	0
+Mathas, Fiend Seeker	threat	draw,threat	3	3		tagged	0	1	-		0	0
+Greater Harvester	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Chain Stasis	utility	utility	1	1		derived	1	0	-		0	0
+Brutal Cathar // Moonrage Brute	spot	spot,threat	3	3		tagged	0	0	-		0	0
+Godhead of Awe	threat	threat	5	5		derived	0	0	-		0	0
+Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar	recursion	draw,recursion,threat,utility	1	1		tagged	0	1	-		0	0
+Hulk, Bruce Banner	threat	threat	5	5		derived	0	0	-		0	0
+Banish into Fable	spot	spot,threat	6	6		tagged	0	0	-		0	0
+Opposition Agent	tutor	threat,tutor,utility	3	3		tagged	0	0	-		0	0
+Wandering Stream	utility	utility	3	3		derived	1	0	-		0	0
+Asmoranomardicadaistinaculdacar	spot	spot,threat,tutor	0	0		tagged	0	0	-		0	0
+Famine	sweeper	burn,spot,sweeper	5	5		tagged	0	0	-		0	0
+Yedora, Grave Gardener	mana	mana,recursion,threat	5	5		tagged	0	0	-		0	0
+Douse in Gloom	spot	spot	3	3		tagged	0	0	-		0	0
+Skrelv, Defector Mite	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Electrozoa	threat	threat	3	3		derived	0	0	-		0	0
+Calciform Pools	land	land,mana	0	0		tagged	0	0	-		1	0
+Wirewood Hivemaster	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Feat of Resistance	utility	utility	2	2		tagged	0	0	-		0	0
+Elixir of Immortality	utility	utility	1	1		override	0	0	-		0	0
+Active Volcano	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Ancient Ooze	threat	threat	7	7		derived	0	0	-		0	0
+Screeching Bat // Stalking Vampire	threat	threat	3	3		derived	0	0	-		0	0
+The Eternal Wanderer	threat	spot,sweeper,threat	6	6		tagged	0	0	-		0	0
+Goblin Grenade	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Coral Net	discard	discard,spot,utility	1	1		tagged	0	0	-		0	0
+Consecrate // Consume	spot	cantrip,spot,utility	2	6	Consecrate costs 2	tagged	0	0	-		0	0
+Cuboid Colony	threat	threat	2	2		derived	0	0	-		0	0
+Wall of Caltrops	threat	threat	2	2		derived	0	0	-		0	0
+Vampire Nocturnus	threat	threat	4	4		derived	0	0	-		0	0
+Library of Alexandria	land	draw,land	0	0		tagged	0	0	-		1	0
+Goblin Lackey	threat	threat	1	1		derived	0	0	-		0	0
+Shadrix Silverquill	threat	draw,threat	5	5		tagged	0	0	-		0	0
+Heidegger, Shinra Executive	threat	threat	4	4		derived	0	0	-		0	0
+A Container of Booster Packs	draw	draw	2	2		derived	0	1	-		0	0
+Reflect Damage	utility	utility	5	5		derived	1	0	-		0	0
+Storm God's Oracle	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Chain of Vapor	spot	spot	1	1		tagged	0	0	-		0	0
+Inalla, Archmage Ritualist	threat	threat	5	5		derived	0	0	-		0	0
+Kongming, "Sleeping Dragon"	threat	threat	4	4		derived	0	0	-		0	0
+Wrath of the Skies	sweeper	spot,sweeper	4	2	{X} at X=2	tagged	0	0	-		0	0
+Ankle Shanker	threat	threat	5	5		derived	0	0	-		0	0
+Sky Diamond	mana	mana	2	2		tagged	0	0	-		0	0
+Troll of Khazad-dûm	tutor	threat,tutor	6	6		tagged	0	0	-		0	0
+Vernal Equinox	utility	utility	4	4		derived	1	0	-		0	0
+Stock Up	draw	draw	3	3		derived	0	0	-		0	0
+Grim Monolith	mana	mana	2	2		tagged	0	0	-		0	0
+Beanstalk Giant // Fertile Footsteps	mana	mana,threat,tutor	3	7	Fertile Footsteps costs 3	tagged	0	0	-		0	0
+Agna Qel'a	land	land	0	0		derived	0	0	-		1	0
+Echoing Boon	utility	utility	0	0		derived	1	0	-		0	0
+Collectigull // Only the Best	recursion	recursion,threat	2	3	Only the Best costs 2	tagged	0	0	-		0	0
+Hidden Gibbons	utility	utility	1	1		tagged	0	0	-		0	0
+Adventurer's Inn	land	land	0	0		derived	0	0	-		1	0
+Ancient Tomb	land	land,mana	0	0		tagged	0	0	-		1	0
+Pelt Collector	threat	threat	1	1		derived	0	0	-		0	0
+An Offer You Can't Refuse	counter	counter	1	1		tagged	0	0	-		0	0
+Fear of Missing Out	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Twinblade Slasher	threat	threat	1	1		derived	0	0	-		0	0
+Sear	spot	burn,spot	2	2		tagged	0	0	-		0	0
+Agency Outfitter	tutor	recursion,threat,tutor	6	6		tagged	0	0	-		0	0
+Idyllic Grange	land	land	0	0		derived	0	0	-		1	0
+Brokers' Safeguard	utility	utility	2	2		tagged	0	0	-		0	0
+Avatar of Me	threat	threat	4	4		derived	0	0	-		0	0
+Space-Time Anomaly	utility	utility	4	4		derived	1	0	-		0	0
+Wall of Tombstones	threat	threat	2	2		derived	0	0	-		0	0
+Narset's Rebuke	ritual	burn,ritual,spot	5	5		tagged	0	0	-		0	0
+Evie Frye	tutor	threat,tutor	2	2		tagged	0	0	-		0	0
+Emeritus of Ideation // Ancestral Recall	threat	draw,threat	5	5		override	0	0	-		0	0
+Tinker	tutor	tutor	3	3		tagged	0	0	-		0	0
+Myriad Landscape	land	land,mana,tutor	0	0		tagged	0	0	-		1	0
+Shinka, the Bloodsoaked Keep	land	land	0	0		derived	0	0	-		1	0
+Akoum	spot	spot	0	0		tagged	0	0	-		0	0
+Aether Rift	recursion	recursion	3	3		tagged	0	0	-		0	0
+Ajani, Nacatl Pariah // Ajani, Nacatl Avenger	sweeper	burn,spot,sweeper,threat	2	2		tagged	0	0	-		0	0
+Magical Hacker	threat	threat	2	2		derived	0	0	-		0	0
+Horizon Canopy	land	draw,land	0	0		tagged	0	0	-		1	0
+Floriferous Vinewall	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Disciple of Freyalise // Garden of Freyalise	threat	draw,threat	6	6		tagged	0	0	-		0	1
+Hypervolt Grasp	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Varchild, Betrayer of Kjeldor	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Orim's Chant	utility	utility	1	1		derived	1	0	-		0	0
+Witch-Maw Nephilim	threat	threat	4	4		derived	0	0	-		0	0
+Forestfolk	mana	draw,mana,threat,tutor	4	4		tagged	0	0	-		0	0
+Valkyrie's Call	utility	utility	5	5		tagged	0	0	-		0	0
+Kor Haven	land	land,utility	0	0		tagged	0	0	-		1	0
+Unstable Mutation	spot	spot	1	1		tagged	0	0	-		0	0
+Seedcradle Witch	threat	threat	1	1		derived	0	0	-		0	0
+Take the Fall	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Duelists' Convocation International	threat	draw,threat	3	3		tagged	0	1	-		0	0
+Angel of Salvation	threat	threat	8	8		derived	0	0	-		0	0
+Underworld Breach	recursion	recursion	2	2		tagged	0	0	-		0	0
+Aerial Engineer	threat	threat	4	4		derived	0	0	-		0	0
+Archmage of Runes	threat	draw,threat	5	5		tagged	0	1	-		0	0
+Daybreak Ranger // Nightfall Predator	spot	spot,threat,utility	3	3		tagged	0	0	-		0	0
+Banshee of the Dread Choir	discard	discard,threat	5	5		tagged	0	0	-		0	0
+Three Steps Ahead	counter	counter,draw,threat	3	1	spree: {U} plus {1}{U} for the counter mode	override	0	0	-		0	0
+Cloud Sprite	threat	threat	1	1		derived	0	0	-		0	0
+Lava Spike	burn	burn	1	1		tagged	0	0	-		0	0
+Flame Rift	burn	burn	2	2		tagged	0	0	-		0	0
+Gin'tak Charge	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Woodland Weavemaster	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Akuta, Born of Ash	threat	threat	4	4		tagged	0	0	-		0	0
+Glóin, Dwarf Emissary	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Windswept Heath	land	land,tutor	0	0		tagged	0	0	-		1	0
+Ellie, Brick Master	threat	threat	2	2		derived	0	0	-		0	0
+Hinterland Logger // Timber Shredder	threat	threat	2	2		derived	0	0	-		0	0
+Ray of Erasure	cantrip	cantrip	1	1		derived	0	0	-		0	0
+Wormwood Treefolk	threat	threat	5	5		derived	0	0	-		0	0
+Akim, the Soaring Wind	threat	threat	5	5		derived	0	0	-		0	0
+Settle the Wreckage	sweeper	spot,sweeper,utility	4	4		override	0	0	-		0	0
+Hazel's Nocturne	recursion	recursion	4	4		tagged	0	0	-		0	0
+Mardu Skullhunter	discard	discard,threat	2	2		tagged	0	0	-		0	0
+Aladdin's Lamp	draw	draw	10	10		derived	0	1	-		0	0
+Farm // Market	spot	spot,utility	3	6	Farm costs 3	tagged	0	0	-		0	0
+Court of Cunning	draw	draw	3	3		tagged	0	0	-		0	0
+Bringer of the Red Dawn	threat	threat	5	9	alternative cost {W}{U}{B}{R}{G}	derived	0	0	-		0	0
+Resplendent Angel	threat	threat	3	3		derived	0	0	-		0	0
+Garrison Griffin	threat	threat	3	3		derived	0	0	-		0	0
+Badgermole Cub	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Silver Scrutiny	draw	draw	4	2	{X} at X=2	tagged	0	0	-		0	0
+Screeching Phoenix	threat	threat	6	6		derived	0	0	-		0	0
+Jermane, Pride of the Circus	threat	threat	2	2		derived	0	0	-		0	0
+Ice Cauldron	mana	mana	4	4		tagged	0	0	-		0	0
+Akroma, Angel of Fury	threat	threat,utility	8	8		tagged	0	0	-		0	0
+Rift Bolt	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Wan Shi Tong, Librarian	threat	draw,threat,utility	2	2	{X} creature with a printed body — X=0 is castable	tagged	0	1	-		0	0
+Toy Boat	threat	threat	3	3		derived	0	0	-		0	0
+Snapcaster Mage	threat	threat	2	2		derived	0	0	-		0	0
+Pharaoh Rama-Tut	threat	threat	5	5		derived	0	0	-		0	0
+Embereth Veteran	threat	threat	1	1		derived	0	0	-		0	0
+Untimely Malfunction	spot	spot	2	2		tagged	0	0	-		0	0
+Wild Endeavor	mana	mana,threat,tutor	6	6		tagged	0	0	-		0	0
+Squirming Mass	threat	threat	2	2		derived	0	0	-		0	0
+Elvish Mariner	threat	draw,threat	3	3		derived	0	0	-		0	0
+Mana Crypt	mana	mana	0	0		tagged	0	0	-		0	0
+Kroxa, Titan of Death's Hunger	discard	discard,threat	2	2		tagged	0	0	-		0	0
+Prismatic Ending	spot	spot	3	1	{X}{W} at X=2	override	0	0	-		0	0
+_____ Bird Gets the Worm	threat	threat	5	5		derived	0	0	-		0	0
+Dorothea, Vengeful Victim // Dorothea's Retribution	threat	threat	2	2		tagged	0	0	-		0	0
+Soul Partition	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Monk of the Open Hand	threat	threat	1	1		derived	0	0	-		0	0
+Not on My Watch	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Artifact Blast	counter	counter	1	1		tagged	0	0	-		0	0
+Yeva, Nature's Herald	threat	threat	4	4		derived	0	0	-		0	0
+Hallowed Respite	spot	spot	2	2		derived	0	0	-		0	0
+Scandalmonger	discard	discard,threat	4	4		tagged	0	0	-		0	0
+Hull Breach	spot	spot	2	2		tagged	0	0	-		0	0
+Sickening Shoal	spot	spot	0	2	free alternative cost	tagged	0	0	-		0	0
+Splinter Twin	utility	utility	4	4		derived	1	0	-		0	0
+Blustersquall	utility	utility	1	1		derived	1	0	-		0	0
+Monstrous Carabid	threat	draw,threat	5	5		tagged	0	0	-		0	0
+Arachnoform	utility	utility	2	2		derived	1	0	-		0	0
+Erode	spot	spot	1	1		tagged	0	0	-		0	0
+Fervent Denial	counter	counter	5	5		tagged	0	0	-		0	0
+My Precious // Allure of Power	draw	draw	2	3	Allure of Power costs 2	derived	0	0	-		0	0
+Split Up	sweeper	spot,sweeper,utility	3	3		tagged	0	0	-		0	0
+Turbulent Moor	land	land	0	0		derived	0	0	-		1	0
+Befriending the Moths // Imperial Moth	utility	utility	4	4		derived	1	0	-		0	0
+Shadow of the Second Sun	utility	draw,utility	6	6		override	0	0	-		0	0
+Echoing Deeps	land	land	0	0		derived	0	0	-		1	0
+Hullbreacher	utility	mana,threat,utility	3	3		override	0	0	-		0	0
+Skystreak Engineer	threat	threat	2	2		derived	0	0	-		0	0
+Bösium Strip	utility	utility	3	3		derived	1	0	-		0	0
+Brooding Saurian	threat	threat	4	4		derived	0	0	-		0	0
+Feedback Bolt	burn	burn	5	5		tagged	0	0	-		0	0
+Yuan Shao, the Indecisive	threat	threat	5	5		derived	0	0	-		0	0
+Gallant Citizen	threat	cantrip,threat	2	2		tagged	0	0	-		0	0
+Boreal Druid	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Eidolon of the Great Revel	threat	burn,threat	2	2		tagged	0	0	-		0	0
+Izzet Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Duskrider Peregrine	threat	threat,utility	6	6		tagged	0	0	-		0	0
+Necrotic Ooze	threat	threat	4	4		derived	0	0	-		0	0
+Alistair, the Brigadier	threat	threat	4	4		derived	0	0	-		0	0
+Shatter the Sky	sweeper	draw,spot,sweeper	4	4		tagged	0	0	-		0	0
+Absorb Energy	counter	counter,mana	3	3		tagged	0	0	-		0	0
+Ezio Auditore da Firenze	threat	threat	2	2		tagged	0	0	-		0	0
+Portal to Phyrexia	spot	recursion,spot	9	9		tagged	0	0	-		0	0
+Skyclave Squid	threat	threat	2	2		derived	0	0	-		0	0
+Ancient Grudge	spot	spot	2	2		tagged	0	0	-		0	0
+Hipparion	threat	threat	2	2		derived	0	0	-		0	0
+Arcane Lighthouse	land	land	0	0		derived	0	0	-		1	0
+The Value Knight	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Rosheen, Roaring Prophet	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Consecrated Sphinx	threat	draw,threat	6	6		tagged	0	1	-		0	0
+Fatehold Charm	counter	cantrip,counter,spot	2	2		tagged	0	0	-		0	0
+City of Death	mana	mana	3	3		tagged	0	0	-		0	0
+Your Favorite Character	threat	threat	5	5		derived	0	0	-		0	0
+Dracoplasm	threat	threat	2	2		derived	0	0	-		0	0
+Tithe	tutor	tutor	1	1		tagged	0	0	-		0	0
+Acererak the Archlich	spot	spot,threat	3	3		tagged	0	0	-		0	0
+Bone to Ash	counter	counter,draw	4	4		tagged	0	0	-		0	0
+Runner's Bane	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Prison Term	spot	spot	3	3		tagged	0	0	-		0	0
+Wayfarer's Bauble	mana	mana,tutor	1	1		tagged	0	0	-		0	0
+Wish Good Luck	mana	mana	2	2		tagged	0	0	-		0	0
+Reckless Assault	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Wurmwall Sweeper	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Gutsplitter Gang	threat	threat	4	4		derived	0	0	-		0	0
+Anrakyr the Traveller	recursion	recursion,threat	5	5		tagged	0	0	-		0	0
+Snuff Out	spot	spot,utility	0	4	free alternative cost	tagged	0	0	-		0	0
+Agent of the Iron Throne	utility	utility	3	3		derived	1	0	-		0	0
+Argent Dais	spot	draw,spot,utility	2	2		tagged	0	0	-		0	0
+Crashing Drawbridge	threat	threat	2	2		derived	0	0	-		0	0
+_____-o-saurus	threat	threat	6	6		derived	0	0	-		0	0
+Pharika's Libation	spot	spot	3	3		tagged	0	0	-		0	0
+Guardians' Pledge	utility	utility	3	3		derived	1	0	-		0	0
+Goblin Cadets	threat	threat	1	1		derived	0	0	-		0	0
+Lotus Petal	ritual	mana,ritual	0	0		tagged	0	0	-		0	0
+Barge In	utility	utility	1	1		derived	1	0	-		0	0
+Conflux	tutor	tutor	8	8		tagged	0	0	-		0	0
+Illusionist's Gambit	utility	utility	4	4		tagged	0	0	-		0	0
+Clockwork Dragon	threat	threat	7	7		derived	0	0	-		0	0
+Juri, Master of the Revue	spot	burn,spot,threat,utility	2	2		tagged	0	0	-		0	0
+Mistrise Village	land	land	0	0		derived	0	0	-		1	0
+Library	land	land	0	0		derived	0	0	-		1	0
+Joust Through	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Cloud, Midgar Mercenary	tutor	threat,tutor	2	2		tagged	0	0	-		0	0
+Duress	discard	discard	1	1		tagged	0	0	-		0	0
+Phlage, Titan of Fire's Fury	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Negate	counter	counter	2	2		tagged	0	0	-		0	0
+Golgari Brownscale	threat	threat	3	3		tagged	0	0	-		0	0
+Rush of Knowledge	draw	draw	5	5		tagged	0	0	-		0	0
+Makindi Stampede // Makindi Mesas	utility	utility	5	5		derived	1	0	-		0	1
+Blackbloom Rogue // Blackbloom Bog	threat	threat	3	3		derived	0	0	-		0	1
+Flameshadow Conjuring	utility	utility	4	4		derived	1	0	-		0	0
+Incubation Druid	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Wrath of God	sweeper	spot,sweeper,utility	4	4		tagged	0	0	-		0	0
+Seal of Fire	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Flamekin Village	land	land	0	0		derived	0	0	-		1	0
+Mourner's Shield	utility	utility	4	4		tagged	0	0	-		0	0
+Ojer Pakpatiq, Deepest Epoch // Temple of Cyclical Time	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Grothama, All-Devouring	threat	draw,threat	5	5		tagged	0	0	-		0	0
+Access Denied	counter	counter,threat	5	5		tagged	0	0	-		0	0
+Kaheera, the Orphanguard	threat	threat	3	3		derived	0	0	-		0	0
+Akoum Refuge	land	land	0	0		derived	0	0	-		1	0
+Goblin Mountaineer	threat	threat	1	1		derived	0	0	-		0	0
+Alchemist's Refuge	land	land	0	0		derived	0	0	-		1	0
+The Sixth Seraph	threat	threat	5	5		derived	0	0	-		0	0
+Forth Eorlingas!	threat	draw,threat	3	2	{X} at X=1	tagged	0	0	-		0	0
+Stoneforge Mystic	tutor	threat,tutor	2	2		tagged	0	0	-		0	0
+Nameless Race	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Fateful Absence	spot	spot	2	2		tagged	0	0	-		0	0
+Acolyte of the Inferno	spot	burn,spot,threat,utility	3	3		tagged	0	0	-		0	0
+Survey the Wreckage	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Iroas, God of Victory	threat	threat	4	4		tagged	0	0	-		0	0
+Arcbound Overseer Avatar	utility	utility	0	0		derived	1	0	-		0	0
+Roaming Throne	threat	threat	4	4		derived	0	0	-		0	0
+Buried Ruin	land	land,recursion	0	0		tagged	0	0	-		1	0
+Abundant Maw	threat	threat	8	8		derived	0	0	-		0	0
+Parting Gust	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Gathering Place	land	land	0	0		derived	0	0	-		1	0
+Archive Arbiter	spot	spot,threat	6	6		tagged	0	0	-		0	0
+Brainstorm	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Angelic Edict	spot	spot	5	5		tagged	0	0	-		0	0
+Sorin's Guide	tutor	draw,threat,tutor	5	5		derived	0	0	-		0	0
+Rat Out	spot	spot,threat	1	1		tagged	0	0	-		0	0
+Ardent Dustspeaker	threat	draw,threat	5	5		tagged	0	0	-		0	0
+Year-End Review	utility	utility	0	0		derived	1	0	-		0	0
+Toph, Greatest Earthbender	threat	threat	4	4		derived	0	0	-		0	0
+Grim Lavamancer	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Mox Emerald	mana	mana	0	0		derived	0	0	-		0	0
+Subtlety	counter	counter,threat	0	4	evoke — exile a card	override	0	0	-		0	0
+Hagra Mauling // Hagra Broodpit	spot	spot,utility	4	4		tagged	0	0	-		0	1
+Condemn	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Cabal Conditioning	discard	discard	7	7		tagged	0	0	-		0	0
+Adeline, Resplendent Cathar	threat	threat	3	3		derived	0	0	-		0	0
+Spell Snare	counter	counter	1	1		tagged	0	0	-		0	0
+Super-Duper Lost	spot	spot	5	5		tagged	0	0	-		0	0
+Emmara Tandris	threat	threat	7	7		derived	0	0	-		0	0
+Steadfast Sentinel	threat	threat	4	4		derived	0	0	-		0	0
+Amateur Auteur	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Doomskar	sweeper	spot,sweeper	5	5		tagged	0	0	-		0	0
+Goblin Trailblazer	threat	threat	2	2		derived	0	0	-		0	0
+Agyrem	recursion	recursion,utility	0	0		tagged	0	0	-		0	0
+Fíli and Kíli, Joyous	mana	mana,threat	3	3		tagged	0	0	-		0	0
+1996 World Champion	tutor	tutor	5	5		tagged	0	0	-		0	0
+Veldrane of Sengir	threat	threat	7	7		derived	0	0	-		0	0
+Blast Zone	land	land,spot,sweeper	0	0		tagged	0	0	-		1	0
+Inquisition of Kozilek	discard	discard	1	1		tagged	0	0	-		0	0
+Brago's Favor	mana	mana	0	0		tagged	0	0	-		0	0
+Goblin Fireslinger	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Render Silent	counter	counter	3	3		tagged	0	0	-		0	0
+Deadshot Minotaur	spot	burn,draw,spot,threat,utility	5	5		tagged	0	0	-		0	0
+Alley Grifters	discard	discard,threat,utility	3	3		tagged	0	0	-		0	0
+Serra Redeemer	threat	threat	5	5		derived	0	0	-		0	0
+Barbary Apes	threat	threat	2	2		derived	0	0	-		0	0
+Underworld Connections	draw	draw	3	3		tagged	0	1	-		0	0
+Jayemdae Tome	draw	draw	4	4		tagged	0	1	-		0	0
+Aether Tradewinds	spot	spot	3	3		tagged	0	0	-		0	0
+Benalish Commander	threat	threat	4	4		derived	0	0	-		0	0
+Fog Bank	threat	threat	2	2		derived	0	0	-		0	0
+Minsc & Boo, Timeless Heroes	threat	burn,draw,spot,threat	4	4		tagged	0	1	-		0	0
+Prismari Campus	land	land	0	0		derived	0	0	-		1	0
+Glasswing Grace // Age-Graced Chapel	utility	utility	5	5		derived	1	0	-		0	1
+Fry	spot	burn,spot,utility	2	2		tagged	0	0	-		0	0
+Anger of the Gods	sweeper	burn,spot,sweeper	3	3		tagged	0	0	-		0	0
+The One Ring	draw	draw	4	4		tagged	0	1	-		0	0
+Rakdos Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Zirilan of the Claw	tutor	threat,tutor	5	5		tagged	0	0	-		0	0
+Brotherhood Vertibird	threat	threat	3	3		derived	0	0	-		0	0
+Hidden Predators	utility	utility	1	1		tagged	0	0	-		0	0
+Knight of the Ebon Legion	threat	threat	1	1		derived	0	0	-		0	0
+Abzan Ascendancy	threat	threat	3	3		derived	0	0	-		0	0
+Meeting of Minds	draw	draw	4	4		tagged	0	0	-		0	0
+Bloodthirsty Adversary	threat	threat	2	2		derived	0	0	-		0	0
+Assault Intercessor	threat	threat	3	3		derived	0	0	-		0	0
+Arch of Orazca	land	draw,land	0	0		tagged	0	0	-		1	0
+Bender's Waterskin	mana	mana	3	3		tagged	0	0	-		0	0
+Stern Scolding	counter	counter,utility	1	1		tagged	0	0	-		0	0
+Bow of the Hunter	spot	burn,spot	0	0		tagged	0	0	-		0	0
+Diamond Weapon	threat	threat	9	9		derived	0	0	-		0	0
+A Premonition of Your Demise	spot	burn,spot	0	0		tagged	0	0	-		0	0
+Reflective Golem	threat	threat	3	3		derived	0	0	-		0	0
+Chainer's Torment	threat	burn,threat	4	4		tagged	0	0	-		0	0
+Fiery Confluence	sweeper	burn,spot,sweeper	4	4		tagged	0	0	-		0	0
+Acorn Stash	utility	utility	0	0		derived	1	0	-		0	0
+Angel of Sanctions	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Moldgraf Monstrosity	recursion	recursion,threat	7	7		tagged	0	0	-		0	0
+Emrakul and Chatterfang	mana	mana,threat	11	11		tagged	0	0	-		0	0
+Slippery Scoundrel	threat	threat	3	3		derived	0	0	-		0	0
+Bubbling Muck	ritual	mana,ritual	1	1		tagged	0	0	-		0	0
+Deceiver Exarch	threat	threat	3	3		derived	0	0	-		0	0
+Intuition	tutor	tutor	3	3		tagged	0	0	-		0	0
+Amaranthine Wall	threat	threat	4	4		derived	0	0	-		0	0
+Deputy of Acquittals	spot	spot,threat	2	2		derived	0	0	-		0	0
+The Spot's Portal	spot	spot	3	3		tagged	0	0	-		0	0
+Call the Spirit Dragons	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Aliban's Tower	utility	utility	2	2		derived	1	0	-		0	0
+Unable to Scream	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Magda, Brazen Outlaw	mana	mana,threat,tutor	2	2		tagged	0	0	-		0	0
+Nylea's Colossus	threat	threat	7	7		derived	0	0	-		0	0
+Thrasios, Triton Hero	mana	draw,mana,threat	2	2		tagged	0	1	-		0	0
+Bioshift	utility	utility	1	1		derived	1	0	-		0	0
+Terminus	sweeper	spot,sweeper	6	6		tagged	0	0	1	miracle {W}	0	0
+Flash	utility	utility	2	2		derived	1	0	-		0	0
+Akiri, Line-Slinger	threat	threat	2	2		derived	0	0	-		0	0
+SOLDIER Military Program	threat	threat	3	3		derived	0	0	-		0	0
+Etherium Pteramander	threat	threat	1	1		derived	0	0	-		0	0
+Crystallization	spot	spot	2	2		tagged	0	0	-		0	0
+Rampaging Ferocidon	threat	burn,threat,utility	3	3		tagged	0	0	-		0	0
+Fiendslayer Paladin	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Quirion Ranger	threat	threat	1	1		derived	0	0	-		0	0
+Appeal // Authority	utility	utility	1	3	Appeal costs 1	derived	1	0	-		0	0
+Gut, Devious Fanatic	threat	threat	7	7		derived	0	0	-		0	0
+Glass-Cast Heart	threat	threat	3	3		derived	0	0	-		0	0
+Hotfoot Gnome	threat	threat	3	3		derived	0	0	-		0	0
+Goblin Furrier	threat	threat	2	2		derived	0	0	-		0	0
+Elvish Mystic	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Elspeth's Smite	spot	burn,spot,utility	1	1		tagged	0	0	-		0	0
+Ace's Baseball Bat	utility	utility	2	2		tagged	0	0	-		0	0
+Lim-Dûl's Vault	tutor	tutor	2	2		tagged	0	0	-		0	0
+Imperious Perfect	threat	threat	3	3		derived	0	0	-		0	0
+Knight in _____ Armor	threat	threat	2	2		derived	0	0	-		0	0
+All in Good Time	threat	threat	0	0		tagged	0	0	-		0	0
+Sunpetal Grove	land	land	0	0		derived	0	0	-		1	0
+Turntimber Symbiosis // Turntimber, Serpentine Wood	draw	draw	7	7		derived	0	0	-		0	1
+Binding the Old Gods	spot	mana,spot,tutor	4	4		tagged	0	0	-		0	0
+Black Tulip	ritual	mana,ritual	0	0		tagged	0	0	-		0	0
+Aatchik, Emerald Radian	threat	threat	6	6		derived	0	0	-		0	0
+Academic Ascent	utility	utility	2	2		derived	1	0	-		0	0
+Irrigated Farmland	land	draw,land	0	0		tagged	0	0	-		1	0
+Nezumi Bladeblesser	threat	threat	3	3		derived	0	0	-		0	0
+Ice Tunnel	land	land	0	0		derived	0	0	-		1	0
+Warbreak Trumpeter	threat	threat	1	1		derived	0	0	-		0	0
+Conclave Equenaut	threat	threat	6	6		derived	0	0	-		0	0
+Bringer of Green Zenith's Twilight	threat	threat	2	2	{X} creature with a printed body — X=0 is castable	derived	0	0	-		0	0
+Abzan Charm	spot	draw,spot,utility	3	3		tagged	0	0	-		0	0
+Goblin Champion	threat	threat	1	1		derived	0	0	-		0	0
+Rootwater Diver	recursion	recursion,threat	1	1		tagged	0	0	-		0	0
+Extraction Specialist	recursion	recursion,threat	3	3		tagged	0	0	-		0	0
+Sphinx Sovereign	threat	threat	8	8		derived	0	0	-		0	0
+Bloodtithe Harvester	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Boros Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Toothy, Imaginary Friend	tutor	draw,threat,tutor	4	4		tagged	0	1	-		0	0
+Blacker Lotus	ritual	mana,ritual	0	0		tagged	0	0	-		0	0
+Oviya Pashiri, Sage Lifecrafter	threat	threat	1	1		derived	0	0	-		0	0
+Edgar Markov	threat	threat	6	6		derived	0	0	-		0	0
+Raff, Weatherlight Stalwart	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Urn of Godfire	spot	spot	1	1		tagged	0	0	-		0	0
+Nature Shields Its Own	threat	threat,utility	0	0		tagged	0	0	-		0	0
+Scuzzback Marauders	threat	threat	5	5		derived	0	0	-		0	0
+Devastation Tide	sweeper	spot,sweeper	5	5		tagged	0	0	2	miracle {1}{U}	0	0
+Solar Blaze	sweeper	sweeper	4	4		tagged	0	0	-		0	0
+Norin, Swift Survivalist	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Artificer's Dragon	recursion	recursion,threat	6	6		tagged	0	0	-		0	0
+Skarrgan Firebird	threat	threat	6	6		tagged	0	0	-		0	0
+Trove Mage	threat	threat	3	3		derived	0	0	-		0	0
+Starfield Shepherd	tutor	threat,tutor	2	5	warp {1}{W}	tagged	0	0	-		0	0
+Geist of Saint Traft	threat	threat	3	3		derived	0	0	-		0	0
+Fact or Fiction	draw	draw	4	4		derived	0	0	-		0	0
+Blood Crypt	land	land	0	0		derived	0	0	-		1	0
+Price of Betrayal	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Gift of Paradise	mana	mana	3	3		tagged	0	0	-		0	0
+Artillery Enthusiast	threat	threat	1	1		derived	0	0	-		0	0
+Jötun Grunt	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Rohgahh of Kher Keep	threat	threat	6	6		derived	0	0	-		0	0
+Simic Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Lightning Bolt	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Moira and Teshar	recursion	recursion,threat	5	5		tagged	0	0	-		0	0
+Aura Finesse	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Aeve, Progenitor Ooze	threat	threat	5	5		derived	0	0	-		0	0
+Tome Scour	utility	utility	1	1		derived	1	0	-		0	0
+Urza's Cave	land	land,tutor	0	0		tagged	0	0	-		1	0
+Absorb Identity	spot	spot	2	2		tagged	0	0	-		0	0
+Union of the Third Path	draw	draw	3	3		tagged	0	0	-		0	0
+Coastal Bulwark	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Giant Shark	threat	threat,utility	6	6		tagged	0	0	-		0	0
+Simian Spirit Guide	ritual	mana,ritual,threat	0	3	exiled from hand for {R}	override	0	0	-		0	0
+Vexing Bauble	counter	counter,draw,utility	1	1		tagged	0	0	-		0	0
+Sacred Foundry	land	land	0	0		derived	0	0	-		1	0
+Erithizon	threat	threat	4	4		derived	0	0	-		0	0
+Braids's Frightful Return	discard	discard,draw,recursion,spot	3	3		tagged	0	0	-		0	0
+Arbor Elf	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Dennick, Pious Apprentice // Dennick, Pious Apparition	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Aethersnatch	spot	spot	6	6		derived	0	0	-		0	0
+Port Town	land	land	0	0		derived	0	0	-		1	0
+Book of Mazarbul	utility	utility	3	3		derived	1	0	-		0	0
+Kolaghan's Command	discard	burn,discard,recursion,spot	3	3		tagged	0	0	-		0	0
+Methods of the Mighty	spot	spot,utility	4	4		tagged	0	0	-		0	0
+Hengegate Pathway // Mistgate Pathway	land	land	0	0		derived	0	0	-		1	0
+Behold the Unspeakable // Vision of the Unspeakable	draw	draw	5	5		tagged	0	0	-		0	0
+Brain Freeze	utility	utility	2	2		derived	1	0	-		0	0
+Abzan Banner	mana	draw,mana	3	3		tagged	0	0	-		0	0
+Arenson's Aura	counter	counter,spot	3	3		tagged	0	0	-		0	0
+Essence Scatter	counter	counter	2	2		tagged	0	0	-		0	0
+Head of the Homestead	threat	threat	5	5		derived	0	0	-		0	0
+Adamant Will	utility	utility	2	2		tagged	0	0	-		0	0
+Zurgo Bellstriker	threat	threat	1	1		derived	0	0	-		0	0
+Crusade	utility	utility	2	2		derived	1	0	-		0	0
+Snow-Covered Wastes	land	land	0	0		derived	0	0	-		1	0
+Aberrant	spot	draw,spot,threat	4	2	{X} at X=2	tagged	0	0	-		0	0
+Brainsurge	draw	draw	3	3		tagged	0	0	-		0	0
+Keen-Eyed Curator	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Songbird, Sonic Screamer	threat	threat	2	2		derived	0	0	-		0	0
+Dragonweave Tapestry	mana	draw,mana	4	4		tagged	0	1	-		0	0
+Stormcarved Coast	land	land	0	0		derived	0	0	-		1	0
+Anticognition	counter	counter	2	2		tagged	0	0	-		0	0
+Akki Lavarunner // Tok-Tok, Volcano Born	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Sunspine Lynx	threat	burn,threat,utility	4	4		tagged	0	0	-		0	0
+Spellseeker	tutor	threat,tutor	3	3		tagged	0	0	-		0	0
+Flanking Troops	threat	threat	4	4		derived	0	0	-		0	0
+Blue Scarab	utility	utility	1	1		tagged	0	0	-		0	0
+Patron of the Arts	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Shield Broker	threat	threat	5	5		derived	0	0	-		0	0
+Ancestral Hot Dog Minotaur	utility	utility	0	0		tagged	0	0	-		0	0
+Aang and Katara	threat	threat	6	6		derived	0	0	-		0	0
+Mana Short	utility	utility	3	3		derived	1	0	-		0	0
+Aetherspouts	sweeper	spot,sweeper,utility	5	5		tagged	0	0	-		0	0
+Mystical Dispute	counter	counter,utility	3	3		tagged	0	0	-		0	0
+Cacophony Scamp	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Ojer Taq, Deepest Foundation // Temple of Civilization	mana	mana,threat	6	6		tagged	0	0	-		0	0
+Ire of Kaminari	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Blossoming Calm	utility	utility	1	1		derived	1	0	-		0	0
+Nazgûl	threat	threat	3	3		derived	0	0	-		0	0
+Abigale, Eloquent First-Year	threat	threat	2	2		derived	0	0	-		0	0
+Blessed Alliance	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Goblin Grappler	threat	threat	1	1		derived	0	0	-		0	0
+Accursed Duneyard	land	land,utility	0	0		tagged	0	0	-		1	0
+All of History, All at Once	utility	utility	4	4		derived	1	0	-		0	0
+Smuggler's Copter	threat	draw,threat	2	2		derived	0	1	-		0	0
+Waning Wurm	threat	threat	4	4		derived	0	0	-		0	0
+Riverglide Pathway // Lavaglide Pathway	land	land	0	0		derived	0	0	-		1	0
+Tectonic Edge	land	land,spot,utility	0	0		tagged	0	0	-		1	0
+Maze's End	land	land,threat,tutor	0	0		tagged	0	0	-		1	0
+Declaration in Stone	spot	spot	2	2		tagged	0	0	-		0	0
+Myr Prototype	threat	threat	5	5		derived	0	0	-		0	0
+Exotic Pets	threat	threat	3	3		derived	0	0	-		0	0
+Saberclaw Golem	threat	threat	5	5		derived	0	0	-		0	0
+Kemba, Kha Regent	threat	threat	3	3		derived	0	0	-		0	0
+Ardent Plea	utility	utility	3	3		derived	1	0	-		0	0
+Dion, Bahamut's Dominant // Bahamut, Warden of Light	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Filigree Angel	threat	threat	8	8		derived	0	0	-		0	0
+Keldon Battlewagon	threat	threat	5	5		derived	0	0	-		0	0
+Ajani's Anguish	spot	burn,spot	3	1	{X} at X=2	tagged	0	0	-		0	0
+Broken Ambitions	counter	counter	3	1	{X} at X=2	tagged	0	0	-		0	0
+The Ur-Sphinx	threat	threat	9	9		derived	0	0	-		0	0
+Auntie Flint	threat	threat	3	3		derived	0	0	-		0	0
+Thranduil, the Elvenking	threat	draw,threat	5	5		tagged	0	1	-		0	0
+Global Ruin	sweeper	spot,sweeper,utility	5	5		tagged	0	0	-		0	0
+Depopulate	sweeper	draw,spot,sweeper	4	4		tagged	0	0	-		0	0
+Sea Gate Restoration // Sea Gate, Reborn	draw	draw	7	7		tagged	0	0	-		0	1
+Fight On!	recursion	recursion	3	3		tagged	0	0	-		0	0
+Eladamri's Call	tutor	tutor	2	2		tagged	0	0	-		0	0
+Brackish Blunder	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Start // Finish	spot	spot,threat	3	6	Start costs 3	tagged	0	0	-		0	0
+Ghost Lantern // Bind Spirit	recursion	recursion	1	1		tagged	0	0	-		0	0
+Venerated Stormsinger	threat	threat	4	4		derived	0	0	-		0	0
+Underground Sea	land	land	0	0		derived	0	0	-		1	0
+Akki Ronin	threat	draw,threat	2	2		derived	0	1	-		0	0
+Sphinx of Uthuun	threat	draw,threat	7	7		derived	0	0	-		0	0
+Thunder of Hooves	sweeper	burn,spot,sweeper	4	4		tagged	0	0	-		0	0
+Walking Ballista	spot	burn,spot,threat	4	0	{X} at X=2 (×2)	tagged	0	0	-		0	0
+Arcane Subtraction	spot	spot	2	2		derived	0	0	-		0	0
+Slithermuse	threat	draw,threat	4	4		tagged	0	0	-		0	0
+The Wasp, Winsome Avenger	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Deadpool, Trading Card	threat	draw,threat	4	4		tagged	0	0	-		0	0
+Nexos	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Dreadhorde Arcanist	threat	threat	2	2		derived	0	0	-		0	0
+Talisman of Dominance	mana	mana	2	2		tagged	0	0	-		0	0
+Urza's Saga	land	land,tutor	0	0		tagged	0	0	-		1	0
+Consider	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Burly Breaker // Dire-Strain Demolisher	threat	threat	5	5		derived	0	0	-		0	0
+Flare of Malice	spot	spot,utility	0	4	free alternative cost	tagged	0	0	-		0	0
+Last Stand	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Ashnod's Coupon	utility	utility	0	0		derived	1	0	-		0	0
+Fireblade Charger	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Gladehart Cavalry	threat	threat	7	7		derived	0	0	-		0	0
+Robber of the Rich	threat	threat	2	2		derived	0	0	-		0	0
+A Golden Opportunity	ritual	draw,mana,ritual	3	3		tagged	0	0	-		0	0
+Unearth	recursion	draw,recursion	1	1		tagged	0	0	-		0	0
+Aura Blast	spot	cantrip,spot	2	2		tagged	0	0	-		0	0
+_____	threat	threat	2	2		derived	0	0	-		0	0
+Snapsail Rider	threat	threat	5	5		derived	0	0	-		0	0
+Avalanche of Sector 7	threat	burn,threat,utility	3	3		tagged	0	0	-		0	0
+Farewell	sweeper	spot,sweeper,utility	6	6		tagged	0	0	-		0	0
+Giver of Runes	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Ghost Vacuum	utility	recursion,utility	1	1		override	0	0	-		0	0
+Barrier of Bones	threat	cantrip,threat	1	1		derived	0	0	-		0	0
+Baneblade Scoundrel // Baneclaw Marauder	spot	spot,threat,utility	4	4		tagged	0	0	-		0	0
+Kavaron, Memorial World	land	land	0	0		derived	0	0	-		1	0
+Pictures of Spider-Man	mana	mana	3	3		tagged	0	0	-		0	0
+Begin the Invasion	tutor	tutor	7	5	{X} at X=2	tagged	0	0	-		0	0
+Angelic Harold	threat	threat	3	3		derived	0	0	-		0	0
+Flare of Fortitude	utility	utility	0	4	free alternative cost	tagged	0	0	-		0	0
+Graven Cairns	land	land	0	0		derived	0	0	-		1	0
+Lion Sash	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Goblin Slingshot	utility	utility	0	0		derived	1	0	-		0	0
+Genevieve, Conniving Dragon	mana	mana,threat	5	5		tagged	0	0	-		0	0
+Orazca Raptor	threat	threat	4	4		derived	0	0	-		0	0
+Sunken Citadel	land	land,mana	0	0		tagged	0	0	-		1	0
+Black Lotus	ritual	mana,ritual	0	0		tagged	0	0	-		0	0
+Earthcraft	mana	mana	2	2		tagged	0	0	-		0	0
+Ace, Fearless Rebel	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Knight of Sorrows	threat	threat	5	5		derived	0	0	-		0	0
+Age of Ultron	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Riverpyre Verge	land	land	0	0		derived	0	0	-		1	0
+Adriana's Valor	utility	utility	0	0		tagged	0	0	-		0	0
+Overgrown Zealot	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Abomination of Llanowar	threat	threat	3	3		derived	0	0	-		0	0
+Cursed Scroll	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Kjeldoran Pride	utility	utility	2	2		derived	1	0	-		0	0
+Goblin Bookie	threat	threat	1	1		derived	0	0	-		0	0
+Sphinx of the Second Sun	threat	draw,threat	8	8		tagged	0	0	-		0	0
+Breakneck Rider // Neck Breaker	threat	threat	3	3		derived	0	0	-		0	0
+Oblivion's Hunger	cantrip	cantrip,utility	2	2		tagged	0	0	-		0	0
+Elfhame Druid	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Blink of an Eye	spot	cantrip,spot	2	2		tagged	0	0	-		0	0
+Goblin Guide	threat	threat	1	1		derived	0	0	-		0	0
+White Plume Adventurer	threat	threat	3	3		derived	0	0	-		0	0
+Bone Rattler	threat	threat	5	5		derived	0	0	-		0	0
+Fiery Emancipation	utility	utility	6	6		derived	1	0	-		0	0
+Spaghetti Junction	land	land	0	0		derived	0	0	-		1	0
+The Immortal Sun	mana	draw,mana,utility	6	6		tagged	0	0	-		0	0
+Mothdust Changeling	threat	threat	1	1		derived	0	0	-		0	0
+Grasping Shadows // Shadows' Lair	mana	draw,mana	4	4		tagged	0	0	-		0	0
+Get Lost	spot	spot	2	2		tagged	0	0	-		0	0
+Afflicted Deserter // Werewolf Ransacker	spot	burn,spot,threat	4	4		tagged	0	0	-		0	0
+Detective's Phoenix	threat	threat	3	3		tagged	0	0	-		0	0
+Memnarch	spot	mana,spot,threat	7	7		tagged	0	0	-		0	0
+Beluna's Gatekeeper // Entry Denied	spot	spot,threat	2	6	Entry Denied costs 2	tagged	0	0	-		0	0
+Curious Inquiry	utility	utility	1	1		derived	1	0	-		0	0
+Chandra, Hope's Beacon	threat	burn,draw,mana,spot,threat	6	6		tagged	0	1	-		0	0
+Prairie Stream	land	land	0	0		derived	0	0	-		1	0
+Fade from History	sweeper	spot,sweeper	4	4		tagged	0	0	-		0	0
+Adaptive Automaton	threat	threat	3	3		derived	0	0	-		0	0
+Bazaar of Baghdad	land	land	0	0		derived	0	0	-		1	0
+Goblin Mutant	threat	threat	4	4		derived	0	0	-		0	0
+Primal Beyond	land	land	0	0		derived	0	0	-		1	0
+Zombie Master	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Kitchen Finks	threat	threat	3	3		derived	0	0	-		0	0
+Terra, Magical Adept // Esper Terra	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Last Voyage of the _____	recursion	recursion	4	4		tagged	0	0	-		0	0
+Mirrex	land	land	0	0		derived	0	0	-		1	0
+Ancestral Recall	draw	draw	1	1		tagged	0	0	-		0	0
+Plumes of Peace	spot	spot	3	3		tagged	0	0	-		0	0
+Riveteers Overlook	land	land,tutor	0	0		tagged	0	0	-		1	0
+Calamitous Cave-In	sweeper	burn,spot,sweeper	4	4		tagged	0	0	-		0	0
+Hydra's Growth	utility	utility	3	3		derived	1	0	-		0	0
+Azlask, the Swelling Scourge	spot	spot,threat,utility	3	3		tagged	0	0	-		0	0
+Secrets of the Key	draw	draw	1	1		tagged	0	0	-		0	0
+Aquamoeba	threat	threat	2	2		derived	0	0	-		0	0
+Agadeem's Awakening // Agadeem, the Undercrypt	recursion	recursion	5	3	{X} at X=2	tagged	0	0	-		0	1
+Magitek Infantry	tutor	threat,tutor	1	1		tagged	0	0	-		0	0
+Swamp	land	land	0	0		derived	0	0	-		1	0
+Elminster	threat	draw,threat	5	5		tagged	0	1	-		0	0
+Turn to Dust	ritual	ritual,spot	1	1		tagged	0	0	-		0	0
+Serum Visions	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Acorn Catapult	spot	burn,spot	4	4		tagged	0	0	-		0	0
+______	land	land	0	0		derived	0	0	-		1	0
+Hydroelectric Specimen // Hydroelectric Laboratory	threat	threat,utility	3	3		tagged	0	0	-		0	1
+Battle Squadron	threat	threat	5	5		derived	0	0	-		0	0
+Alive // Well	threat	threat	1	5	Well costs 1	derived	0	0	-		0	0
+Bring the Ending	counter	counter	2	2		tagged	0	0	-		0	0
+Champions from Beyond	threat	draw,threat	3	2	{X} at X=1	tagged	0	1	-		0	0
+Raph & Leo, Sibling Rivals	threat	threat	3	3		derived	0	0	-		0	0
+Shattered Acolyte	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Obliterating Bolt	spot	burn,spot	2	2		tagged	0	0	-		0	0
+General Thunderbolt Ross	threat	threat	1	1		derived	0	0	-		0	0
+Kobold Overlord	threat	threat	2	2		derived	0	0	-		0	0
+Unclaimed Territory	land	land	0	0		derived	0	0	-		1	0
+Rograkh, Son of Rohgahh	threat	threat	0	0		derived	0	0	-		0	0
+Reckless Impulse	draw	draw	2	2		tagged	0	0	-		0	0
+Quantum Riddler	threat	cantrip,threat	2	5	warp {1}{U}	tagged	0	0	-		0	0
+Exorcise	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Dori, Bearer of Friends	threat	threat	3	3		derived	0	0	-		0	0
+Gifts Ungiven	tutor	tutor	4	4		tagged	0	0	-		0	0
+Golden Guardian // Gold-Forge Garrison	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Bird Admirer // Wing Shredder	threat	threat	3	3		derived	0	0	-		0	0
+Into the Night	utility	utility	4	4		derived	1	0	-		0	0
+Wolf in _____ Clothing	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Flamecast Wheel	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Karakas	land	land,spot,utility	0	0		tagged	0	0	-		1	0
+Mishra's Factory	land	land	0	0		derived	0	0	-		1	0
+Emeritus of Conflict // Lightning Bolt	spot	burn,spot,threat	2	2		tagged	0	0	-		0	0
+Ephara, God of the Polis	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Horizon of Progress	land	draw,land,mana	0	0		tagged	0	0	-		1	0
+Barkchannel Pathway // Tidechannel Pathway	land	land	0	0		derived	0	0	-		1	0
+Ruination	sweeper	spot,sweeper,utility	4	4		tagged	0	0	-		0	0
+Slivdrazi Monstrosity	mana	mana,threat	6	6		tagged	0	0	-		0	0
+Forfend	utility	utility	2	2		derived	1	0	-		0	0
+Defy Gravity	utility	utility	1	1		derived	1	0	-		0	0
+Boss's Chauffeur	threat	threat	5	5		derived	0	0	-		0	0
+Molten Blast	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Abandoned Outpost	land	land	0	0		derived	0	0	-		1	0
+Battle of Frost and Fire	sweeper	burn,spot,sweeper	5	5		tagged	0	0	-		0	0
+Pym Technologies	land	land	0	0		derived	0	0	-		1	0
+Angelic Ascension	spot	spot	2	2		tagged	0	0	-		0	0
+Akki Avalanchers	threat	threat	1	1		derived	0	0	-		0	0
+Mordenkainen's Polymorph	utility	utility	2	2		derived	1	0	-		0	0
+Sundown Pass	land	land	0	0		derived	0	0	-		1	0
+Fall of the Gavel	counter	counter	5	5		tagged	0	0	-		0	0
+Mishra	utility	utility	0	0		derived	1	0	-		0	0
+Blackcleave Cliffs	land	land	0	0		derived	0	0	-		1	0
+Amy's Home	utility	utility	0	0		derived	1	0	-		0	0
+Snow-Covered Island	land	land	0	0		derived	0	0	-		1	0
+Mirkwood Elk	recursion	recursion,threat	6	6		tagged	0	0	-		0	0
+Dovin Baan	threat	draw,threat,utility	4	4		tagged	0	1	-		0	0
+Sphinx of the Guildpact	threat	threat,utility	7	7		tagged	0	0	-		0	0
+Emberheart Challenger	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Treasure Cruise	draw	draw	2	8	delve with 6 cards in the yard	tagged	0	0	-		0	0
+Windmill Farm	mana	mana	0	0		tagged	0	0	-		0	0
+Apocalypse Demon	threat	threat	6	6		derived	0	0	-		0	0
+Beck // Call	threat	cantrip,threat	2	8	Beck costs 2	tagged	0	0	-		0	0
+Teapot Slinger	threat	burn,threat	4	4		tagged	0	0	-		0	0
+Reckless Brute	threat	threat	3	3		derived	0	0	-		0	0
+Toralf's Disciple	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Formidable Speaker	tutor	threat,tutor	3	3		tagged	0	0	-		0	0
+Voldaren Stinger	threat	threat	1	1		derived	0	0	-		0	0
+Akki Battle Squad	threat	threat	6	6		derived	0	0	-		0	0
+Dragon-Cursed Halls	land	land	0	0		derived	0	0	-		1	0
+Energy Bolt	burn	burn	4	2	{X} at X=2	tagged	0	0	-		0	0
+Crescendo Conductor // Boltwave	threat	burn,threat	2	2		tagged	0	0	-		0	0
+Temporal Mastery	threat	threat	7	7		tagged	0	0	2	miracle {1}{U}	0	0
+Dismiss	counter	counter,draw	4	4		tagged	0	0	-		0	0
+Voice of Resurgence	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Butcher's Cleaver	utility	utility	3	3		derived	1	0	-		0	0
+Storm the Festival	mana	mana	6	6		tagged	0	0	-		0	0
+Nezumi Linkbreaker	threat	threat	1	1		derived	0	0	-		0	0
+Hellish Rebuke	spot	spot	3	3		tagged	0	0	-		0	0
+Swift Reconfiguration	spot	spot	1	1		tagged	0	0	-		0	0
+Tranquil Cove	land	land	0	0		derived	0	0	-		1	0
+Phelia, Exuberant Shepherd	threat	threat	2	2		derived	0	0	-		0	0
+Voracious Greatshark	counter	counter,threat	5	5		tagged	0	0	-		0	0
+Razorgrass Ambush // Razorgrass Field	spot	burn,spot,utility	2	2		tagged	0	0	-		0	1
+Esper Sentinel	threat	draw,threat,utility	1	1		tagged	0	1	-		0	0
+Windreader Sphinx	threat	draw,threat,utility	7	7		tagged	0	1	-		0	0
+Bell Borca, Spectral Sergeant	threat	draw,threat	4	4		tagged	0	0	-		0	0
+Better Offer	utility	utility	3	1	{X} at X=2	derived	1	0	-		0	0
+Bloodfire Enforcers	threat	threat	4	4		derived	0	0	-		0	0
+Portable Hole	spot	spot	1	1		tagged	0	0	-		0	0
+Disorder in the Court	draw	draw,utility	4	2	{X} at X=2	tagged	0	0	-		0	0
+Seasoned Dungeoneer	threat	threat	4	4		derived	0	0	-		0	0
+Shorecrasher Elemental	threat	threat	3	3		derived	0	0	-		0	0
+Brushland	land	land	0	0		derived	0	0	-		1	0
+Scavenger Grounds	land	land,utility	0	0		tagged	0	0	-		1	0
+Boros Reckoner	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Snow-Covered Forest	land	land	0	0		derived	0	0	-		1	0
+Teferi, Temporal Pilgrim	threat	draw,spot,sweeper,threat	5	5		tagged	0	1	-		0	0
+Make Disappear	counter	counter	2	2		tagged	0	0	-		0	0
+Gwen Stacy // Ghost-Spider	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Flamescroll Celebrant // Revel in Silence	threat	burn,threat,utility	2	2		tagged	0	0	-		0	0
+Scholar of the Lost Trove	recursion	recursion,threat	7	7		tagged	0	0	-		0	0
+Annex	mana	mana	4	4		tagged	0	0	-		0	0
+Circle of Protection: White	utility	utility	2	2		tagged	0	0	-		0	0
+Fight the _____ Fight	spot	spot	2	2		tagged	0	0	-		0	0
+Topiary Lecturer	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Wall of Omens	threat	cantrip,threat	2	2		tagged	0	0	-		0	0
+Awaken the Honored Dead	spot	recursion,spot	3	3		tagged	0	0	-		0	0
+Kjeldoran Home Guard	threat	threat	4	4		derived	0	0	-		0	0
+HULK SMASH!	spot	spot	2	2		tagged	0	0	-		0	0
+Ancient Stone Idol	threat	threat,utility	10	10		tagged	0	0	-		0	0
+Leadership Vacuum	spot	draw,spot,utility	3	3		tagged	0	0	-		0	0
+Your Mana Rock	mana	mana	2	2		tagged	0	0	-		0	0
+Clarion Ultimatum	mana	mana,tutor	7	7		tagged	0	0	-		0	0
+Fearful Villager // Fearsome Werewolf	threat	threat	3	3		derived	0	0	-		0	0
+Carrot Cake	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Skyshroud Lookout	threat	threat	2	2		derived	0	0	-		0	0
+Play with Fire	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Vinebred Brawler	threat	threat	3	3		derived	0	0	-		0	0
+Troublesome Spirit	threat	threat	4	4		derived	0	0	-		0	0
+Cosmos Charger	threat	threat	4	4		derived	0	0	-		0	0
+Prowler's Helm	utility	utility	2	2		tagged	0	0	-		0	0
+Mother of Runes	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Quick-Draw Katana	utility	utility	2	2		derived	1	0	-		0	0
+Bolt Hound	threat	threat	3	3		derived	0	0	-		0	0
+Nissa, Leyline Tamer	threat	draw,threat	7	7		tagged	0	1	-		0	0
+Enchanted Prairie	land	land	0	0		derived	0	0	-		1	0
+Soul Salvage	recursion	recursion	3	3		tagged	0	0	-		0	0
+Gut, True Soul Zealot	threat	threat	3	3		derived	0	0	-		0	0
+Mordor on the March	recursion	recursion	5	5		tagged	0	0	-		0	0
+Meeting of the Five	ritual	draw,mana,ritual	8	8		tagged	0	0	-		0	0
+Brigid, Clachan's Heart // Brigid, Doun's Mind	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Planar Disruption	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Blue Sun's Zenith	draw	draw	5	3	{X} at X=2	tagged	0	0	-		0	0
+Grim Wanderer	threat	threat	2	2		derived	0	0	-		0	0
+Dreamcatcher	threat	draw,threat	1	1		tagged	0	1	-		0	0
+Thwart	counter	counter	0	4	free alternative cost	tagged	0	0	-		0	0
+Crystal Vein	land	land,mana	0	0		tagged	0	0	-		1	0
+Abstruse Appropriation	spot	spot	4	4		tagged	0	0	-		0	0
+Wirewood Guardian	tutor	threat,tutor	7	7		tagged	0	0	-		0	0
+Wooded Bastion	land	land	0	0		derived	0	0	-		1	0
+Aether Hub	land	land	0	0		derived	0	0	-		1	0
+Keep Out	spot	burn,spot,utility	2	2		tagged	0	0	-		0	0
+Inspired Sphinx	threat	draw,threat	7	7		tagged	0	0	-		0	0
+Avenger en-Dal	spot	spot,threat,utility	2	2		tagged	0	0	-		0	0
+The Underworld Fantasy Queen	threat	draw,threat	3	3		derived	0	1	-		0	0
+Oloro, Ageless Ascetic	threat	draw,threat	6	6		tagged	0	1	-		0	0
+Terminate	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Arcus Acolyte	threat	threat	2	2		derived	0	0	-		0	0
+Nick Fury, Agent of S.H.I.E.L.D.	threat	cantrip,threat	1	1		derived	0	0	-		0	0
+Kargan Warleader	threat	threat	3	3		derived	0	0	-		0	0
+Dragonskull Summit	land	land	0	0		derived	0	0	-		1	0
+Heart of Light	utility	utility	3	3		derived	1	0	-		0	0
+Elixir of Vitality	utility	utility	4	4		derived	1	0	-		0	0
+Gunk Slug	threat	threat	3	3		derived	0	0	-		0	0
+Uvilda, Dean of Perfection // Nassari, Dean of Expression	threat	threat	3	3		derived	0	0	-		0	0
+Soratami Rainshaper	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Alania, Divergent Storm	threat	draw,threat	5	5		derived	0	1	-		0	0
+Chaos Is My Plaything	spot	spot	0	0		tagged	0	0	-		0	0
+Arena of Glory	land	land	0	0		derived	0	0	-		1	0
+Wary Farmer	threat	draw,threat	3	3		derived	0	0	-		0	0
+Prudent Fateseer // Peer Review	threat	threat	3	3		derived	0	0	-		0	0
+Savra, Queen of the Golgari	spot	spot,threat,utility	4	4		tagged	0	0	-		0	0
+Teysa Karlov	threat	threat	4	4		derived	0	0	-		0	0
+Glistening Oil	utility	utility	2	2		tagged	0	0	-		0	0
+Aang's Iceberg	spot	spot,utility	3	3		tagged	0	0	-		0	0
+Geier Reach Bandit // Vildin-Pack Alpha	threat	threat	3	3		derived	0	0	-		0	0
+Cloudskate	threat	threat	2	2		derived	0	0	-		0	0
+Timely Reinforcements	threat	threat	3	3		derived	0	0	-		0	0
+Glóin the Mighty // Easy Pickings	sweeper	burn,mana,spot,sweeper,threat	3	4	Easy Pickings costs 3	tagged	0	0	-		0	0
+Aesi, Tyrant of Gyre Strait	mana	draw,mana,threat	6	6		tagged	0	1	-		0	0
+Rite of Renewal	recursion	recursion,utility	4	4		tagged	0	0	-		0	0
+Overlord of the Balemurk	recursion	recursion,threat	5	5		tagged	0	0	-		0	0
+Haldir, Lórien Lieutenant	threat	threat	3	1	{X} at X=2	derived	0	0	-		0	0
+Zhur-Taa Ancient	mana	mana,threat	5	5		tagged	0	0	-		0	0
+Wandering Archaic // Explore the Vastlands	threat	threat,utility	3	5	Explore the Vastlands costs 3	tagged	0	0	-		0	0
+Frenzied Raptor	threat	threat	3	3		derived	0	0	-		0	0
+Sunset Revelry	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Wooded Foothills	land	land,tutor	0	0		tagged	0	0	-		1	0
+Altanak, the Thrice-Called	mana	draw,mana,recursion,threat	7	7		tagged	0	1	-		0	0
+Skullclamp	draw	draw	1	1		tagged	0	1	-		0	0
+Demonic Attorney	utility	utility	3	3		derived	1	0	-		0	0
+Chromatic Armor	utility	utility	3	3		tagged	0	0	-		0	0
+Blue Elemental Blast	counter	counter,spot,utility	1	1		tagged	0	0	-		0	0
+Chamber Sentry	spot	burn,spot,threat	2	0	{X} at X=2	tagged	0	0	-		0	0
+Infectious Inquiry	draw	draw	3	3		tagged	0	0	-		0	0
+Twinblade Assassins	threat	draw,threat	5	5		tagged	0	1	-		0	0
+Dream Trawler	threat	draw,threat	6	6		tagged	0	1	-		0	0
+Allay	spot	spot	2	2		tagged	0	0	-		0	0
+Butcher Orgg	spot	spot,threat	7	7		derived	0	0	-		0	0
+Crypt Angel	recursion	recursion,threat,utility	5	5		tagged	0	0	-		0	0
+Steel Leaf Champion	threat	threat	3	3		derived	0	0	-		0	0
+Shadow Rift	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Tax Collector	threat	threat	2	2		derived	0	0	-		0	0
+Arahbo, Roar of the World	threat	threat	5	5		derived	0	0	-		0	0
+Fog on the Barrow-Downs	spot	spot	3	3		tagged	0	0	-		0	0
+Lórien Revealed	tutor	draw,tutor	5	5		tagged	0	0	-		0	0
+Minion Missile	spot	burn,spot	2	2		tagged	0	0	-		0	0
+On Thin Ice	spot	spot	1	1		tagged	0	0	-		0	0
+Beast of Burden	threat	threat	6	6		derived	0	0	-		0	0
+Wall of Torches	threat	threat	2	2		derived	0	0	-		0	0
+Kozilek's Translator	mana	mana,threat	5	5		tagged	0	0	-		0	0
+Amzu, Swarm's Hunger	threat	threat	5	5		derived	0	0	-		0	0
+Anchor to Reality	tutor	tutor	4	4		tagged	0	0	-		0	0
+Chord of Calling	tutor	tutor	5	3	{X} at X=2	tagged	0	0	-		0	0
+Roil Eruption	spot	burn,spot	2	2		tagged	0	0	-		0	0
+Codie, Vociferous Codex	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Ascending Aven	threat	threat	4	4		derived	0	0	-		0	0
+Stromkirk Condemned	threat	threat	2	2		derived	0	0	-		0	0
+Verdant Catacombs	land	land,tutor	0	0		tagged	0	0	-		1	0
+Duty Beyond Death	utility	utility	2	2		tagged	0	0	-		0	0
+Reflecting Pool	land	land	0	0		derived	0	0	-		1	0
+Littjara Kinseekers	threat	draw,threat	4	4		derived	0	0	-		0	0
+Magus of the Moon	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Alert Heedbonder	threat	threat	3	3		derived	0	0	-		0	0
+Reborn Hope	recursion	recursion	2	2		tagged	0	0	-		0	0
+Golgari Grave-Troll	threat	threat	5	5		tagged	0	0	-		0	0
+Verdant Touch	utility	utility	2	2		derived	1	0	-		0	0
+Guildmark	mana	mana	2	2		tagged	0	0	-		0	0
+Llanowar Elves	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Bleeding Effect	utility	utility	4	4		tagged	0	0	-		0	0
+Anax and Cymede & Kynaios and Tiro	mana	draw,mana,threat	5	5		tagged	0	1	-		0	0
+Dire Fleet Captain	threat	threat	2	2		derived	0	0	-		0	0
+Laquatus's Disdain	counter	cantrip,counter,utility	2	2		tagged	0	0	-		0	0
+Chromanticore	threat	threat	5	5		tagged	0	0	-		0	0
+Busted!	counter	counter	2	2		tagged	0	0	-		0	0
+Ao, the Dawn Sky	threat	draw,threat	5	5		derived	0	0	-		0	0
+Dockside Extortionist	mana	mana,threat,utility	2	2		tagged	0	0	-		0	0
+Finale of Devastation	tutor	recursion,tutor	4	2	{X} at X=2	tagged	0	0	-		0	0
+Bleak Coven Vampires	threat	threat	5	5		derived	0	0	-		0	0
+Woodland Mystic	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Bogardan Hellkite	spot	burn,spot,threat	8	8		tagged	0	0	-		0	0
+Archway Commons	land	land	0	0		derived	0	0	-		1	0
+Alberix, the Trade Planet	utility	utility	4	4		derived	1	0	-		0	0
+Killing Wave	sweeper	spot,sweeper	3	1	{X} at X=2	tagged	0	0	-		0	0
+Spymaster's Vault	land	land	0	0		derived	0	0	-		1	0
+Sphinx Ambassador	tutor	threat,tutor	7	7		tagged	0	0	-		0	0
+Relic Runner	threat	threat	2	2		derived	0	0	-		0	0
+Secluded Starforge	land	land	0	0		derived	0	0	-		1	0
+Inkrise Infiltrator	threat	threat	2	2		derived	0	0	-		0	0
+Flame-Blessed Bolt	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Sulfur Falls	land	land	0	0		derived	0	0	-		1	0
+Roving Keep	threat	threat	7	7		derived	0	0	-		0	0
+Axgard Cavalry	threat	threat	2	2		derived	0	0	-		0	0
+Ceremonious Rejection	counter	counter,utility	1	1		tagged	0	0	-		0	0
+Sol Ring	mana	mana	1	1		tagged	0	0	-		0	0
+Lily Bowen, Raging Grandma	threat	threat	4	4		derived	0	0	-		0	0
+Mutavault	land	land	0	0		derived	0	0	-		1	0
+Banishing Betrayal	spot	spot	2	2		tagged	0	0	-		0	0
+Arrester's Zeal	utility	utility	1	1		derived	1	0	-		0	0
+Space Marine Scout	mana	mana,threat,tutor	3	3		tagged	0	0	-		0	0
+Ancient Crab	threat	threat	3	3		derived	0	0	-		0	0
+Aerial Predation	spot	spot,utility	3	3		tagged	0	0	-		0	0
+Umara Wizard // Umara Skyfalls	threat	threat	5	5		derived	0	0	-		0	1
+Earsplitting Rats	discard	discard,threat	4	4		derived	0	0	-		0	0
+Talisman of Conviction	mana	mana	2	2		tagged	0	0	-		0	0
+Wildvine Pummeler	threat	threat	7	7		derived	0	0	-		0	0
+Assembled Ensemble	threat	threat	5	5		derived	0	0	-		0	0
+Ekundu Cyclops	threat	threat	4	4		derived	0	0	-		0	0
+Essence Warden	threat	threat	1	1		derived	0	0	-		0	0
+Serene Offering	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Chrome Prowler	threat	threat	3	3		derived	0	0	-		0	0
+Hermit of the Natterknolls // Lone Wolf of the Natterknolls	threat	draw,threat,utility	3	3		tagged	0	1	-		0	0
+Call for Aid	utility	utility	5	5		derived	1	0	-		0	0
+Dispel	counter	counter	1	1		tagged	0	0	-		0	0
+Backslide	draw	draw,utility	2	2		tagged	0	0	-		0	0
+Dwarven Grunt	threat	threat	1	1		derived	0	0	-		0	0
+Dovin's Dismissal	spot	spot,utility	4	4		tagged	0	0	-		0	0
+Stoic Rebuttal	counter	counter	3	3		tagged	0	0	-		0	0
+Hildibrand Manderville // Gentleman's Rise	threat	threat	2	2		derived	0	0	-		0	0
+Connive // Concoct	recursion	recursion,utility	4	9	Connive costs 4	tagged	0	0	-		0	0
+Valentin, Dean of the Vein // Lisette, Dean of the Root	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Forbid	counter	counter	3	3		tagged	0	0	-		0	0
+Greater Basilisk	threat	threat	5	5		derived	0	0	-		0	0
+Demon Bolt	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Warden of the Beyond	threat	threat	3	3		derived	0	0	-		0	0
+Emeria's Call // Emeria, Shattered Skyclave	threat	threat,utility	7	7		tagged	0	0	-		0	1
+Jhessian Infiltrator	threat	threat	2	2		derived	0	0	-		0	0
+Backup Plan	utility	utility	0	0		derived	1	0	-		0	0
+Banishing Knack	spot	spot	1	1		tagged	0	0	-		0	0
+Prizefighter Construct	threat	threat	5	5		derived	0	0	-		0	0
+Triumph of Saint Katherine	threat	threat	5	5		derived	0	0	2	miracle {1}{W}	0	0
+Enigma Sphinx	threat	threat	7	7		derived	0	0	-		0	0
+Electrostatic Bolt	spot	burn,spot,utility	1	1		tagged	0	0	-		0	0
+Clockwork Hydra	spot	burn,spot,threat	5	5		tagged	0	0	-		0	0
+Gogo, Mysterious Mime	threat	threat	4	4		derived	0	0	-		0	0
+Sephiroth, Fabled SOLDIER // Sephiroth, One-Winged Angel	threat	draw,threat	3	3		tagged	0	1	-		0	0
+Naya Sojourners	threat	draw,threat	5	5		tagged	0	0	-		0	0
+Savannah	land	land	0	0		derived	0	0	-		1	0
+Daze	counter	counter	0	2	free alternative cost	tagged	0	0	-		0	0
+Dwarven Mauler	threat	threat	1	1		derived	0	0	-		0	0
+Wild Growth	mana	mana	1	1		tagged	0	0	-		0	0
+Burrenton Forge-Tender	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Adagia, Windswept Bastion	land	land	0	0		derived	0	0	-		1	0
+Child of Alara	sweeper	spot,sweeper,threat,utility	5	5		tagged	0	0	-		0	0
+Reality Shift	spot	spot	2	2		tagged	0	0	-		0	0
+Thirst for Meaning	draw	draw	3	3		tagged	0	0	-		0	0
+Kain, Traitorous Dragoon	threat	draw,threat	3	3		tagged	0	0	-		0	0
+Deadshot	spot	spot,utility	4	4		tagged	0	0	-		0	0
+Opt	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Ethersworn Sphinx	threat	threat	9	9		derived	0	0	-		0	0
+Heirs of Stromkirk	threat	threat	4	4		derived	0	0	-		0	0
+Candlelight Vigil	utility	utility	4	4		derived	1	0	-		0	0
+Turnabout	ritual	ritual,utility	4	4		tagged	0	0	-		0	0
+Accident-Prone Apprentice // Amphibian Accident	threat	threat	2	2		derived	0	0	-		0	0
+Baxter Building	land	draw,land	0	0		tagged	0	0	-		1	0
+Richlau, Headmaster	threat	threat	3	3		derived	0	0	-		0	0
+Fantastic Bounce	spot	draw,spot,utility	4	4		tagged	0	0	-		0	0
+Sphinx's Revelation	draw	draw	5	3	{X} at X=2	tagged	0	0	-		0	0
+Naya Panorama	land	land,tutor	0	0		tagged	0	0	-		1	0
+Sidisi, Regent of the Mire	recursion	recursion,threat	2	2		tagged	0	0	-		0	0
+Vulshok Refugee	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Argent Sphinx	threat	threat	4	4		derived	0	0	-		0	0
+Splendid Genesis	utility	utility	4	4		derived	1	0	-		0	0
+Dakmor Bat	threat	threat	2	2		derived	0	0	-		0	0
+Marionette Apprentice	threat	threat	2	2		derived	0	0	-		0	0
+Gut, Furious Fanatic	threat	threat	7	7		derived	0	0	-		0	0
+Dragon Engine	threat	threat	3	3		derived	0	0	-		0	0
+Cragcrown Pathway // Timbercrown Pathway	land	land	0	0		derived	0	0	-		1	0
+Boggart Trawler // Boggart Bog	threat	threat,utility	3	3		tagged	0	0	-		0	1
+Airship Crash	spot	draw,spot,utility	3	3		tagged	0	0	-		0	0
+Seal from Existence	spot	spot	3	3		tagged	0	0	-		0	0
+Avabruck Caretaker // Hollowhenge Huntmaster	threat	threat,utility	6	6		tagged	0	0	-		0	0
+Omniscience	utility	utility	10	10		derived	1	0	-		0	0
+Etched Oracle Avatar	utility	utility	0	0		derived	1	0	-		0	0
+Goliath Sphinx	threat	threat	7	7		derived	0	0	-		0	0
+Call the Scions	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Unnatural Growth	utility	utility	5	5		derived	1	0	-		0	0
+Cunning Nightbonder	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Cabal Coffers	land	land,mana	0	0		tagged	0	0	-		1	0
+Mana Vault	mana	mana	1	1		tagged	0	0	-		0	0
+Dragonloft Idol	threat	threat	4	4		derived	0	0	-		0	0
+Stone Drake	discard	discard,draw,threat	5	5		tagged	0	0	-		0	0
+Goblin Gaveleer	threat	threat	1	1		derived	0	0	-		0	0
+Amugaba	threat	threat	7	7		derived	0	0	-		0	0
+Weatherlight	threat	draw,threat	4	4		derived	0	1	-		0	0
+Sejiri Refuge	land	land	0	0		derived	0	0	-		1	0
+Burrog Befuddler	threat	threat	2	2		derived	0	0	-		0	0
+Cryptic Coat	utility	utility	3	3		derived	1	0	-		0	0
+Chalice of the Void	counter	counter	4	0	{X} at X=2 (×2)	tagged	0	0	-		0	0
+Rowdy Snowballers	threat	threat	3	3		derived	0	0	-		0	0
+Ancient Brontodon	threat	threat	8	8		derived	0	0	-		0	0
+Haywire Mite	spot	spot,threat	1	1		tagged	0	0	-		0	0
+Searing Blaze	spot	burn,spot	2	2		tagged	0	0	-		0	0
+Barrowgoyf	threat	threat	3	3		derived	0	0	-		0	0
+Turn to Frog	utility	utility	2	2		derived	1	0	-		0	0
+Slickshot Show-Off	threat	threat	2	2		derived	0	0	-		0	0
+Mana Drain	counter	counter,mana,ritual,utility	2	2		override	0	0	-		0	0
+Dwarven Mine	land	land	0	0		derived	0	0	-		1	0
+Darkpact	utility	utility	3	3		derived	1	0	-		0	0
+_____ _____ _____ Trespasser	threat	threat	2	2		derived	0	0	-		0	0
+Scattered Thoughts	draw	draw	4	4		derived	0	0	-		0	0
+Curate	cantrip	cantrip	2	2		tagged	0	0	-		0	0
+Raking Canopy	spot	burn,spot,utility	3	3		tagged	0	0	-		0	0
+Archmage's Newt	threat	threat	2	2		derived	0	0	-		0	0
+Disrupt	counter	cantrip,counter	1	1		tagged	0	0	-		0	0
+Rakdos Cackler	threat	threat	1	1		derived	0	0	-		0	0
+Sulfuric Vortex	burn	burn,utility	3	3		tagged	0	0	-		0	0
+Memnite	threat	threat	0	0		derived	0	0	-		0	0
+Gutterbones	threat	threat	1	1		tagged	0	0	-		0	0
+Feldon, Ronom Excavator	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Inspired Ultimatum	spot	burn,draw,spot	7	7		tagged	0	0	-		0	0
+Tannuk, Memorial Ensign	threat	burn,draw,threat	3	3		tagged	0	1	-		0	0
+Cataclysmic Prospecting	sweeper	burn,spot,sweeper	4	2	{X} at X=2	tagged	0	0	-		0	0
+Hithlain Rope	mana	draw,mana,tutor	2	2		tagged	0	1	-		0	0
+Senate Guildmage	threat	draw,threat	2	2		derived	0	1	-		0	0
+Skycloud Expanse	land	land	0	0		derived	0	0	-		1	0
+Divert Disaster	counter	counter,mana,tutor	2	2		tagged	0	0	-		0	0
+Vedalken Anatomist	spot	spot,threat	3	3		tagged	0	0	-		0	0
+Chaos Spewer	threat	threat	3	3		derived	0	0	-		0	0
+Emergency Phytomedic // Seed Suture	threat	threat	1	1		derived	0	0	-		0	0
+Twiddle	utility	utility	1	1		tagged	0	0	-		0	0
+Cathar Commando	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Return to Nature	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Shattering Pulse	spot	spot	2	2		tagged	0	0	-		0	0
+Kiss of the Amesha	draw	draw	6	6		tagged	0	0	-		0	0
+Ashling, the Limitless	threat	threat	3	3		derived	0	0	-		0	0
+Metamorphose	spot	spot	2	2		tagged	0	0	-		0	0
+Doom's Time Platform	spot	spot	4	4		derived	0	0	-		0	0
+Aladdin's Ring	spot	burn,spot	8	8		tagged	0	0	-		0	0
+Summoner's Pact	tutor	tutor	0	0		tagged	0	0	-		0	0
+Composite Golem	mana	mana,threat	6	6		tagged	0	0	-		0	0
+Wizards of the _____	threat	draw,threat	4	4		derived	0	0	-		0	0
+Kari Zev, Skyship Raider	threat	threat	2	2		derived	0	0	-		0	0
+Wydwen, the Biting Gale	threat	threat	4	4		derived	0	0	-		0	0
+Admonition Angel	spot	spot,threat	6	6		tagged	0	0	-		0	0
+Dragonsoul Prodigy	threat	threat	3	3		derived	0	0	-		0	0
+Noble Benefactor	tutor	threat,tutor	3	3		tagged	0	0	-		0	0
+Lava Storm	spot	burn,spot,utility	5	5		tagged	0	0	-		0	0
+Accelerate	cantrip	cantrip	2	2		tagged	0	0	-		0	0
+Touch of Invisibility	draw	draw	4	4		tagged	0	0	-		0	0
+Destroy the Evidence	spot	spot	5	5		tagged	0	0	-		0	0
+Zealot's Conviction	utility	utility	1	1		derived	1	0	-		0	0
+Sigiled Sentinel	threat	threat	3	3		derived	0	0	-		0	0
+Crowd's Favor	utility	utility	1	1		derived	1	0	-		0	0
+Diamond Faerie	threat	threat	5	5		derived	0	0	-		0	0
+Ichor Slick	spot	draw,spot,utility	3	3		tagged	0	0	-		0	0
+Mox Amber	mana	mana	0	0		tagged	0	0	-		0	0
+Serra's Emissary	threat	threat,utility	7	7		tagged	0	0	-		0	0
+Adverse Conditions	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Lure	spot	spot	3	3		tagged	0	0	-		0	0
+Wirewood Herald	tutor	threat,tutor	2	2		tagged	0	0	-		0	0
+Firebolt	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Zndrsplt's Judgment	spot	spot	5	5		tagged	0	0	-		0	0
+Urza's Dark Cannonball	utility	utility	0	0		derived	1	0	-		0	0
+Hana Kami	recursion	recursion,threat	1	1		tagged	0	0	-		0	0
+Chilling Trap	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Phyrexian Walker	threat	threat	0	0		derived	0	0	-		0	0
+Broken Concentration	counter	counter	3	3		tagged	0	0	-		0	0
+Vishgraz, the Doomhive	threat	threat	5	5		derived	0	0	-		0	0
+Chandra, Awakened Inferno	threat	burn,spot,sweeper,threat,utility	6	6		tagged	0	0	-		0	0
+The Massive Zatcatl	mana	draw,mana,threat	7	7		tagged	0	1	-		0	0
+Creepy Puppeteer	threat	threat	4	4		derived	0	0	-		0	0
+Serum Raker	discard	discard,threat	4	4		derived	0	0	-		0	0
+Quick Study	draw	draw	3	3		tagged	0	0	-		0	0
+Branchloft Pathway // Boulderloft Pathway	land	land	0	0		derived	0	0	-		1	0
+Temple of Malice	land	land	0	0		derived	0	0	-		1	0
+Arabella, Abandoned Doll	threat	burn,threat	2	2		tagged	0	0	-		0	0
+Hymn to the Ages	draw	draw	2	2		tagged	0	0	-		0	0
+Surrak Dragonclaw	threat	threat	5	5		derived	0	0	-		0	0
+Shifting Wall	threat	threat	2	0	{X} at X=2	derived	0	0	-		0	0
+Mirror Gallery	utility	utility	5	5		derived	1	0	-		0	0
+Aplan Mortarium	threat	threat	0	0		derived	0	0	-		0	0
+Arni Slays the Troll	spot	mana,spot	2	2		tagged	0	0	-		0	0
+Balshan Collaborator	threat	threat	4	4		derived	0	0	-		0	0
+Umezawa's Charm	spot	spot	2	2		tagged	0	0	-		0	0
+Wall of Vapor	threat	threat	4	4		derived	0	0	-		0	0
+Bringer of the Blue Dawn	threat	draw,threat	5	9	alternative cost {W}{U}{B}{R}{G}	tagged	0	1	-		0	0
+Truck Toss	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Ancient Brass Dragon	recursion	recursion,threat	7	7		tagged	0	0	-		0	0
+Intrepid Provisioner	threat	threat	4	4		derived	0	0	-		0	0
+Dimir Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Gwenna, Eyes of Gaea	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Stream of Unconsciousness	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Rakish Revelers	threat	threat	5	5		derived	0	0	-		0	0
+Curio Vendor	threat	threat	2	2		derived	0	0	-		0	0
+Faerie Artisans	sweeper	sweeper,threat	4	4		derived	0	0	-		0	0
+Dizzy Spell	tutor	tutor	1	1		tagged	0	0	-		0	0
+Farsight Ritual	draw	draw	4	4		derived	0	0	-		0	0
+The Animus	utility	utility	2	2		tagged	0	0	-		0	0
+Commodore Guff	threat	burn,draw,mana,threat	4	4		tagged	0	1	-		0	0
+Overlord of the Mistmoors	threat	threat	7	7		tagged	0	0	-		0	0
+Gut, Zealous Fanatic	threat	threat	7	7		derived	0	0	-		0	0
+Lovestruck Beast // Heart's Desire	threat	threat	1	3	Heart's Desire costs 1	derived	0	0	-		0	0
+Involuntary Employment	mana	mana	4	4		tagged	0	0	-		0	0
+Command Beacon	land	land	0	0		derived	0	0	-		1	0
+Dockbreacher	threat	draw,threat,utility	3	3		tagged	0	0	-		0	0
+Destined // Lead	utility	utility	2	6	Destined costs 2	tagged	0	0	-		0	0
+Eiganjo, Seat of the Empire	land	burn,land,spot,utility	0	0		tagged	0	0	-		1	0
+Guilded Lotus	mana	mana	5	5		tagged	0	0	-		0	0
+Nelly Borca, Impulsive Accuser	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Birth of the Imperium	spot	draw,spot,threat	5	5		tagged	0	0	-		0	0
+Loyal Apprentice	threat	threat	2	2		derived	0	0	-		0	0
+Haunted Cadaver	discard	discard,threat	4	4		tagged	0	0	-		0	0
+Geometer's Arthropod	threat	draw,threat	2	2		derived	0	1	-		0	0
+Ire Shaman	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Jace, the Mind Sculptor	threat	spot,threat	4	4		tagged	0	0	-		0	0
+Naming Screen	utility	utility	6	6		derived	1	0	-		0	0
+Auto-Key	spot	spot	0	0		tagged	0	0	-		0	0
+Murktide Regent	threat	threat	4	7	delve floor is 2 but a small Murktide is not a threat	override	0	0	-		0	0
+Magda, the Hoardmaster	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Stitcher's Supplier	threat	threat	1	1		derived	0	0	-		0	0
+Pyrogoyf	spot	burn,spot,threat	4	4		tagged	0	0	-		0	0
+Steel Seraph	threat	threat	6	6		derived	0	0	-		0	0
+You Will Know True Suffering	sweeper	burn,spot,sweeper	0	0		tagged	0	0	-		0	0
+Izoni, Center of the Web	threat	draw,threat	6	6		tagged	0	1	-		0	0
+Bane's Contingency	counter	counter,draw	3	3		tagged	0	0	-		0	0
+Brokers Ascendancy	utility	utility	3	3		derived	1	0	-		0	0
+Aetherblade Agent // Gitaxian Mindstinger	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Spikefield Hazard // Spikefield Cave	spot	burn,spot	1	1		tagged	0	0	-		0	1
+Sanctifier en-Vec	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Deepway Navigator	threat	threat	2	2		derived	0	0	-		0	0
+Pegasus Charger	threat	threat	3	3		derived	0	0	-		0	0
+Song-Mad Treachery // Song-Mad Ruins	spot	spot	5	5		derived	0	0	-		0	1
+D'Avenant Archer	spot	burn,spot,threat,utility	3	3		tagged	0	0	-		0	0
+Desert Were-Worm	threat	threat	6	6		derived	0	0	-		0	0
+Wishclaw Talisman	tutor	tutor	2	2		tagged	0	0	-		0	0
+Spellbane Centaur	threat	threat	3	3		derived	0	0	-		0	0
+Demonic Tutor	tutor	tutor	2	2		tagged	0	0	-		0	0
+Abandon Attachments	draw	draw	2	2		derived	0	0	-		0	0
+Mox Pearl	mana	mana	0	0		derived	0	0	-		0	0
+Raph & Mikey, Troublemakers	threat	threat	7	7		derived	0	0	-		0	0
+Hinterland Hermit // Hinterland Scourge	threat	threat	2	2		derived	0	0	-		0	0
+Battle for Bretagard	threat	threat	3	3		derived	0	0	-		0	0
+Dancing Scimitar	threat	threat	4	4		derived	0	0	-		0	0
+_____ Balls of Fire	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Ancient Stirrings	cantrip	cantrip	1	1		derived	0	0	-		0	0
+Shefet Dunes	land	land	0	0		derived	0	0	-		1	0
+Archmage Emeritus	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Thought Scour	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Séance Board	mana	mana	2	2		tagged	0	0	-		0	0
+Amnesia	discard	discard	6	6		tagged	0	0	-		0	0
+Akki Underminer	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Sickle Dancer	threat	threat	3	3		derived	0	0	-		0	0
+Chrome Host Seedshark	threat	threat	3	3		derived	0	0	-		0	0
+Sultai Scavenger	threat	threat	1	6	delve with 6 cards in the yard	derived	0	0	-		0	0
+Arcane Heist	utility	utility	4	4		tagged	0	0	-		0	0
+Phyrexian Ironfoot	threat	threat	3	3		derived	0	0	-		0	0
+Bilious Skulldweller	threat	threat	1	1		derived	0	0	-		0	0
+Mine Collapse	spot	burn,spot	0	4	free alternative cost	tagged	0	0	-		0	0
+Fevered Convulsions	spot	spot	2	2		tagged	0	0	-		0	0
+Goblin Digging Team	spot	spot,threat,utility	1	1		tagged	0	0	-		0	0
+Aura Extraction	spot	draw,spot	2	2		tagged	0	0	-		0	0
+A.I.M. Labs	land	land	0	0		derived	0	0	-		1	0
+Arctic Flats	land	land	0	0		derived	0	0	-		1	0
+Bewildering Blizzard	draw	draw	6	6		tagged	0	0	-		0	0
+Stadium Vendors	threat	threat	4	4		derived	0	0	-		0	0
+Harbinger of the Seas	utility	threat,utility	3	3		override	0	0	-		0	0
+Out of Time	sweeper	spot,sweeper	3	3		tagged	0	0	-		0	0
+Parallel Lives	utility	utility	4	4		derived	1	0	-		0	0
+Sandstone Oracle	threat	draw,threat	7	7		tagged	0	0	-		0	0
+Clairvoyance	cantrip	cantrip	1	1		derived	0	0	-		0	0
+Aetherstream Leopard	threat	threat	3	3		derived	0	0	-		0	0
+M'Odo, the Gnarled Oracle	threat	threat	3	3		derived	0	0	-		0	0
+Behind the Mask	spot	spot	1	1		tagged	0	0	-		0	0
+Archmage's Charm	counter	counter,draw	3	3		tagged	0	0	-		0	0
+Amalia Benavides Aguirre	sweeper	spot,sweeper,threat	2	2		tagged	0	0	-		0	0
+Rendclaw Trow	threat	threat	3	3		derived	0	0	-		0	0
+Needle Drop	spot	burn,cantrip,spot,utility	1	1		tagged	0	0	-		0	0
+Tracker	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Advantageous Proclamation	utility	utility	0	0		derived	1	0	-		0	0
+Alchemist's Retrieval	spot	spot	1	1		tagged	0	0	-		0	0
+The Caldaia	recursion	draw,recursion	0	0		tagged	0	0	-		0	0
+Cloistered Telepath	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Gomif, Fast Racer	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Harvesttide Infiltrator // Harvesttide Assailant	threat	threat	3	3		derived	0	0	-		0	0
+Sol Talisman	mana	mana	0	0		tagged	0	0	-		0	0
+Darkbore Pathway // Slitherbore Pathway	land	land	0	0		derived	0	0	-		1	0
+Sevinne, the Chronoclasm	threat	threat	5	5		derived	0	0	-		0	0
+Goliath Beetle	threat	threat	3	3		derived	0	0	-		0	0
+Merchant Scroll	tutor	tutor	2	2		tagged	0	0	-		0	0
+Weathered Bodyguards	threat	threat,utility	6	6		tagged	0	0	-		0	0
+Tokka & Rahzar, Terrible Twos	threat	burn,threat,utility	2	2		tagged	0	0	-		0	0
+Peek	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Gut, Brutal Fanatic	threat	threat	7	7		derived	0	0	-		0	0
+Celestial Colonnade	land	land	0	0		derived	0	0	-		1	0
+Thrashing Mossdog	threat	threat	4	4		derived	0	0	-		0	0
+Blistering Barrier	threat	threat	3	3		derived	0	0	-		0	0
+Chain Lightning	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Blinkmoth Infusion	ritual	ritual	14	14		tagged	0	0	-		0	0
+Goblin Bushwhacker	threat	threat	1	1		derived	0	0	-		0	0
+Old Fat Spider	threat	draw,threat	6	6		derived	0	1	-		0	0
+Duskwatch Recruiter // Krallenhorde Howler	threat	draw,threat	2	2		derived	0	1	-		0	0
+Knowledge Is Power	utility	utility	5	5		derived	1	0	-		0	0
+Dread Wanderer	threat	threat	1	1		tagged	0	0	-		0	0
+_____ Goblin	ritual	mana,ritual,threat	3	3		tagged	0	0	-		0	0
+Brine Comber // Brinebound Gift	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Beacon Bolt	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Bolg of the North	spot	burn,spot,threat	5	5		tagged	0	0	-		0	0
+Dark Triumph	utility	utility	0	5	free alternative cost	derived	1	0	-		0	0
+Tragic Banshee	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Alpine Houndmaster	tutor	threat,tutor	2	2		tagged	0	0	-		0	0
+Conqueror's Galleon // Conqueror's Foothold	recursion	draw,recursion,threat	4	4		tagged	0	1	-		0	0
+Fuss // Bother	threat	draw,threat	3	9	Fuss costs 3	derived	0	0	-		0	0
+Emissary's Ploy	utility	utility	0	0		derived	1	0	-		0	0
+Goblin Cohort	threat	threat	1	1		derived	0	0	-		0	0
+Amphin Mutineer	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Form a Posse	threat	threat	3	2	{X} at X=1	derived	0	0	-		0	0
+Eiganjo Castle	land	land	0	0		derived	0	0	-		1	0
+Mind Grind	utility	utility	4	2	{X} at X=2	derived	1	0	-		0	0
+Force Spike	counter	counter	1	1		tagged	0	0	-		0	0
+Wood Elves	mana	mana,threat,tutor	3	3		tagged	0	0	-		0	0
+Dovin's Acuity	draw	draw	3	3		tagged	0	0	-		0	0
+Spell Suck	counter	counter	4	4		tagged	0	0	-		0	0
+Ride's End	spot	spot,utility	5	5		tagged	0	0	-		0	0
+Moon-Blessed Cleric	tutor	threat,tutor	3	3		tagged	0	0	-		0	0
+Temple of Enlightenment	land	land	0	0		derived	0	0	-		1	0
+Bofur, Reliable Guardian // Concerted Care	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Quandrix Pledgemage	threat	threat	3	3		derived	0	0	-		0	0
+Springheart Nantuko	threat	threat	2	2		tagged	0	0	-		0	0
+Containment Priest	threat	threat,utility	2	2		tagged	0	0	-		0	0
+About Face	utility	utility	1	1		derived	1	0	-		0	0
+Lightfoot Rogue	threat	threat	2	2		derived	0	0	-		0	0
+Faramir, Prince of Ithilien	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Trapmaker's Snare	tutor	tutor	2	2		tagged	0	0	-		0	0
+Kor Outfitter	threat	threat	2	2		derived	0	0	-		0	0
+Bag Check	counter	counter	3	3		tagged	0	0	-		0	0
+Battle Menu	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Meet and Greet "Sisay"	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Boing!	spot	spot	2	2		tagged	0	0	-		0	0
+Indulgent Tormentor	threat	draw,threat	5	5		tagged	0	1	-		0	0
+Dream's Grip	utility	utility	1	1		derived	1	0	-		0	0
+Restless Fortress	land	land	0	0		derived	0	0	-		1	0
+Goblin Blast-Runner	threat	threat	1	1		derived	0	0	-		0	0
+Balamb Garden, SeeD Academy // Balamb Garden, Airborne	land	draw,land	0	0		tagged	0	0	-		1	0
+Orcish Settlers	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Saruman the White	threat	threat	5	5		derived	0	0	-		0	0
+Mortuary	utility	utility	4	4		derived	1	0	-		0	0
+Hanweir Watchkeep // Bane of Hanweir	threat	threat	3	3		derived	0	0	-		0	0
+Shark Typhoon	threat	draw,threat	4	6	cycling {X}{1}{U} at X=2 makes a 2/2 and draws	override	0	0	-		0	0
+Natural Order	tutor	tutor	4	4		tagged	0	0	-		0	0
+Alpine Meadow	land	land	0	0		derived	0	0	-		1	0
+Talisman of Curiosity	mana	mana	2	2		tagged	0	0	-		0	0
+Putrefaction	discard	discard,utility	5	5		tagged	0	0	-		0	0
+Talon Gates of Madara	land	land,mana,utility	0	0		tagged	0	0	-		1	0
+Elite Spellbinder	threat	threat	3	3		derived	0	0	-		0	0
+James, Wandering Dad // Follow Him	mana	draw,mana,threat	2	3	Follow Him costs 2	tagged	0	0	-		0	0
+Assemble the Rank and Vile	threat	threat	0	0		derived	0	0	-		0	0
+Into the Flood Maw	spot	spot	1	1		tagged	0	0	-		0	0
+Amareth, the Lustrous	threat	draw,threat	6	6		derived	0	1	-		0	0
+Netter en-Dal	threat	threat	1	1		derived	0	0	-		0	0
+Freewind Falcon	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Costly Plunder	draw	draw	2	2		derived	0	0	-		0	0
+Ancient Bronze Dragon	threat	threat	7	7		derived	0	0	-		0	0
+Dragon's Hoard	mana	draw,mana	3	3		tagged	0	0	-		0	0
+Cybermen Squadron	threat	threat	7	7		derived	0	0	-		0	0
+Light Up the Stage	draw	draw	3	3		tagged	0	0	-		0	0
+Nissa's Triumph	tutor	tutor	2	2		tagged	0	0	-		0	0
+Ilharg, the Raze-Boar	threat	threat	5	5		derived	0	0	-		0	0
+Etherium Astrolabe	draw	draw	3	3		tagged	0	1	-		0	0
+Flame Slash	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Cactus Preserve	land	land	0	0		derived	0	0	-		1	0
+Iroh's Demonstration	sweeper	burn,spot,sweeper	2	2		tagged	0	0	-		0	0
+Yavimaya, Cradle of Growth	land	land	0	0		derived	0	0	-		1	0
+Revitalizing Repast // Old-Growth Grove	utility	utility	1	1		tagged	0	0	-		0	1
+Abaddon the Despoiler	threat	threat	5	5		derived	0	0	-		0	0
+Champion's Victory	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Akki Ember-Keeper	threat	threat	2	2		derived	0	0	-		0	0
+Eiganjo Exemplar	threat	threat	2	2		derived	0	0	-		0	0
+Rootwater Hunter	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Lukka, Bound to Ruin	threat	burn,mana,spot,threat	4	5	Phyrexian mana — payable with life	tagged	0	0	-		0	0
+Rugged Prairie	land	land	0	0		derived	0	0	-		1	0
+Conformer Shuriken	utility	utility	2	2		tagged	0	0	-		0	0
+Arcades Sabboth	threat	threat	8	8		derived	0	0	-		0	0
+Tale's End	counter	counter,utility	2	2		tagged	0	0	-		0	0
+Arms Dealer	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Treachery	ritual	ritual	5	5		tagged	0	0	-		0	0
+Discovery // Dispersal	discard	cantrip,discard,spot,utility	2	7	Discovery costs 2	tagged	0	0	-		0	0
+Axebane Beast	threat	threat	4	4		derived	0	0	-		0	0
+Covetous Castaway // Ghostly Castigator	threat	threat	2	2		tagged	0	0	-		0	0
+Dragon Egg	threat	threat	3	3		derived	0	0	-		0	0
+Nahiri's Binding	spot	spot,utility	3	3		tagged	0	0	-		0	0
+Holy Light	sweeper	spot,sweeper	3	3		tagged	0	0	-		0	0
+Krovikan Vampire	recursion	recursion,threat	5	5		tagged	0	0	-		0	0
+Invasion of Alara // Awaken the Maelstrom	spot	draw,mana,spot	5	5		tagged	0	0	-		0	0
+Selesnya Guildmage	threat	threat	2	2		derived	0	0	-		0	0
+Expedition Map	tutor	tutor	1	1		tagged	0	0	-		0	0
+Consign // Oblivion	discard	discard,spot	2	7	Consign costs 2	tagged	0	0	-		0	0
+Voltaic Visionary // Volt-Charged Berserker	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Emrakul, the Aeons Torn	spot	spot,threat,utility	15	15		tagged	0	0	-		0	0
+Searing Blood	spot	burn,spot	2	2		tagged	0	0	-		0	0
+Call a Surprise Witness	recursion	recursion	2	2		tagged	0	0	-		0	0
+Kellogg, Dangerous Mind	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Thunder Wall	threat	threat	3	3		derived	0	0	-		0	0
+Miscalculation	counter	counter,draw	2	2		tagged	0	0	-		0	0
+Awakened Amalgam	threat	threat	4	4		derived	0	0	-		0	0
+Gravitic Punch	burn	burn	4	4		tagged	0	0	-		0	0
+Personal Tutor	tutor	tutor	1	1		tagged	0	0	-		0	0
+Thermal Flux	utility	utility	1	1		tagged	0	0	-		0	0
+Marble Diamond	mana	mana	2	2		tagged	0	0	-		0	0
+Emergency Powers	mana	draw,mana	7	7		tagged	0	0	-		0	0
+Restless Anchorage	land	land	0	0		derived	0	0	-		1	0
+Brineborn Cutthroat	threat	threat	2	2		derived	0	0	-		0	0
+Utopia Vow	spot	mana,spot	2	2		tagged	0	0	-		0	0
+Riverwheel Sweep	draw	draw	6	6		tagged	0	0	-		0	0
+Eureka	mana	mana	4	4		tagged	0	0	-		0	0
+Eris, Roar of the Storm	threat	threat	10	10		derived	0	0	-		0	0
+Wall of Faith	threat	threat	4	4		derived	0	0	-		0	0
+Flash of Insight	draw	draw	4	2	{X} at X=2	derived	0	0	-		0	0
+Incendiary Flow	spot	burn,spot	2	2		tagged	0	0	-		0	0
+Quintorius Kand	threat	burn,mana,recursion,threat	5	5		tagged	0	0	-		0	0
+Foam Weapons Kiosk	utility	utility	0	0		derived	1	0	-		0	0
+Felhide Spiritbinder	threat	threat	4	4		derived	0	0	-		0	0
+Akki Underling	threat	threat	2	2		derived	0	0	-		0	0
+Elvish Farmer	threat	threat	2	2		derived	0	0	-		0	0
+Esika, God of the Tree // The Prismatic Bridge	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Sangromancer	discard	discard,threat	4	4		derived	0	0	-		0	0
+Suki, Kyoshi Warrior	threat	threat	4	4		derived	0	0	-		0	0
+Hedge Whisperer	threat	threat	1	1		derived	0	0	-		0	0
+Scythecat Cub	threat	threat	2	2		derived	0	0	-		0	0
+Brigid, Hero of Kinsbaile	spot	burn,spot,threat,utility	4	4		tagged	0	0	-		0	0
+Aang's Defense	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Wall of Stolen Identity	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Iridian Maelstrom	sweeper	spot,sweeper	5	5		tagged	0	0	-		0	0
+Zhao, the Seething Flame	threat	threat	5	5		derived	0	0	-		0	0
+Raffine, Scheming Seer	threat	threat	3	3		derived	0	0	-		0	0
+Xathrid Slyblade	threat	threat	3	3		derived	0	0	-		0	0
+Ambitious Dragonborn	threat	threat	4	4		derived	0	0	-		0	0
+Spell Rupture	counter	counter	2	2		tagged	0	0	-		0	0
+Abzan Monument	tutor	threat,tutor	2	2		tagged	0	0	-		0	0
+70,000 Light-Years from Home	spot	spot	2	2		tagged	0	0	-		0	0
+Goblin Psychopath	threat	threat	4	4		derived	0	0	-		0	0
+Alela, Artful Provocateur	threat	threat	4	4		derived	0	0	-		0	0
+Demolition Field	land	land,spot,tutor,utility	0	0		tagged	0	0	-		1	0
+Ancient Silver Dragon	threat	draw,threat	8	8		tagged	0	1	-		0	0
+Kemba, Kha Enduring	threat	threat	2	2		derived	0	0	-		0	0
+Calming Licid	spot	spot,threat	3	3		tagged	0	0	-		0	0
+Dragon Throne of Tarkir	utility	utility	4	4		derived	1	0	-		0	0
+Jwari Disruption // Jwari Ruins	counter	counter	2	2		tagged	0	0	-		0	1
+Jasmine Boreal	threat	threat	5	5		derived	0	0	-		0	0
+Hindering Light	counter	cantrip,counter,utility	2	2		tagged	0	0	-		0	0
+Esper Origins // Summon: Esper Maduin	mana	mana	2	2		tagged	0	0	-		0	0
+Mana Tithe	counter	counter	1	1		tagged	0	0	-		0	0
+Thorin, Mountain-king	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Aphetto Runecaster	threat	draw,threat,utility	4	4		tagged	0	1	-		0	0
+Sephiroth's Intervention	spot	spot	4	4		tagged	0	0	-		0	0
+Zhao, the Moon Slayer	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Fountainport	land	draw,land,mana	0	0		tagged	0	0	-		1	0
+Razorverge Thicket	land	land	0	0		derived	0	0	-		1	0
+Gut, Bestial Fanatic	threat	threat	7	7		derived	0	0	-		0	0
+Greasewrench Goblin	threat	threat	1	1		derived	0	0	-		0	0
+An Unearthly Child	draw	draw	3	3		derived	0	0	-		0	0
+Mai, Scornful Striker	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Thing from the Deep	threat	threat	9	9		derived	0	0	-		0	0
+Fellwar Stone	mana	mana	2	2		tagged	0	0	-		0	0
+Force of Will	counter	counter	0	5	free alternative cost	tagged	0	0	-		0	0
+Abandoned Air Temple	land	land	0	0		derived	0	0	-		1	0
+Hurkyl, Master Wizard	threat	draw,threat	3	3		derived	0	0	-		0	0
+Energy Arc	utility	utility	2	2		tagged	0	0	-		0	0
+Diviner of Fates	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Ancestral Memories	draw	draw	5	5		derived	0	0	-		0	0
+Permission Denied	counter	counter,utility	2	2		tagged	0	0	-		0	0
+Eagle's Rescue	utility	utility	4	4		tagged	0	0	-		0	0
+Grim Initiate	threat	threat	1	1		derived	0	0	-		0	0
+Thayan Evokers	threat	threat	3	3		derived	0	0	-		0	0
+Ashling's Command	sweeper	burn,draw,mana,spot,sweeper	5	5		tagged	0	0	-		0	0
+Coming In Hot	cantrip	cantrip	1	1		derived	0	0	-		0	0
+Hexing Squelcher	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Stoic Grove-Guide	threat	threat	5	5		derived	0	0	-		0	0
+Toxin Sliver	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Condescend	counter	counter	3	1	{X} at X=2	tagged	0	0	-		0	0
+Akki Coalflinger	threat	threat	3	3		derived	0	0	-		0	0
+Aang, at the Crossroads // Aang, Destined Savior	threat	draw,threat	5	5		derived	0	0	-		0	0
+Aloe Alchemist	threat	threat	2	2		derived	0	0	-		0	0
+Blazemire Verge	land	land	0	0		derived	0	0	-		1	0
+Lumra, Bellow of the Woods	mana	mana,recursion,threat	6	6		tagged	0	0	-		0	0
+Hogaak, Arisen Necropolis	threat	threat	2	7	delve with 6 cards in the yard	tagged	0	0	-		0	0
+Fire Diamond	mana	mana	2	2		tagged	0	0	-		0	0
+Alandra, Sky Dreamer	threat	threat	4	4		derived	0	0	-		0	0
+Garna, the Bloodflame	recursion	recursion,threat	5	5		tagged	0	0	-		0	0
+Shellfish Scholar	mana	draw,mana,threat	2	2		tagged	0	0	-		0	0
+Polluted Mire	land	draw,land	0	0		tagged	0	0	-		1	0
+Ad Nauseam	draw	draw	5	5		tagged	0	0	-		0	0
+Leshrac's Sigil	discard	discard,utility	2	2		tagged	0	0	-		0	0
+Ghostfire Slice	spot	burn,spot,utility	3	3		tagged	0	0	-		0	0
+Stingerquill Charm	spot	burn,spot,threat	2	2		tagged	0	0	-		0	0
+Brute Force	utility	utility	1	1		derived	1	0	-		0	0
+The Tale of Tamiyo	draw	draw	3	3		tagged	0	0	-		0	0
+Cut // Ribbons	spot	burn,spot	2	4	Cut costs 2	tagged	0	0	-		0	0
+Self-Destruct	spot	burn,spot	2	2		tagged	0	0	-		0	0
+Flourishing Strike	spot	burn,spot,utility	2	2		tagged	0	0	-		0	0
+The Duke of Midrange	spot	burn,spot,threat,utility	5	5		tagged	0	0	-		0	0
+Yavimaya Iconoclast	threat	threat	2	2		derived	0	0	-		0	0
+Behold the Power of Destruction	sweeper	spot,sweeper	0	0		tagged	0	0	-		0	0
+Deathless Ancient	threat	threat	6	6		tagged	0	0	-		0	0
+Tersa Lightshatter	recursion	recursion,threat	3	3		tagged	0	0	-		0	0
+Dáin Ironfoot	threat	threat	3	3		derived	0	0	-		0	0
+Hymn to Tourach	discard	discard	2	2		tagged	0	0	-		0	0
+Magus of the Scroll	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Mount Doom	land	burn,land,spot,sweeper	0	0		tagged	0	0	-		1	0
+Thought Vessel	mana	mana	2	2		tagged	0	0	-		0	0
+Rite of Oblivion	spot	spot	2	2		tagged	0	0	-		0	0
+Time Vault	threat	threat	2	2		tagged	0	0	-		0	0
+Well of Knowledge	draw	draw	3	3		tagged	0	1	-		0	0
+Stroke of Midnight	spot	spot	3	3		tagged	0	0	-		0	0
+Demonic Consultation	sweeper	cantrip,sweeper	1	1		derived	0	0	-		0	0
+Searing Barb	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Edric, Spymaster of Trest	threat	draw,threat	3	3		tagged	0	1	-		0	0
+Onward // Victory	utility	utility	3	6	Onward costs 3	derived	1	0	-		0	0
+Great Teacher's Decree	utility	utility	4	4		derived	1	0	-		0	0
+Elfhame Wurm	threat	threat	5	5		derived	0	0	-		0	0
+Cursed Recording	utility	utility	4	4		derived	1	0	-		0	0
+Doubling Cube	mana	mana	2	2		tagged	0	0	-		0	0
+Valiant Guard	threat	threat	1	1		derived	0	0	-		0	0
+Resolute Veggiesaur	threat	threat	3	3		derived	0	0	-		0	0
+The Fantasticar	threat	threat	3	3		derived	0	0	-		0	0
+Haliya, Guided by Light	threat	draw,threat	1	3	warp {W}	tagged	0	1	-		0	0
+Sidisi's Pet	threat	threat	4	4		derived	0	0	-		0	0
+Timber Protector	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Pawn of Ulamog	threat	threat	3	3		derived	0	0	-		0	0
+High-Speed Hoverbike	threat	threat	2	2		derived	0	0	-		0	0
+C.A.M.P.	utility	utility	3	3		derived	1	0	-		0	0
+Chase Inspiration	utility	utility	1	1		tagged	0	0	-		0	0
+Oakhame Ranger // Bring Back	threat	threat	4	4		derived	0	0	-		0	0
+Cling to Dust	cantrip	cantrip,utility	1	1		tagged	0	0	-		0	0
+Frontier Warmonger	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Champions of the Perfect	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Gigadrowse	utility	utility	1	1		derived	1	0	-		0	0
+Ashcoat of the Shadow Swarm	recursion	recursion,threat	4	4		tagged	0	0	-		0	0
+Interrogation Robot	counter	counter,spot,threat	3	3		tagged	0	0	-		0	0
+Ride Down	utility	utility	2	2		tagged	0	0	-		0	0
+Ally Encampment	land	land	0	0		derived	0	0	-		1	0
+Abominable Treefolk	threat	threat	4	4		derived	0	0	-		0	0
+Barrow Witches	recursion	recursion,threat	5	5		tagged	0	0	-		0	0
+Bridgeworks Battle // Tanglespan Bridgeworks	spot	spot	3	3		tagged	0	0	-		0	1
+Act of Aggression	spot	spot	3	5	Phyrexian mana — payable with life	derived	0	0	-		0	0
+The Restoration of Eiganjo // Architect of Restoration	mana	mana,recursion,tutor	3	3		tagged	0	0	-		0	0
+Canal Monitor	threat	threat	5	5		derived	0	0	-		0	0
+Leyline of Anticipation	utility	utility	4	4		derived	1	0	-		0	0
+Fireblast	spot	burn,spot	0	6	free alternative cost	tagged	0	0	-		0	0
+Contract from Below	draw	draw	1	1		tagged	0	0	-		0	0
+Constricting Tendrils	draw	draw	1	1		tagged	0	0	-		0	0
+Flamewake Phoenix	threat	threat	3	3		tagged	0	0	-		0	0
+Angel's Herald	tutor	threat,tutor	1	1		tagged	0	0	-		0	0
+Syr Vondam, Sunstar Exemplar	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Pillar of Origins	mana	mana	2	2		tagged	0	0	-		0	0
+Augur of Autumn	threat	draw,threat	3	3		derived	0	0	-		0	0
+Seachrome Coast	land	land	0	0		derived	0	0	-		1	0
+Air Nomad Legacy	draw	draw	2	2		tagged	0	0	-		0	0
+Gau, Feral Youth	threat	burn,threat	2	2		tagged	0	0	-		0	0
+Elegant Parlor	land	land	0	0		derived	0	0	-		1	0
+March of the Canonized	threat	threat	3	2	{X} at X=1	derived	0	0	-		0	0
+Avatar Roku, Firebender	mana	mana,threat	6	6		tagged	0	0	-		0	0
+Rhys, the Evermore	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Flight Spellbomb	draw	draw	1	1		tagged	0	0	-		0	0
+Mind into Matter	mana	draw,mana	4	2	{X} at X=2	tagged	0	0	-		0	0
+Song of Freyalise	mana	mana,utility	2	2		tagged	0	0	-		0	0
+Masked Meower	threat	cantrip,threat	1	1		derived	0	0	-		0	0
+Prickleboar	threat	threat	5	5		derived	0	0	-		0	0
+Davvol's Birthdaymobile	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Reanimate	recursion	recursion	1	1		tagged	0	0	-		0	0
+Violent Ultimatum	spot	spot	7	7		tagged	0	0	-		0	0
+Abandoned Sarcophagus	utility	utility	3	3		derived	1	0	-		0	0
+Armed // Dangerous	utility	utility	2	6	Armed costs 2	derived	1	0	-		0	0
+Amulet of Quoz	threat	threat	6	6		tagged	0	0	-		0	0
+Laelia, the Blade Reforged	threat	draw,threat	3	3		tagged	0	0	-		0	0
+Phantom Train	threat	threat	4	4		derived	0	0	-		0	0
+Aeromunculus	threat	threat	3	3		derived	0	0	-		0	0
+Singe-Mind Ogre	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Lavaleaper	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Bloodcrazed Goblin	threat	threat	1	1		derived	0	0	-		0	0
+Ink Dissolver	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Aeon Chronicler	threat	draw,threat	5	5		tagged	0	1	-		0	0
+Acidic Sliver	spot	burn,spot,threat	2	2		tagged	0	0	-		0	0
+Codie, Ravenous Codex	threat	threat	3	3		derived	0	0	-		0	0
+Pithing Needle	utility	utility	1	1		tagged	0	0	-		0	0
+Bronze Tablet	spot	spot	6	6		tagged	0	0	-		0	0
+Carrion Feeder	threat	threat	1	1		derived	0	0	-		0	0
+Entrails Feaster	threat	threat,utility	1	1		tagged	0	0	-		0	0
+From Under the Floorboards	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Sunbillow Verge	land	land	0	0		derived	0	0	-		1	0
+Karn, the Great Creator	threat	draw,threat	4	4		derived	0	1	-		0	0
+Tyvar the Bellicose	threat	threat	4	4		derived	0	0	-		0	0
+Abu Ja'far	spot	spot,threat,utility	1	1		tagged	0	0	-		0	0
+Assimilate Essence	counter	counter	2	2		tagged	0	0	-		0	0
+Óin the Brave	threat	draw,threat	2	2		derived	0	1	-		0	0
+Sundering Growth	spot	spot	2	2		tagged	0	0	-		0	0
+Chemister's Insight	draw	draw	4	4		tagged	0	0	-		0	0
+Goblin Banneret	threat	threat	1	1		derived	0	0	-		0	0
+Black Bolt, Inhuman King	spot	spot,threat,utility	4	4		tagged	0	0	-		0	0
+Dragon Turtle	threat	threat	3	3		derived	0	0	-		0	0
+Carbonize	spot	burn,spot,utility	3	3		tagged	0	0	-		0	0
+Moonshadow	threat	threat	1	1		derived	0	0	-		0	0
+Target Minotaur	threat	threat	2	2		derived	0	0	-		0	0
+Chain to Memory	spot	cantrip,spot	1	1		derived	0	0	-		0	0
+Arbaaz Mir	threat	burn,threat	2	2		tagged	0	0	-		0	0
+Drown in Shapelessness	spot	spot	2	2		tagged	0	0	-		0	0
+Funeral Room // Awakening Hall	recursion	recursion	3	11	Funeral Room costs 3	tagged	0	0	-		0	0
+Academy Ruins	land	land	0	0		derived	0	0	-		1	0
+Cryptic Command	counter	counter,draw,spot	4	4		tagged	0	0	-		0	0
+Hooded Assassin	spot	spot,threat,utility	3	3		tagged	0	0	-		0	0
+Mountain	land	land	0	0		derived	0	0	-		1	0
+Isildur's Fateful Strike	spot	spot	4	4		tagged	0	0	-		0	0
+Elder Druid	mana	mana,threat,utility	4	4		tagged	0	0	-		0	0
+Wash Away	counter	counter	1	1		tagged	0	0	-		0	0
+Contradict	counter	counter,draw	5	5		tagged	0	0	-		0	0
+Pia, Determined Rebuilder	threat	threat	3	3		derived	0	0	-		0	0
+Krovikan Horror	spot	burn,spot,threat	4	4		tagged	0	0	-		0	0
+Cloud Cover	utility	utility	4	4		tagged	0	0	-		0	0
+Hidden Strings	utility	utility	2	2		derived	1	0	-		0	0
+Predator Ooze	threat	threat	3	3		derived	0	0	-		0	0
+Old Ghastbark	threat	threat	5	5		derived	0	0	-		0	0
+Sphinx Mindbreaker	threat	threat	7	7		derived	0	0	-		0	0
+Dramatic Rescue	spot	spot	2	2		tagged	0	0	-		0	0
+Gamble	tutor	tutor	1	1		tagged	0	0	-		0	0
+Chandra's Defeat	spot	burn,spot,utility	1	1		tagged	0	0	-		0	0
+Rishadan Footpad	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Anara, Wolvid Familiar	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Doc Ock's Tentacles	utility	utility	1	1		derived	1	0	-		0	0
+Wu Infantry	threat	threat	2	2		derived	0	0	-		0	0
+Sudden Salvation	recursion	draw,recursion	4	4		tagged	0	0	-		0	0
+Imoen, Wily Trickster	threat	threat	3	3		derived	0	0	-		0	0
+Big Score	mana	mana	4	4		tagged	0	0	-		0	0
+Witness Protection	spot	spot	1	1		tagged	0	0	-		0	0
+Cleanse	sweeper	spot,sweeper,utility	4	4		tagged	0	0	-		0	0
+Torrential Gearhulk	threat	threat	6	6		derived	0	0	-		0	0
+Accumulate Wisdom	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Discerning Peddler	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Cerulean Wisps	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Recurring Nightmare	recursion	recursion	3	3		tagged	0	0	-		0	0
+Anointed Peacekeeper	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Lodestone Golem	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Arbiter of the Ideal	threat	draw,threat	6	6		derived	0	0	-		0	0
+Skullcrack	burn	burn,utility	2	2		tagged	0	0	-		0	0
+Press into Service	spot	spot	5	5		derived	0	0	-		0	0
+Malakir Rebirth // Malakir Mire	utility	utility	1	1		tagged	0	0	-		0	1
+Peregrine Mask	utility	utility	1	1		derived	1	0	-		0	0
+Hot Fix	utility	utility	6	6		derived	1	0	-		0	0
+Nest Invader	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Aquatic Alchemist // Bubble Up	threat	threat	2	2		derived	0	0	-		0	0
+Razorkin Needlehead	threat	burn,threat	2	2		tagged	0	0	-		0	0
+Catch // Release	spot	spot	3	9	Catch costs 3	tagged	0	0	-		0	0
+Ruthless Negotiation	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+City in a Bottle	sweeper	spot,sweeper	2	2		tagged	0	0	-		0	0
+Elgaud Shieldmate	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Mikey & Leo, Chaos & Order	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Archpriest of Iona	threat	threat	1	1		derived	0	0	-		0	0
+Agent's Toolkit	draw	draw	3	3		tagged	0	0	-		0	0
+Bomat Courier	threat	threat	1	1		derived	0	0	-		0	0
+Dwarven Scorcher	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Curator's Ward	draw	draw,utility	3	3		tagged	0	0	-		0	0
+Azog, Moria's Ruin	spot	draw,spot,threat	3	3		tagged	0	0	-		0	0
+Razorfield Thresher	threat	threat	7	7		derived	0	0	-		0	0
+Great Hall of the Biblioplex	land	land	0	0		derived	0	0	-		1	0
+Exclude	counter	counter,draw	3	3		tagged	0	0	-		0	0
+Spectral Sailor	threat	draw,threat	1	1		tagged	0	1	-		0	0
+Archaeomancer	recursion	recursion,threat	4	4		tagged	0	0	-		0	0
+Leave No Trace	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Towering Titan	threat	threat	6	6		derived	0	0	-		0	0
+Ancestors' Aid	mana	mana	2	2		tagged	0	0	-		0	0
+Arzakon	threat	burn,draw,spot,threat	5	5		tagged	0	1	-		0	0
+Burn, Burn, Tree and Fern	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Anticipate	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Faerie Mastermind	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Vadrik, Astral Archmage	threat	threat	3	3		derived	0	0	-		0	0
+The Waffle Restaurant	land	draw,land,mana	0	0		tagged	0	0	-		1	0
+Needleverge Pathway // Pillarverge Pathway	land	land	0	0		derived	0	0	-		1	0
+Gideon of the Trials	threat	threat	3	3		derived	0	0	-		0	0
+Child of the Pack // Savage Packmate	threat	threat	4	4		derived	0	0	-		0	0
+Shock	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Brilliant Ultimatum	draw	draw	7	7		tagged	0	0	-		0	0
+Arius, Flyby Trawler	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Bringer of the Black Dawn	tutor	threat,tutor	5	9	alternative cost {W}{U}{B}{R}{G}	tagged	0	0	-		0	0
+Orzhov Basilica	land	land	0	0		derived	0	0	-		1	0
+Akki Drillmaster	threat	threat	3	3		derived	0	0	-		0	0
+Norman Osborn // Green Goblin	mana	mana,threat	2	2		tagged	0	0	-		0	0
+You Find a Cursed Idol	spot	mana,spot	2	2		tagged	0	0	-		0	0
+Retrofitter Foundry	threat	threat	1	1		derived	0	0	-		0	0
+Judgment Bolt	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Drannith Magistrate	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Arcane Denial	counter	counter	2	2		tagged	0	0	-		0	0
+Dyfed, the Guiding Hand	threat	mana,threat,tutor	5	5		tagged	0	0	-		0	0
+Narset, Parter of Veils	utility	cantrip,draw,threat,utility	3	3		override	0	1	-		0	0
+Lunar Avenger	threat	threat	7	7		derived	0	0	-		0	0
+Heartmender	threat	threat	4	4		derived	0	0	-		0	0
+Mask of Avacyn	utility	utility	2	2		tagged	0	0	-		0	0
+Explosive Apparatus	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Aerial Volley	spot	burn,spot,utility	1	1		tagged	0	0	-		0	0
+Change the Equation	counter	counter,utility	2	2		tagged	0	0	-		0	0
+Balloon Stand	threat	threat	0	0		derived	0	0	-		0	0
+Indulge // Excess	threat	threat	3	5	Indulge costs 3	derived	0	0	-		0	0
+Grizzled Outcasts // Krallenhorde Wantons	threat	threat	5	5		derived	0	0	-		0	0
+Golgari Raiders	threat	threat	4	4		derived	0	0	-		0	0
+Privileged Position	utility	utility	5	5		tagged	0	0	-		0	0
+Split into Three Parts	counter	counter,spot	2	2		tagged	0	0	-		0	0
+Fear of Exposure	threat	threat	3	3		derived	0	0	-		0	0
+Whisk Away	spot	spot,utility	3	3		tagged	0	0	-		0	0
+Altar Golem	threat	threat	7	7		derived	0	0	-		0	0
+Burst Lightning	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Force of Negation	counter	counter	0	3	free alternative cost	tagged	0	0	-		0	0
+Dark Withering	spot	spot,utility	6	6		tagged	0	0	-		0	0
+Takenuma, Abandoned Mire	land	land,recursion	0	0		tagged	0	0	-		1	0
+Bramble Elemental	threat	threat	5	5		derived	0	0	-		0	0
+Preordain	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Siege Modification	utility	utility	3	3		derived	1	0	-		0	0
+Tajuru Stalwart	threat	threat	3	3		derived	0	0	-		0	0
+Snow-Covered Plains	land	land	0	0		derived	0	0	-		1	0
+Cartographer's Hawk	mana	mana,threat,tutor	2	2		tagged	0	0	-		0	0
+Snap	ritual	ritual,spot	2	2		tagged	0	0	-		0	0
+Haven of the Spirit Dragon	land	land,recursion	0	0		tagged	0	0	-		1	0
+Common Curve Filler	threat	threat	0	0		derived	0	0	-		0	0
+Captivating Vampire	spot	spot,threat	3	3		derived	0	0	-		0	0
+"Name Sticker" Goblin	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Council's Judgment	spot	spot	3	3		tagged	0	0	-		0	0
+Hexgold Sledge	utility	utility	3	3		derived	1	0	-		0	0
+Legion Leadership // Legion Stronghold	utility	utility	2	2		derived	1	0	-		0	1
+Crush	spot	spot	1	1		tagged	0	0	-		0	0
+Petting Zookeeper	threat	threat	3	3		derived	0	0	-		0	0
+Maelstrom Wanderer	threat	threat	8	8		derived	0	0	-		0	0
+Horned Loch-Whale // Lagoon Breach	spot	spot,threat,utility	2	6	Lagoon Breach costs 2	tagged	0	0	-		0	0
+Osgir, the Reconstructor	threat	threat	4	4		derived	0	0	-		0	0
+Akroma's Vengeance	sweeper	draw,spot,sweeper	6	6		tagged	0	0	-		0	0
+Admiral's Order	counter	counter	1	3	alternative cost {U}	tagged	0	0	-		0	0
+Barbed Shocker	discard	discard,threat	4	4		tagged	0	0	-		0	0
+Gorma, the Gullet	threat	threat	3	3		derived	0	0	-		0	0
+Teferi, Time Raveler	utility	cantrip,draw,spot,threat,utility	3	3		override	0	1	-		0	0
+Doc Ock's Henchmen	threat	threat	3	3		derived	0	0	-		0	0
+Fire // Ice	spot	burn,cantrip,spot	2	4	Fire costs 2	tagged	0	0	-		0	0
+Karn, Argent Defender	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Agent Frank Horrigan	threat	threat	7	7		derived	0	0	-		0	0
+Sylvan Reclamation	spot	spot,tutor	5	5		tagged	0	0	-		0	0
+Taunting Elf	threat	threat	1	1		derived	0	0	-		0	0
+Chalk Outline	threat	threat	4	4		derived	0	0	-		0	0
+Adric, Mathematical Genius	counter	counter,threat	2	2		tagged	0	0	-		0	0
+Derevi, Empyrial Tactician	threat	threat	3	3		derived	0	0	-		0	0
+Akoum Warrior // Akoum Teeth	threat	threat	6	6		derived	0	0	-		0	1
+Destructor Dragon	spot	spot,threat	6	6		tagged	0	0	-		0	0
+Two-Handed Axe // Sweeping Cleave	utility	utility	2	3	Sweeping Cleave costs 2	derived	1	0	-		0	0
+Aerial Formation	utility	utility	1	1		derived	1	0	-		0	0
+Sewer Crocodile	threat	threat	6	6		derived	0	0	-		0	0
+Beyeen Veil // Beyeen Coast	utility	utility	2	2		derived	1	0	-		0	1
+Cataclysm	sweeper	spot,sweeper,utility	4	4		tagged	0	0	-		0	0
+Infernal Sovereign	threat	draw,threat	6	6		tagged	0	1	-		0	0
+Bounce Chamber	spot	spot	0	0		tagged	0	0	-		0	0
+Pestered Wellguard	threat	threat	4	4		derived	0	0	-		0	0
+General Tazri	tutor	threat,tutor	5	5		tagged	0	0	-		0	0
+Peace Talks	utility	utility	2	2		derived	1	0	-		0	0
+Voice of Victory	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Revitalize	cantrip	cantrip	2	2		tagged	0	0	-		0	0
+Remove Soul	counter	counter	2	2		tagged	0	0	-		0	0
+Swords to Plowshares	spot	spot	1	1		tagged	0	0	-		0	0
+Dead Weight	spot	spot	1	1		tagged	0	0	-		0	0
+Big Winner	threat	threat	4	4		derived	0	0	-		0	0
+Oltec Archaeologists	recursion	recursion,threat	5	5		tagged	0	0	-		0	0
+Abhorrent Oculus	threat	threat	3	3		derived	0	0	-		0	0
+Pull from Tomorrow	draw	draw	4	2	{X} at X=2	tagged	0	0	-		0	0
+Static Prison	spot	spot	1	1		tagged	0	0	-		0	0
+Repeal	spot	draw,spot	3	1	{X} at X=2	tagged	0	0	-		0	0
+Temporary Lockdown	sweeper	spot,sweeper	3	3		tagged	0	0	-		0	0
+Academic Dispute	utility	utility	1	1		derived	1	0	-		0	0
+Flickerwisp	threat	threat	3	3		derived	0	0	-		0	0
+Unholy Heat	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Wall of Blood	threat	threat	3	3		derived	0	0	-		0	0
+Cathar's Shield	utility	utility	0	0		derived	1	0	-		0	0
+Silver Bolt	spot	burn,spot,utility	1	1		tagged	0	0	-		0	0
+Bloodscent	utility	utility	4	4		derived	1	0	-		0	0
+Glowstone Recluse	threat	threat	3	3		derived	0	0	-		0	0
+Island	land	land	0	0		derived	0	0	-		1	0
+Éomer, Marshal of Rohan	threat	threat	4	4		derived	0	0	-		0	0
+Logic Knot	counter	counter	3	2	{X}{U}{U} at X=2, with delve paying part of X	override	0	0	-		0	0
+Leaf Dancer	threat	threat	3	3		derived	0	0	-		0	0
+Guide of Souls	threat	threat	1	1		derived	0	0	-		0	0
+Llanowar Augur	threat	threat	1	1		derived	0	0	-		0	0
+Entreat the Angels	threat	threat	5	3	{X} at X=1 (×2)	derived	0	0	3	miracle {X}{W}{W}	0	0
+Forest	land	land	0	0		derived	0	0	-		1	0
+Fleeting Distraction	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Mind's Desire	draw	draw	6	6		tagged	0	0	-		0	0
+Stifle	counter	counter	1	1		tagged	0	0	-		0	0
+Carrier Thrall	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Heavy Ballista	spot	burn,spot,threat,utility	4	4		tagged	0	0	-		0	0
+Guiding Bolt	spot	spot,utility	3	3		tagged	0	0	-		0	0
+Borrowed Hostility	utility	utility	1	1		derived	1	0	-		0	0
+Lava, Axe	burn	burn	5	5		tagged	0	0	-		0	0
+Wrap in Flames	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Centaur's Herald	threat	threat	1	1		derived	0	0	-		0	0
+Avatar Aang // Aang, Master of Elements	mana	burn,draw,mana,threat	4	4		tagged	0	1	-		0	0
+Approach My Molten Realm	utility	utility	0	0		derived	1	0	-		0	0
+Toby, Beastie Befriender	threat	threat	3	3		derived	0	0	-		0	0
+Blightbeetle	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Ocelot Pride	threat	threat	1	1		derived	0	0	-		0	0
+Apex Devastator	threat	threat	10	10		derived	0	0	-		0	0
+Reverent Mantra	utility	utility	0	4	free alternative cost	tagged	0	0	-		0	0
+Kithkin Daggerdare	threat	threat	2	2		derived	0	0	-		0	0
+Prime Speaker Vannifar	tutor	threat,tutor	4	4		tagged	0	0	-		0	0
+Retributive Wand	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Jennika, Bad Apple Big Sister	tutor	threat,tutor	5	5		tagged	0	0	-		0	0
+Suppression Ray // Orderly Plaza	utility	utility	5	5		derived	1	0	-		0	1
+Tannuk, Steadfast Second	threat	threat	3	4	warp {2}{R}	derived	0	0	-		0	0
+Alora, Cheerful Mastermind	threat	threat	5	5		derived	0	0	-		0	0
+Voice of Duty	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Oketra's Last Mercy	utility	utility	3	3		derived	1	0	-		0	0
+Star Compass	mana	mana	2	2		tagged	0	0	-		0	0
+Banners Raised	utility	utility	1	1		derived	1	0	-		0	0
+Urborg	land	land,utility	0	0		tagged	0	0	-		1	0
+Ballista Watcher // Ballista Wielder	spot	burn,spot,threat	4	4		tagged	0	0	-		0	0
+Sigiled Paladin	threat	threat	2	2		derived	0	0	-		0	0
+Talisman of Hierarchy	mana	mana	2	2		tagged	0	0	-		0	0
+Reckoner Bankbuster	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Bruce Banner // The Incredible Hulk	threat	draw,threat	1	1		tagged	0	1	-		0	0
+Blue Screen of Death	utility	utility	6	6		derived	1	0	-		0	0
+Moment's Peace	utility	utility	2	2		tagged	0	0	-		0	0
+Scent of Ivy	utility	utility	1	1		derived	1	0	-		0	0
+Captain Mar-Vell, Space-Born	threat	threat	5	5		derived	0	0	-		0	0
+Dragon Blood	utility	utility	3	3		derived	1	0	-		0	0
+Heart of a Duelist	cantrip	cantrip	2	2		tagged	0	0	-		0	0
+Auramancer's Guise	utility	utility	4	4		derived	1	0	-		0	0
+Mijo, the Bull	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Barkhide Troll	threat	threat	2	2		derived	0	0	-		0	0
+Shivan Devastator	threat	threat	3	1	{X} at X=2	derived	0	0	-		0	0
+Super Shredder	threat	threat	2	2		derived	0	0	-		0	0
+Chaos Charm	spot	burn,spot,utility	1	1		tagged	0	0	-		0	0
+Sliver Queen	threat	threat	5	5		derived	0	0	-		0	0
+Kalamax, the Stormsire	threat	threat	4	4		derived	0	0	-		0	0
+Bamboozling Beeble	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Awoken Nephilim	threat	threat	0	0		derived	0	0	-		0	0
+Collateral Damage	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Bedeck // Bedazzle	spot	burn,spot,utility	2	8	Bedeck costs 2	tagged	0	0	-		0	0
+Llanowar Druid	ritual	mana,ritual,threat	2	2		tagged	0	0	-		0	0
+Blazing Hope	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Nightmare Shepherd	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Winter Moon	utility	utility	2	2		tagged	0	0	-		0	0
+Battle Cry	utility	utility	3	3		derived	1	0	-		0	0
+Grid Monitor	threat	threat	4	4		derived	0	0	-		0	0
+Liliana, Heretical Healer // Liliana, Defiant Necromancer	recursion	recursion,threat,utility	3	3		tagged	0	0	-		0	0
+Khorvath Brightflame	tutor	threat,tutor	6	6		tagged	0	0	-		0	0
+Carnival // Carnage	discard	burn,discard,spot	1	5	Carnival costs 1	tagged	0	0	-		0	0
+Faithful Mending	draw	draw	2	2		derived	0	0	-		0	0
+Azorius Ploy	utility	utility	4	4		derived	1	0	-		0	0
+Akroma, Vision of Ixidor	threat	threat	7	7		derived	0	0	-		0	0
+Ranger of Eos	tutor	threat,tutor	4	4		tagged	0	0	-		0	0
+Daring Archaeologist	recursion	recursion,threat	4	4		tagged	0	0	-		0	0
+Forsaken Wastes	utility	utility	3	3		tagged	0	0	-		0	0
+Atogatog	threat	threat	5	5		derived	0	0	-		0	0
+Coordinated Assault	utility	utility	1	1		derived	1	0	-		0	0
+Mishra's Workshop	land	land,mana	0	0		tagged	0	0	-		1	0
+Hexavus	threat	threat	6	6		derived	0	0	-		0	0
+Cease // Desist	sweeper	draw,spot,sweeper,utility	2	8	Cease costs 2	tagged	0	0	-		0	0
+Become Anonymous	utility	utility	4	4		tagged	0	0	-		0	0
+Vampire Slayer	spot	spot,threat,utility	2	2		tagged	0	0	-		0	0
+Akki Scrapchomper	threat	draw,threat	1	1		tagged	0	0	-		0	0
+Rewind	ritual	counter,ritual	4	4		tagged	0	0	-		0	0
+Briber's Purse	utility	utility	2	0	{X} at X=2	derived	1	0	-		0	0
+Troop of Ponies	mana	mana,threat,tutor	2	2		tagged	0	0	-		0	0
+Glimmer Lens	draw	draw	2	2		tagged	0	1	-		0	0
+Boltwave	burn	burn	1	1		tagged	0	0	-		0	0
+Zombify	recursion	recursion	4	4		tagged	0	0	-		0	0
+Start Your Engines	utility	utility	4	4		derived	1	0	-		0	0
+Descendant of Kiyomaro	threat	threat	3	3		derived	0	0	-		0	0
+Memory Lapse	counter	counter	2	2		tagged	0	0	-		0	0
+Sulfur Vent	land	land,mana	0	0		tagged	0	0	-		1	0
+Grasping Longneck	threat	threat	3	3		derived	0	0	-		0	0
+Plains	land	land	0	0		derived	0	0	-		1	0
+Bandit's Talent	discard	discard,draw	2	2		tagged	0	0	-		0	0
+Sink into Stupor // Soporific Springs	counter	counter,spot	3	3		tagged	0	0	-		0	1
+Jackalope Herd	threat	threat	4	4		derived	0	0	-		0	0
+Heroes' Bane	threat	threat	5	5		derived	0	0	-		0	0
+Ardoz, Cobbler of War	threat	threat	2	2		derived	0	0	-		0	0
+Voyaging Satyr	mana	mana,threat	2	2		tagged	0	0	-		0	0
+An Incident Has Occurred	utility	utility	2	2		tagged	0	0	-		0	0
+Vigorbloom Vanguard // Seed Suture	threat	threat	2	2		derived	0	0	-		0	0
+Barrin's Unmaking	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Dragon's Claw	utility	utility	2	2		tagged	0	0	-		0	0
+Naturalize	spot	spot	2	2		tagged	0	0	-		0	0
+Arcanis, the Omnipotent Avatar	draw	draw	0	0		tagged	0	0	-		0	0
+Knowledge Seeker	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Springleaf Drum	mana	mana	1	1		tagged	0	0	-		0	0
+Smoldering Crater	land	draw,land	0	0		tagged	0	0	-		1	0
+Miles Morales // Ultimate Spider-Man	threat	threat	2	2		derived	0	0	-		0	0
+Entropic Eidolon	threat	threat	4	4		tagged	0	0	-		0	0
+Gnarlid Pack	threat	threat	2	2		derived	0	0	-		0	0
+Curse of Chains	spot	spot	2	2		tagged	0	0	-		0	0
+Aragorn, King of Gondor	threat	draw,threat	4	4		tagged	0	0	-		0	0
+Contortionist Troupe	threat	threat	3	1	{X} at X=2	derived	0	0	-		0	0
+Quilled Sliver	spot	burn,spot,threat,utility	2	2		tagged	0	0	-		0	0
+Growing Ranks	utility	utility	4	4		derived	1	0	-		0	0
+Acidic Dagger	spot	spot,utility	4	4		tagged	0	0	-		0	0
+Cannibalize	spot	spot	2	2		tagged	0	0	-		0	0
+Structural Distortion	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Boseiju, Who Endures	land	land,spot,utility	0	0		tagged	0	0	-		1	0
+Adventurers' Guildhouse	land	land	0	0		derived	0	0	-		1	0
+Tidal Flats	utility	utility	1	1		derived	1	0	-		0	0
+Aminatou, Veil Piercer	threat	draw,threat	4	4		derived	0	0	-		0	0
+Bee-Bee Gun	spot	spot	0	0		tagged	0	0	-		0	0
+Bonded Horncrest	threat	threat	4	4		derived	0	0	-		0	0
+Mist Dancer	threat	threat	5	5		derived	0	0	-		0	0
+Covetous Dragon	threat	threat	5	5		derived	0	0	-		0	0
+Akki Raider	threat	threat	2	2		derived	0	0	-		0	0
+Sanity Grinding	draw	draw	3	3		derived	0	0	-		0	0
+Nested Shambler	threat	threat	1	1		derived	0	0	-		0	0
+Future Flight	draw	draw	4	4		tagged	0	0	-		0	0
+Judith, the Scourge Diva	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Force of Rage	threat	threat	0	3	free alternative cost	derived	0	0	-		0	0
+Gatta and Luzzu	threat	threat	3	3		derived	0	0	-		0	0
+Gatstaf Shepherd // Gatstaf Howler	threat	threat	2	2		derived	0	0	-		0	0
+Arms Depot	utility	utility	0	0		derived	1	0	-		0	0
+Arwen, Weaver of Hope	threat	threat	3	3		derived	0	0	-		0	0
+Fable of the Mirror-Breaker // Reflection of Kiki-Jiki	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Sunken Palace	land	land	0	0		derived	0	0	-		1	0
+Gemstone Caverns	land	land,mana	0	0		tagged	0	0	-		1	0
+Fynn, the Fangbearer	threat	threat	2	2		derived	0	0	-		0	0
+Prizefight	spot	mana,spot	2	2		tagged	0	0	-		0	0
+Animate Dead	recursion	recursion	2	2		tagged	0	0	-		0	0
+Goblin Arsonist	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Glasspool Mimic // Glasspool Shore	threat	threat	3	3		derived	0	0	-		0	1
+Boltfire	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Convicted Killer // Branded Howler	threat	threat	3	3		derived	0	0	-		0	0
+Ashnod's Intervention	utility	utility	1	1		tagged	0	0	-		0	0
+Dress Down	utility	cantrip,utility	2	2		override	0	0	-		0	0
+Ojutai's Command	counter	counter,draw,recursion	4	4		tagged	0	0	-		0	0
+Abbey Gargoyles	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Bolt Bend	utility	utility	4	4		derived	1	0	-		0	0
+Idol of Oblivion	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Alhammarret, High Arbiter	discard	discard,threat	7	7		derived	0	0	-		0	0
+Verdant Rebirth	recursion	cantrip,recursion,utility	2	2		tagged	0	0	-		0	0
+Built to Smash	utility	utility	1	1		derived	1	0	-		0	0
+Unsubstantiate	counter	counter,spot	2	2		tagged	0	0	-		0	0
+Mission Briefing	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Stoneforge Acolyte	threat	cantrip,threat	1	1		derived	0	0	-		0	0
+Crime // Punishment	sweeper	recursion,spot,sweeper	2	7	Punishment costs 2	tagged	0	0	-		0	0
+Joyride Rigger	threat	threat	4	4		derived	0	0	-		0	0
+Skewer the Critics	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Gollum, Patient Plotter	threat	threat	2	2		tagged	0	0	-		0	0
+Vesper Ghoul	mana	mana,threat	3	3		tagged	0	0	-		0	0
+Mystic Doom Sandwich	utility	utility	0	0		derived	1	0	-		0	0
+Pyrewood Gearhulk	threat	threat	6	6		derived	0	0	-		0	0
+Airbender Ascension	spot	spot	2	2		tagged	0	0	-		0	0
+Tangle Wire	utility	utility	3	3		tagged	0	0	-		0	0
+Acornelia, Fashionable Filcher	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Liberated Dwarf	threat	threat	1	1		derived	0	0	-		0	0
+Wire Surgeons	recursion	recursion,threat	6	6		tagged	0	0	-		0	0
+Enlightened Tutor	tutor	tutor	1	1		tagged	0	0	-		0	0
+Bloodsoaked Insight // Sanguine Morass	utility	utility	7	7		derived	1	0	-		0	1
+Smaug the Magnificent	spot	burn,mana,spot,threat	4	4		tagged	0	0	-		0	0
+Depose // Deploy	threat	cantrip,threat	2	6	Depose costs 2	tagged	0	0	-		0	0
+Altar of the Wretched // Wretched Bonemass	draw	draw	3	3		tagged	0	0	-		0	0
+Emerald Dragon // Dissonant Wave	counter	counter,threat	3	6	Dissonant Wave costs 3	tagged	0	0	-		0	0
+Enchanted Evening	utility	utility	5	5		derived	1	0	-		0	0
+Pre-War Formalwear	recursion	recursion	3	3		tagged	0	0	-		0	0
+Artificial Evolution	utility	utility	1	1		derived	1	0	-		0	0
+Arid Mesa	land	land,tutor	0	0		tagged	0	0	-		1	0
+Sokenzan, Crucible of Defiance	land	land	0	0		derived	0	0	-		1	0
+Akron Legionnaire	threat	threat	8	8		derived	0	0	-		0	0
+Quest for the Gravelord	threat	threat	1	1		derived	0	0	-		0	0
+Mana Leak	counter	counter	2	2		derived	0	0	-		0	0
+Happy Yargle Day!	sweeper	burn,cantrip,spot,sweeper	0	0		tagged	0	0	-		0	0
+Unlicensed Hearse	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Corrupted Conscience	utility	utility	5	5		derived	1	0	-		0	0
+Ever-Watching Threshold	draw	draw,utility	3	3		tagged	0	1	-		0	0
+Bounding Krasis	threat	threat	3	3		derived	0	0	-		0	0
+Orchard Strider	tutor	threat,tutor	6	6		tagged	0	0	-		0	0
+Earthlink	spot	spot,utility	6	6		tagged	0	0	-		0	0
+Lamplight Phoenix	threat	threat	3	3		derived	0	0	-		0	0
+Indulgent Aristocrat	threat	threat	1	1		derived	0	0	-		0	0
+Volcanic Island	land	land	0	0		derived	0	0	-		1	0
+Toxrill, the Corrosive	sweeper	draw,spot,sweeper,threat	7	7		tagged	0	1	-		0	0
+Skyrider Elf	threat	threat	4	2	{X} at X=2	derived	0	0	-		0	0
+Hammerheim	land	land,utility	0	0		tagged	0	0	-		1	0
+Grand Abolisher	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Bonded Construct	threat	threat	1	1		derived	0	0	-		0	0
+Plateau	land	land	0	0		derived	0	0	-		1	0
+Twisted Riddlekeeper	threat	threat	8	8		derived	0	0	-		0	0
+Brazen Borrower // Petty Theft	spot	spot,threat	2	3	Petty Theft costs 2	override	0	0	-		0	0
+Raugrin Triome	land	draw,land	0	0		tagged	0	0	-		1	0
+Nearheath Stalker	threat	threat	5	5		derived	0	0	-		0	0
+Raging Goblinoids	threat	threat	5	5		derived	0	0	-		0	0
+Sylvan Might	utility	utility	2	2		derived	1	0	-		0	0
+Reach Through Mists	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Timetwister	draw	draw	3	3		tagged	0	0	-		0	0
+Necropolis	threat	threat	5	5		derived	0	0	-		0	0
+Endurance	threat	threat,utility	0	3	evoke — exile a card	tagged	0	0	-		0	0
+Jennifer Walters // The Sensational She-Hulk	spot	burn,spot,threat,utility	2	2		tagged	0	0	-		0	0
+Fire Magic	sweeper	burn,spot,sweeper	1	1		tagged	0	0	-		0	0
+Swiftfoot Boots	utility	utility	2	2		tagged	0	0	-		0	0
+Crackling Drake	threat	draw,threat	4	4		tagged	0	0	-		0	0
+Stalactite Stalker	spot	spot,threat	1	1		tagged	0	0	-		0	0
+Benevolent Bodyguard	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Waking the Trolls	spot	mana,recursion,spot,threat	6	6		tagged	0	0	-		0	0
+Impractical Joke	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Aminatou's Augury	mana	draw,mana	8	8		tagged	0	0	-		0	0
+Lae'zel, Blessed Warrior	threat	threat	5	5		derived	0	0	-		0	0
+Sundering Eruption // Volcanic Fissure	spot	spot,tutor	3	3		tagged	0	0	-		0	1
+Adder-Staff Boggart	threat	threat	2	2		derived	0	0	-		0	0
+Foresight	cantrip	cantrip	2	2		tagged	0	0	-		0	0
+Beyond the Quiet	sweeper	spot,sweeper,utility	5	5		tagged	0	0	-		0	0
+Mind Stone	mana	draw,mana	2	2		tagged	0	0	-		0	0
+Queza, Augur of Agonies	threat	draw,threat	4	4		derived	0	1	-		0	0
+Gandalf, Wandering Wizard	threat	draw,threat	5	5		tagged	0	1	-		0	0
+Lifegift	utility	utility	3	3		derived	1	0	-		0	0
+Ultima	sweeper	spot,sweeper	5	5		tagged	0	0	-		0	0
+Lightning Greaves	utility	utility	2	2		tagged	0	0	-		0	0
+Bubble Smuggler	threat	threat	2	2		derived	0	0	-		0	0
+Ethersworn Adjudicator	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Masterful Ninja	threat	threat	3	3		derived	0	0	-		0	0
+Abraded Bluffs	land	burn,land	0	0		tagged	0	0	-		1	0
+Gerrard	draw	draw	0	0		tagged	0	0	-		0	0
+Snow-Covered Mountain	land	land	0	0		derived	0	0	-		1	0
+Bloodsoaked Champion	threat	threat	1	1		tagged	0	0	-		0	0
+Goblin Glory Chaser	threat	threat	1	1		derived	0	0	-		0	0
+Ranger-Captain of Eos	tutor	threat,tutor,utility	3	3		tagged	0	0	-		0	0
+Sewer Plague	spot	spot	3	3		tagged	0	0	-		0	0
+Scalding Tarn	land	land,tutor	0	0		tagged	0	0	-		1	0
+Double Jump // Flying Kick	spot	spot	2	4	Double Jump costs 2	tagged	0	0	-		0	0
+A-Town	land	land	0	0		derived	0	0	-		1	0
+Khabál Ghoul	threat	threat	3	3		derived	0	0	-		0	0
+Sidar Jabari	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Emperor of Bones	recursion	recursion,threat,utility	2	2		tagged	0	0	-		0	0
+Dauthi Marauder	threat	threat	3	3		derived	0	0	-		0	0
+Null Chamber	utility	utility	4	4		derived	1	0	-		0	0
+Riptide Turtle	threat	threat	2	2		derived	0	0	-		0	0
+Devoted Druid	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Dwarven Bloodboiler	threat	threat	3	3		derived	0	0	-		0	0
+Aang, Swift Savior // Aang and La, Ocean's Fury	counter	counter,spot,threat,utility	3	3		tagged	0	0	-		0	0
+Counterspell	counter	counter	2	2		tagged	0	0	-		0	0
+Tempting Contract	mana	mana	4	4		tagged	0	0	-		0	0
+Baron, Airship Kingdom	land	land	0	0		derived	0	0	-		1	0
+Tajuru Beastmaster	threat	threat	6	6		derived	0	0	-		0	0
+Grounded	utility	utility	2	2		derived	1	0	-		0	0
+Glyph of Destruction	utility	utility	1	1		derived	1	0	-		0	0
+Realm Seekers	tutor	threat,tutor	6	6		tagged	0	0	-		0	0
+Gala Greeters	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Hushwood Verge	land	land	0	0		derived	0	0	-		1	0
+Undercity Informer	threat	threat	3	3		derived	0	0	-		0	0
+Meticulous Archive	land	land	0	0		derived	0	0	-		1	0
+Mammoth Umbra	utility	utility	5	5		tagged	0	0	-		0	0
+Wall of Nets	sweeper	spot,sweeper,threat	3	3		tagged	0	0	-		0	0
+Mystic Confluence	counter	counter,draw,spot	5	5		tagged	0	0	-		0	0
+Omnath, Locus of Creation	sweeper	burn,draw,mana,spot,sweeper,threat	4	4		tagged	0	0	-		0	0
+Noxious Vapors	utility	utility	3	3		tagged	0	0	-		0	0
+Kaijin of the Vanishing Touch	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Crystal Shard	spot	spot	3	3		tagged	0	0	-		0	0
+Gatstaf Arsonists // Gatstaf Ravagers	threat	threat	5	5		derived	0	0	-		0	0
+Rustic Clachan	land	land	0	0		derived	0	0	-		1	0
+The Hippodrome	spot	spot,utility	0	0		tagged	0	0	-		0	0
+Castle Vantress	land	land	0	0		derived	0	0	-		1	0
+Vastwood Fortification // Vastwood Thicket	utility	utility	1	1		derived	1	0	-		0	1
+Borne Upon a Wind	cantrip	cantrip	2	2		tagged	0	0	-		0	0
+Natural Emergence	utility	utility	4	4		derived	1	0	-		0	0
+Billowing Shriekmass	threat	threat	4	4		derived	0	0	-		0	0
+Teferi's Isle	land	land,mana	0	0		tagged	0	0	-		1	0
+Kuroki, Thief of Talents	threat	draw,threat	5	5		derived	0	1	-		0	0
+Carrion Wall	threat	threat	3	3		derived	0	0	-		0	0
+Secure Detention	spot	spot,threat,utility	4	4		tagged	0	0	-		0	0
+Clive, Ifrit's Dominant // Ifrit, Warden of Inferno	spot	draw,mana,spot,threat	6	6		tagged	0	0	-		0	0
+Reckless Crew	threat	threat	4	4		derived	0	0	-		0	0
+Fortified Area	utility	utility	3	3		derived	1	0	-		0	0
+Ironscale Hydra	threat	threat	5	5		derived	0	0	-		0	0
+Lucent Liminid	threat	threat	5	5		derived	0	0	-		0	0
+Quicken	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Wither and Bloom	spot	spot	2	2		tagged	0	0	-		0	0
+Primitive Justice	spot	spot	2	2		tagged	0	0	-		0	0
+Archaeological Dig	land	land	0	0		derived	0	0	-		1	0
+Mind Funeral	utility	utility	3	3		derived	1	0	-		0	0
+Totentanz, Swarm Piper	threat	threat	3	3		derived	0	0	-		0	0
+Leyline of Transformation	utility	utility	4	4		derived	1	0	-		0	0
+Alpha Brawl	sweeper	burn,spot,sweeper,utility	8	8		tagged	0	0	-		0	0
+Fen Stalker	threat	threat	4	4		derived	0	0	-		0	0
+Spell Snip	counter	counter,draw	3	3		tagged	0	0	-		0	0
+Temple of the False God	land	land,mana	0	0		tagged	0	0	-		1	0
+Iceberg	mana	mana	4	2	{X} at X=2	tagged	0	0	-		0	0
+Pyrokinesis	spot	burn,spot	0	6	free alternative cost	tagged	0	0	-		0	0
+Time Walk	threat	threat	2	2		tagged	0	0	-		0	0
+Starting Town	land	land	0	0		derived	0	0	-		1	0
+Day of Judgment	sweeper	spot,sweeper	4	4		tagged	0	0	-		0	0
+Battle Myrsphere	spot	burn,spot,threat	7	7		tagged	0	0	-		0	0
+Abstergo Entertainment	land	land,recursion,utility	0	0		tagged	0	0	-		1	0
+Apex of Power	ritual	draw,mana,ritual	10	10		tagged	0	0	-		0	0
+All Shall Smolder in My Wake	spot	spot,utility	0	0		tagged	0	0	-		0	0
+Annul	counter	counter	1	1		tagged	0	0	-		0	0
+Tezzeret, Master of the Bridge	threat	burn,recursion,threat	6	6		tagged	0	0	-		0	0
+Loxodon Convert	threat	threat	4	4		derived	0	0	-		0	0
+Thundertrap Trainer	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Divining Duelist	threat	draw,threat	3	3		derived	0	0	-		0	0
+Ramunap Ruins	land	burn,land	0	0		tagged	0	0	-		1	0
+Abduction	utility	utility	4	4		tagged	0	0	-		0	0
+Moon-Vigil Adherents	threat	threat	4	4		derived	0	0	-		0	0
+Archivist	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Artillerize	spot	burn,spot	4	4		tagged	0	0	-		0	0
+Indris, the Hydrostatic Surge	spot	burn,draw,spot,threat	6	6		tagged	0	1	-		0	0
+Tymna the Weaver	threat	draw,threat	3	3		tagged	0	1	-		0	0
+Starlit Sanctum	land	land	0	0		derived	0	0	-		1	0
+Hive of the Eye Tyrant	land	land,utility	0	0		tagged	0	0	-		1	0
+Frantic Scapegoat	threat	threat	1	1		derived	0	0	-		0	0
+Demonic Embrace	utility	utility	3	3		tagged	0	0	-		0	0
+Channel the Suns	ritual	mana,ritual	4	4		tagged	0	0	-		0	0
+Channel	ritual	ritual	2	2		tagged	0	0	-		0	0
+Bala Ged Recovery // Bala Ged Sanctuary	recursion	recursion	3	3		tagged	0	0	-		0	1
+Galvanic Blast	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Strip Mine	land	land,spot	0	0		tagged	0	0	-		1	0
+Wildfire Awakener	threat	burn,threat	3	3	{X} creature with a printed body — X=0 is castable	tagged	0	0	-		0	0
+Psychic Possession	draw	draw	4	4		tagged	0	1	-		0	0
+Grenzo, Crooked Jailer	threat	threat	6	6		derived	0	0	-		0	0
+Wriggling Grub	threat	threat	2	2		derived	0	0	-		0	0
+Nesting Grounds	land	land	0	0		derived	0	0	-		1	0
+Plague Fiend	threat	threat	2	2		derived	0	0	-		0	0
+Auntie's Snitch	threat	threat	3	3		tagged	0	0	-		0	0
+Snarling Gorehound	threat	cantrip,threat	1	1		derived	0	0	-		0	0
+Thundering Falls	land	land	0	0		derived	0	0	-		1	0
+Scrapheap Scrounger	threat	threat	2	2		tagged	0	0	-		0	0
+Malevolent Rumble	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Aven Interrupter	counter	counter,threat,utility	3	3		tagged	0	0	-		0	0
+Dihada, Binder of Wills	threat	mana,threat,utility	4	4		tagged	0	0	-		0	0
+Gruul Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Fanatical Firebrand	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Forsaken Miner	threat	threat	1	1		tagged	0	0	-		0	0
+Trailtracker Scout	mana	mana,recursion,threat	2	2		tagged	0	0	-		0	0
+Infestation Sage	threat	threat	1	1		derived	0	0	-		0	0
+Enigma Thief	spot	spot,threat	7	7		tagged	0	0	-		0	0
+Birds of Paradise	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Ojer Axonil, Deepest Might // Temple of Power	mana	mana,threat	4	4		tagged	0	0	-		0	0
+Dust Bowl	land	land,spot,utility	0	0		tagged	0	0	-		1	0
+Archive Trap	utility	utility	0	5	free alternative cost	tagged	0	0	-		0	0
+Artifact Unknown Shores	land	land	0	0		derived	0	0	-		1	0
+Sphinx of the Final Word	threat	threat	7	7		derived	0	0	-		0	0
+Shinen of Stars' Light	threat	threat	3	3		derived	0	0	-		0	0
+Children of Korlis	threat	threat	1	1		derived	0	0	-		0	0
+Volrath	utility	utility	0	0		derived	1	0	-		0	0
+Fiery Annihilation	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Sage Owl	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Planar Portal	tutor	tutor	6	6		tagged	0	0	-		0	0
+Haze Frog	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Absolute Virtue	threat	threat,utility	8	8		tagged	0	0	-		0	0
+Universal Automaton	threat	threat	1	1		derived	0	0	-		0	0
+Lush Portico	land	land	0	0		derived	0	0	-		1	0
+Recruiter of the Guard	tutor	threat,tutor	3	3		tagged	0	0	-		0	0
+Arcane Infusion	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Rhystic Deluge	utility	utility	3	3		derived	1	0	-		0	0
+Adarkar Wastes	land	land	0	0		derived	0	0	-		1	0
+Saiba Trespassers	threat	threat	5	5		derived	0	0	-		0	0
+Mox Sapphire	mana	mana	0	0		derived	0	0	-		0	0
+Roaring Furnace // Steaming Sauna	spot	burn,draw,spot	2	7	Roaring Furnace costs 2	tagged	0	1	-		0	0
+Spell Pierce	counter	counter	1	1		tagged	0	0	-		0	0
+Timely Interference	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Liliana, Death Mage	threat	recursion,spot,threat	6	6		tagged	0	0	-		0	0
+Goblin Blastronauts	threat	threat	5	5		derived	0	0	-		0	0
+Antarctic Research Base	utility	utility	0	0		derived	1	0	-		0	0
+Path to Exile	spot	spot	1	1		tagged	0	0	-		0	0
+Terra Stomper	threat	threat,utility	6	6		tagged	0	0	-		0	0
+Nameless Inversion	spot	spot	2	2		tagged	0	0	-		0	0
+Aretopolis	draw	draw	0	0		tagged	0	1	-		0	0
+Aboleth Spawn	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Wort, the Raidmother	threat	threat	6	6		derived	0	0	-		0	0
+Disruptor Flute	utility	utility	2	2		tagged	0	0	-		0	0
+Bonecrusher Giant // Stomp	spot	burn,spot,threat,utility	2	3	Stomp costs 2	tagged	0	0	-		0	0
+Bringer of the White Dawn	recursion	recursion,threat	5	9	alternative cost {W}{U}{B}{R}{G}	tagged	0	0	-		0	0
+Elvish Archivist	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Remand	counter	cantrip,counter	2	2		tagged	0	0	-		0	0
+Renegade Reaper	threat	threat	3	3		derived	0	0	-		0	0
+Glorious Dragon-Kin	threat	threat,utility	7	7		tagged	0	0	-		0	0
+Ascent of the Worthy	recursion	recursion	3	3		tagged	0	0	-		0	0
+Insidious Roots	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Flamecache Gecko	threat	draw,threat	2	2		derived	0	1	-		0	0
+Behold the Multiverse	draw	draw	4	4		tagged	0	0	-		0	0
+Djinn Illuminatus	threat	threat	7	7		derived	0	0	-		0	0
+Nimbus Maze	land	land	0	0		derived	0	0	-		1	0
+Gadget Technician	threat	threat	4	4		derived	0	0	-		0	0
+Aerial Boost	utility	utility	2	2		derived	1	0	-		0	0
+Clifftop Retreat	land	land	0	0		derived	0	0	-		1	0
+Snow-Covered Swamp	land	land	0	0		derived	0	0	-		1	0
+Erayo, Soratami Ascendant // Erayo's Essence	counter	counter,threat	2	2		tagged	0	0	-		0	0
+Ivora, Insatiable Heir	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Sanguine Guard	threat	threat	3	3		derived	0	0	-		0	0
+Argivian Restoration	recursion	recursion	4	4		tagged	0	0	-		0	0
+Almighty Brushwagg	threat	threat	1	1		derived	0	0	-		0	0
+Two Streams Facility	mana	mana	0	0		tagged	0	0	-		0	0
+Accursed Marauder	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Tajuru Pathwarden	threat	threat	5	5		derived	0	0	-		0	0
+Stadium Headliner	spot	spot,threat	1	1		tagged	0	0	-		0	0
+Brimstone Trebuchet	threat	burn,threat	3	3		tagged	0	0	-		0	0
+Unlucky Cabbage Merchant	mana	mana,threat,tutor	2	2		tagged	0	0	-		0	0
+Incinerate	spot	burn,spot,utility	2	2		tagged	0	0	-		0	0
+Dream Halls	utility	utility	5	5		derived	1	0	-		0	0
+Skyclave Apparition	spot	spot,threat	3	3		tagged	0	0	-		0	0
+Avengers: Under Siege	sweeper	burn,mana,spot,sweeper,threat	4	4		tagged	0	0	-		0	0
+Aven Mindcensor	tutor	threat,tutor,utility	3	3		tagged	0	0	-		0	0
+Dream Tides	spot	spot,utility	4	4		tagged	0	0	-		0	0
+Thunder Lasso	utility	utility	3	3		derived	1	0	-		0	0
+Steelshaper's Gift	tutor	tutor	1	1		tagged	0	0	-		0	0
+Bounce Off	spot	spot,utility	1	1		tagged	0	0	-		0	0
+Tyrant's Machine	utility	utility	2	2		derived	1	0	-		0	0
+Aetherwind Basker	threat	threat	7	7		derived	0	0	-		0	0
+Zof Consumption // Zof Bloodbog	utility	utility	6	6		derived	1	0	-		0	1
+Dovescape	counter	counter,utility	6	6		tagged	0	0	-		0	0
+Rug of Smothering	threat	threat,utility	3	3		tagged	0	0	-		0	0
+General Kreat, the Boltbringer	threat	burn,threat	3	3		tagged	0	0	-		0	0
+Plundering Barbarian	spot	mana,spot,threat	3	3		tagged	0	0	-		0	0
+Kinbinding	threat	threat	5	5		derived	0	0	-		0	0
+Emergency Eject	spot	spot	3	3		tagged	0	0	-		0	0
+Dancing Sword	utility	utility	2	2		derived	1	0	-		0	0
+Aleatory	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Vona's Hunger	spot	spot	3	3		tagged	0	0	-		0	0
+Prosperous Innkeeper	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Oversoul of Dusk	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Ephara's Enlightenment	utility	utility	3	3		derived	1	0	-		0	0
+Marsh Flats	land	land,tutor	0	0		tagged	0	0	-		1	0
+Fin-Clade Fugitives	threat	threat	6	6		derived	0	0	-		0	0
+Sky-Blessed Samurai	threat	threat	7	7		derived	0	0	-		0	0
+Loyal Drake	threat	draw,threat	3	3		tagged	0	1	-		0	0
+Axe of the Warmonger	utility	utility	0	0		derived	1	0	-		0	0
+Monastery Swiftspear	threat	threat	1	1		derived	0	0	-		0	0
+Drowner of Truth // Drowned Jungle	threat	threat	7	7		derived	0	0	-		0	1
+Cogwork Wrestler	threat	threat	1	1		derived	0	0	-		0	0
+Eldrazi Linebreaker	threat	threat	3	3		derived	0	0	-		0	0
+Urborg, Tomb of Yawgmoth	land	land	0	0		derived	0	0	-		1	0
+Animating Faerie // Bring to Life	threat	threat	3	3		derived	0	0	-		0	0
+Kneel Before My Legions	threat	threat	0	0		derived	0	0	-		0	0
+Tolarian Academy	land	land,mana	0	0		tagged	0	0	-		1	0
+Stone Docent	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Oswald Fiddlebender	tutor	threat,tutor	2	2		tagged	0	0	-		0	0
+Six	recursion	recursion,threat	3	3		tagged	0	0	-		0	0
+Fangblade Brigand // Fangblade Eviscerator	threat	threat	4	4		derived	0	0	-		0	0
+Omen Machine	mana	mana	6	6		tagged	0	0	-		0	0
+Legions to Ashes	spot	spot,utility	3	3		tagged	0	0	-		0	0
+Boomerang	spot	spot	2	2		tagged	0	0	-		0	0
+Seer of the Last Tomorrow	threat	threat	3	3		derived	0	0	-		0	0
+High Tide	ritual	mana,ritual	1	1		tagged	0	0	-		0	0
+Fallaji Dragon Engine	threat	threat	8	8		derived	0	0	-		0	0
+Solitude	spot	spot,threat	0	5	evoke — exile a card	override	0	0	-		0	0
+17-Year Cicadas	threat	threat	8	8		derived	0	0	-		0	0
+Blastfire Bolt	spot	burn,spot,utility	6	6		tagged	0	0	-		0	0
+Buzz Buggy	utility	utility	0	0		derived	1	0	-		0	0
+Spineseeker Centipede	tutor	threat,tutor	3	3		tagged	0	0	-		0	0
+Angelic Rocket	spot	spot,threat	8	8		tagged	0	0	-		0	0
+Aethertow	spot	spot,utility	4	4		tagged	0	0	-		0	0
+Wild Unraveling	counter	counter	2	2		tagged	0	0	-		0	0
+Accorder's Shield	utility	utility	0	0		derived	1	0	-		0	0
+Alquist Proft, Master Sleuth	threat	draw,threat	3	3		tagged	0	1	-		0	0
+Abjure	counter	counter	1	1		tagged	0	0	-		0	0
+Spirit of Resilience	threat	threat	3	3		derived	0	0	-		0	0
+Black Dragon Gate	land	land	0	0		derived	0	0	-		1	0
+Sea Gate Banneret	threat	threat	1	1		derived	0	0	-		0	0
+Deny the Witch	counter	counter	4	4		tagged	0	0	-		0	0
+Lowland Tracker	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Ba Sing Se	land	land	0	0		derived	0	0	-		1	0
+Adriana, Captain of the Guard	threat	threat	5	5		derived	0	0	-		0	0
+Orzhov Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Tajuru Blightblade	threat	threat	1	1		derived	0	0	-		0	0
+Skateboard	utility	utility	1	1		derived	1	0	-		0	0
+Fyndhorn Elves	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Bound // Determined	recursion	cantrip,recursion	2	7	Determined costs 2	tagged	0	0	-		0	0
+Goblin Motivator	threat	threat	1	1		derived	0	0	-		0	0
+Restoration Angel	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Seam Rip	spot	spot	1	1		tagged	0	0	-		0	0
+Everett K. Ross, Hapless Attaché	threat	draw,threat,utility	3	3		tagged	0	1	-		0	0
+Azorius Signet	mana	mana	2	2		tagged	0	0	-		0	0
+Forked Bolt	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Abby, Merciless Soldier	threat	threat	3	3		derived	0	0	-		0	0
+Bolt of Keranos	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Poised Practitioner	threat	draw,threat	3	3		derived	0	0	-		0	0
+Clown Car	threat	threat	2	0	{X} at X=2	derived	0	0	-		0	0
+Abomination, World Ravager	threat	threat	8	8		derived	0	0	-		0	0
+Broadside Bombardiers	spot	burn,spot,threat	3	3		tagged	0	0	-		0	0
+Scathe Zombies	threat	threat	3	3		derived	0	0	-		0	0
+Paraselene	sweeper	spot,sweeper,utility	3	3		tagged	0	0	-		0	0
+Psychic Frog	threat	draw,threat	2	2		tagged	0	1	-		0	0
+Akroan Hoplite	threat	threat	2	2		derived	0	0	-		0	0
+Andrios, Roaming Explorer	mana	mana,threat	6	6		tagged	0	0	-		0	0
+Enraged Ceratok	threat	threat	4	4		derived	0	0	-		0	0
+Bat-	threat	threat	0	0		derived	0	0	-		0	0
+Applied Aeronautics	spot	spot	0	0		tagged	0	0	-		0	0
+Brotherhood Scribe	threat	threat	2	2		derived	0	0	-		0	0
+Anax, Hardened in the Forge	threat	threat	3	3		derived	0	0	-		0	0
+Fires of Yavimaya	utility	utility	3	3		derived	1	0	-		0	0
+Double Stroke	utility	utility	0	0		derived	1	0	-		0	0
+Fastbond	mana	mana	1	1		tagged	0	0	-		0	0
+Shorikai, Genesis Engine	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Haunted Ridge	land	land	0	0		derived	0	0	-		1	0
+Jund 'Em Out	utility	utility	3	3		derived	1	0	-		0	0
+Prismatic Lens	mana	mana	2	2		tagged	0	0	-		0	0
+Avatar's Wrath	sweeper	spot,sweeper,utility	4	4		tagged	0	0	-		0	0
+Harried Spearguard	threat	threat	1	1		derived	0	0	-		0	0
+Goblin Javelineer	spot	burn,spot,threat,utility	1	1		tagged	0	0	-		0	0
+Sword of Vengeance	utility	utility	3	3		derived	1	0	-		0	0
+Parallax Tide	spot	spot	4	4		tagged	0	0	-		0	0
+Land Grant	tutor	tutor	0	2	free alternative cost	tagged	0	0	-		0	0
+Unwind	ritual	counter,ritual	3	3		tagged	0	0	-		0	0
+Vexilus Praetor	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Illusion of Choice	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Healing Grace	utility	utility	1	1		derived	1	0	-		0	0
+Nature's Kiss	utility	utility	2	2		derived	1	0	-		0	0
+Abundant Countryside	land	land	0	0		derived	0	0	-		1	0
+Raven's Run Dragoon	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Approach of the Second Sun	threat	threat	7	7		tagged	0	0	-		0	0
+Chicken à la King	threat	threat	3	3		derived	0	0	-		0	0
+Conspiracy Unraveler	threat	threat	7	7		derived	0	0	-		0	0
+Polyraptor	threat	threat	8	8		derived	0	0	-		0	0
+Extraplanar Lens	mana	mana	3	3		tagged	0	0	-		0	0
+Spiked Corridor // Torture Pit	spot	burn,spot,threat	4	8	Spiked Corridor costs 4	tagged	0	0	-		0	0
+Clockwork Drawbridge	threat	threat	1	1		derived	0	0	-		0	0
+Aether Spike	counter	counter	2	2		tagged	0	0	-		0	0
+Anointer of Valor	threat	threat	6	6		derived	0	0	-		0	0
+Thought Devourer	threat	threat	4	4		derived	0	0	-		0	0
+Cult Conscript	threat	threat	1	1		tagged	0	0	-		0	0
+Blightstep Pathway // Searstep Pathway	land	land	0	0		derived	0	0	-		1	0
+Alibou, Ancient Witness	spot	burn,spot,threat	5	5		tagged	0	0	-		0	0
+Ellie, Vengeful Hunter	threat	burn,threat	3	3		tagged	0	0	-		0	0
+Eclipsed Kithkin	threat	cantrip,threat	2	2		derived	0	0	-		0	0
+Blazing Salvo	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Reverent Silence	sweeper	spot,sweeper	0	4	free alternative cost	tagged	0	0	-		0	0
+Ancient Adamantoise	mana	mana,threat	8	8		tagged	0	0	-		0	0
+Crimson Wisps	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Ayli, Eternal Pilgrim	spot	spot,threat	2	2		tagged	0	0	-		0	0
+Waterlogged Teachings // Inundated Archive	tutor	tutor	4	4		tagged	0	0	-		0	1
+Holdout Settlement	land	land	0	0		derived	0	0	-		1	0
+Aftershock	spot	spot	4	4		tagged	0	0	-		0	0
+Can't Quite Recall	draw	draw	1	1		tagged	0	0	-		0	0
+Festival Crasher	threat	threat	2	2		derived	0	0	-		0	0
+Greater Auramancy	utility	utility	2	2		tagged	0	0	-		0	0
+Memory Deluge	draw	draw	4	4		derived	0	0	-		0	0
+Flow State	cantrip	cantrip,draw	2	2		override	0	0	-		0	0
+Awaken the Inferno	spot	burn,spot,tutor	5	5		tagged	0	0	-		0	0
+Abomination, Irradiated Brute	threat	threat	4	4		derived	0	0	-		0	0
+Portent	cantrip	cantrip	1	1		derived	0	0	-		0	0
+Gardenize	mana	mana	3	3		tagged	0	0	-		0	0
+Battle Cry Goblin	threat	threat	2	2		derived	0	0	-		0	0
+Azorius Charm	spot	cantrip,spot,utility	2	2		tagged	0	0	-		0	0
+Chancellor of the Spires	threat	threat,utility	7	7		tagged	0	0	-		0	0
+Artifact Mutation	spot	spot,threat,utility	2	2		tagged	0	0	-		0	0
+Oculus	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Abzan Advantage	spot	spot	2	2		tagged	0	0	-		0	0
+Quicksilver Lapidary	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Dragonfire Blade	utility	utility	1	1		tagged	0	0	-		0	0
+Ghostly Prison	utility	utility	3	3		derived	1	0	-		0	0
+Exquisite Firecraft	spot	burn,spot,utility	3	3		tagged	0	0	-		0	0
+Urza, Lord High Artificer	threat	draw,threat	4	4		tagged	0	0	-		0	0
+Worldly Tutor	tutor	tutor	1	1		tagged	0	0	-		0	0
+Old Hob, Alleycat Blues	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Leap	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Mental Note	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Unexpectedly Absent	spot	spot	2	2	{X}{W}{W} at X=0 tucks on top	override	0	0	-		0	0
+Ballad of the Black Flag	utility	utility	3	3		derived	1	0	-		0	0
+Abstruse Interference	counter	counter,threat	3	3		tagged	0	0	-		0	0
+Kellan, Planar Trailblazer	threat	draw,threat	1	1		tagged	0	0	-		0	0
+Ledger Shredder	threat	threat	2	2		derived	0	0	-		0	0
+Adaptive Omnitool	draw	draw	2	2		derived	0	1	-		0	0
+Goblin Goon	threat	threat	4	4		derived	0	0	-		0	0
+Consult the Star Charts	cantrip	cantrip,draw	2	2		override	0	0	-		0	0
+Electro's Bolt	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Panic	cantrip	cantrip	1	1		derived	0	0	-		0	0
+Dryad Arbor	land	land	0	0		derived	0	0	-		1	0
+Concussive Bolt	burn	burn	5	5		tagged	0	0	-		0	0
+Otawara, Soaring City	land	land,spot	0	0		tagged	0	0	-		1	0
+Bottle-Cap Blast	spot	burn,spot	5	5		tagged	0	0	-		0	0
+Imperiosaur	threat	threat	4	4		derived	0	0	-		0	0
+Goham Djinn	threat	threat	6	6		derived	0	0	-		0	0
+Aether Shockwave	utility	utility	4	4		tagged	0	0	-		0	0
+Coalition Victory	threat	threat	8	8		tagged	0	0	-		0	0
+Mystic Gate	land	land	0	0		derived	0	0	-		1	0
+Arek, False Goldwarden	threat	threat	2	2		derived	0	0	-		0	0
+Orcish Bowmasters	spot	burn,spot,threat	2	2		tagged	0	0	-		0	0
+Goblin Chirurgeon	threat	threat,utility	1	1		tagged	0	0	-		0	0
+Sprouting Thrinax	threat	threat	3	3		derived	0	0	-		0	0
+Propaganda	utility	utility	3	3		derived	1	0	-		0	0
+Masked Admirers	threat	draw,threat	4	4		tagged	0	0	-		0	0
+Akroma, Angel of Wrath Avatar	utility	utility	0	0		tagged	0	0	-		0	0
+Abuelo, Ancestral Echo	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Bolg, Erebor's Reckoning	sweeper	spot,sweeper,threat	6	6		tagged	0	0	-		0	0
+Albiorix, Goose Tyrant // Wild Goose Chase	threat	draw,threat	2	3	Wild Goose Chase costs 2	derived	0	0	-		0	0
+No More Lies	counter	counter	2	2		tagged	0	0	-		0	0
+Pithing Spyglass	utility	utility	2	2		derived	1	0	-		0	0
+Hour of Victory	tutor	threat,tutor	3	3		tagged	0	0	-		0	0
+Breeches, Brazen Plunderer	threat	threat	4	4		derived	0	0	-		0	0
+Breath of the Sleepless	utility	utility	4	4		derived	1	0	-		0	0
+Memory Jar	discard	discard,draw	5	5		tagged	0	0	-		0	0
+Down // Dirty	discard	discard,recursion	3	7	Dirty costs 3	tagged	0	0	-		0	0
+Brinebarrow Intruder	threat	threat	1	1		derived	0	0	-		0	0
+Chaos Defiler	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Reenact the Crime	utility	utility	4	4		tagged	0	0	-		0	0
+Daybreak Chaplain	threat	threat	2	2		derived	0	0	-		0	0
+Anafenza, the Foremost	threat	threat,utility	3	3		tagged	0	0	-		0	0
+Boseiju Reaches Skyward // Branch of Boseiju	tutor	tutor	4	4		tagged	0	0	-		0	0
+Battle Rampart	threat	threat	3	3		derived	0	0	-		0	0
+Chrome Mox	mana	mana	0	0		tagged	0	0	-		0	0
+Arcum's Astrolabe	cantrip	cantrip	1	1		tagged	0	0	-		0	0
+Syndicate Guildmage	spot	burn,spot,threat,utility	2	2		tagged	0	0	-		0	0
+Disruptive Stormbrood // Petty Revenge	spot	spot,threat	2	5	Petty Revenge costs 2	derived	0	0	-		0	0
+Goblin Artisans	counter	counter,draw,threat	1	1		tagged	0	1	-		0	0
+Pyroblast	counter	counter,spot,utility	1	1		tagged	0	0	-		0	0
+Abundance	draw	draw	4	4		derived	0	0	-		0	0
+Magnanimous Magistrate	recursion	recursion,threat,utility	6	6		tagged	0	0	-		0	0
+Flame of Anor	spot	draw,spot	3	3		tagged	0	0	-		0	0
+Aether Gust	counter	counter,spot,utility	2	2		tagged	0	0	-		0	0
+Crucible of the Spirit Dragon	land	land,mana	0	0		tagged	0	0	-		1	0
+Chaosphere	utility	utility	3	3		tagged	0	0	-		0	0
+March of Otherworldly Light	spot	spot	3	1	{X} at X=2	tagged	0	0	-		0	0
+Alpharael, Stonechosen	discard	discard,threat	5	5		tagged	0	0	-		0	0
+Magus of the Balance	discard	discard,threat,utility	2	2		tagged	0	0	-		0	0
+Aquamorph Entity	threat	threat	4	4		derived	0	0	-		0	0
+Nathan Drake, Treasure Hunter	threat	draw,threat	3	3		tagged	0	0	-		0	0
+Humility	spot	spot	4	4		tagged	0	0	-		0	0
+Failure // Comply	counter	counter	2	3	Failure costs 2	tagged	0	0	-		0	0
+Mox Ruby	mana	mana	0	0		derived	0	0	-		0	0
+Aspirant's Ascent	utility	utility	1	1		derived	1	0	-		0	0
+Access Tunnel	land	land	0	0		derived	0	0	-		1	0
+Ojer Kaslem, Deepest Growth // Temple of Cultivation	mana	mana,threat	5	5		tagged	0	0	-		0	0
+Requiting Hex	spot	spot	1	1		tagged	0	0	-		0	0
+Goblin Bombardment	spot	burn,spot	2	2		tagged	0	0	-		0	0
+Chaos Orb	sweeper	spot,sweeper	2	2		tagged	0	0	-		0	0
+Abnormal Endurance	utility	utility	2	2		tagged	0	0	-		0	0
+Delver of Secrets // Insectile Aberration	threat	cantrip,threat	1	1		derived	0	0	-		0	0
+Thoughtseize	discard	discard	1	1		tagged	0	0	-		0	0
+Vampiric Tutor	tutor	tutor	1	1		tagged	0	0	-		0	0
+Goblin Patrol	threat	threat	1	1		derived	0	0	-		0	0
+Ordered Migration	threat	threat	5	5		derived	0	0	-		0	0
+Clear, Fair Magic	spot	spot,utility	2	2		tagged	0	0	-		0	0
+Lion's Eye Diamond	ritual	mana,ritual	0	0		tagged	0	0	-		0	0
+Haytham Kenway	spot	spot,threat,utility	4	4		tagged	0	0	-		0	0
+Combat Calligrapher	threat	threat,utility	4	4		tagged	0	0	-		0	0
+Deduce	cantrip	cantrip	2	2		tagged	0	0	-		0	0
+Barbarian Ring	land	burn,land,spot	0	0		tagged	0	0	-		1	0
+Brand	draw	draw	1	1		tagged	0	0	-		0	0
+Spectacular Spider-Man	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Argivian Welcome	utility	utility	2	2		tagged	0	0	-		0	0
+Galvanic Discharge	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Moment of Truth	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Wistful Puppeteer	threat	draw,threat	4	4		tagged	0	1	-		0	0
+Polluted Delta	land	land,tutor	0	0		tagged	0	0	-		1	0
+Oust	spot	spot	1	1		tagged	0	0	-		0	0
+Antique Collector	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Auntie Ant, Ant Auntie	threat	threat	5	5		derived	0	0	-		0	0
+Solve the Equation	tutor	tutor	3	3		tagged	0	0	-		0	0
+Reprieve	counter	cantrip,counter	2	2		tagged	0	0	-		0	0
+Bringer of the Green Dawn	threat	threat	5	9	alternative cost {W}{U}{B}{R}{G}	derived	0	0	-		0	0
+Tarfire	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Rescue	spot	spot	1	1		derived	0	0	-		0	0
+Rush of Blood	utility	utility	3	3		derived	1	0	-		0	0
+Molten Collapse	spot	spot	2	2		tagged	0	0	-		0	0
+Deserted Beach	land	land	0	0		derived	0	0	-		1	0
+Michelangelo, the Heart	threat	threat	2	2		derived	0	0	-		0	0
+All-Seeing Arbiter	threat	draw,threat,utility	6	6		tagged	0	1	-		0	0
+City of Traitors	land	land,mana	0	0		tagged	0	0	-		1	0
+Hallowed Fountain	land	land	0	0		derived	0	0	-		1	0
+Sort of _____ and _____	utility	utility	3	3		derived	1	0	-		0	0
+Frantic Firebolt	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Long River's Pull	counter	counter	2	2		tagged	0	0	-		0	0
+Dauthi Voidwalker	threat	threat,utility	2	2		tagged	0	0	-		0	0
+Belbe, Corrupted Observer	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Floodfarm Verge	land	land	0	0		derived	0	0	-		1	0
+Sapphire Medallion	mana	mana	2	2		tagged	0	0	-		0	0
+Fire Nation Palace	land	land	0	0		derived	0	0	-		1	0
+Fracture	spot	spot	2	2		tagged	0	0	-		0	0
+Lier, Disciple of the Drowned	threat	threat	5	5		derived	0	0	-		0	0
+Phyrexian Negator	threat	threat	3	3		derived	0	0	-		0	0
+Noosegraf Mob	threat	threat	6	6		derived	0	0	-		0	0
+Lightform	utility	utility	3	3		derived	1	0	-		0	0
+Teferi, Hero of Dominaria	threat	draw,mana,spot,threat	5	5		tagged	0	1	-		0	0
+Bumper Cars	utility	utility	0	0		derived	1	0	-		0	0
+Aang, Airbending Master	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Astroquarium	utility	utility	3	3		derived	1	0	-		0	0
+Lightning Strike	spot	burn,spot	2	2		tagged	0	0	-		0	0
+Rubble Rouser	mana	burn,mana,threat	3	3		tagged	0	0	-		0	0
+Academy Manufactor	threat	threat	3	3		derived	0	0	-		0	0
+Ashad, the Lone Cyberman	threat	threat	4	4		derived	0	0	-		0	0
+Agatha of the Vile Cauldron	threat	threat	2	2		derived	0	0	-		0	0
+Animal Sanctuary	land	land	0	0		derived	0	0	-		1	0
+Mox Diamond	mana	mana	0	0		derived	0	0	-		0	0
+Flooded Strand	land	land,tutor	0	0		tagged	0	0	-		1	0
+Pinnacle Monk // Mystic Peak	recursion	recursion,threat	5	5		tagged	0	0	-		0	1
+Breath Weapon	sweeper	burn,spot,sweeper	3	3		tagged	0	0	-		0	0
+Pact of Negation	counter	counter	0	0		tagged	0	0	-		0	0
+Rishadan Port	land	land	0	0		derived	0	0	-		1	0
+Noble's Purse	mana	mana	2	2		tagged	0	0	-		0	0
+Waking Nightmare	discard	discard	3	3		tagged	0	0	-		0	0
+Temple Garden	land	land	0	0		derived	0	0	-		1	0
+Spark Mage	spot	burn,spot,threat	1	1		tagged	0	0	-		0	0
+Den of the Bugbear	land	land	0	0		derived	0	0	-		1	0
+Hinterland Drake	threat	threat	3	3		derived	0	0	-		0	0
+Great Furnace	land	land	0	0		derived	0	0	-		1	0
+Your Temple Is Under Attack	draw	draw,utility	3	3		tagged	0	0	-		0	0
+Codsworth, Handy Helper	mana	mana,threat	3	3		tagged	0	0	-		0	0
+It of the Horrid Swarm	threat	threat	8	8		derived	0	0	-		0	0
+Antagonize	utility	utility	2	2		derived	1	0	-		0	0
+Sage of Fables	threat	draw,threat	3	3		tagged	0	0	-		0	0
+Headliner Scarlett	threat	draw,threat	4	4		tagged	0	0	-		0	0
+Flare of Duplication	utility	utility	0	3	free alternative cost	derived	1	0	-		0	0
+Ambiguity	counter	counter	4	4		tagged	0	0	-		0	0
+Accomplished Automaton	threat	threat	7	7		derived	0	0	-		0	0
+Boomflinger	spot	burn,spot	0	0		tagged	0	0	-		0	0
+Sulfurous Springs	land	land	0	0		derived	0	0	-		1	0
+Falling Star	sweeper	burn,spot,sweeper	3	3		tagged	0	0	-		0	0
+Nine-Ringed Bo	spot	burn,spot,utility	3	3		tagged	0	0	-		0	0
+Boggart Mob	threat	threat	4	4		derived	0	0	-		0	0
+Blink	spot	spot,threat	4	4		tagged	0	0	-		0	0
+Rowan's Grim Search	draw	draw	3	3		tagged	0	0	-		0	0
+Spit Flame	spot	burn,spot	3	3		tagged	0	0	-		0	0
+Village Messenger // Moonrise Intruder	threat	threat	1	1		derived	0	0	-		0	0
+Yume, Chronicler of Valor	threat	draw,threat	2	2		tagged	0	0	-		0	0
+Migratory Route	tutor	threat,tutor	5	5		tagged	0	0	-		0	0
+Elfsworn Giant	threat	threat	5	5		derived	0	0	-		0	0
+Impulse	cantrip	cantrip	2	2		derived	0	0	-		0	0
+Tangle Hulk	threat	threat	5	5		derived	0	0	-		0	0
+Dragonstorm Globe	mana	mana	3	3		tagged	0	0	-		0	0
+Flagstones of Trokair	land	land,tutor	0	0		tagged	0	0	-		1	0
+Petalmane Baku	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Search for Azcanta // Azcanta, the Sunken Ruin	utility	draw,mana,utility	2	2		override	0	1	-		0	0
+Anthroplasm	threat	threat	4	4		derived	0	0	-		0	0
+Qasali Slingers	spot	spot,threat	5	5		tagged	0	0	-		0	0
+Wild Slash	spot	burn,spot	1	1		tagged	0	0	-		0	0
+Elspeth, Storm Slayer	threat	spot,threat,utility	5	5		tagged	0	0	-		0	0
+Tip the Scales	sweeper	spot,sweeper	3	3		tagged	0	0	-		0	0
+Scorched Geyser	land	land	0	0		derived	0	0	-		1	0
+Rakdos Firewheeler	spot	burn,spot,threat	4	4		tagged	0	0	-		0	0
+A Reckoning Approaches	cantrip	cantrip	0	0		derived	0	0	-		0	0
+Zealous Lorecaster	recursion	recursion,threat	6	6		tagged	0	0	-		0	0
+Field of Ruin	land	land,spot,utility	0	0		tagged	0	0	-		1	0
+Viscera Seer	threat	cantrip,threat	1	1		derived	0	0	-		0	0
+Earwig Squad	threat	threat	5	5		derived	0	0	-		0	0
+Waterspout Elemental	sweeper	sweeper,threat	5	5		tagged	0	0	-		0	0
+Confounding Conundrum	spot	cantrip,spot,utility	2	2		tagged	0	0	-		0	0
+Angel of Deliverance	spot	spot,threat	8	8		tagged	0	0	-		0	0
+Tamiyo, the Moon Sage	threat	draw,recursion,threat,utility	5	5		tagged	0	1	-		0	0
+Rith, Liberated Primeval	threat	threat,utility	5	5		tagged	0	0	-		0	0
+Dig Through Time	draw	draw	2	8	delve with 6 cards in the yard	derived	0	0	-		0	0
+Birthing Pod	tutor	tutor	3	4	Phyrexian mana — payable with life	tagged	0	0	-		0	0
+Resplendent Griffin	threat	threat	3	3		derived	0	0	-		0	0
+Returned Phalanx	threat	threat	2	2		derived	0	0	-		0	0
+Aegis of the Heavens	utility	utility	2	2		derived	1	0	-		0	0
+Castle Ardenvale	land	land	0	0		derived	0	0	-		1	0
+Returned Reveler	threat	threat	2	2		derived	0	0	-		0	0
+Jungle Basin	land	land,mana	0	0		tagged	0	0	-		1	0
+Leyline Tyrant	spot	burn,mana,spot,threat	4	4		tagged	0	0	-		0	0
+Candlekeep Sage	draw	draw	3	3		tagged	0	0	-		0	0
+Creakwood Safewright	threat	threat	2	2		derived	0	0	-		0	0
+Mind Knives	discard	discard	2	2		tagged	0	0	-		0	0
+Delighted Halfling	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Abrade	spot	spot	2	2		tagged	0	0	-		0	0
+Onakke Ogre	threat	threat	3	3		derived	0	0	-		0	0
+Abandon Reason	utility	utility	3	3		derived	1	0	-		0	0
+Cemetery Gatekeeper	threat	burn,threat,utility	2	2		tagged	0	0	-		0	0
+Tooth of Ramos	ritual	mana,ritual	3	3		tagged	0	0	-		0	0
+Think Twice	cantrip	cantrip	2	2		tagged	0	0	-		0	0
+Taunting Sliver	threat	threat	4	4		derived	0	0	-		0	0
+Zalto, Fire Giant Duke	threat	threat	5	5		derived	0	0	-		0	0
+Sunfall	sweeper	spot,sweeper,utility	5	5		tagged	0	0	-		0	0
+Kathari Screecher	recursion	recursion,threat	3	3		tagged	0	0	-		0	0
+Naked Singularity	utility	utility	5	5		tagged	0	0	-		0	0
+Mystical Tutor	tutor	tutor	1	1		tagged	0	0	-		0	0
+Chatterstorm and Awaken the Woods	mana	mana,threat	2	2		tagged	0	0	-		0	0
+Contraband Livestock	spot	spot	2	2		tagged	0	0	-		0	0
+Fury	spot	burn,spot,threat	0	5	evoke — exile a card	tagged	0	0	-		0	0
+Combat Research	draw	draw	1	1		tagged	0	1	-		0	0
+Bloodstained Mire	land	land,tutor	0	0		tagged	0	0	-		1	0
+Aether Vial	utility	utility	1	1		derived	1	0	-		0	0
+Karametra's Favor	mana	cantrip,mana	2	2		tagged	0	0	-		0	0
+Apex Altisaur	spot	spot,threat	9	9		tagged	0	0	-		0	0
+Morgue Thrull	threat	threat	3	3		derived	0	0	-		0	0
+Highspire Artisan	threat	threat	3	3		derived	0	0	-		0	0
+Screaming Nemesis	spot	burn,spot,threat,utility	3	3		tagged	0	0	-		0	0
+Sandsteppe Outcast	threat	threat	3	3		derived	0	0	-		0	0
+Assault // Battery	spot	burn,spot,threat	1	5	Assault costs 1	tagged	0	0	-		0	0
+Aclazotz, Deepest Betrayal // Temple of the Dead	discard	discard,draw,mana,threat	5	5		tagged	0	1	-		0	0
+Dragon Mask	utility	utility	3	3		derived	1	0	-		0	0
+Cunning Azurescale // Divining Dive	threat	threat	2	6	Divining Dive costs 2	derived	0	0	-		0	0
+Scorched Earth	spot	spot	3	1	{X} at X=2	tagged	0	0	-		0	0
+Improvisation Capstone	utility	utility	7	7		derived	1	0	-		0	0
+Dismember	spot	spot	1	3	Phyrexian mana — payable with life	tagged	0	0	-		0	0
+Nissa, Steward of Elements	threat	mana,threat	4	2	{X} at X=2	tagged	0	0	-		0	0
+Spiteful Banditry	sweeper	burn,mana,spot,sweeper	4	2	{X} at X=2	tagged	0	0	-		0	0
+Dragon Arch	utility	utility	5	5		derived	1	0	-		0	0
+Dance of the Manse	recursion	recursion	4	2	{X} at X=2	tagged	0	0	-		0	0
+Rainbow Dash	mana	draw,mana,threat	3	3		tagged	0	1	-		0	0
+Arcane Epiphany	draw	draw	5	5		tagged	0	0	-		0	0
+Amonkhet Raceway	land	land	0	0		derived	0	0	-		1	0
+Make a _____ Splash	utility	utility	3	3		derived	1	0	-		0	0
+Invader Parasite	spot	burn,spot,threat	5	5		tagged	0	0	-		0	0
+Accessories to Murder	utility	utility	0	0		derived	1	0	-		0	0
+Brotherhood's End	sweeper	burn,spot,sweeper	3	3		tagged	0	0	-		0	0
+Invasion of Ergamon // Truga Cliffcharger	mana	mana,tutor	2	2		tagged	0	0	-		0	0
+Sundering Fork	spot	spot	0	0		tagged	0	0	-		0	0
+Walking Corpse	threat	threat	2	2		derived	0	0	-		0	0
+Commence the Endgame	utility	utility	6	6		tagged	0	0	-		0	0
+Suspend	spot	spot	1	1		tagged	0	0	-		0	0
+Enslaved Dwarf	threat	threat	1	1		derived	0	0	-		0	0
+Artistic Refusal	counter	counter	6	6		tagged	0	0	-		0	0
+Bloodfire Dwarf	sweeper	burn,spot,sweeper,threat	1	1		tagged	0	0	-		0	0
+Goblin Maskmaker	mana	mana,threat	1	1		tagged	0	0	-		0	0
+Summon: Yojimbo	spot	mana,spot,threat,utility	4	4		tagged	0	0	-		0	0
+Bind // Liberate	counter	cantrip,counter,utility	2	4	Bind costs 2	tagged	0	0	-		0	0
+Divine Presence	utility	utility	3	3		derived	1	0	-		0	0
+Young Blue Dragon // Sand Augury	threat	cantrip,threat	2	5	Sand Augury costs 2	tagged	0	0	-		0	0
+Without Weakness	draw	draw,utility	2	2		tagged	0	0	-		0	0

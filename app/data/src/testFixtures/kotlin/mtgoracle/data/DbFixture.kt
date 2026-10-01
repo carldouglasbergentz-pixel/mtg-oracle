@@ -7,7 +7,8 @@ import java.sql.DriverManager
 
 /**
  * A throwaway copy of data/mtg.db — tests never open the real file for
- * writing (CLAUDE.md, tests/db_sandbox.py on the Python side).
+ * writing (CLAUDE.md). Tests that need known data rather than the user's
+ * use [FixtureDb], which needs no data/mtg.db at all.
  *
  * The copy is migrated by the app's own migrations (MtgDb.migrate), so the
  * tests run on the schema the user's database will have once the app starts.
@@ -24,18 +25,6 @@ object DbFixture {
      * nothing there. Tests that write anything use [copy].
      */
     fun readOnly(): MtgDb = MtgDb(realDb)
-
-    /** Runs [code] with Python from the repo root (scripts see `mtg_oracle`), returning stdout; fails loudly on a non-zero exit. */
-    fun python(code: String, vararg args: String): String {
-        val process = ProcessBuilder(listOf("python", "-c", code) + args)
-            .directory(repoRoot)
-            .apply { environment()["PYTHONIOENCODING"] = "utf-8" }
-            .start()
-        val out = process.inputStream.bufferedReader(Charsets.UTF_8).readText()
-        val err = process.errorStream.bufferedReader(Charsets.UTF_8).readText()
-        check(process.waitFor() == 0) { "python failed: $err" }
-        return out
-    }
 
     /** A fresh copy in a new temp dir, migrated to this build's schema as the app would (without a backup). */
     fun copy(): File {

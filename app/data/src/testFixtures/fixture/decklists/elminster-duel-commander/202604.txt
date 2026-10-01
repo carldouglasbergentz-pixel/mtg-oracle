@@ -1,0 +1,93 @@
+1 Elminster (CLB) 274 *F*
+1 Absorb (RNA) 151 *F*
+1 Agna Qel'a (TLA) 264 *F*
+1 Approach of the Second Sun (STA) 64 *F*
+1 Archmage's Charm (MH1) 40 *F*
+1 Arid Mesa (ZEN) 211 *F*
+1 Brainstorm (STA) 76 *F*
+1 Brainsurge (MH3) 399 *F*
+1 Cactus Preserve (OTC) 76
+1 Castle Ardenvale (ELD) 238 *F*
+1 Castle Vantress (ELD) 242 *F*
+1 Change the Equation (MOM) 50
+1 Command Tower (J12) 8 *F*
+1 Condemn (M11) 11 *F*
+1 Consult the Star Charts (EOE) 51 *F*
+1 Counterspell (STA) 78 *F*
+1 Cryptic Command (LRW) 56 *F*
+1 Deserted Beach (MID) 260 *F*
+1 Dress Down (MH2) 39 *F*
+1 Eiganjo, Seat of the Empire (NEO) 268 *F*
+1 Emeritus of Ideation / Ancestral Recall (SOS) 45 *F*
+1 Erode (SOS) 15 *F*
+1 Farewell (NEO) 365 *F*
+1 Fateful Absence (MID) 18 *F*
+1 Field of Ruin (THB) 242 *F*
+1 Flooded Strand (G09) 7 *F*
+1 Floodfarm Verge (DSK) 259 *F*
+1 Flow State (SOS) 49 *F*
+1 Force of Negation (H1R) 9 *F*
+1 Force Spike (7ED) 76★ *F*
+1 Fractured Identity (SLD) 272 *F*
+1 Get Lost (LCI) 14 *F*
+1 Glacial Fortress (M11) 225 *F*
+1 Hall of Storm Giants (AFR) 257 *F*
+1 Hallowed Fountain (RTR) 241 *F*
+1 Hengegate Pathway / Mistgate Pathway (KHM) 260 *F*
+1 Irrigated Farmland (AKH) 245 *F*
+6 Island (INV) 337 *F*
+1 Jace, the Mind Sculptor (WWK) 31 *F*
+1 Lórien Revealed (LTR) 60 *F*
+1 Lose Focus (MH2) 49 *F*
+1 Mana Leak (9ED) 86★ *F*
+1 Mana Tithe (STA) 71 *F*
+1 March of Otherworldly Light (NEO) 28 *F*
+1 Marsh Flats (ZEN) 219 *F*
+1 Memory Lapse (STA) 79 *F*
+1 Mental Misstep (NPH) 38 *F*
+1 Meticulous Archive (MKM) 264 *F*
+1 Mistrise Village (TDM) 261 *F*
+1 Misty Rainforest (ZEN) 220 *F*
+1 Mystic Confluence (J16) 5 *F*
+1 Mystic Gate (SHM) 277 *F*
+1 Mystic Sanctuary (ELD) 247 *F*
+1 No More Lies (MKM) 221 *F*
+1 Opt (STA) 82 *F*
+1 Otawara, Soaring City (NEO) 271 *F*
+1 Oust (ROE) 40 *F*
+1 Personal Tutor (CMM) 633 *F*
+3 Plains (INV) 333 *F*
+1 Polluted Delta (G09) 8 *F*
+1 Ponder (SLD) 245 *F*
+1 Prairie Stream (BFZ) 241 *F*
+1 Preordain (SOA) 151 *F*
+1 Prismatic Vista (H1R) 40 *F*
+1 Remand (TSR) 316 *F*
+1 Reprieve (SOA) 139 *F*
+1 Scalding Tarn (ZEN) 223 *F*
+1 Sea Gate Restoration / Sea Gate, Reborn (ZNR) 76 *F*
+1 Shorikai, Genesis Engine (NEC) 4 *F*
+1 Sink into Stupor / Soporific Springs (MH3) 241 *F*
+1 Snapcaster Mage (ISD) 78 *F*
+1 Solitude (MH2) 307 *F*
+1 Solve the Equation (STX) 54 *F*
+1 Spell Snare (DIS) 33 *F*
+1 Stern Scolding (LTR) 71 *F*
+1 Stock Up (SOA) 154 *F*
+1 Subtlety (MH2) 309 *F*
+1 Supreme Verdict (2X2) 388 *F*
+1 Swords to Plowshares (STA) 73 *F*
+1 Tale's End (M20) 77 *F*
+1 Teferi, Hero of Dominaria (SLD) 248 *F*
+1 Teferi, Time Raveler (WAR) 221 *F*
+1 Temple of the False God (SCG) 143 *F*
+1 Temporal Mastery (INR) 307 *F*
+1 Terminus (AVR) 38 *F*
+1 Tithe (VIS) 23
+1 Treachery (UDS) 50 *F*
+1 Tundra (3ED) 289
+1 Unexpectedly Absent (EMA) 33 *F*
+1 Wash Away (VOW) 87 *F*
+1 Windswept Heath (G09) 9 *F*
+1 Wrath of God (P07) 1 *F*
+1 Wrath of the Skies (MH3) 49 *F*

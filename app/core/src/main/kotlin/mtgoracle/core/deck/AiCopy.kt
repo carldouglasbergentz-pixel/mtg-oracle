@@ -2,7 +2,7 @@ package mtgoracle.core.deck
 
 /*
  * The deck Forge plays, and the AI's copy of it — the same rules as the
- * Python `forge export` (services._export_deck, forge_format):
+ * retired Python `forge export` (services._export_deck, forge_format):
  *
  * - Forge knows a multi-face card by its front face, split cards included
  *   (`Fire // Ice` is `Fire`), so every name is reduced to that.
