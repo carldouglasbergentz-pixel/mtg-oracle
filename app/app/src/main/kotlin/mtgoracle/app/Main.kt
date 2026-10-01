@@ -30,6 +30,7 @@ fun main(args: Array<String>) {
         when (mode) {
             "check-schema" -> checkSchema(paths)
             "migrate" -> migrate(paths)
+            "sync" -> sync(paths, args.drop(1))
             "prefetch" -> Headless.prefetch(paths, args.drop(1).joinToString(" ").ifBlank { null })
             "scripted" -> Scripted.run(paths, args.drop(1))
             "snapshots" -> StagedPictures.run(paths, java.io.File(System.getProperty("mtgoracle.evidence") ?: "build/evidence", "staged"), args.drop(1).toSet())
@@ -55,6 +56,24 @@ private fun migrate(paths: AppPaths): Int = schemaErrors {
     report.lines.forEach { println("  $it") }
 }
 
+/**
+ * The data pipeline in a terminal: `sync [--force] [<source> ...]`, as the
+ * app's command runs it, its log as it goes and the changelog at the end.
+ * Exits 1 when a source failed.
+ */
+private fun sync(paths: AppPaths, args: List<String>): Int = schemaErrors {
+    val force = "--force" in args
+    val named = args.filter { it != "--force" && it != "--only" }
+    val sources = named.map { mtgoracle.core.sync.Source.of(it) ?: error("no source '$it' (have: ${mtgoracle.core.sync.Source.entries.joinToString { s -> s.key }})") }
+    val db = MtgDb(paths.db).also { it.migrate(paths.backups) }
+    val report = mtgoracle.data.sync.Sync(db, mtgoracle.data.sync.HttpUpstream(), paths.data.resolve("raw"), paths.data.resolve("formats"), log = { println("-- $it") })
+        .run(force, sources.ifEmpty { mtgoracle.core.sync.Source.entries }.toSet())
+    mtgoracle.ui.lookup.renderSyncReport(report).lines(100).forEach { println(it.text) }
+    if (report.failures.isNotEmpty()) throw SyncFailed(report.failures.size)
+}
+
+private class SyncFailed(n: Int) : RuntimeException("$n source(s) failed")
+
 private fun schemaErrors(block: () -> Unit): Int = try {
     block()
     0
@@ -64,6 +83,8 @@ private fun schemaErrors(block: () -> Unit): Int = try {
     System.err.println(e.message); 2
 } catch (e: MissingDatabaseException) {
     System.err.println(e.message); 2
+} catch (e: SyncFailed) {
+    System.err.println(e.message); 1
 }
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)

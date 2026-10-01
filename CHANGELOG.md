@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (step 6b: the data sync in the app)
+- **[ Sync ] in the library, `sync [--force] [<source> ...]` on the command line, `gradlew :app:sync` in a terminal.**
+  - It fetches what moved upstream: Scryfall cards, legalities and rulings; the Comprehensive Rules; Commander Spellbook's combos; the local tags; Tagger's oracle tags; the community formats.
+  - Each source is skipped when its marker hasn't moved, unless `--force`. Sources run in their own order whatever order they are named in, and a failing one is reported without stopping the rest.
+  - It ends with a changelog in the output (added / removed / modified per table) and each source's upstream marker.
+  - It runs in the background. When the cards changed, the lookup is rebuilt, so new cards can be searched at once, with the scrollback, the command history and the open deck kept. Decks are never touched.
+- **A port of scripts/sync*.py** (`data/sync/`), with its rules: cards upserted on name and never deleted; a name collision won only by a strictly better printing (legal somewhere, not a novelty set); legalities and rulings as full snapshots; the rules text's irregular numbers (`704.5aa`, `606.5` with no period) and glossary senses kept out; combos with `INSERT OR REPLACE` and their cards `INSERT OR IGNORE`; direct oracle taggings only; a format naming an unknown card stops the load.
+  - `card_faces` and aliases are written byte for byte as Python's `json.dumps` did, so a sync doesn't rewrite every row.
+  - Spellbook's 600 MB export is read one variant at a time instead of parsed whole.
+  - Requests carry a User-Agent and Accept header, as Scryfall asks.
+- **SyncParityTest** (`gradlew :data:test -PsyncParity`, opt-in: a couple of minutes) runs Python's own sync functions, their network calls served from `data/raw`, and ours, into two copies emptied of everything the sync writes. All 14 tables come out identical, row for row and type for type (35,228 cards, 371,825 legalities, 607,775 combo steps...). SyncTest covers the rules offline with tiny exports, and SyncAppTest covers the app's command, the report and the rebuilt lookup.
+- **The first real sync, from the app's code** (2026-10-01, after a backup in `data/backups/mtg-2026-10-01-pre-first-sync.db`): +15 cards and 1 changed, +758 rulings, +10,384 and -1,865 combos (Spellbook's export was six weeks old), +187 oracle taggings; the rules were already current. All 12 decks and 1,069 deck rows were untouched, and no deck card lost its data.
+
 ### Changed (step 6a: the app owns the schema)
 - **The Kotlin app creates and migrates the database** (`Schema`, `MtgDb.migrate`), with the version in `PRAGMA user_version`:
   - Version 1 is `scripts/init_db.py`'s schema, verbatim (`schema-v1.sql`).

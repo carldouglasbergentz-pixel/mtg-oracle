@@ -13,16 +13,18 @@ import mtgoracle.core.sync.SyncReport
 fun renderSyncReport(report: SyncReport): Rendering = Rendering { width ->
     val out = mutableListOf<OutLine>()
     fun add(text: String = "", tone: Tone = Tone.PLAIN) { out += OutLine(text.trimEnd(), tone) }
-    fun signed(n: Int) = if (n == 0) "0" else "%+,d".format(n)
+    // Grouped with commas whatever the machine's locale: a Swedish one groups with a no-break space.
+    fun grouped(n: Int) = String.format(java.util.Locale.ROOT, "%,d", n)
+    fun signed(n: Int) = if (n == 0) "0" else String.format(java.util.Locale.ROOT, "%+,d", n)
     fun note(text: String) = wrapWords(text, width, "  ", "    ").forEach { add(it, Tone.DIM) }
 
     add("=== sync: ${report.ran.joinToString(", ") { it.key }} ===", Tone.BOLD)
     add("table".left(12) + "added".right(9) + "removed".right(9) + "modified".right(10) + "total".right(11))
     for (c in report.changes) {
         if (c.net == null) {
-            add(c.table.left(12) + signed(c.added ?: 0).right(9) + signed(-(c.removed ?: 0)).right(9) + (c.modified?.let(::signed) ?: "-").right(10) + "%,d".format(c.total).right(11))
+            add(c.table.left(12) + signed(c.added ?: 0).right(9) + signed(-(c.removed ?: 0)).right(9) + (c.modified?.let(::signed) ?: "-").right(10) + grouped(c.total).right(11))
         } else {
-            add(c.table.left(12) + "(net ${signed(c.net!!)})".right(28) + "%,d".format(c.total).right(11))
+            add(c.table.left(12) + "(net ${signed(c.net!!)})".right(28) + grouped(c.total).right(11))
         }
     }
     add()
@@ -35,6 +37,6 @@ fun renderSyncReport(report: SyncReport): Rendering = Rendering { width ->
     note("Cards, rules and combos by key; rulings, tags, abilities, points and oracle tags are rebuilt whole, so only the net change shows. Decks are never touched.")
     add()
     add("upstream markers", Tone.BOLD)
-    report.state.forEach { (source, marker, rows) -> add("  " + source.left(24) + (marker ?: "-").left(28) + (rows?.let { "%,d rows".format(it) } ?: "")) }
+    report.state.forEach { (source, marker, rows) -> add("  " + source.left(24) + (rows?.let { grouped(it) + " rows" } ?: "").right(13) + "   " + (marker ?: "-")) }
     out
 }

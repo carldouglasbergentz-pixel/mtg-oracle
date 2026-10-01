@@ -7,7 +7,7 @@ Runs offline after the first sync. No network at query time; card art is fetched
 **Two halves, one database** ([ADR 0001](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md)):
 
 - **The app** (`app/`, Kotlin + Compose Desktop, Forge embedded) is where the work happens: the library, the deck workspace (the deck beside a search, a considering list, the history), lookups, and play against the AI, recorded game by game.
-- **The data pipeline** (`mtg_oracle/`, `scripts/`, Python) fills the database: `sync.py` pulls every source. **The app owns the schema** (`PRAGMA user_version`; `app/data/.../Schema.kt`): it takes a database over at start and migrates it from then on, and `scripts/self_heal.py` leaves a versioned database alone. The Python TUI and CLI still work over the same database until the app has everything they do ([`docs/feature-parity.md`](docs/feature-parity.md)).
+- **The data pipeline** is the app's (`app/data/.../sync/`): [ Sync ] in the library, `sync` on its command line, or `gradlew :app:sync` in a terminal pulls every source. The Python `sync.py` does the same until it is retired. **The app owns the schema** (`PRAGMA user_version`; `app/data/.../Schema.kt`): it takes a database over at start and migrates it from then on, and `scripts/self_heal.py` leaves a versioned database alone. The Python TUI and CLI still work over the same database until the app has everything they do ([`docs/feature-parity.md`](docs/feature-parity.md)).
 
 ## What's in the box
 
