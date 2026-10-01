@@ -57,6 +57,8 @@ class LibraryActions(
     private val writeClipboard: (String) -> Unit,
     /** Forge's printings of a card (empty before Forge is up). */
     private val printingsOf: (String) -> List<CardPrinting> = { emptyList() },
+    /** Whether a pasted printing exists (Scryfall's or Forge's); null when that can't be told yet (no printings synced). */
+    private val printingKnown: (name: String, setCode: String, collectorNumber: String?) -> Boolean? = { _, _, _ -> null },
     /** A card's face in a printing, for the zoom pane while the chooser is open. */
     private val faceOf: (String, Printing?) -> CardFace? = { _, _ -> null },
     /** The AI copies' substitutions. */
@@ -234,7 +236,21 @@ class LibraryActions(
         val considering = rows.filter { it.section == "maybeboard" }.sumOf { it.quantity }
         val unknown = rows.filter { lookup.names.resolve(it.name) == null }.map { it.name }
         return "$cards card(s)" + (if (considering > 0) ", $considering considering" else "") +
-            (if (unknown.isNotEmpty()) "; not found: ${unknown.joinToString(", ")}" else "")
+            (if (unknown.isNotEmpty()) "; not found: ${unknown.joinToString(", ")}" else "") + unknownPrintings(rows)
+    }
+
+    /**
+     * A pasted printing no one has (a typo in the set or number): kept on the
+     * row as pasted, and drawn in the default art. Only a warning; nothing is
+     * refused.
+     */
+    private fun unknownPrintings(rows: List<mtgoracle.core.deck.ParsedRow>): String {
+        val missing = rows.filter { row ->
+            val set = row.setCode ?: return@filter false
+            val name = lookup.names.resolve(row.name) ?: return@filter false
+            printingKnown(name, set, row.collectorNumber) == false
+        }.map { "${it.name} (${it.setCode!!.uppercase()})" + (it.collectorNumber?.let { n -> " $n" } ?: "") }.distinct()
+        return if (missing.isEmpty()) "" else "; ${missing.size} printing(s) not found, shown in the default art: ${missing.joinToString(", ")}"
     }
 
     private fun importNew(folderId: Int?) {
@@ -244,7 +260,7 @@ class LibraryActions(
                 val (id, result) = writer.importDeck(name, folderId, null, rows)
                 refresh(); openDeck(id)
                 "imported $name: ${result.copies} card(s)" + (if (result.considering > 0) ", ${result.considering} considering" else "") +
-                    (if (result.unresolved.isNotEmpty()) "; not found, left out: ${result.unresolved.joinToString(", ")}" else "")
+                    (if (result.unresolved.isNotEmpty()) "; not found, left out: ${result.unresolved.joinToString(", ")}" else "") + unknownPrintings(rows)
             }
         }
     }
@@ -257,7 +273,7 @@ class LibraryActions(
                     val r = writer.load(deckId, rows)
                     deckChanged(deckId)
                     "added ${r.copies} card(s)" + (if (r.considering > 0) ", ${r.considering} considering" else "") +
-                        (if (r.unresolved.isNotEmpty()) "; not found: ${r.unresolved.joinToString(", ")}" else "")
+                        (if (r.unresolved.isNotEmpty()) "; not found: ${r.unresolved.joinToString(", ")}" else "") + unknownPrintings(rows)
                 }
             },
             "Replace the deck..." to { previewReplace(deckId, rows) },
@@ -270,7 +286,7 @@ class LibraryActions(
         val dry = try { writer.replace(deckId, rows, force = true, dryRun = true) } catch (e: DeckRefusal) { return say("refused: ${e.message}") }
         show(diffRendering(deckName(deckId), dry.changes, dry.considering, dry.commandersKept))
         val counts = "+${dry.changes.count { it.before == 0 }} -${dry.changes.count { it.after == 0 }} ~${dry.changes.count { it.before > 0 && it.after > 0 }}"
-        val title = "Replace ${deckName(deckId)} with the clipboard ($counts, listed in the output)" + (if (unknown.isNotEmpty()) "; ${unknown.size} name(s) not found are left out" else "") + "?"
+        val title = "Replace ${deckName(deckId)} with the clipboard ($counts, listed in the output)" + (if (unknown.isNotEmpty()) "; ${unknown.size} name(s) not found are left out" else "") + unknownPrintings(rows) + "?"
         ui.ask = Ask.Buttons(title, listOf("Replace" to {
             act { val r = writer.replace(deckId, rows, force = unknown.isNotEmpty()); deckChanged(deckId); "replaced: $counts" + (r.revisionId?.let { "" } ?: " (nothing changed)") }
         }))

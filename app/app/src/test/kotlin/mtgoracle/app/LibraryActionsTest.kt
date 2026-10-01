@@ -56,6 +56,8 @@ class LibraryActionsTest {
             say = { said += it }, show = { r -> said += r.lines(100).joinToString("\n") { it.text } },
             readClipboard = { clipboard }, writeClipboard = { clipboard = it },
             printingsOf = { listOf(CardPrinting("c21", "263", "Commander 2021", "2021-04-23"), CardPrinting("lea", "270", "Limited Edition Alpha", "1993-08-05")) },
+            // Scryfall and Forge stand-in: every printing exists but a set that never did.
+            printingKnown = { _, set, _ -> set != "c99" },
             substitutions = Substitutions(db),
             // A stand-in for Forge: it lacks one card and its AI can't play another.
             forgeSupport = { name ->
@@ -128,6 +130,18 @@ class LibraryActionsTest {
         assertTrue(said.last().startsWith("refused: a deck named"), said.last())
         text(LibraryIntent.NewFolder, "a/b")
         assertTrue("'/'" in said.last())
+    }
+
+    @Test
+    fun `a printing no one has is kept as pasted, with a warning`() {
+        clipboard = "1 Sol Ring (C99) 263\n1 Lightning Bolt (CLB) 146\n2 Plains"
+        actions.handle(LibraryIntent.Import(null))
+        val ask = assertIs<Ask.Text>(ui.ask)
+        assertTrue("1 printing(s) not found, shown in the default art: Sol Ring (C99) 263" in ask.title, ask.title)
+        ui.ask = null
+        ask.onOk("__Typo__")
+        assertTrue(said.last().contains("Sol Ring (C99) 263"), said.last())
+        assertEquals("c99", library.deck(deck("__Typo__").id)!!.cards.single { it.name == "Sol Ring" }.setCode, "kept as pasted")
     }
 
     @Test

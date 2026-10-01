@@ -145,6 +145,14 @@ class AppController(private val paths: AppPaths) {
             readClipboard = { readClipboard() }, writeClipboard = ::copyToClipboard,
             // Scryfall's paper printings once the printings source has synced; Forge's own list before that.
             printingsOf = { name -> lookup.printings.forCard(name).map { it.printing }.ifEmpty { if (forgeReady) ForgeCards.printings(name) else emptyList() } },
+            printingKnown = { name, set, number ->
+                when {
+                    lookup.printings.find(name, set, number) != null -> true
+                    forgeReady && ForgeCards.hasPrinting(name, set, number) -> true
+                    lookup.printings.isEmpty() -> null // before the first printings sync nothing can be told
+                    else -> false
+                }
+            },
             faceOf = { name, printing -> printingFace(lookup, name, printing) },
             substitutions = Substitutions(db),
             forgeSupport = { name -> if (forgeReady) ForgeCards.support(name) else null },

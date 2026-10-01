@@ -31,6 +31,9 @@ class Printings(private val db: MtgDb, private val names: CardNames) {
         }
     }
 
+    /** Whether no printings have been synced yet. */
+    fun isEmpty(): Boolean = db.read { conn -> conn.createStatement().use { st -> st.executeQuery("SELECT NOT EXISTS (SELECT 1 FROM printings)").use { it.next(); it.getBoolean(1) } } }
+
     /** One printing of [name] by Scryfall's set code and collector number, ignoring case; null when Scryfall has no such one. */
     fun find(name: String, setCode: String, collectorNumber: String?): Stored? {
         val canonical = names.resolve(name) ?: name
