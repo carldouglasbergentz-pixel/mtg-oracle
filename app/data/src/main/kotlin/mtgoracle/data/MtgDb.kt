@@ -19,7 +19,13 @@ class MtgDb(val file: File) {
 
     fun <T> read(block: (Connection) -> T): T = connect(readOnly = true).use(block)
 
-    internal fun <T> write(block: (Connection) -> T): T = connect(readOnly = false).use { conn ->
+    /**
+     * [block] in one transaction. [foreignKeys] off only for the sync, which
+     * replaces whole card tables as the Python pipeline did (never with them
+     * enforced): `INSERT OR REPLACE` on a combo id seen twice would otherwise
+     * trip over the first one's cards.
+     */
+    internal fun <T> write(foreignKeys: Boolean = true, block: (Connection) -> T): T = connect(readOnly = false, foreignKeys = foreignKeys).use { conn ->
         conn.autoCommit = false
         try {
             block(conn).also { conn.commit() }
@@ -39,10 +45,10 @@ class MtgDb(val file: File) {
         }
     }
 
-    private fun connect(readOnly: Boolean): Connection {
+    private fun connect(readOnly: Boolean, foreignKeys: Boolean = true): Connection {
         val config = SQLiteConfig().apply {
             setReadOnly(readOnly)
-            enforceForeignKeys(true)
+            enforceForeignKeys(foreignKeys)
             busyTimeout = 5_000 // the TUI may be writing at the same moment
         }
         return config.createConnection("jdbc:sqlite:${file.path}")

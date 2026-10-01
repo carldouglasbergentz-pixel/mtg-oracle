@@ -4,6 +4,8 @@ import mtgoracle.core.analysis.Archetype
 import mtgoracle.core.analysis.DeckList
 import mtgoracle.core.analysis.Roles
 import mtgoracle.core.deck.DeckSummary
+import mtgoracle.core.sync.Source
+import mtgoracle.ui.lookup.CommandLineState
 import mtgoracle.core.play.DeckKey
 import mtgoracle.core.play.Records
 import mtgoracle.core.lookup.ComboSummary
@@ -73,14 +75,18 @@ class LookupCommands(
     private val notify: (String) -> Unit = {},
     /** The deck selected in the library: what `profile`, `compare` and `combos` mean without `cd`. */
     private val selectedDeck: () -> Int? = { null },
+    /** `sync`: runs the data pipeline (in the background) with these options; null where there is none (tests of lookup alone). */
+    private val sync: ((force: Boolean, only: Set<Source>) -> Unit)? = null,
+    /** The scrollback and the command line, carried over when the lookup is rebuilt after a sync. */
+    val output: OutputLog = OutputLog(),
+    command: CommandLineState = CommandLineState(),
 ) {
-    val output = OutputLog()
     private val writerOrNull = writer
     private val suggester = Suggester(
         lookup.names.sorted, lookup.rules.numbers(), deckNames = { decks().map { it.name } + ".." },
         helpTopics = HELP_TOPICS.keys.toList(), vocabulary = lookup.vocabulary,
     )
-    val ui = LookupUi(output, suggester::suggest, ::submit, ::open, faceOf, ::preview, ::count, edit = { editing?.perform(it) })
+    val ui = LookupUi(output, suggester::suggest, ::submit, ::open, faceOf, ::preview, ::count, edit = { editing?.perform(it) }, command = command)
     private val editing: DeckEditing? = writer?.let { DeckEditing(it, lookup, ui, openDeck = { scope?.deckId }, reload = ::deckChanged, say = notify) }
 
     /**
@@ -193,6 +199,7 @@ class LookupCommands(
             "profile" -> profile(arg)
             "compare" -> compare(arg)
             "results" -> results(arg)
+            "sync" -> sync(arg)
             "combo-info" -> comboInfo(arg)
             "rule" -> if (arg.isEmpty()) say("usage: rule <rule_number>") else rule(arg)
             "search-rules" -> if (arg.isEmpty()) say("usage: search-rules <text>") else say(renderRulesSearch(arg, lookup.rules.search(arg, limit = 25)))
@@ -456,6 +463,17 @@ class LookupCommands(
     private fun currentDeck(): DeckSummary? = (scope?.deckId ?: selectedDeck())?.let { id -> decks().firstOrNull { it.id == id } }
 
     private fun deckList(d: DeckSummary) = lookup.analysis.deckList(d.id, d.name)
+
+    /** `sync [--force] [<source> ...]`: the whole pipeline, or the sources named, in their own order. */
+    private fun sync(arg: String) {
+        val run = sync ?: return say("(sync is not available here)", Tone.DIM)
+        val words = arg.split(' ').filter { it.isNotEmpty() && it != "--only" }
+        val force = "--force" in words
+        val named = words.filter { it != "--force" }
+        val unknown = named.filter { Source.of(it) == null }
+        if (unknown.isNotEmpty()) return say("usage: sync [--force] [${Source.entries.joinToString("|") { it.key }} ...]  (no source '${unknown.first()}')")
+        run(force, if (named.isEmpty()) Source.entries.toSet() else named.mapNotNull(Source::of).toSet())
+    }
 
     /**
      * `results`: every deck's record against each opponent; `results <deck>`

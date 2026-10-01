@@ -400,7 +400,7 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
             if (id != null) touch(conn, deckId)
             ReplaceResult(id, id?.let { changesOf(conn, it) }.orEmpty(), unresolved, rejected, hasConsidering, formatSet, kept.sorted())
         }
-        return if (dryRun) db.dryRun(work) else db.write(work)
+        return if (dryRun) db.dryRun(work) else db.write(block = work)
     }
 
     /**

@@ -89,6 +89,88 @@ class AppController(private val paths: AppPaths) {
     /** Each deck's analysis block until the deck changes: arrowing through the list re-reads nothing. */
     private val insightCache = mutableMapOf<Int, DeckInsight>()
 
+    private var db: MtgDb? = null
+
+    /**
+     * The lookup and everything that reads its caches (card names, formats,
+     * the search vocabulary, the classifier's cache): built at start, and
+     * again after a sync changed the cards, with [carry]'s scrollback,
+     * command line and open deck kept.
+     */
+    private fun buildLookup(db: MtgDb, carry: LookupCommands?) {
+        val started = System.nanoTime()
+        val lookup = Lookup(db)
+        Log.info("lookup ready in ${(System.nanoTime() - started) / 1_000_000} ms (${lookup.names.sorted.size} card names)")
+        val writer = DeckWriter(db, lookup.names, lookup.formats)
+        val lookupCommands = LookupCommands(
+            lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
+            copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
+            writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
+            selectedDeck = { selectedId }, sync = ::sync,
+            output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
+        )
+        analysis = lookup.analysis
+        lookupGames = lookup.games
+        zoomInfo.clear()
+        insightCache.clear()
+        analyse()
+        commands = lookupCommands
+        val actions = LibraryActions(
+            library, LibraryWriter(db), writer, lookup, lookupCommands.ui,
+            refresh = ::refreshLibrary, deckChanged = lookupCommands::refreshDeck,
+            openDeck = { id -> lookupCommands.enterDeck(id) }, openDeckId = { editing?.deckId }, leaveDeck = lookupCommands::leaveDeck,
+            say = { notice = it }, show = { r -> lookupCommands.output.add(r); lookupCommands.ui.showOutput = true },
+            readClipboard = { readClipboard() }, writeClipboard = ::copyToClipboard,
+            printingsOf = { name -> if (forgeReady) ForgeCards.printings(name) else emptyList() },
+            faceOf = { name, printing -> printingFace(lookup, name, printing) },
+            substitutions = Substitutions(db),
+            forgeSupport = { name -> if (forgeReady) ForgeCards.support(name) else null },
+        )
+        lookupUi = lookupCommands.ui.apply {
+            grid = carry?.ui?.grid ?: settings.resultsGrid
+            showOutput = carry?.ui?.showOutput ?: false
+            intent = actions::handle
+        }
+        carry?.scope?.let { lookupCommands.enterDeck(it.deckId) }
+    }
+
+    /** The sync running, if one is; its log line is the notice. */
+    @Volatile private var syncing = false
+    /** Where the network is for a sync; the tests serve files instead. */
+    var upstream: mtgoracle.data.sync.Upstream = mtgoracle.data.sync.HttpUpstream()
+
+    /**
+     * The data pipeline in the background: [only]'s sources, skipping those
+     * whose upstream hasn't moved unless [force]. Its report goes to the
+     * output; when it changed the cards, the lookup is built again so search
+     * and names see them. Decks are never touched.
+     */
+    fun sync(force: Boolean = false, only: Set<mtgoracle.core.sync.Source> = mtgoracle.core.sync.Source.entries.toSet()) {
+        val database = db ?: return
+        if (syncing) { notice = "a sync is running already"; return }
+        syncing = true
+        notice = "sync: starting"
+        thread(name = "sync", isDaemon = true) {
+            val report = try {
+                mtgoracle.data.sync.Sync(database, upstream, paths.data.resolve("raw"), paths.data.resolve("formats"), log = { notice = "sync: $it" }).run(force, only)
+            } catch (e: Exception) {
+                Log.error("sync failed", e)
+                null
+            } finally {
+                syncing = false
+            }
+            java.awt.EventQueue.invokeLater {
+                val current = commands ?: return@invokeLater
+                if (report == null) { notice = "sync failed: see ${paths.appLog}"; return@invokeLater }
+                if (report.changedCards) buildLookup(database, carry = current)
+                commands?.output?.add(mtgoracle.ui.lookup.renderSyncReport(report))
+                lookupUi?.showOutput = true
+                notice = if (report.failures.isEmpty()) "sync done" + if (report.touched) "" else ": everything was up to date"
+                else "sync done, ${report.failures.size} source(s) failed: ${report.failures.joinToString { it.first.key }}"
+            }
+        }
+    }
+
     /** Opens the database (migrating it to this build's schema first), then brings Forge up in the background. */
     fun boot() {
         try {
@@ -103,32 +185,8 @@ class AppController(private val paths: AppPaths) {
             decks = library.decks()
             folders = library.folders()
             decks.firstOrNull()?.let { select(it.id) }
-            val started = System.nanoTime()
-            val lookup = Lookup(db)
-            Log.info("lookup ready in ${(System.nanoTime() - started) / 1_000_000} ms (${lookup.names.sorted.size} card names)")
-            val writer = DeckWriter(db, lookup.names, lookup.formats)
-            val lookupCommands = LookupCommands(
-                lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
-                copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
-                writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
-                selectedDeck = { selectedId },
-            )
-            analysis = lookup.analysis
-            lookupGames = lookup.games
-            analyse()
-            commands = lookupCommands
-            val actions = LibraryActions(
-                library, LibraryWriter(db), writer, lookup, lookupCommands.ui,
-                refresh = ::refreshLibrary, deckChanged = lookupCommands::refreshDeck,
-                openDeck = { id -> lookupCommands.enterDeck(id) }, openDeckId = { editing?.deckId }, leaveDeck = lookupCommands::leaveDeck,
-                say = { notice = it }, show = { r -> lookupCommands.output.add(r); lookupCommands.ui.showOutput = true },
-                readClipboard = { readClipboard() }, writeClipboard = ::copyToClipboard,
-                printingsOf = { name -> if (forgeReady) ForgeCards.printings(name) else emptyList() },
-                faceOf = { name, printing -> printingFace(lookup, name, printing) },
-                substitutions = Substitutions(db),
-                forgeSupport = { name -> if (forgeReady) ForgeCards.support(name) else null },
-            )
-            lookupUi = lookupCommands.ui.apply { grid = settings.resultsGrid; intent = actions::handle }
+            this.db = db
+            buildLookup(db, carry = null)
             screen = Screen.Library
         } catch (e: SchemaTooOldException) {
             screen = Screen.Blocked(e.message!!)

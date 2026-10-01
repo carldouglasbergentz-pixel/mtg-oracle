@@ -61,6 +61,8 @@ subprojects {
         systemProperty("mtgoracle.forgeAssets", forgeAssets.path)
         systemProperty("mtgoracle.testHome", layout.buildDirectory.dir("test-home").get().asFile.path)
         systemProperty("mtgoracle.pngDir", layout.buildDirectory.dir("test-png").get().asFile.path)
+        // -PsyncParity: run the sync against Python on the cached exports (minutes: Spellbook alone is 600 MB).
+        systemProperty("mtgoracle.syncParity", (findProperty("syncParity") != null).toString())
         jvmArgs(forgeJvmArgs)
         maxHeapSize = "4g"
         testLogging {

@@ -13,6 +13,8 @@ val COMMANDS = listOf(
     "profile", "compare",
     // Games.
     "results",
+    // The data.
+    "sync",
 )
 
 /** What a line's first word must be to run as a command; anything else is a search. */
@@ -44,6 +46,7 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "profile" to "profile [<deck>|<folder>]: what the cards do and when each role is castable",
     "compare" to "compare <deck>|<folder>: this deck head to head, or against every deck in the folder",
     "results" to "results [<deck>]: wins–losses–draws against each opponent, your games and the simulated ones",
+    "sync" to "sync [--force] [cards|rules|combos|tags|oracletags|formats ...]: fetch what moved upstream (decks are never touched)",
 )
 
 /**

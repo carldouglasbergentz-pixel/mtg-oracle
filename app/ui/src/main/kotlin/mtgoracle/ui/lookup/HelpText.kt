@@ -43,6 +43,11 @@ ANALYSIS
                                       outside their ranges, and the cards they play that it lacks
   Import reference lists into a folder and they become a reference set.
 
+DATA
+  sync [--force] [<source> ...]       fetch what moved upstream: cards, rules, combos, tags,
+                                      oracletags, formats (decks are never touched); --force
+                                      fetches it all again
+
 GAMES
   results [<deck>]                    wins–losses–draws against each opponent: the games you
                                       played, and the AI's (simulated on the setup screen, S)

@@ -25,6 +25,8 @@ class LookupUi(
     val count: (String) -> Int? = { null },
     /** A change to the open deck (the workspace's buttons, keys and menus). */
     val edit: (EditAction) -> Unit = {},
+    /** The command line: its text and history outlive a reload of the lookup behind it (after a sync). */
+    val command: CommandLineState = CommandLineState(),
 ) {
     /** A change to the library (a new deck, a rename, an import...): set by the app, which asks and writes. */
     var intent: (mtgoracle.ui.library.LibraryIntent) -> Unit = {}
@@ -45,7 +47,6 @@ class LookupUi(
 
     fun pointsOf(card: String): Int? = points[card.lowercase()]
 
-    val command = CommandLineState()
     /** The middle pane shows the output rather than the deck. */
     var showOutput by mutableStateOf(false)
     /** `> ` at the root, `UW Draw Go> ` after `cd` into it. */

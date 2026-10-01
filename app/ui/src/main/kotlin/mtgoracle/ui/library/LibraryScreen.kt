@@ -119,6 +119,7 @@ fun LibraryScreen(
             name == "new-deck" -> lookup?.intent?.invoke(LibraryIntent.NewDeck(selectedFolder, askFolder = true))
             name == "new-folder" -> lookup?.intent?.invoke(LibraryIntent.NewFolder)
             name == "import" -> lookup?.intent?.invoke(LibraryIntent.Import(selectedFolder, askFolder = true))
+            name == "sync" -> lookup?.submit?.invoke("sync")
         }
     }
     fun move(by: Int) {
@@ -218,7 +219,7 @@ fun LibraryScreen(
             }
             Buttons(listOf(
                 "edit" to "[ Edit ]", "play" to "[ Play ]", "new-deck" to "[ New deck ]", "new-folder" to "[ New folder ]", "import" to "[ Import ]",
-                "mode" to if (mode == CardMode.ART) "[ Text ]" else "[ Art ]", "prefetch" to "[ Fetch images ]",
+                "mode" to if (mode == CardMode.ART) "[ Text ]" else "[ Art ]", "prefetch" to "[ Fetch images ]", "sync" to "[ Sync ]",
             ), onClick)
             val hints = if (lookup?.command?.focused == true) TYPING_HINTS
             else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter" to "edit", "P" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
