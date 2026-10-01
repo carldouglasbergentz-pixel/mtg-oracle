@@ -33,7 +33,9 @@ It replaced a Python TUI and CLI in October 2026. That code lives at the git tag
 
 ## Quick start
 
-Requirements: JDK 25, and Forge 2.0.14 unpacked into `tools/forge/` (git-ignored, GPL-3).
+Requirements: JDK 25, and Forge in `tools/forge-dc/` (git-ignored, GPL-3).
+
+Forge is, for now, a build of our Duel Commander branch (Card-Forge/forge#12090), because no release plays Duel Commander yet. In the fork's worktree (`D:/Projekt/forge-dc/forge-verify`), on the branch's committed head, run `mvn -pl forge-gui-desktop -am package -DskipTests -Dcheckstyle.skip` and then `python D:/Projekt/forge-dc/tools/stage_for_mtg_oracle.py D:/Projekt/forge-dc/forge-verify tools/forge-dc`. That copies the release layout the app builds against: the desktop jar, `res/`, and the zipped card scripts. `tools/forge-dc/build.txt` names the commit. Restage it whenever the branch moves. `-PforgeDir=tools/forge` builds against an unpacked Forge 2.0.14 release instead, which has no Duel Commander. Once Forge releases Duel Commander, the app goes back to a release.
 
 ```bat
 cd app
@@ -174,7 +176,7 @@ mtg-oracle/
 │   ├── formats/                  Community-format definitions (tracked)
 │   ├── raw/, backups/, app/, game_logs/   Downloads, backups, the app's own files (git-ignored)
 │   └── mtg.db                    The database (git-ignored)
-└── tools/forge/                  Forge 2.0.14, unpacked (git-ignored)
+└── tools/forge-dc/               Forge from the Duel Commander branch, staged (git-ignored)
 ```
 
 ## Conventions

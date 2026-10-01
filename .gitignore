@@ -12,6 +12,9 @@ data/raw/
 # Forge release (GPL-3, ~300 MB) — an external tool, unpacked locally, never vendored
 tools/forge/
 
+# Forge built from the Duel Commander PR branch (D:/Projekt/forge-dc), staged in the release layout: what the app builds against
+tools/forge-dc/
+
 # Gradle distribution used once to bootstrap app/'s wrapper (the wrapper itself is tracked)
 tools/gradle/
 

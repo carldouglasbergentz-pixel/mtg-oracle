@@ -1,8 +1,10 @@
 // MTG Oracle's JVM app (docs/adr/0001). Modules: core, data, forge, ui, app.
 //
-// Forge is the pinned 2.0.14 desktop jar in ../tools/forge, a local file
-// dependency of :forge only — never vendored. Moving to Forge's own
-// forge-game / forge-ai / forge-gui modules is deferred (docs/project-plan.md).
+// Forge is a local file dependency of :forge only, never vendored: a build of
+// the Duel Commander PR branch (Card-Forge/forge#12090), staged in the release
+// layout in ../tools/forge-dc by forge-dc/tools/stage_for_mtg_oracle.py
+// (README, "Forge"). Back to a release when the PR is merged and released;
+// -PforgeDir=tools/forge builds against the 2.0.14 release meanwhile.
 //
 // Forge reads its data from an assets directory we own: build/forge-assets
 // holds a copy of the install's res/ (minus what the engine never reads), and
@@ -27,12 +29,14 @@ val forgeJvmArgs = listOf(
 )
 
 val repoRoot: File = rootDir.resolve("..").canonicalFile
-val forgeDir: File = repoRoot.resolve("tools/forge")
+// -PforgeDir=<dir, relative to the repo root> builds against another Forge with the release layout (the jar beside res/).
+val forgeDir: File = repoRoot.resolve((findProperty("forgeDir") as String?) ?: "tools/forge-dc")
 val forgeAssets: File = layout.buildDirectory.dir("forge-assets").get().asFile
 
 extra["repoRoot"] = repoRoot
 extra["forgeDir"] = forgeDir
-extra["forgeJar"] = forgeDir.resolve("forge-gui-desktop-2.0.14-jar-with-dependencies.jar")
+extra["forgeJar"] = forgeDir.listFiles { f -> f.name.startsWith("forge-gui-desktop-") && f.name.endsWith("-jar-with-dependencies.jar") }
+    ?.singleOrNull() ?: error("no single forge-gui-desktop-*-jar-with-dependencies.jar in $forgeDir")
 extra["forgeAssets"] = forgeAssets
 extra["forgeJvmArgs"] = forgeJvmArgs
 

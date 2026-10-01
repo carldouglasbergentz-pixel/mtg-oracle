@@ -32,7 +32,6 @@ import forge.localinstance.properties.ForgePreferences.FPref
 import forge.localinstance.skin.FSkinProp
 import forge.player.PlayerControllerHuman
 import forge.player.PlayerZoneUpdate
-import forge.player.PlayerZoneUpdates
 import forge.trackable.TrackableCollection
 import forge.util.FSerializableFunction
 import forge.util.ITriggerEvent
@@ -561,12 +560,6 @@ class SeatGui(
     override fun setPanelSelection(hostCard: CardView?) {}
     override fun setPlayerAvatar(player: LobbyPlayer?, ihi: IHasIcon?) {}
     override fun getGamestate(): GameState? = null
-
-    override fun tempShowZones(controller: PlayerView?, zonesToUpdate: Iterable<PlayerZoneUpdate>): Iterable<PlayerZoneUpdate> = zonesToUpdate
-    override fun hideZones(controller: PlayerView?, zonesToUpdate: Iterable<PlayerZoneUpdate>?) {}
-    override fun openZones(controller: PlayerView?, zones: Collection<ZoneType>?, players: Map<PlayerView, Any>?, backupLastZones: Boolean) =
-        PlayerZoneUpdates()
-    override fun restoreOldZones(playerView: PlayerView?, playerZoneUpdates: PlayerZoneUpdates?) {}
 
     // --- direct dialogs ------------------------------------------------------
 
