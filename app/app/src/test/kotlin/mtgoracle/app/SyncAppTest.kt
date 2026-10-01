@@ -72,7 +72,7 @@ class SyncAppTest {
         }
         val ui2 = app.lookupUi!!
         val text = { ui2.output.entries.flatMap { it.rendering.lines(120) }.joinToString("\n") { it.text } }
-        assertTrue("=== sync: cards, rules, combos, tags, oracletags, formats ===" in text(), text())
+        assertTrue("=== sync: cards, rules, combos, tags, oracletags, formats, printings ===" in text(), text())
         assertTrue(ui2.output.entries.size > outputBefore, "the scrollback is kept and the report added")
         assertTrue(ui2.command.history === history && history.older("") == "card Sol Ring", "the command history is kept")
         ui2.submit("card zyzzyx, sync tester")

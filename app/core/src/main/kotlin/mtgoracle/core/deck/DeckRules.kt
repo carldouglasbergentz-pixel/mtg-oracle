@@ -103,5 +103,16 @@ object DeckRules {
     val CHANGE_ORDER: Comparator<Pair<String, DeckSection>> = compareBy({ it.second.ordinal }, { it.first.lowercase() })
 }
 
-/** One printing of a card as the art chooser lists it: Scryfall's set code and number, and what the set is. */
-data class CardPrinting(val setCode: String, val collectorNumber: String?, val setName: String, val date: String)
+/**
+ * One printing of a card as the art chooser lists it: Scryfall's set code and
+ * number, what the set is, its language when not English, and what sets it
+ * apart (`borderless`, `showcase`, `extended art`...).
+ */
+data class CardPrinting(
+    val setCode: String,
+    val collectorNumber: String?,
+    val setName: String,
+    val date: String,
+    val lang: String = "en",
+    val labels: String = "",
+)

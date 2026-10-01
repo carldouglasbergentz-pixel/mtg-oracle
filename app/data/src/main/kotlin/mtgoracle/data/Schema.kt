@@ -75,6 +75,32 @@ object Schema {
             conn.createStatement().use { it.executeUpdate("DROP TABLE forge_matches") }
             "forge_matches dropped (it was empty; simulations are rows in games now)"
         },
+        Migration(3, "printings: every paper printing from Scryfall, for a card's art") { conn ->
+            conn.createStatement().use { st ->
+                st.executeUpdate(
+                    """
+                    CREATE TABLE printings (
+                        scryfall_id      TEXT PRIMARY KEY,
+                        card_name        TEXT NOT NULL,
+                        oracle_id        TEXT,
+                        set_code         TEXT NOT NULL,
+                        set_name         TEXT NOT NULL,
+                        collector_number TEXT NOT NULL,
+                        lang             TEXT NOT NULL,
+                        released_at      TEXT,
+                        artist           TEXT,
+                        image_faces      INTEGER NOT NULL DEFAULT 1,
+                        finishes         TEXT,
+                        labels           TEXT
+                    )
+                    """.trimIndent(),
+                )
+                st.executeUpdate("CREATE INDEX idx_printings_card_name_nocase ON printings(card_name COLLATE NOCASE)")
+                st.executeUpdate("CREATE UNIQUE INDEX idx_printings_set_number ON printings(set_code, collector_number, lang)")
+                st.executeUpdate("CREATE TABLE printing_sets (set_code TEXT PRIMARY KEY, card_count INTEGER NOT NULL, synced_at TEXT NOT NULL)")
+            }
+            "printings and printing_sets created (empty until a sync fetches them)"
+        },
     )
 
     /** The shape a database at [version] must have: version 1 built in memory, and the migrations up to it applied. */

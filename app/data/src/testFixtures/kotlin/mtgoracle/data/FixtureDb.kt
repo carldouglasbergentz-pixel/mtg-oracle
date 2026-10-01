@@ -30,7 +30,7 @@ object FixtureDb {
 
     /** The fixture's exports, served as the network would serve them. */
     class Exports(private val raw: File) : Upstream {
-        override fun scryfallBulk() = listOf("oracle_cards", "rulings", "oracle_tags").associateWith { Bulk("fixture", "fixture:$it") }
+        override fun scryfallBulk() = listOf("oracle_cards", "rulings", "oracle_tags", "default_cards").associateWith { Bulk("fixture", "fixture:$it") }
         override fun rulesPage() = """<a href="https://media.wizards.com/2026/downloads/MagicCompRules%2020260101.txt">rules</a>"""
         override fun bytes(url: String) = gunzip(File(raw, "MagicCompRules.txt.gz"))
         override fun spellbookMarker() = "fixture"
@@ -40,10 +40,15 @@ object FixtureDb {
                 "fixture:oracle_cards" -> copy(File(raw, "scryfall_oracle_cards.jsonl.gz"), target)
                 "fixture:rulings" -> copy(File(raw, "scryfall_rulings.jsonl.gz"), target)
                 "fixture:oracle_tags" -> copy(File(raw, "oracle_tags.jsonl.gz"), target)
+                "fixture:default_cards" -> copy(File(raw, "scryfall_default_cards.jsonl.gz"), target)
                 Upstream.SPELLBOOK -> target.writeBytes(gunzip(File(raw, "spellbook_variants.json.gz")))
                 else -> error("no fixture export for $url")
             }
         }
+
+        /** The sets list is a file; a set search finds nothing (the fixture's first sync reads the bulk export). */
+        override fun scryfallApi(url: String): String? =
+            if (url == Upstream.SCRYFALL_SETS) File(raw, "scryfall_sets.json").readText(Charsets.UTF_8) else null
 
         private fun copy(from: File, to: File) { Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING) }
         private fun gunzip(file: File) = GZIPInputStream(file.inputStream()).use { it.readBytes() }

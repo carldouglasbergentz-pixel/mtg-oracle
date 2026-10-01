@@ -131,6 +131,9 @@ class SeatGui(
     private val cardViews = ConcurrentHashMap<Int, CardView>()
     private val playerViews = ConcurrentHashMap<Int, PlayerView>()
     private val snapshots = Snapshots(cardViews, playerViews)
+
+    /** Per player name, the cards whose chosen printing Forge lacks and the art key to draw them with instead. */
+    internal fun setArtOverrides(overrides: Map<String, Map<String, String>>) { snapshots.artOverrides = overrides }
     /** Named under the board's own rule: seen, and if face-down, peekable. */
     private val trail = Trail(named = { cv -> visible(cv) && (!cv.isFaceDown || peek(cv)) }, onChange = { dirty = true })
     private val floatingMana = FloatingMana(recorder)

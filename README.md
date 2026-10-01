@@ -126,6 +126,7 @@ Each refusal names its reason, and `--force` overrides for one call. A list impo
 | Oracle tags | Scryfall Tagger bulk | daily | `updated_at` |
 | Local tags | derived from `oracle_text` and the type line | every sync | rebuilt (fast) |
 | Community formats | curated JSON in `data/formats/` | when the list changes | rebuilt |
+| Printings (card art) | Scryfall `default_cards` bulk the first time, then only the sets whose card count moved (`/sets` + search) | as sets release | each set's card count |
 
 ## Development
 

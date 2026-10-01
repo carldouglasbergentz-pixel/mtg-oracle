@@ -16,6 +16,8 @@ import java.sql.Connection
  * changelog. Downloads land in [rawDir]; the format files are [formatsDir].
  * Never touches a deck.
  */
+private const val PRINTINGS_KEY = "scryfall_printings"
+
 class Sync(
     private val db: MtgDb,
     private val upstream: Upstream,
@@ -40,6 +42,7 @@ class Sync(
                     Source.TAGS -> tags()
                     Source.ORACLETAGS -> oracleTags(bulk, force)
                     Source.FORMATS -> formats()
+                    Source.PRINTINGS -> printings(bulk, force)
                 }
                 if (said.isNotEmpty()) notes[source] = said
             } catch (e: Exception) {
@@ -171,6 +174,65 @@ class Sync(
         return notes
     }
 
+    /**
+     * Every paper printing, cheaply. The first time (or with `force`) the
+     * whole `default_cards` export, about 80 MB. After that only Scryfall's
+     * small `/sets` list, and the sets whose card count moved since (a new
+     * set, more spoiled cards) are fetched one search at a time; most days
+     * that is nothing at all.
+     */
+    private fun printings(bulk: Map<String, Bulk>, force: Boolean): List<String> {
+        val entry = bulk["default_cards"] ?: run { log("Scryfall has no bulk entry for default_cards: printings skipped"); return emptyList() }
+        val stored = db.read { conn -> conn.createStatement().use { st -> st.executeQuery("SELECT COUNT(*) FROM printings").use { it.next(); it.getInt(1) } } }
+        val sets = PrintingsIngest.parseSets(upstream.scryfallApi(Upstream.SCRYFALL_SETS) ?: error("Scryfall has no /sets"))
+        check(sets.isNotEmpty()) { "Scryfall's set list came back empty: nothing was changed" }
+        if (force || stored == 0) {
+            val uri = entry.jsonlUri ?: error("Scryfall's default_cards entry has no jsonl_download_uri: the bulk-data API changed")
+            val file = File(rawDir, "scryfall_default_cards.jsonl.gz")
+            log("downloading every printing (default_cards)")
+            upstream.download(uri, file)
+            db.write(foreignKeys = false) { conn ->
+                val n = PrintingsIngest.replaceAll(conn, jsonLines(file))
+                check(n > 0) { "the default_cards export held no paper printings: nothing was changed" }
+                PrintingsIngest.saveSets(conn, sets, nowStamp())
+                SyncState.set(conn, PRINTINGS_KEY, entry.updatedAt.orEmpty(), n)
+                log("printings: $n, in ${sets.size} sets")
+            }
+            return emptyList()
+        }
+        val known = db.read(PrintingsIngest::knownSets)
+        val moved = sets.filter { !it.digital && known[it.code] != it.cardCount }
+        if (moved.isEmpty()) { log("printings: up to date (${known.size} sets)"); return emptyList() }
+        val notes = mutableListOf<String>()
+        for (set in moved) {
+            log("printings: fetching ${set.code} (${known[set.code]?.let { "$it → ${set.cardCount}" } ?: "new, ${set.cardCount}"} cards)")
+            val cards = searchSet(set.code).ifEmpty { searchSet(set.code, anyLanguage = true) }
+            db.write(foreignKeys = false) { conn ->
+                val n = PrintingsIngest.replaceSet(conn, set.code, cards)
+                PrintingsIngest.saveSets(conn, listOf(set), nowStamp())
+                notes += "${set.code.uppercase()}: $n printing(s)"
+            }
+        }
+        db.write(foreignKeys = false) { conn ->
+            val total = conn.createStatement().use { st -> st.executeQuery("SELECT COUNT(*) FROM printings").use { it.next(); it.getInt(1) } }
+            SyncState.set(conn, PRINTINGS_KEY, SyncState.get(conn, PRINTINGS_KEY).orEmpty(), total)
+        }
+        return listOf("new or changed sets: " + notes.joinToString(", "))
+    }
+
+    /** Every page of one set's printings; empty when Scryfall has none (in English, unless [anyLanguage]). */
+    private fun searchSet(setCode: String, anyLanguage: Boolean = false): List<kotlinx.serialization.json.JsonObject> {
+        val cards = mutableListOf<kotlinx.serialization.json.JsonObject>()
+        var url: String? = Upstream.scryfallSetSearch(setCode, anyLanguage)
+        while (url != null) {
+            val page = upstream.scryfallApi(url) ?: break
+            val (onPage, next) = PrintingsIngest.parsePage(page)
+            cards += onPage
+            url = next
+        }
+        return cards
+    }
+
     private fun snapshot(): Snapshot = db.read { conn ->
         fun pairs(sql: String) = conn.createStatement().use { st -> st.executeQuery(sql).use { rs -> buildMap { while (rs.next()) put(rs.getString(1), rs.getString(2).orEmpty().hashCode()) } } }
         fun count(table: String) = runCatching { conn.createStatement().use { st -> st.executeQuery("SELECT COUNT(*) FROM $table").use { it.next(); it.getInt(1) } } }.getOrDefault(0)
@@ -178,7 +240,7 @@ class Sync(
             cards = pairs("SELECT oracle_id, oracle_text FROM cards WHERE oracle_id IS NOT NULL"),
             rules = pairs("SELECT rule_number, text FROM rules"),
             combos = conn.createStatement().use { st -> st.executeQuery("SELECT id FROM combos").use { rs -> buildSet { while (rs.next()) add(rs.getString(1)) } } },
-            counts = listOf("rulings", "card_tags", "card_abilities", "custom_format_points", "card_oracle_tags").associateWith(::count),
+            counts = listOf("rulings", "card_tags", "card_abilities", "custom_format_points", "card_oracle_tags", "printings").associateWith(::count),
         )
     }
 
@@ -191,7 +253,7 @@ class Sync(
             keyed("cards", a.cards, b.cards), keyed("rules", a.rules, b.rules),
             TableChange("combos", (b.combos - a.combos).size, (a.combos - b.combos).size, null, null, b.combos.size),
             net("rulings", "rulings"), net("tags", "card_tags"), net("abilities", "card_abilities"),
-            net("points", "custom_format_points"), net("oracletags", "card_oracle_tags"),
+            net("points", "custom_format_points"), net("oracletags", "card_oracle_tags"), net("printings", "printings"),
         )
     }
 

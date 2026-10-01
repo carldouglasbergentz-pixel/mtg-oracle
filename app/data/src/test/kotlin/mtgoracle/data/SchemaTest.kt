@@ -68,9 +68,11 @@ class SchemaTest {
         val report = MtgDb(file).migrate(backups)
         assertEquals(0 to Schema.VERSION, report.from to report.to)
         assertTrue(report.lines.any { it.startsWith("adopted") } && report.lines.any { it == "v2: forge_matches dropped (it was empty; simulations are rows in games now)" }, report.lines.toString())
+        assertTrue(report.lines.any { it.startsWith("v3: printings") }, report.lines.toString())
         val after = shape(file)
-        assertEquals(before.tables - "forge_matches", after.tables, "nothing but the migration changed")
-        assertEquals(before.columns.filterKeys { !it.startsWith("forge_matches.") }, after.columns)
+        val added = setOf("printings", "printing_sets")
+        assertEquals(before.tables - "forge_matches" + added, after.tables, "nothing but the migrations changed")
+        assertEquals(before.columns.filterKeys { !it.startsWith("forge_matches.") }, after.columns.filterKeys { it.substringBefore('.') !in added })
 
         val backup = report.backup!!
         assertTrue(backup.parentFile == backups && backup.name.matches(Regex("""mtg-.*-pre-v2\.db""")), backup.name)

@@ -27,6 +27,7 @@ class Lookup(val db: MtgDb) {
     val games = GameStore(db)
     /** The user's own combos, beside Spellbook's. */
     val userCombos = UserCombos(db, names)
+    val printings = Printings(db, names)
 
     /**
      * What autofill offers after each field, the most used first: types and

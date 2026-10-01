@@ -139,6 +139,7 @@ object ForgeMatch {
         val aiPlayer = GamePlayerUtil.createAiPlayer("AI (${spec.opponent.name})", 1)
         val a = registered(spec.seat, commander).apply { player = seatPlayer }
         val b = registered(spec.opponent, commander).apply { player = aiPlayer }
+        gui.setArtOverrides(mapOf(seatPlayer.name to missingPrintings(spec.seat), aiPlayer.name to missingPrintings(spec.opponent)))
         recorder.note("${spec.mode}: ${spec.seat.name} vs ${spec.opponent.name}; seed ${spec.seed ?: "none"}; Forge ${ForgeRuntime.version}")
         spec.seat.notes.plus(spec.opponent.notes).forEach(recorder::note)
 
@@ -190,6 +191,13 @@ object ForgeMatch {
             recorder.note("WARNING Forge's spectator pacing is still on: ${e.message}")
         }
     }
+
+    /** The cards whose chosen printing Forge lacks: the board shows Scryfall's art for them (ForgeCards.printingKey). */
+    private fun missingPrintings(deck: PlayDeck): Map<String, String> = deck.cards.mapNotNull { card ->
+        val set = card.setCode ?: return@mapNotNull null
+        if (ForgeCards.hasPrinting(card.forgeName, set, card.collectorNumber)) null
+        else card.forgeName to ForgeCards.printingKey(card.forgeName, set, card.collectorNumber)
+    }.toMap()
 
     private fun registered(deck: PlayDeck, commander: Boolean): RegisteredPlayer {
         val forgeDeck = ForgeCards.toForgeDeck(deck)

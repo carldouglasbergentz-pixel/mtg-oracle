@@ -327,7 +327,8 @@ class LibraryActions(
         val printings = printingsOf(intent.card)
         if (printings.isEmpty()) return say("no printings of ${intent.card} known yet (Forge is still loading, or lacks the card)")
         val options = listOf(Option("default art", "")) + printings.map { p ->
-            Option("${p.setCode.uppercase()} ${p.collectorNumber.orEmpty()}".trim(), "${p.setCode}|${p.collectorNumber.orEmpty()}", "${p.setName} · ${p.date}")
+            val detail = listOfNotNull(p.setName, p.date.ifEmpty { null }, p.lang.takeIf { it != "en" }, p.labels.ifEmpty { null }?.replace(",", ", "))
+            Option("${p.setCode.uppercase()} ${p.collectorNumber.orEmpty()}".trim(), "${p.setCode}|${p.collectorNumber.orEmpty()}", detail.joinToString(" · "))
         }
         fun printingOf(o: Option) = o.value.takeIf { it.isNotEmpty() }?.let { Printing.of(it.substringBefore('|'), it.substringAfter('|').ifEmpty { null }) }
         ui.ask = Ask.Choose("Printing of ${intent.card}", options,

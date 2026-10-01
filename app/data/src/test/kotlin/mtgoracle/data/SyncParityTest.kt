@@ -33,8 +33,8 @@ class SyncParityTest {
         "card_oracle_tags" to "card_name, tag, weight",
         "custom_formats" to "format, name, aliases, derives_from, points_budget, singleton, source_url, list_current_as_of",
         "custom_format_points" to "format, card_name, points",
-        // The markers and the counts; the stamps of the two local sources are "now".
-        "(SELECT source, CASE WHEN source IN ('local_tags', 'custom_formats') THEN '' ELSE updated_at END AS marker, row_count FROM sync_state)" to "source, marker, row_count",
+        // The markers and the counts; the stamps of the two local sources are "now". Printings came after Python.
+        "(SELECT source, CASE WHEN source IN ('local_tags', 'custom_formats') THEN '' ELSE updated_at END AS marker, row_count FROM sync_state WHERE source != 'scryfall_printings')" to "source, marker, row_count",
     )
 
     /** `table <tab> rows <tab> sha-256 of the rows, in one order`, per table. */

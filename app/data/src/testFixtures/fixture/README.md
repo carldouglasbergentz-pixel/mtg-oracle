@@ -8,6 +8,9 @@ compare against data that does not move:
   variants whose cards are all included, and the full Comprehensive Rules.
   The cards are those of the reference lists, the Canadian Highlander points
   list, the parity tests' own cards and search pages, and a seeded sample.
+- `raw/scryfall_default_cards.jsonl.gz` and `raw/scryfall_sets.json` (added with the printings source):
+  every printing of twelve test cards in Scryfall's `default_cards`, plus three edge cases (an MTGO-only
+  printing, a token, a set printed in French only), and the sets they belong to.
 - `formats/`, `decklists/`: the points list and the reference lists as they were.
 - `python-v0-schema.sql`: the schema the Python migrations left, version 0.
 - `expected/`: what the Python original answered on this data, recorded once

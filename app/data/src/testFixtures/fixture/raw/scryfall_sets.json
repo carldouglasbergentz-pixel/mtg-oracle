@@ -1,0 +1,1182 @@
+{
+"object": "list",
+"has_more": false,
+"data": [
+{
+"code": "frc",
+"name": "Reality Fracture Commander",
+"card_count": 103,
+"digital": false,
+"released_at": "2026-10-02"
+},
+{
+"code": "slz",
+"name": "The Zeta Set",
+"card_count": 363,
+"digital": false,
+"released_at": "2026-09-02"
+},
+{
+"code": "msc",
+"name": "Marvel Super Heroes Commander",
+"card_count": 866,
+"digital": false,
+"released_at": "2026-06-26"
+},
+{
+"code": "soc",
+"name": "Secrets of Strixhaven Commander",
+"card_count": 426,
+"digital": false,
+"released_at": "2026-04-24"
+},
+{
+"code": "tmc",
+"name": "Teenage Mutant Ninja Turtles Eternal",
+"card_count": 132,
+"digital": false,
+"released_at": "2026-03-06"
+},
+{
+"code": "pza",
+"name": "Teenage Mutant Ninja Turtles Source Material",
+"card_count": 20,
+"digital": false,
+"released_at": "2026-03-06"
+},
+{
+"code": "ecc",
+"name": "Lorwyn Eclipsed Commander",
+"card_count": 176,
+"digital": false,
+"released_at": "2026-01-23"
+},
+{
+"code": "pf26",
+"name": "MagicFest 2026",
+"card_count": 13,
+"digital": false,
+"released_at": "2026-01-01"
+},
+{
+"code": "pw26",
+"name": "Wizards Play Network 2026",
+"card_count": 23,
+"digital": false,
+"released_at": "2026-01-01"
+},
+{
+"code": "tle",
+"name": "Avatar: The Last Airbender Eternal",
+"card_count": 317,
+"digital": false,
+"released_at": "2025-11-21"
+},
+{
+"code": "mar",
+"name": "Marvel Universe",
+"card_count": 100,
+"digital": false,
+"released_at": "2025-09-26"
+},
+{
+"code": "omb",
+"name": "Through the Omenpaths Bonus Sheet",
+"card_count": 40,
+"digital": true,
+"released_at": "2025-09-23"
+},
+{
+"code": "eoc",
+"name": "Edge of Eternities Commander",
+"card_count": 191,
+"digital": false,
+"released_at": "2025-08-01"
+},
+{
+"code": "fca",
+"name": "Final Fantasy: Through the Ages",
+"card_count": 65,
+"digital": false,
+"released_at": "2025-06-13"
+},
+{
+"code": "fic",
+"name": "Final Fantasy Commander",
+"card_count": 486,
+"digital": false,
+"released_at": "2025-06-13"
+},
+{
+"code": "tdc",
+"name": "Tarkir: Dragonstorm Commander",
+"card_count": 413,
+"digital": false,
+"released_at": "2025-04-11"
+},
+{
+"code": "drc",
+"name": "Aetherdrift Commander",
+"card_count": 184,
+"digital": false,
+"released_at": "2025-02-14"
+},
+{
+"code": "inr",
+"name": "Innistrad Remastered",
+"card_count": 495,
+"digital": false,
+"released_at": "2025-01-24"
+},
+{
+"code": "pf25",
+"name": "MagicFest 2025",
+"card_count": 19,
+"digital": false,
+"released_at": "2025-01-01"
+},
+{
+"code": "pio",
+"name": "Pioneer Masters",
+"card_count": 398,
+"digital": true,
+"released_at": "2024-12-10"
+},
+{
+"code": "pfdn",
+"name": "Foundations Promos",
+"card_count": 106,
+"digital": false,
+"released_at": "2024-11-15"
+},
+{
+"code": "fdc",
+"name": "Foundations Commander",
+"card_count": 319,
+"digital": false,
+"released_at": "2024-11-15"
+},
+{
+"code": "dsc",
+"name": "Duskmourn: House of Horror Commander",
+"card_count": 373,
+"digital": false,
+"released_at": "2024-09-27"
+},
+{
+"code": "blc",
+"name": "Bloomburrow Commander",
+"card_count": 356,
+"digital": false,
+"released_at": "2024-08-02"
+},
+{
+"code": "mb2",
+"name": "Mystery Booster 2",
+"card_count": 385,
+"digital": false,
+"released_at": "2024-08-02"
+},
+{
+"code": "m3c",
+"name": "Modern Horizons 3 Commander",
+"card_count": 398,
+"digital": false,
+"released_at": "2024-06-14"
+},
+{
+"code": "otc",
+"name": "Outlaws of Thunder Junction Commander",
+"card_count": 342,
+"digital": false,
+"released_at": "2024-04-19"
+},
+{
+"code": "pip",
+"name": "Fallout",
+"card_count": 1068,
+"digital": false,
+"released_at": "2024-03-08"
+},
+{
+"code": "clu",
+"name": "Ravnica: Clue Edition",
+"card_count": 284,
+"digital": false,
+"released_at": "2024-02-23"
+},
+{
+"code": "wmkm",
+"name": "MKM Japanese Promo Tokens",
+"card_count": 4,
+"digital": false,
+"released_at": "2024-02-09"
+},
+{
+"code": "mkc",
+"name": "Murders at Karlov Manor Commander",
+"card_count": 358,
+"digital": false,
+"released_at": "2024-02-09"
+},
+{
+"code": "pf24",
+"name": "MagicFest 2024",
+"card_count": 2,
+"digital": false,
+"released_at": "2024-01-01"
+},
+{
+"code": "spg",
+"name": "Special Guests",
+"card_count": 175,
+"digital": false,
+"released_at": "2023-11-17"
+},
+{
+"code": "lcc",
+"name": "The Lost Caverns of Ixalan Commander",
+"card_count": 370,
+"digital": false,
+"released_at": "2023-11-17"
+},
+{
+"code": "who",
+"name": "Doctor Who",
+"card_count": 1178,
+"digital": false,
+"released_at": "2023-10-13"
+},
+{
+"code": "woc",
+"name": "Wilds of Eldraine Commander",
+"card_count": 173,
+"digital": false,
+"released_at": "2023-09-08"
+},
+{
+"code": "cmm",
+"name": "Commander Masters",
+"card_count": 1067,
+"digital": false,
+"released_at": "2023-08-04"
+},
+{
+"code": "ltc",
+"name": "Tales of Middle-earth Commander",
+"card_count": 591,
+"digital": false,
+"released_at": "2023-06-23"
+},
+{
+"code": "moc",
+"name": "March of the Machine Commander",
+"card_count": 450,
+"digital": false,
+"released_at": "2023-04-21"
+},
+{
+"code": "slp",
+"name": "Secret Lair Promo",
+"card_count": 54,
+"digital": false,
+"released_at": "2023-02-17"
+},
+{
+"code": "onc",
+"name": "Phyrexia: All Will Be One Commander",
+"card_count": 174,
+"digital": false,
+"released_at": "2023-02-10"
+},
+{
+"code": "dmr",
+"name": "Dominaria Remastered",
+"card_count": 457,
+"digital": false,
+"released_at": "2023-01-13"
+},
+{
+"code": "scd",
+"name": "Starter Commander Decks",
+"card_count": 352,
+"digital": false,
+"released_at": "2022-12-02"
+},
+{
+"code": "30a",
+"name": "30th Anniversary Edition",
+"card_count": 594,
+"digital": false,
+"released_at": "2022-11-28"
+},
+{
+"code": "brc",
+"name": "The Brothers' War Commander",
+"card_count": 209,
+"digital": false,
+"released_at": "2022-11-18"
+},
+{
+"code": "slc",
+"name": "Secret Lair Countdown",
+"card_count": 84,
+"digital": false,
+"released_at": "2022-11-01"
+},
+{
+"code": "gn3",
+"name": "Game Night: Free-for-All",
+"card_count": 135,
+"digital": false,
+"released_at": "2022-10-14"
+},
+{
+"code": "40k",
+"name": "Warhammer 40,000 Commander",
+"card_count": 617,
+"digital": false,
+"released_at": "2022-10-07"
+},
+{
+"code": "dmc",
+"name": "Dominaria United Commander",
+"card_count": 240,
+"digital": false,
+"released_at": "2022-09-09"
+},
+{
+"code": "2x2",
+"name": "Double Masters 2022",
+"card_count": 579,
+"digital": false,
+"released_at": "2022-07-08"
+},
+{
+"code": "hbg",
+"name": "Alchemy Horizons: Baldur's Gate",
+"card_count": 408,
+"digital": true,
+"released_at": "2022-07-07"
+},
+{
+"code": "plg22",
+"name": "Love Your LGS 2022",
+"card_count": 2,
+"digital": false,
+"released_at": "2022-07-01"
+},
+{
+"code": "pclb",
+"name": "Battle for Baldur's Gate Promos",
+"card_count": 104,
+"digital": false,
+"released_at": "2022-06-10"
+},
+{
+"code": "clb",
+"name": "Commander Legends: Battle for Baldur's Gate",
+"card_count": 936,
+"digital": false,
+"released_at": "2022-06-10"
+},
+{
+"code": "ncc",
+"name": "New Capenna Commander",
+"card_count": 447,
+"digital": false,
+"released_at": "2022-04-29"
+},
+{
+"code": "nec",
+"name": "Neon Dynasty Commander",
+"card_count": 179,
+"digital": false,
+"released_at": "2022-02-18"
+},
+{
+"code": "cc2",
+"name": "Commander Collection: Black",
+"card_count": 9,
+"digital": false,
+"released_at": "2022-01-28"
+},
+{
+"code": "dbl",
+"name": "Innistrad: Double Feature",
+"card_count": 535,
+"digital": false,
+"released_at": "2022-01-28"
+},
+{
+"code": "voc",
+"name": "Crimson Vow Commander",
+"card_count": 188,
+"digital": false,
+"released_at": "2021-11-19"
+},
+{
+"code": "mic",
+"name": "Midnight Hunt Commander",
+"card_count": 187,
+"digital": false,
+"released_at": "2021-09-24"
+},
+{
+"code": "mid",
+"name": "Innistrad: Midnight Hunt",
+"card_count": 392,
+"digital": false,
+"released_at": "2021-09-24"
+},
+{
+"code": "j21",
+"name": "Jumpstart: Historic Horizons",
+"card_count": 389,
+"digital": true,
+"released_at": "2021-08-26"
+},
+{
+"code": "afc",
+"name": "Forgotten Realms Commander",
+"card_count": 331,
+"digital": false,
+"released_at": "2021-07-23"
+},
+{
+"code": "mh2",
+"name": "Modern Horizons 2",
+"card_count": 492,
+"digital": false,
+"released_at": "2021-06-18"
+},
+{
+"code": "sta",
+"name": "Strixhaven Mystical Archive",
+"card_count": 126,
+"digital": false,
+"released_at": "2021-04-23"
+},
+{
+"code": "c21",
+"name": "Commander 2021",
+"card_count": 409,
+"digital": false,
+"released_at": "2021-04-23"
+},
+{
+"code": "khc",
+"name": "Kaldheim Commander",
+"card_count": 119,
+"digital": false,
+"released_at": "2021-02-05"
+},
+{
+"code": "cc1",
+"name": "Commander Collection: Green",
+"card_count": 8,
+"digital": false,
+"released_at": "2020-12-04"
+},
+{
+"code": "cmr",
+"name": "Commander Legends",
+"card_count": 718,
+"digital": false,
+"released_at": "2020-11-20"
+},
+{
+"code": "plst",
+"name": "The List",
+"card_count": 5663,
+"digital": false,
+"released_at": "2020-09-26"
+},
+{
+"code": "znc",
+"name": "Zendikar Rising Commander",
+"card_count": 142,
+"digital": false,
+"released_at": "2020-09-25"
+},
+{
+"code": "2xm",
+"name": "Double Masters",
+"card_count": 384,
+"digital": false,
+"released_at": "2020-08-07"
+},
+{
+"code": "jmp",
+"name": "Jumpstart",
+"card_count": 496,
+"digital": false,
+"released_at": "2020-07-17"
+},
+{
+"code": "c20",
+"name": "Commander 2020",
+"card_count": 322,
+"digital": false,
+"released_at": "2020-04-17"
+},
+{
+"code": "sld",
+"name": "Secret Lair Drop",
+"card_count": 2820,
+"digital": false,
+"released_at": "2019-12-02"
+},
+{
+"code": "c19",
+"name": "Commander 2019",
+"card_count": 302,
+"digital": false,
+"released_at": "2019-08-23"
+},
+{
+"code": "pf19",
+"name": "MagicFest 2019",
+"card_count": 7,
+"digital": false,
+"released_at": "2019-01-01"
+},
+{
+"code": "uma",
+"name": "Ultimate Masters",
+"card_count": 254,
+"digital": false,
+"released_at": "2018-12-07"
+},
+{
+"code": "c18",
+"name": "Commander 2018",
+"card_count": 307,
+"digital": false,
+"released_at": "2018-08-10"
+},
+{
+"code": "ss1",
+"name": "Signature Spellbook: Jace",
+"card_count": 8,
+"digital": false,
+"released_at": "2018-06-15"
+},
+{
+"code": "cm2",
+"name": "Commander Anthology Volume II",
+"card_count": 312,
+"digital": false,
+"released_at": "2018-06-08"
+},
+{
+"code": "bbd",
+"name": "Battlebond",
+"card_count": 256,
+"digital": false,
+"released_at": "2018-06-08"
+},
+{
+"code": "a25",
+"name": "Masters 25",
+"card_count": 249,
+"digital": false,
+"released_at": "2018-03-16"
+},
+{
+"code": "v17",
+"name": "From the Vault: Transform",
+"card_count": 16,
+"digital": false,
+"released_at": "2017-11-24"
+},
+{
+"code": "ima",
+"name": "Iconic Masters",
+"card_count": 249,
+"digital": false,
+"released_at": "2017-11-17"
+},
+{
+"code": "c17",
+"name": "Commander 2017",
+"card_count": 309,
+"digital": false,
+"released_at": "2017-08-25"
+},
+{
+"code": "e01",
+"name": "Archenemy: Nicol Bolas",
+"card_count": 106,
+"digital": false,
+"released_at": "2017-06-16"
+},
+{
+"code": "cma",
+"name": "Commander Anthology",
+"card_count": 320,
+"digital": false,
+"released_at": "2017-06-09"
+},
+{
+"code": "mp2",
+"name": "Amonkhet Invocations",
+"card_count": 54,
+"digital": false,
+"released_at": "2017-04-28"
+},
+{
+"code": "mm3",
+"name": "Modern Masters 2017",
+"card_count": 249,
+"digital": false,
+"released_at": "2017-03-17"
+},
+{
+"code": "pz2",
+"name": "Treasure Chest",
+"card_count": 270,
+"digital": true,
+"released_at": "2016-11-16"
+},
+{
+"code": "c16",
+"name": "Commander 2016",
+"card_count": 351,
+"digital": false,
+"released_at": "2016-11-11"
+},
+{
+"code": "mps",
+"name": "Kaladesh Inventions",
+"card_count": 54,
+"digital": false,
+"released_at": "2016-09-30"
+},
+{
+"code": "ema",
+"name": "Eternal Masters",
+"card_count": 249,
+"digital": false,
+"released_at": "2016-06-10"
+},
+{
+"code": "pz1",
+"name": "Legendary Cube Prize Pack",
+"card_count": 149,
+"digital": true,
+"released_at": "2015-11-18"
+},
+{
+"code": "c15",
+"name": "Commander 2015",
+"card_count": 342,
+"digital": false,
+"released_at": "2015-11-13"
+},
+{
+"code": "v15",
+"name": "From the Vault: Angels",
+"card_count": 15,
+"digital": false,
+"released_at": "2015-08-21"
+},
+{
+"code": "pori",
+"name": "Magic Origins Promos",
+"card_count": 54,
+"digital": false,
+"released_at": "2015-07-17"
+},
+{
+"code": "ori",
+"name": "Magic Origins",
+"card_count": 288,
+"digital": false,
+"released_at": "2015-07-17"
+},
+{
+"code": "ps15",
+"name": "San Diego Comic-Con 2015",
+"card_count": 5,
+"digital": false,
+"released_at": "2015-07-09"
+},
+{
+"code": "mm2",
+"name": "Modern Masters 2015",
+"card_count": 249,
+"digital": false,
+"released_at": "2015-05-22"
+},
+{
+"code": "tpr",
+"name": "Tempest Remastered",
+"card_count": 269,
+"digital": true,
+"released_at": "2015-05-06"
+},
+{
+"code": "jvc",
+"name": "Duel Decks Anthology: Jace vs. Chandra",
+"card_count": 62,
+"digital": false,
+"released_at": "2014-12-05"
+},
+{
+"code": "c14",
+"name": "Commander 2014",
+"card_count": 337,
+"digital": false,
+"released_at": "2014-11-07"
+},
+{
+"code": "vma",
+"name": "Vintage Masters",
+"card_count": 325,
+"digital": true,
+"released_at": "2014-06-16"
+},
+{
+"code": "cns",
+"name": "Conspiracy",
+"card_count": 210,
+"digital": false,
+"released_at": "2014-06-06"
+},
+{
+"code": "c13",
+"name": "Commander 2013",
+"card_count": 356,
+"digital": false,
+"released_at": "2013-11-01"
+},
+{
+"code": "v13",
+"name": "From the Vault: Twenty",
+"card_count": 20,
+"digital": false,
+"released_at": "2013-08-23"
+},
+{
+"code": "j13",
+"name": "Judge Gift Cards 2013",
+"card_count": 9,
+"digital": false,
+"released_at": "2013-01-01"
+},
+{
+"code": "ddj",
+"name": "Duel Decks: Izzet vs. Golgari",
+"card_count": 90,
+"digital": false,
+"released_at": "2012-09-07"
+},
+{
+"code": "avr",
+"name": "Avacyn Restored",
+"card_count": 244,
+"digital": false,
+"released_at": "2012-05-04"
+},
+{
+"code": "isd",
+"name": "Innistrad",
+"card_count": 264,
+"digital": false,
+"released_at": "2011-09-30"
+},
+{
+"code": "cmd",
+"name": "Commander 2011",
+"card_count": 318,
+"digital": false,
+"released_at": "2011-06-17"
+},
+{
+"code": "me4",
+"name": "Masters Edition IV",
+"card_count": 269,
+"digital": true,
+"released_at": "2011-01-10"
+},
+{
+"code": "olgc",
+"name": "Legacy Championship",
+"card_count": 27,
+"digital": false,
+"released_at": "2011-01-01"
+},
+{
+"code": "pd2",
+"name": "Premium Deck Series: Fire and Lightning",
+"card_count": 34,
+"digital": false,
+"released_at": "2010-11-19"
+},
+{
+"code": "td0",
+"name": "Magic Online Theme Decks",
+"card_count": 197,
+"digital": true,
+"released_at": "2010-11-08"
+},
+{
+"code": "ddf",
+"name": "Duel Decks: Elspeth vs. Tezzeret",
+"card_count": 79,
+"digital": false,
+"released_at": "2010-09-03"
+},
+{
+"code": "v10",
+"name": "From the Vault: Relics",
+"card_count": 15,
+"digital": false,
+"released_at": "2010-08-27"
+},
+{
+"code": "m11",
+"name": "Magic 2011",
+"card_count": 249,
+"digital": false,
+"released_at": "2010-07-16"
+},
+{
+"code": "p10",
+"name": "Magic Player Rewards 2010",
+"card_count": 13,
+"digital": false,
+"released_at": "2010-01-01"
+},
+{
+"code": "m10",
+"name": "Magic 2010",
+"card_count": 249,
+"digital": false,
+"released_at": "2009-07-17"
+},
+{
+"code": "purl",
+"name": "URL/Convention Promos",
+"card_count": 18,
+"digital": false,
+"released_at": "2009-02-08"
+},
+{
+"code": "p09",
+"name": "Magic Player Rewards 2009",
+"card_count": 13,
+"digital": false,
+"released_at": "2009-01-01"
+},
+{
+"code": "dd2",
+"name": "Duel Decks: Jace vs. Chandra",
+"card_count": 64,
+"digital": false,
+"released_at": "2008-11-07"
+},
+{
+"code": "me2",
+"name": "Masters Edition II",
+"card_count": 245,
+"digital": true,
+"released_at": "2008-09-22"
+},
+{
+"code": "me1",
+"name": "Masters Edition",
+"card_count": 195,
+"digital": true,
+"released_at": "2007-09-10"
+},
+{
+"code": "cst",
+"name": "Coldsnap Theme Decks",
+"card_count": 62,
+"digital": false,
+"released_at": "2006-07-21"
+},
+{
+"code": "f06",
+"name": "Friday Night Magic 2006",
+"card_count": 12,
+"digital": false,
+"released_at": "2006-01-01"
+},
+{
+"code": "g05",
+"name": "Judge Gift Cards 2005",
+"card_count": 4,
+"digital": false,
+"released_at": "2005-01-01"
+},
+{
+"code": "f05",
+"name": "Friday Night Magic 2005",
+"card_count": 12,
+"digital": false,
+"released_at": "2005-01-01"
+},
+{
+"code": "f04",
+"name": "Friday Night Magic 2004",
+"card_count": 12,
+"digital": false,
+"released_at": "2004-01-01"
+},
+{
+"code": "ovnt",
+"name": "Vintage Championship",
+"card_count": 35,
+"digital": false,
+"released_at": "2003-01-01"
+},
+{
+"code": "wc02",
+"name": "World Championship Decks 2002",
+"card_count": 153,
+"digital": false,
+"released_at": "2002-12-01"
+},
+{
+"code": "prm",
+"name": "Magic Online Promos",
+"card_count": 3094,
+"digital": true,
+"released_at": "2002-06-24"
+},
+{
+"code": "wc01",
+"name": "World Championship Decks 2001",
+"card_count": 138,
+"digital": false,
+"released_at": "2001-08-08"
+},
+{
+"code": "apc",
+"name": "Apocalypse",
+"card_count": 143,
+"digital": false,
+"released_at": "2001-06-04"
+},
+{
+"code": "7ed",
+"name": "Seventh Edition",
+"card_count": 708,
+"digital": false,
+"released_at": "2001-04-11"
+},
+{
+"code": "f01",
+"name": "Friday Night Magic 2001",
+"card_count": 7,
+"digital": false,
+"released_at": "2001-01-01"
+},
+{
+"code": "btd",
+"name": "Beatdown Box Set",
+"card_count": 90,
+"digital": false,
+"released_at": "2000-10-01"
+},
+{
+"code": "wc00",
+"name": "World Championship Decks 2000",
+"card_count": 117,
+"digital": false,
+"released_at": "2000-08-02"
+},
+{
+"code": "g00",
+"name": "Judge Gift Cards 2000",
+"card_count": 2,
+"digital": false,
+"released_at": "2000-01-01"
+},
+{
+"code": "brb",
+"name": "Battle Royale Box Set",
+"card_count": 136,
+"digital": false,
+"released_at": "1999-11-12"
+},
+{
+"code": "mmq",
+"name": "Mercadian Masques",
+"card_count": 350,
+"digital": false,
+"released_at": "1999-10-04"
+},
+{
+"code": "s99",
+"name": "Starter 1999",
+"card_count": 173,
+"digital": false,
+"released_at": "1999-07-01"
+},
+{
+"code": "6ed",
+"name": "Classic Sixth Edition",
+"card_count": 351,
+"digital": false,
+"released_at": "1999-04-21"
+},
+{
+"code": "ath",
+"name": "Anthologies",
+"card_count": 85,
+"digital": false,
+"released_at": "1998-11-01"
+},
+{
+"code": "wc98",
+"name": "World Championship Decks 1998",
+"card_count": 117,
+"digital": false,
+"released_at": "1998-08-12"
+},
+{
+"code": "jgp",
+"name": "Judge Gift Cards 1998",
+"card_count": 3,
+"digital": false,
+"released_at": "1998-01-01"
+},
+{
+"code": "tmp",
+"name": "Tempest",
+"card_count": 350,
+"digital": false,
+"released_at": "1997-10-14"
+},
+{
+"code": "wc97",
+"name": "World Championship Decks 1997",
+"card_count": 131,
+"digital": false,
+"released_at": "1997-08-13"
+},
+{
+"code": "olep",
+"name": "Oversized League Prizes",
+"card_count": 83,
+"digital": false,
+"released_at": "1997-05-30"
+},
+{
+"code": "5ed",
+"name": "Fifth Edition",
+"card_count": 460,
+"digital": false,
+"released_at": "1997-03-24"
+},
+{
+"code": "plgm",
+"name": "DCI Legend Membership",
+"card_count": 2,
+"digital": false,
+"released_at": "1996-07-01"
+},
+{
+"code": "ptc",
+"name": "Pro Tour Collector Set",
+"card_count": 308,
+"digital": false,
+"released_at": "1996-05-01"
+},
+{
+"code": "ice",
+"name": "Ice Age",
+"card_count": 383,
+"digital": false,
+"released_at": "1995-06-03"
+},
+{
+"code": "4bb",
+"name": "Fourth Edition Foreign Black Border",
+"card_count": 378,
+"digital": false,
+"released_at": "1995-04-01"
+},
+{
+"code": "4ed",
+"name": "Fourth Edition",
+"card_count": 380,
+"digital": false,
+"released_at": "1995-04-01"
+},
+{
+"code": "pmei",
+"name": "Media and Collaboration Promos",
+"card_count": 112,
+"digital": false,
+"released_at": "1995-01-01"
+},
+{
+"code": "sum",
+"name": "Summer Magic / Edgar",
+"card_count": 306,
+"digital": false,
+"released_at": "1994-06-21"
+},
+{
+"code": "3ed",
+"name": "Revised Edition",
+"card_count": 306,
+"digital": false,
+"released_at": "1994-04-11"
+},
+{
+"code": "fbb",
+"name": "Foreign Black Border",
+"card_count": 307,
+"digital": false,
+"released_at": "1994-04-11"
+},
+{
+"code": "arn",
+"name": "Arabian Nights",
+"card_count": 92,
+"digital": false,
+"released_at": "1993-12-17"
+},
+{
+"code": "cei",
+"name": "Intl. Collectors' Edition",
+"card_count": 302,
+"digital": false,
+"released_at": "1993-12-10"
+},
+{
+"code": "ced",
+"name": "Collectors' Edition",
+"card_count": 302,
+"digital": false,
+"released_at": "1993-12-10"
+},
+{
+"code": "2ed",
+"name": "Unlimited Edition",
+"card_count": 302,
+"digital": false,
+"released_at": "1993-12-01"
+},
+{
+"code": "leb",
+"name": "Limited Edition Beta",
+"card_count": 302,
+"digital": false,
+"released_at": "1993-10-04"
+},
+{
+"code": "lea",
+"name": "Limited Edition Alpha",
+"card_count": 295,
+"digital": false,
+"released_at": "1993-08-05"
+}
+]
+}

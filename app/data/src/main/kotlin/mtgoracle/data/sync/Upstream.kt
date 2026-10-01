@@ -29,11 +29,23 @@ interface Upstream {
     fun spellbookMarker(): String
     /** [url] streamed to [target], replacing it only once the download is complete. */
     fun download(url: String, target: File)
+    /**
+     * A Scryfall API call (the sets list, one page of a set's printings): the
+     * JSON text, or null for a 404, which is how a search with no cards answers.
+     */
+    fun scryfallApi(url: String): String? = throw UnsupportedOperationException("this upstream has no Scryfall API")
 
     companion object {
         const val SCRYFALL_BULK = "https://api.scryfall.com/bulk-data"
+        const val SCRYFALL_SETS = "https://api.scryfall.com/sets"
         const val RULES_PAGE = "https://magic.wizards.com/en/rules"
         const val SPELLBOOK = "https://json.commanderspellbook.com/variants.json"
+
+        /** The first page of [setCode]'s printings, extras and variations included. [anyLanguage] for a set with no English cards. */
+        fun scryfallSetSearch(setCode: String, anyLanguage: Boolean = false): String =
+            "https://api.scryfall.com/cards/search?q=" +
+                java.net.URLEncoder.encode("e:$setCode" + if (anyLanguage) " lang:any" else "", Charsets.UTF_8) +
+                "&unique=prints&include_extras=true&include_variations=true&order=set"
     }
 }
 
@@ -78,7 +90,28 @@ class HttpUpstream : Upstream {
         Files.move(partial.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
     }
 
+    private var lastApiCall = 0L
+
+    /** Scryfall asks for 50–100 ms between API requests, and a pause when it answers 429. */
+    @Synchronized
+    override fun scryfallApi(url: String): String? {
+        repeat(3) {
+            val wait = lastApiCall + API_GAP_MS - System.currentTimeMillis()
+            if (wait > 0) Thread.sleep(wait)
+            val response = client.send(request(url, accept = "application/json"), HttpResponse.BodyHandlers.ofString())
+            lastApiCall = System.currentTimeMillis()
+            when (response.statusCode()) {
+                in 200..299 -> return response.body()
+                404 -> return null
+                429 -> Thread.sleep(2_000)
+                else -> error("GET $url answered ${response.statusCode()}")
+            }
+        }
+        error("GET $url: Scryfall kept answering 429 (too many requests)")
+    }
+
     private companion object {
+        const val API_GAP_MS = 100L
         const val AGENT = "mtg-oracle/1.0 (desktop deck tool; +https://github.com/carldouglasbergentz-pixel)"
         const val BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     }

@@ -12,7 +12,8 @@ enum class Source(val key: String, val label: String) {
     COMBOS("combos", "Commander Spellbook"),
     TAGS("tags", "Local tagging (keywords, types, abilities)"),
     ORACLETAGS("oracletags", "Scryfall Tagger oracle tags"),
-    FORMATS("formats", "Community formats (points lists)");
+    FORMATS("formats", "Community formats (points lists)"),
+    PRINTINGS("printings", "Scryfall printings (every card's art)");
 
     companion object {
         fun of(key: String): Source? = entries.firstOrNull { it.key.equals(key, ignoreCase = true) }

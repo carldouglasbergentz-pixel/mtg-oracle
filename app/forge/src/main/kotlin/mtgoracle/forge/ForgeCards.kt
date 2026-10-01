@@ -51,6 +51,21 @@ object ForgeCards {
     /** Forge editions for a Scryfall set code, in the order the printing rule tries them. */
     fun editions(scryfallCode: String): List<CardEdition> = editionsByScryfallCode[scryfallCode.lowercase()].orEmpty()
 
+    /** Whether Forge has exactly this printing (that set and that collector number), not just the card. */
+    fun hasPrinting(name: String, setCode: String, collectorNumber: String?): Boolean {
+        val db = StaticData.instance().commonCards
+        val printings = db.getAllCards(forgeCardName(name)).ifEmpty { db.getAllCards(name) }
+        return editions(setCode).any { edition ->
+            printings.any { it.edition.equals(edition.code, ignoreCase = true) && (collectorNumber == null || it.collectorNumber.equals(collectorNumber, ignoreCase = true)) }
+        }
+    }
+
+    /**
+     * The art key for a printing Forge lacks, which the app's art layer
+     * resolves through Scryfall: `printing:<set>/<number>/<card name>`.
+     */
+    fun printingKey(name: String, setCode: String, collectorNumber: String?): String = "printing:$setCode/${collectorNumber.orEmpty()}/$name"
+
     /** The printing when Forge has it, else the card in Forge's default art; null when Forge lacks the card. */
     fun paperCard(name: String, setCode: String?, collectorNumber: String?): PaperCard? {
         val db = StaticData.instance().commonCards

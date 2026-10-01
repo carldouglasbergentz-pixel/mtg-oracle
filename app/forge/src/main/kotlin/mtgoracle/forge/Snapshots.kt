@@ -29,6 +29,13 @@ import mtgoracle.core.model.StackEntry
  */
 internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, private val playerViews: MutableMap<Int, PlayerView>) {
 
+    /**
+     * Printings Forge lacks, by owner's name and card name: the art key the
+     * app's art layer fetches from Scryfall instead (ForgeCards.printingKey).
+     * Only ever applied to a card this seat may see, like any image key.
+     */
+    @Volatile var artOverrides: Map<String, Map<String, String>> = emptyMap()
+
     fun build(
         game: GameView,
         seatPlayerIds: Set<Int>,
@@ -167,7 +174,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             isToken = cv.isToken,
             attachedToId = cv.attachedTo?.id,
             text = if (cv.isFaceDown) "" else state.oracleText.orEmpty(),
-            imageKey = if (cv.isFaceDown) null else state.imageKey,
+            imageKey = if (cv.isFaceDown) null else artOverrides[cv.owner?.name]?.get(state.name) ?: state.imageKey,
             counters = counters(cv),
             faceDown = cv.isFaceDown,
         )

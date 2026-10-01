@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Every paper printing from Scryfall, for a card's art.** Before, "choose printing…" listed only the printings Forge knows. Now it lists every paper printing Scryfall has, newest first, with what sets each apart (`borderless`, `showcase`, `extended art`, `full art`, `promo`, and the language when not English). The zoom pane previews each as you hover, as before.
+  - A printing Forge lacks is drawn from Scryfall's images in the library and the workspace, and on the board in a game. Forge still plays the card in its default printing.
+  - Images are fetched only when shown, one at a time, into `data/app/scryfall/`, and kept. The art crop is credited to its artist, as Forge's are.
+- **The `printings` sync source** (schema v3: `printings`, `printing_sets`). The first sync reads Scryfall's `default_cards` export once, about 80 MB. Each later sync asks only for Scryfall's small set list and fetches the sets whose card count moved, a new set or newly spoiled cards, one search at a time. On a day with no new cards it downloads nothing. `sync --force printings` reads the whole export again.
+  - What counts as a paper printing: not digital-only, not a token or an art card. A set with no English printings is fetched in its printed language.
+  - `PrintingsSyncTest` covers the incremental case (an unchanged set, a set with more cards over two pages, a new non-English set, a digital set, `--force`). The fixture gained 514 printings of twelve cards. `PrintingArtTest` and `PrintingOnBoardTest` cover the art.
+
 ### Fixed
 - **"max affordable" on the X prompt prices the cost actually paid, with the mana you really have.**
   - **The cost.** It is taken from the spell on the stack, so a miracle is priced by its miracle cost. Entreat the Angels by miracle with 8 Plains now suggests 6, where it said 2 from the printed {X}{X}{W}{W}{W}.

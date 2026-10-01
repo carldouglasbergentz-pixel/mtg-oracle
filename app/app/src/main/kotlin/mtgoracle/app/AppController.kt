@@ -143,7 +143,8 @@ class AppController(private val paths: AppPaths) {
             openDeck = { id -> lookupCommands.enterDeck(id) }, openDeckId = { editing?.deckId }, leaveDeck = lookupCommands::leaveDeck,
             say = { notice = it }, show = { r -> lookupCommands.output.add(r); lookupCommands.ui.showOutput = true },
             readClipboard = { readClipboard() }, writeClipboard = ::copyToClipboard,
-            printingsOf = { name -> if (forgeReady) ForgeCards.printings(name) else emptyList() },
+            // Scryfall's paper printings once the printings source has synced; Forge's own list before that.
+            printingsOf = { name -> lookup.printings.forCard(name).map { it.printing }.ifEmpty { if (forgeReady) ForgeCards.printings(name) else emptyList() } },
             faceOf = { name, printing -> printingFace(lookup, name, printing) },
             substitutions = Substitutions(db),
             forgeSupport = { name -> if (forgeReady) ForgeCards.support(name) else null },
@@ -297,7 +298,10 @@ class AppController(private val paths: AppPaths) {
     }
 
     fun keyFor(card: DeckCard): String? =
-        if (forgeReady) ForgeRuntime.images.keyFor(card.name, card.setCode, card.collectorNumber) else null
+        if (forgeReady) art.keyFor(card.name, card.setCode, card.collectorNumber) else null
+
+    /** Forge's images, and Scryfall's for a printing Forge lacks: what every screen draws with once Forge is up. */
+    val art: PrintingArt by lazy { PrintingArt(ForgeRuntime.images, { currentLookup?.printings }, paths.home.resolve("scryfall")) }
 
     /** What the zoom pane shows of a card named in the output: its default printing's art, and its text. */
     private val zoomInfo = object : LinkedHashMap<String, Pair<String, mtgoracle.core.deck.CardInfo>?>(64, 0.75f, true) {
