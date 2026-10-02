@@ -30,6 +30,7 @@ import mtgoracle.ui.kit.onRightClick
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.clickTarget
+import mtgoracle.ui.kit.hoverBackground
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.lookup.DeckTab
@@ -204,11 +205,12 @@ private fun Line(
     val controls = if (row.section == DeckSection.CONSIDERING) 16 else if (row.section == DeckSection.COMMANDER) 3 else 6
     val name = row.card.name + (points(row.card.name)?.let { " ($it)" } ?: "")
     val rest = maxOf(8, cols - controls - 4)
-    Row(Modifier.onRightClick(onMenu)) {
+    // The whole row is marked under the mouse, controls and all: it is the card an edit or a right-click acts on.
+    Row(Modifier.onRightClick(onMenu).hoverBackground()) {
         Controls(row, onEdit)
         GridText(" %2d ".format(row.card.quantity), color = if (chosen) Palette.accent else Palette.foreground, bold = chosen)
         val text = fit("%-30s %s".format(name, face.manaCost) + (flag?.let { "  ! $it" } ?: ""), rest)
-        GridText(text, Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(row.card.name), linkAt(row, 0)), { onOpen(row.card.name) }, { onHover(face) })
+        GridText(text, Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(row.card.name), linkAt(row, 0)), { onOpen(row.card.name) }, { onHover(face) }, mark = false)
             .pointerHoverIcon(PointerIcon.Hand), color = if (flag != null) Palette.tapped else if (chosen) Palette.accent else Palette.foreground, bold = chosen)
     }
 }

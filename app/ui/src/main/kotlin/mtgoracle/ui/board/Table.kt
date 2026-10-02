@@ -255,6 +255,7 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
     val segments = plan.segments.filter { it.band == band }
     val contentCols = maxOf(cols, places.maxOfOrNull { it.x + slotCols(looks.tier, it.zone == ZoneKind.LANDS) } ?: 0)
     var hovered by remember { mutableStateOf<Int?>(null) }
+    var pointed by remember { mutableStateOf<Int?>(null) } // the overlapped card whose strip the mouse is on
     Box(modifier.cells(cols, bandRows(looks.tier, looks.attach)).region("$side-band-$band")) {
         Box(Modifier.fillMaxSize().then(if (band in plan.scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier)) {
             Box(Modifier.cells(contentCols, bandRows(looks.tier, looks.attach))) {
@@ -269,12 +270,14 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
                     val onHover: (ClickTarget?) -> Unit = { hovered = slot.card.id; looks.onHover(it) }
                     // Later cards lie over earlier ones; the one under the mouse comes to the top.
                     Box(Modifier.offset(x = dx(place.x), y = with(density) { cells.height.toDp() }).zIndex(if (hovered == slot.card.id) 1000f else order.toFloat())) {
-                        SlotView(slot, land, looks, clickable = !overlapped, onHover = onHover)
+                        SlotView(slot, land, looks, clickable = !overlapped, onHover = onHover, pointed = pointed == slot.card.id)
                     }
                     // An overlapped card is clicked by the strip of it still showing: never the card on top of it.
+                    // The strip lies over the frame, so the frame shows the hover, never the strip (that would tint the art).
                     if (overlapped) Box(
                         Modifier.offset(x = dx(place.x), y = with(density) { cells.height.toDp() }).zIndex(2000f + order)
-                            .cells(place.visible, FrameSize.rows(looks.tier)).clickTarget(ClickTarget.Card(slot.card.id), looks.onClick, onHover),
+                            .cells(place.visible, FrameSize.rows(looks.tier))
+                            .clickTarget(ClickTarget.Card(slot.card.id), looks.onClick, onHover, mark = false, onHoverChange = { on -> pointed = pointedAfter(pointed, slot.card.id, on) }),
                     )
                 }
             }
@@ -287,11 +290,11 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
 }
 
 @Composable
-private fun SlotView(slot: Slot, land: Boolean, looks: Looks, clickable: Boolean = true, onHover: (ClickTarget?) -> Unit = looks.onHover) {
+private fun SlotView(slot: Slot, land: Boolean, looks: Looks, clickable: Boolean = true, onHover: (ClickTarget?) -> Unit = looks.onHover, pointed: Boolean = false) {
     val cols = slotCols(looks.tier, land)
     Column(Modifier.cells(cols, laneRows(looks.tier, looks.attach))) {
         CardFrame(slot.card.face(), looks.mode, looks.emphasis(slot.card), if (clickable) ClickTarget.Card(slot.card.id) else null, looks.onClick, onHover,
-            turnable = true, land = land, stack = slot.cards.size, mark = looks.mark(slot.card), rotate = looks.rotate, tier = looks.tier)
+            turnable = true, land = land, stack = slot.cards.size, mark = looks.mark(slot.card), rotate = looks.rotate, tier = looks.tier, hovered = pointed)
         // The attachment line, when this half keeps one (a card of it has something attached): the same
         // under every card, so an aura moving between creatures moves nothing.
         if (looks.attach) Row(Modifier.cells(cols, 1).horizontalScroll(rememberScrollState())) {
@@ -316,6 +319,7 @@ fun HandLane(player: PlayerState, looks: Looks) {
         val width = FrameSize.cols(looks.tier) + 1
         val plan = planHalf(listOf(ZoneContent(ZoneKind.CREATURES, player.hand.map { width })), cols, 1)
         var hovered by remember { mutableStateOf<Int?>(null) }
+        var pointed by remember { mutableStateOf<Int?>(null) } // the card whose strip the mouse is on
         val contentCols = maxOf(cols, plan.slots.maxOfOrNull { it.x + width } ?: 0)
         Box(Modifier.fillMaxSize().then(if (0 in plan.scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier)) {
             Box(Modifier.cells(contentCols, FrameSize.rows(looks.tier))) {
@@ -325,9 +329,11 @@ fun HandLane(player: PlayerState, looks: Looks) {
                     val onHover: (ClickTarget?) -> Unit = { hovered = card.id; looks.onHover(it) }
                     val x = with(density) { (place.x * cells.width).toDp() }
                     Box(Modifier.offset(x = x).zIndex(if (hovered == card.id) 1000f else order.toFloat())) {
-                        CardFrame(card.face(), looks.mode, looks.emphasis(card), if (overlapped) null else ClickTarget.Card(card.id), looks.onClick, onHover, mark = looks.mark(card), tier = looks.tier)
+                        CardFrame(card.face(), looks.mode, looks.emphasis(card), if (overlapped) null else ClickTarget.Card(card.id), looks.onClick, onHover,
+                            mark = looks.mark(card), tier = looks.tier, hovered = pointed == card.id)
                     }
-                    if (overlapped) Box(Modifier.offset(x = x).zIndex(2000f + order).cells(place.visible, FrameSize.rows(looks.tier)).clickTarget(ClickTarget.Card(card.id), looks.onClick, onHover))
+                    if (overlapped) Box(Modifier.offset(x = x).zIndex(2000f + order).cells(place.visible, FrameSize.rows(looks.tier))
+                        .clickTarget(ClickTarget.Card(card.id), looks.onClick, onHover, mark = false, onHoverChange = { on -> pointed = pointedAfter(pointed, card.id, on) }))
                 }
             }
         }
@@ -589,3 +595,6 @@ private fun StopLadder(seatsTurn: Boolean, stops: PhaseStops?, board: BoardState
         }
     }
 }
+
+/** Which card's strip the mouse is on, after [id]'s strip reports entering ([on]) or leaving: a late exit from one card never clears the next. */
+private fun pointedAfter(current: Int?, id: Int, on: Boolean): Int? = if (on) id else if (current == id) null else current

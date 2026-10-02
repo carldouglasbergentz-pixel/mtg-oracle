@@ -12,7 +12,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -97,8 +100,9 @@ fun StackBox(
                     if (i > 0) GridText("─".repeat(inner), color = Palette.dim)
                     val theirs = item.controllerId == farId
                     val pick = BoardRef.StackItem(item.id) in picks
-                    Row(Modifier.cells(inner, frameRows).clickTarget(ClickTarget.StackItem(item.id), onClick, onHover)) {
-                        CardFrame(item.face(), mode, if (pick) Emphasis.SELECTABLE else Emphasis.NONE)
+                    var over by remember { mutableStateOf(false) }
+                    Row(Modifier.cells(inner, frameRows).clickTarget(ClickTarget.StackItem(item.id), onClick, onHover, onHoverChange = { over = it })) {
+                        CardFrame(item.face(), mode, if (pick) Emphasis.SELECTABLE else Emphasis.NONE, hovered = over)
                         Spacer(Modifier.width(with(density) { cells.width.toDp() }))
                         Column(Modifier.cells(textCols, frameRows)) {
                             val who = board.players.firstOrNull { it.id == item.controllerId }?.name?.substringBefore(" (") ?: item.controllerName

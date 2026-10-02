@@ -2,10 +2,15 @@ package mtgoracle.ui.kit
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
@@ -13,6 +18,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import mtgoracle.core.model.Step
+import mtgoracle.ui.theme.Palette
 import java.util.concurrent.ConcurrentHashMap
 
 /** Everything on screen that can be clicked, as the thing it stands for (never as text to re-parse). */
@@ -51,9 +57,20 @@ class ClickRegistry {
 
 val LocalClickRegistry = staticCompositionLocalOf<ClickRegistry?> { null }
 
-/** Makes this element [target]: clickable, hoverable, and findable by the offscreen driver. */
+/**
+ * Makes this element [target]: clickable, hoverable, and findable by the
+ * offscreen driver. While the mouse is on it, it says so with [Palette.hover]
+ * behind it ([hoverBackground]); a card frame paints its own background, so
+ * it passes `mark = false` and takes [onHoverChange] to tint itself instead.
+ */
 @OptIn(ExperimentalComposeUiApi::class)
-fun Modifier.clickTarget(target: ClickTarget, onClick: (ClickTarget) -> Unit, onHover: ((ClickTarget?) -> Unit)? = null): Modifier = composed {
+fun Modifier.clickTarget(
+    target: ClickTarget,
+    onClick: (ClickTarget) -> Unit,
+    onHover: ((ClickTarget?) -> Unit)? = null,
+    mark: Boolean = true,
+    onHoverChange: ((Boolean) -> Unit)? = null,
+): Modifier = composed {
     val registry = LocalClickRegistry.current
     DisposableEffect(target, registry) { onDispose { registry?.remove(target) } }
     var m = this
@@ -62,7 +79,20 @@ fun Modifier.clickTarget(target: ClickTarget, onClick: (ClickTarget) -> Unit, on
     if (onHover != null) {
         m = m.onPointerEvent(PointerEventType.Enter) { onHover(target) }
     }
+    if (onHoverChange != null) {
+        m = m.onPointerEvent(PointerEventType.Enter) { onHoverChange(true) }.onPointerEvent(PointerEventType.Exit) { onHoverChange(false) }
+    }
+    if (mark) m = m.hoverBackground()
     m
+}
+
+/** [Palette.hover] behind this element while the mouse is on it: a row, a chip, an option. Behind, never over: card art is never tinted. */
+@OptIn(ExperimentalComposeUiApi::class)
+fun Modifier.hoverBackground(): Modifier = composed {
+    var over by remember { mutableStateOf(false) }
+    this.onPointerEvent(PointerEventType.Enter) { over = true }
+        .onPointerEvent(PointerEventType.Exit) { over = false }
+        .drawBehind { if (over) drawRect(Palette.hover) }
 }
 
 /**

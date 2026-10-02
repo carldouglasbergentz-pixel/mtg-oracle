@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -91,6 +95,8 @@ fun CardFrame(
     rotate: Boolean = false,
     /** How big (the table steps down when a half is crowded; see planTable). */
     tier: FrameTier = FrameSize.tierOf(mode),
+    /** The mouse is on this card through something laid over it (an overlapped card's strip): drawn as if on the frame. */
+    hovered: Boolean = false,
 ) {
     if (turnable) {
         val cells = LocalCells.current
@@ -103,11 +109,11 @@ fun CardFrame(
                 val h = rows * cells.height
                 val scale = minOf(1f, slotCols * cells.width / h, rows * cells.height / w)
                 Box(Modifier.align(Alignment.Center).graphicsLayer { rotationZ = 90f; scaleX = scale; scaleY = scale }) {
-                    CardFrame(face, mode, emphasis, target, onClick, onHover, turnable = false, land = land, stack = stack, mark = mark, tier = tier)
+                    CardFrame(face, mode, emphasis, target, onClick, onHover, turnable = false, land = land, stack = stack, mark = mark, tier = tier, hovered = hovered)
                 }
             } else {
                 Box(Modifier.padding(start = if (face.tapped) with(LocalDensity.current) { cells.width.toDp() } else 0.dp)) {
-                    CardFrame(face, mode, emphasis, target, onClick, onHover, turnable = false, land = land, stack = stack, mark = mark, tier = tier)
+                    CardFrame(face, mode, emphasis, target, onClick, onHover, turnable = false, land = land, stack = stack, mark = mark, tier = tier, hovered = hovered)
                 }
             }
         }
@@ -130,10 +136,12 @@ fun CardFrame(
     val title = (if (face.quantity > 1) "${face.quantity} " else "") + face.name
     // Name alone in the top edge (names are long); the cost leads the type line.
     val costAndType = listOf(face.manaCost, face.typeLine).filter { it.isNotEmpty() }.joinToString(" ")
-    var modifier = Modifier.cells(cols, FrameSize.rows(tier)).background(Palette.background)
+    // Hovered, the frame's own background takes the hover tone: a mark drawn behind it would be hidden, and one over it would tint the art.
+    var over by remember { mutableStateOf(false) }
+    var modifier = Modifier.cells(cols, FrameSize.rows(tier)).background(if (over || hovered) Palette.hover else Palette.background)
         .boxBorder(title = title, right = listOfNotNull(mark, "×$stack".takeIf { stack > 1 }).joinToString(" ").ifEmpty { null },
             border = border, color = borderColor, titleColor = textColor)
-    if (target != null) modifier = modifier.clickTarget(target, onClick, onHover)
+    if (target != null) modifier = modifier.clickTarget(target, onClick, onHover, mark = false, onHoverChange = { over = it })
     val cells = LocalCells.current
     val density = LocalDensity.current
     Box(modifier) {

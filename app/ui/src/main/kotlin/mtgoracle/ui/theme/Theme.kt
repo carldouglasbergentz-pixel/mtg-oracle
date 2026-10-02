@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Typeface
@@ -68,6 +69,8 @@ object Palette {
     val dim: Color get() = theme.dim
     val accent: Color get() = theme.accent
     val tapped: Color get() = theme.tapped
+    /** Behind whatever the mouse is on: the background leaning toward the accent, so every tone still reads on it. */
+    val hover: Color get() = lerp(theme.background, theme.accent, 0.25f)
 }
 
 /** Key hints every screen's status line ends with (the theme key), provided by the app window. */

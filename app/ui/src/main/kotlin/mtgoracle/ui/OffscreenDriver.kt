@@ -241,6 +241,21 @@ class OffscreenDriver(
     }
 
     /** What the scene shows now, cropped to [cropHeight] when given. */
+    /** The rendered colours (ARGB) inside [rect], in window pixels: what a test of tones reads. */
+    fun pixels(rect: androidx.compose.ui.geometry.Rect): List<Int> {
+        settle()
+        val full = scene.render(clock).also { clock += 16_000_000 }
+        val surface = Surface.makeRasterN32Premul(width, height)
+        surface.canvas.drawImage(full, 0f, 0f)
+        val snapshot = surface.makeImageSnapshot()
+        val bitmap = org.jetbrains.skia.Bitmap.makeFromImage(snapshot)
+        val xs = rect.left.toInt().coerceIn(0, width) until rect.right.toInt().coerceIn(0, width)
+        val ys = rect.top.toInt().coerceIn(0, height) until rect.bottom.toInt().coerceIn(0, height)
+        val colours = xs.flatMap { x -> ys.map { y -> bitmap.getColor(x, y) } }
+        listOf(bitmap, snapshot, surface, full).forEach { it.close() }
+        return colours
+    }
+
     fun savePng(out: File, cropHeight: Int? = null) {
         settle()
         val full = scene.render(clock).also { clock += 16_000_000 }
