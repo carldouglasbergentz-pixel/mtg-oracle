@@ -20,12 +20,20 @@ class Printings(private val db: MtgDb, private val names: CardNames) {
         rs.getString(8), rs.getInt(9),
     )
 
+    /**
+     * The printings' own name for a reversible card is the card's plus its front again: Secret Lair's
+     * `Hallowed Fountain // Hallowed Fountain`, `Bloomvine Regent // Claim Territory // Bloomvine Regent`.
+     * Matched by the card's name alone, those 71 cards had none of those printings.
+     */
+    private val NAMED = "(card_name = ? COLLATE NOCASE OR card_name = ? COLLATE NOCASE)"
+    private fun reversed(canonical: String) = "$canonical // ${canonical.substringBefore(" // ")}"
+
     /** [name]'s printings, newest first; empty before the first printings sync. */
     fun forCard(name: String): List<Stored> {
         val canonical = names.resolve(name) ?: name
         return db.read { conn ->
-            conn.prepareStatement("SELECT $columns FROM printings WHERE card_name = ? COLLATE NOCASE ORDER BY released_at DESC, set_code, collector_number").use { st ->
-                st.setString(1, canonical)
+            conn.prepareStatement("SELECT $columns FROM printings WHERE $NAMED ORDER BY released_at DESC, set_code, collector_number").use { st ->
+                st.setString(1, canonical); st.setString(2, reversed(canonical))
                 st.executeQuery().use { rs -> buildList { while (rs.next()) add(stored(rs)) } }
             }
         }
@@ -38,11 +46,11 @@ class Printings(private val db: MtgDb, private val names: CardNames) {
     fun find(name: String, setCode: String, collectorNumber: String?): Stored? {
         val canonical = names.resolve(name) ?: name
         return db.read { conn ->
-            val sql = "SELECT $columns FROM printings WHERE card_name = ? COLLATE NOCASE AND set_code = ? COLLATE NOCASE" +
+            val sql = "SELECT $columns FROM printings WHERE $NAMED AND set_code = ? COLLATE NOCASE" +
                 (if (collectorNumber != null) " AND collector_number = ? COLLATE NOCASE" else "") + " ORDER BY lang = 'en' DESC, collector_number LIMIT 1"
             conn.prepareStatement(sql).use { st ->
-                st.setString(1, canonical); st.setString(2, setCode)
-                collectorNumber?.let { st.setString(3, it) }
+                st.setString(1, canonical); st.setString(2, reversed(canonical)); st.setString(3, setCode)
+                collectorNumber?.let { st.setString(4, it) }
                 st.executeQuery().use { rs -> if (rs.next()) stored(rs) else null }
             }
         }
