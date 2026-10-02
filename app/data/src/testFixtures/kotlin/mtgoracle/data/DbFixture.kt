@@ -20,11 +20,12 @@ object DbFixture {
     val available: Boolean get() = realDb.isFile
 
     /**
-     * The real database through [MtgDb]'s read-only connection, for tests
-     * that only read cards, rules and combos: a 330 MB copy per class buys
-     * nothing there. Tests that write anything use [copy].
+     * The real database, every connection read-only, for tests that only read
+     * cards, rules and combos: a 330 MB copy per class buys nothing there. A
+     * write through it fails rather than reaching the user's decks; tests that
+     * write anything use [copy].
      */
-    fun readOnly(): MtgDb = MtgDb(realDb)
+    fun readOnly(): MtgDb = MtgDb(realDb, writable = false)
 
     /** A fresh copy in a new temp dir, migrated to this build's schema as the app would (without a backup). */
     fun copy(): File {

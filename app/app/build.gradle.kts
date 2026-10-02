@@ -1,5 +1,6 @@
-// The entry point: wires data, forge and ui into the window, plus a few
-// headless modes (scripted evidence run, image prefetch, schema check).
+// The entry point: wires data, forge and ui into the window, plus the
+// headless modes (Main.kt lists them: the CLI, sync, migrate, schema check,
+// image prefetch, the scripted evidence run, staged snapshots).
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 

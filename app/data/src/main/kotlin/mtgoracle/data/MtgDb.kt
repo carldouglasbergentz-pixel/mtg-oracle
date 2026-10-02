@@ -9,9 +9,11 @@ import java.sql.Connection
  * with its own sync (`data.sync`).
  *
  * Reads go through a read-only connection, so a bug here cannot touch the
- * user's decks; every write opens its own short-lived read-write one.
+ * user's decks; every write opens its own short-lived read-write one. Not
+ * [writable], every connection is read-only and a write fails loudly: the
+ * tests that read the user's own database open it so (DbFixture.readOnly).
  */
-class MtgDb(val file: File) {
+class MtgDb(val file: File, private val writable: Boolean = true) {
 
     init {
         if (!file.isFile) throw MissingDatabaseException(file)
@@ -57,7 +59,7 @@ class MtgDb(val file: File) {
 
     private fun connect(readOnly: Boolean, foreignKeys: Boolean = true): Connection {
         val config = SQLiteConfig().apply {
-            setReadOnly(readOnly)
+            setReadOnly(readOnly || !writable)
             enforceForeignKeys(foreignKeys)
             busyTimeout = 5_000 // the TUI may be writing at the same moment
         }

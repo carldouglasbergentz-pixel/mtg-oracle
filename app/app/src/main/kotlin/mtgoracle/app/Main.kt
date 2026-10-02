@@ -16,6 +16,9 @@ import kotlin.system.exitProcess
  * Modes:
  *   window                 the app (default)
  *   check-schema           exit 0 when data/mtg.db has the schema this app needs, 2 with the fix otherwise
+ *   migrate                bring data/mtg.db to this build's schema, with a backup first
+ *   sync [--force] [src…]  the data pipeline, as `cli sync` runs it
+ *   cli <command> …        the command line (app\mtg.cmd): lookups, deck analysis, sync, prune
  *   prefetch [deck name]   fetch card art for your decks (or one deck) into the image cache
  *   scripted               headless evidence run on a copy of the database (see Scripted.kt)
  *   snapshots              the StagedBoards rendered with real art (review pictures)
@@ -30,7 +33,8 @@ fun main(args: Array<String>) {
         when (mode) {
             "check-schema" -> checkSchema(paths)
             "migrate" -> migrate(paths)
-            "sync" -> sync(paths, args.drop(1))
+            // One pipeline: `gradlew :app:sync` is `mtg.cmd sync`.
+            "sync" -> Cli.run(paths, listOf("sync") + args.drop(1))
             "cli" -> Cli.run(paths, args.drop(1))
             "prefetch" -> Headless.prefetch(paths, args.drop(1).joinToString(" ").ifBlank { null })
             "scripted" -> Scripted.run(paths, args.drop(1))
@@ -57,24 +61,6 @@ private fun migrate(paths: AppPaths): Int = schemaErrors {
     report.lines.forEach { println("  $it") }
 }
 
-/**
- * The data pipeline in a terminal: `sync [--force] [<source> ...]`, as the
- * app's command runs it, its log as it goes and the changelog at the end.
- * Exits 1 when a source failed.
- */
-private fun sync(paths: AppPaths, args: List<String>): Int = schemaErrors {
-    val force = "--force" in args
-    val named = args.filter { it != "--force" && it != "--only" }
-    val sources = named.map { mtgoracle.core.sync.Source.of(it) ?: error("no source '$it' (have: ${mtgoracle.core.sync.Source.entries.joinToString { s -> s.key }})") }
-    val db = if (paths.db.exists()) MtgDb(paths.db).also { it.migrate(paths.backups) } else MtgDb.create(paths.db)
-    val report = mtgoracle.data.sync.Sync(db, mtgoracle.data.sync.HttpUpstream(), paths.data.resolve("raw"), paths.data.resolve("formats"), log = { println("-- $it") })
-        .run(force, sources.ifEmpty { mtgoracle.core.sync.Source.entries }.toSet())
-    mtgoracle.ui.lookup.renderSyncReport(report).lines(100).forEach { println(it.text) }
-    if (report.failures.isNotEmpty()) throw SyncFailed(report.failures.size)
-}
-
-private class SyncFailed(n: Int) : RuntimeException("$n source(s) failed")
-
 private fun schemaErrors(block: () -> Unit): Int = try {
     block()
     0
@@ -84,8 +70,6 @@ private fun schemaErrors(block: () -> Unit): Int = try {
     System.err.println(e.message); 2
 } catch (e: MissingDatabaseException) {
     System.err.println(e.message); 2
-} catch (e: SyncFailed) {
-    System.err.println(e.message); 1
 }
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)

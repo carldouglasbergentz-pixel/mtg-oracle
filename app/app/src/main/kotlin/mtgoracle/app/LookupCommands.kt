@@ -56,8 +56,8 @@ import androidx.compose.runtime.setValue
 /**
  * The command line's commands: argument syntax, which lookup answers, and
  * what is remembered between commands (the last search page, the last combo
- * list, the deck `cd` entered). The TUI's lookup handlers (tui/app.py), with
- * the same messages, so the two interfaces read alike while both exist.
+ * list, the deck `cd` entered). A port of the TUI's lookup handlers
+ * (tui/app.py), with the same messages; the window and the CLI both run them.
  */
 class LookupCommands(
     private val lookup: Lookup,

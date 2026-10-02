@@ -16,10 +16,12 @@ import java.util.Properties
  * Where the app reads and writes, all under one data directory (the repo's
  * `data/` by default; Gradle passes `-Dmtgoracle.data`):
  *
- *   mtg.db        the shared database (read-only, plus `games` rows)
+ *   mtg.db        the database: the app owns its schema and sync, and writes decks, games and combos
+ *   backups/      the database as it was before each migration (three kept)
  *   game_logs/    one full log per game
  *   app/forge/    Forge's user data and image cache (never %APPDATA%\Forge)
- *   app/settings.properties   phase stops, text or art mode
+ *   app/settings.properties   the theme, phase stops, text or art, pane widths and the board's layout
+ *   app/app.log   every warning and error, crash traces in full
  */
 data class AppPaths(
     val data: File,

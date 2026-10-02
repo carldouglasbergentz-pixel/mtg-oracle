@@ -133,9 +133,10 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
 }
 
 /**
- * The board broke. What happened and where the trace is, and two ways on:
- * back to the library (the game is recorded as unfinished — never as a
- * concession), or the board again, since the game itself is still running.
+ * Something broke in the window. What happened and where the trace is, and
+ * the ways on: back to the library, and during a game (recorded as
+ * unfinished — never as a concession) the board again, since the game itself
+ * is still running. With no game on, nothing is said about one.
  */
 @Composable
 private fun CrashScreen(app: AppController) {
@@ -150,14 +151,17 @@ private fun CrashScreen(app: AppController) {
                 else -> false
             }
         }) {
-        BoxPane("the board hit an error", Modifier.fillMaxSize(), borderColor = Palette.tapped) {
+        val inGame = app.match != null
+        BoxPane(if (inGame) "the board hit an error" else "the app hit an error", Modifier.fillMaxSize(), borderColor = Palette.tapped) {
             Column(Modifier.fillMaxWidth()) {
-                WrapText("Something went wrong drawing the game: ${app.crash ?: "?"}", bold = true)
+                WrapText("Something went wrong ${if (inGame) "drawing the game" else "in the window"}: ${app.crash ?: "?"}", bold = true)
                 GridText("")
-                WrapText("The full trace is in ${app.appLogPath} and in this game's log.", color = Palette.dim)
+                WrapText("The full trace is in ${app.appLogPath}" + if (inGame) " and in this game's log." else ".", color = Palette.dim)
                 GridText("")
-                WrapText("Enter or Esc: back to the library — this game is recorded as unfinished, not as a loss", hang = 2)
-                WrapText("R: back to the board — the game is still running", hang = 2)
+                if (inGame) {
+                    WrapText("Enter or Esc: back to the library — this game is recorded as unfinished, not as a loss", hang = 2)
+                    WrapText("R: back to the board — the game is still running", hang = 2)
+                } else WrapText("Enter or Esc: back to the library", hang = 2)
             }
         }
     }

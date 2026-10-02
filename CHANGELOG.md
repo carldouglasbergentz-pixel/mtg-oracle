@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The board has its own text or art, in art by default.** A T in the library once switched the board to text without a word. Now T and F7 in a game change only the board, the status line says which it is showing (`T text/art: art`), and the library's T changes only the library (`board.cardMode` in `settings.properties`).
 
 ### Fixed
+- **The review's smaller findings in the app.**
+  - `gradlew :app:sync` runs the CLI's sync (`mtg.cmd sync`), not a second copy of the pipeline.
+  - The crash screen speaks of a game only when one is on. A library error said "this game is recorded as unfinished" with no game anywhere.
+  - The tests that read the user's own database open it read-only for real (`MtgDb(writable = false)`): a write through it fails instead of reaching the decks (`ReadOnlyFixtureTest`).
+  - Stale docs brought up to date: the modes in `Main.kt` and the build file, what `AppPaths` holds, `LookupCommands` (no TUI to keep in step with), and `LibraryActions` (its KDoc back on its class, and Scryfall's printings before Forge's).
 - **The review's smaller findings in the data and the search.**
   - A search field with no value yet (`t:`, `ci:`, `r:`, empty quotes) says it needs one. The live hint read every card, or the colourless ones, while the query was still being typed.
   - `r:` and `layout:` name a value the cards have, or say which one was meant (`r:mythc` — did you mean r:mythic?); a typo found nothing, silently. The values are read with the lookup, so a new layout is searchable after the sync that brings it.

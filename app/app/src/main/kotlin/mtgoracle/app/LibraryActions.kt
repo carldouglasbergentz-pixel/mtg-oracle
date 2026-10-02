@@ -26,14 +26,15 @@ import mtgoracle.ui.lookup.Rendering
 import mtgoracle.ui.lookup.Tone
 import mtgoracle.ui.lookup.message
 
+/** The folder chooser's "make one now": no folder id is ever this. */
+private const val NEW_FOLDER = "+new"
+
 /**
  * The library's changes, as the screens' buttons and menus ask for them:
  * each intent becomes a question (a name, a choice, a confirmation), then
  * the write through the engine (LibraryWriter, DeckWriter), then the screen
  * read again. Nothing is written before the user has answered.
  */
-/** The folder chooser's "make one now": no folder id is ever this. */
-private const val NEW_FOLDER = "+new"
 
 class LibraryActions(
     private val library: Library,
@@ -55,7 +56,7 @@ class LibraryActions(
     private val show: (Rendering) -> Unit,
     private val readClipboard: () -> String?,
     private val writeClipboard: (String) -> Unit,
-    /** Forge's printings of a card (empty before Forge is up). */
+    /** A card's printings: Scryfall's, else Forge's (empty before either is there). */
     private val printingsOf: (String) -> List<CardPrinting> = { emptyList() },
     /** Whether a pasted printing exists (Scryfall's or Forge's); null when that can't be told yet (no printings synced). */
     private val printingKnown: (name: String, setCode: String, collectorNumber: String?) -> Boolean? = { _, _, _ -> null },
