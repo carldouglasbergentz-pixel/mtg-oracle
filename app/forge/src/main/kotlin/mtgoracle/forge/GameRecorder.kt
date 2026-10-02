@@ -3,6 +3,7 @@ package mtgoracle.forge
 import com.google.common.eventbus.Subscribe
 import forge.game.Game
 import forge.game.event.GameEvent
+import forge.game.event.GameEventSpellAbilityCast
 import java.io.BufferedWriter
 import java.io.Closeable
 import java.io.File
@@ -26,6 +27,8 @@ class GameRecorder(val file: File) : Closeable {
     private val attached = mutableSetOf<Int>()
     private var logLinesSeen = 0
     private var closed = false
+    /** The game recorded now (a match records its games one after another). */
+    @Volatile private var game: Game? = null
 
     init {
         file.parentFile.mkdirs()
@@ -36,6 +39,7 @@ class GameRecorder(val file: File) : Closeable {
     @Synchronized
     fun attach(game: Game) {
         if (!attached.add(game.id)) return
+        this.game = game
         game.subscribeToEvents(this)
         val log = game.gameLog
         log.addObserver(Observer { _, _ -> drainGameLog(game) })
@@ -45,6 +49,21 @@ class GameRecorder(val file: File) : Closeable {
     @Subscribe
     fun onGameEvent(event: GameEvent) {
         write("EVENT", "${event.javaClass.simpleName} $event")
+        if (event is GameEventSpellAbilityCast) noteSpellsThisTurn(event)
+    }
+
+    /**
+     * As a spell is cast, Forge's own count of the caster's earlier spells this
+     * turn (the event comes before Forge adds this one), as "your second spell
+     * each turn" counts them (Jori En, Cori-Steel Cutter): neither triggered
+     * on a second spell in a real game, and the log could not show what Forge
+     * had counted.
+     */
+    private fun noteSpellsThisTurn(event: GameEventSpellAbilityCast) {
+        val item = event.si()?.takeIf { !it.isAbility && !it.isTrigger } ?: return
+        val caster = item.activatingPlayer ?: return
+        val cast = runCatching { game?.stack?.spellCardsCastThisTurn?.filter { it.controller?.id == caster.id } }.getOrNull() ?: return
+        write("NOTE", "${caster.name}: earlier spells this turn, as Forge counts them: ${cast.size} (${cast.joinToString { it.name }})")
     }
 
     fun seat(line: String) = write("SEAT", line)
