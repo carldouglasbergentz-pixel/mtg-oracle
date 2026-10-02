@@ -49,7 +49,9 @@ fun StatusLine(hints: List<Pair<String, String>>, message: String?, cols: Int, m
         GridText(fit(" ! $warning", cols), modifier = modifier.statusPanel(), color = Palette.accent, bold = true)
         return
     }
-    val right = message.orEmpty()
-    val gap = maxOf(1, cols - left.length - right.length - 2)
-    GridText(fit(" $left" + " ".repeat(gap) + right, cols), modifier = modifier.statusPanel(), color = Palette.surfaceText)
+    // The message has its room first and the hints are cut: the board's hints run to ~170 cells and hid the active yield.
+    val right = fit(message.orEmpty(), minOf(message.orEmpty().length, maxOf(0, cols - 4))).trimEnd()
+    val hints = fit(left, maxOf(0, cols - right.length - 3)).trimEnd()
+    val gap = maxOf(1, cols - hints.length - right.length - 2)
+    GridText(fit(" $hints" + " ".repeat(gap) + right, cols), modifier = modifier.statusPanel(), color = Palette.surfaceText)
 }

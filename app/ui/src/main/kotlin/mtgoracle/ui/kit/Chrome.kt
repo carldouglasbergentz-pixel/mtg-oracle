@@ -120,7 +120,8 @@ const val BUTTON_ROWS = 2
  */
 @Composable
 fun BigButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (ClickTarget) -> Unit) {
-    var over by remember { mutableStateOf(false) }
+    // Anew when the button turns on or off: off, no Exit arrives, and it came back lit with the mouse elsewhere.
+    var over by remember(enabled) { mutableStateOf(false) }
     val chrome = Palette.chrome
     var modifier = Modifier.cells(label.length + 4, BUTTON_ROWS)
     if (enabled) modifier = modifier.clickTarget(target, onClick, mark = false, onHoverChange = { over = it }).pointerHoverIcon(PointerIcon.Hand)

@@ -137,7 +137,8 @@ fun CardFrame(
     // Name alone in the top edge (names are long); the cost leads the type line.
     val costAndType = listOf(face.manaCost, face.typeLine).filter { it.isNotEmpty() }.joinToString(" ")
     // Hovered, the frame's own background takes the hover tone: a mark drawn behind it would be hidden, and one over it would tint the art.
-    var over by remember { mutableStateOf(false) }
+    // Anew when the click target changes (an overlapped card loses its own): no Exit comes after it is gone.
+    var over by remember(target) { mutableStateOf(false) }
     var modifier = Modifier.cells(cols, FrameSize.rows(tier)).chromeShape().background(if (over || hovered) Palette.hover else Palette.background)
         .boxBorder(title = title, right = listOfNotNull(mark, "×$stack".takeIf { stack > 1 }).joinToString(" ").ifEmpty { null },
             border = border, color = borderColor, titleColor = textColor)
