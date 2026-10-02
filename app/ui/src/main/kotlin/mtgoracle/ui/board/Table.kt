@@ -309,41 +309,6 @@ private fun SlotView(slot: Slot, land: Boolean, looks: Looks, clickable: Boolean
     }
 }
 
-/**
- * A hand as one lane: your own (or, watching with hands shown, the far
- * player's). Too many cards overlap as a band of the table does; past that it scrolls.
- */
-@Composable
-fun HandLane(player: PlayerState, looks: Looks) {
-    BoxWithConstraints(Modifier.fillMaxWidth().cellHeight(FrameSize.rows(looks.tier))) {
-        val cells = LocalCells.current
-        val density = LocalDensity.current
-        val cols = cells.cols(constraints.maxWidth.toFloat())
-        val width = FrameSize.cols(looks.tier) + 1
-        val plan = planHalf(listOf(ZoneContent(ZoneKind.CREATURES, player.hand.map { width })), cols, 1)
-        var hovered by remember { mutableStateOf<Int?>(null) }
-        var pointed by remember { mutableStateOf<Int?>(null) } // the card whose strip the mouse is on
-        val contentCols = maxOf(cols, plan.slots.maxOfOrNull { it.x + width } ?: 0)
-        Box(Modifier.fillMaxSize().then(if (0 in plan.scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier)) {
-            Box(Modifier.cells(contentCols, FrameSize.rows(looks.tier))) {
-                plan.slots.forEachIndexed { order, place ->
-                    val card = player.hand[place.index]
-                    val overlapped = place.visible < width
-                    val onHover: (ClickTarget?) -> Unit = { hovered = card.id; looks.onHover(it) }
-                    val x = with(density) { (place.x * cells.width).toDp() }
-                    Box(Modifier.offset(x = x).zIndex(if (hovered == card.id) 1000f else order.toFloat())) {
-                        CardFrame(card.face(), looks.mode, looks.emphasis(card), if (overlapped) null else ClickTarget.Card(card.id), looks.onClick, onHover,
-                            mark = looks.mark(card), tier = looks.tier, hovered = pointed == card.id)
-                    }
-                    if (overlapped) Box(Modifier.offset(x = x).zIndex(2000f + order).cells(place.visible, FrameSize.rows(looks.tier))
-                        .clickTarget(ClickTarget.Card(card.id), looks.onClick, onHover, mark = false, onHoverChange = { on -> pointed = pointedAfter(pointed, card.id, on) }))
-                }
-            }
-        }
-        plan.segments.firstOrNull { it.hiddenRight > 0 }?.let { GridText(" +${it.hiddenRight} ▸", Modifier.align(Alignment.TopEnd), color = Palette.accent, background = Palette.background, bold = true) }
-    }
-}
-
 /** The midline between the halves: a plain rule, one row. */
 const val MIDLINE_ROWS = 1
 /** The header over the table: its rule line, and two lines of trail. */
@@ -598,4 +563,4 @@ private fun StopLadder(seatsTurn: Boolean, stops: PhaseStops?, board: BoardState
 }
 
 /** Which card's strip the mouse is on, after [id]'s strip reports entering ([on]) or leaving: a late exit from one card never clears the next. */
-private fun pointedAfter(current: Int?, id: Int, on: Boolean): Int? = if (on) id else if (current == id) null else current
+internal fun pointedAfter(current: Int?, id: Int, on: Boolean): Int? = if (on) id else if (current == id) null else current
