@@ -63,6 +63,27 @@ class PromptScenariosTest {
     }
 
     @Test
+    fun `picking from a pile - Gush returns two Islands, each clicked on the table`() {
+        val clicked = mutableListOf<Int>()
+        Scenario("gush-pile", mainPhase("Gush", "Island;Island;Mountain")) { prompt, board, _ ->
+            val islands = board.seat!!.battlefield.filter { it.name == "Island" }.map { it.id }
+            when {
+                prompt is ChoicePrompt -> SeatAction.Choose(listOf(prompt.options.indexOfFirst { "Island" in it.label || "rather" in it.label }.coerceAtLeast(0)))
+                prompt is InputPrompt && prompt.kind == InputKind.PRIORITY && board.stack.isEmpty() -> board.inHand("Gush")?.let { SeatAction.ClickCard(it.id) } ?: SeatAction.Ok
+                prompt is InputPrompt && prompt.kind == InputKind.SELECT_CARDS && prompt.okEnabled -> SeatAction.Ok
+                prompt is InputPrompt && prompt.kind == InputKind.SELECT_CARDS ->
+                    islands.firstOrNull { it !in clicked }?.let { clicked += it; SeatAction.ClickCard(it) }
+                prompt is InputPrompt && prompt.kind == InputKind.PRIORITY -> SeatAction.Ok
+                else -> null
+            }
+        }.use { s ->
+            s.playUntil { s.board.seat!!.hand.count { it.name == "Island" } == 2 }
+            assertEquals(2, clicked.size, "both Islands were clicked on the board, the second out of the pile the first had left")
+            s.png("scenario-gush-pile")
+        }
+    }
+
+    @Test
     fun `X cost - Blaze announces X through the number prompt, then targets the AI`() {
         Scenario("x-cost", mainPhase("Blaze", "Mountain;Mountain;Mountain;Mountain")) { prompt, board, _ ->
             when (prompt) {

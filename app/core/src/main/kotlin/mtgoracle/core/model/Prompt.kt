@@ -52,6 +52,8 @@ data class InputPrompt(
     val actionableCardIds: Set<Int>,
     /** Selectable cards the board doesn't show — a library being searched, a graveyard. */
     val selectableElsewhere: List<CardState> = emptyList(),
+    /** Cards Forge marks in this Input: those picked so far (Gush's two Islands), the attacker being blocked. */
+    val highlightedCardIds: Set<Int> = emptySet(),
     /** Cancel is Forge's Undo here (a mana ability can be undone), not End Turn: it gives the mana back rather than passing. */
     val cancelUndoes: Boolean = false,
 ) : Prompt

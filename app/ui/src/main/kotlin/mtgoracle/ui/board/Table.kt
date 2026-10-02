@@ -79,6 +79,8 @@ const val ZONE_COLS = 30
 const val TARGET_MARK = "◄"
 /** A card that changed since your last decision. */
 const val FRESH_MARK = "*"
+/** Picked so far in the current selection (Gush's Islands): its own pile, so the rest of the pile can still be clicked. */
+const val PICKED_MARK = "√"
 
 /** Rows of a lane: a frame and its reserved attachment line. */
 fun laneRows(tier: FrameTier, attach: Boolean = true) = FrameSize.rows(tier) + if (attach) 1 else 0
@@ -115,6 +117,7 @@ class Looks(
         card.hidden -> null
         // One cell: a card's name is worth more of its top edge than the word would be.
         BoardRef.Card(card.id) in targeted -> TARGET_MARK
+        prompt is InputPrompt && card.id in prompt.highlightedCardIds -> PICKED_MARK
         card.id in fresh -> FRESH_MARK
         else -> null
     }

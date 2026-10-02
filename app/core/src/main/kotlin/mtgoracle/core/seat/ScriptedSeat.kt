@@ -115,7 +115,9 @@ class ScriptedSeat(
             InputKind.BLOCK -> SeatAction.Ok
             InputKind.SELECT_CARDS, InputKind.CONFIRM, InputKind.OTHER -> when {
                 prompt.okEnabled -> SeatAction.Ok
-                prompt.selectableCardIds.isNotEmpty() -> SeatAction.ClickCard(prompt.selectableCardIds.elementAt(attempt % prompt.selectableCardIds.size))
+                // One not picked yet: clicking a picked card again un-picks it.
+                prompt.selectableCardIds.isNotEmpty() -> (prompt.selectableCardIds - prompt.highlightedCardIds).ifEmpty { prompt.selectableCardIds }
+                    .let { SeatAction.ClickCard(it.elementAt(attempt % it.size)) }
                 prompt.cancelEnabled -> SeatAction.Cancel
                 else -> SeatAction.Ok
             }

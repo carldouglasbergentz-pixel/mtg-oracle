@@ -164,6 +164,7 @@ class SeatGui(
     private var cancelEnabled = false
     @Volatile private var selectableIds: Set<Int> = emptySet()
     @Volatile private var actionableIds: Set<Int> = emptySet()
+    @Volatile private var highlightedIds: Set<Int> = emptySet()
 
     // Direct dialogs in flight, innermost last. A click can open a dialog on
     // the EDT while the game thread is parked on an Input, so this can nest.
@@ -323,7 +324,7 @@ class SeatGui(
             id = 0, message = shownMessage, kind = kindOf(top), inputName = top.javaClass.simpleName,
             inputSerial = System.identityHashCode(top),
             okLabel = okLabel, cancelLabel = cancelLabel, okEnabled = okEnabled, cancelEnabled = cancelEnabled,
-            selectableCardIds = selectableIds, actionableCardIds = actionableIds,
+            selectableCardIds = selectableIds, actionableCardIds = actionableIds, highlightedCardIds = highlightedIds,
             // InputPassPriority names the cancel button "Undo (n)" exactly when the last action can be undone.
             cancelUndoes = cancelLabel.startsWith(forge.util.Localizer.getInstance().getMessage("lblUndo")),
         )
@@ -532,6 +533,13 @@ class SeatGui(
     override fun clearSelectables() {
         super.clearSelectables()
         selectableIds = emptySet()
+    }
+
+    /** Forge's mark on what is picked so far (InputSelectManyBase) — called from the game thread too. */
+    override fun setHighlighted(entities: Iterable<GameEntityView>, b: Boolean) {
+        super.setHighlighted(entities, b)
+        val ids = entities.filterIsInstance<CardView>().map { it.id }
+        synchronized(this) { highlightedIds = if (b) highlightedIds + ids else highlightedIds - ids.toSet() }
     }
 
     override fun setWeaklySelectable(cards: Iterable<CardView>) {
