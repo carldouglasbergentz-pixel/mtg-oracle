@@ -38,9 +38,13 @@ class SearchableChoiceTest {
             val drawn = d.registry.targets.count { it is ClickTarget.Option }
             assertTrue(drawn in 1..200, "only what fits is drawn: $drawn options")
             // S folds the stack and R turns tapped cards on the board: here they are letters of the name.
-            for ((key, char) in listOf(Key.S to 's', Key.O to 'o', Key.L to 'l', Key.Spacebar to ' ', Key.R to 'r')) d.key(key, char.code)
+            // Enter with nothing typed picks nothing; a capital comes with a Shift, which has no character (0xFFFF).
+            d.key(Key.Enter, 10)
+            assertEquals(emptyList(), seat.answers)
+            d.key(Key.ShiftLeft, 0xFFFF)
+            for ((key, char) in listOf(Key.S to 'S', Key.O to 'o', Key.L to 'l', Key.Spacebar to ' ', Key.R to 'r')) d.key(key, char.code)
             d.settle(3)
-            assertTrue("find: sol r_" in d.text.all(), d.text.all().lines().first { "find:" in it })
+            assertTrue("find: Sol r_" in d.text.all(), d.text.all().lines().first { "find:" in it })
             assertEquals(null, arranged, "the board's S and R did nothing")
             assertTrue(d.registry[ClickTarget.Option(names.indexOf("Sol Ring"))] != null, "Sol Ring is drawn")
             assertTrue(d.registry[ClickTarget.Option(names.indexOf("Sol Talisman"))] == null, "Sol Talisman has no r: not drawn")

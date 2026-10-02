@@ -123,6 +123,8 @@ fun BoardScreen(
     var interaction by remember { mutableStateOf(Interaction()) }
     var zoom by remember { mutableStateOf<CardFace?>(null) }
     var arrangement by remember { mutableStateOf(layout) }
+    // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
+    val lastTotal = remember { intArrayOf(Int.MAX_VALUE) }
     val focus = remember { FocusRequester() }
     // The stack box needs to know where the cards are even in the real window, where nobody else asks.
     val registry = LocalClickRegistry.current ?: remember { ClickRegistry() }
@@ -181,7 +183,8 @@ fun BoardScreen(
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     if (matchKey(event.key, event.isCtrlPressed)) return@onPreviewKeyEvent true
                     // A searchable choice ("choose a card name") takes what is typed before the board's letter keys do.
-                    val typed = event.utf16CodePoint.takeIf { it in 32..0xFFFF }?.toChar()
+                    // A key with no character (Shift, the arrows, F2) reports 0xFFFF; Delete is 127.
+                    val typed = event.utf16CodePoint.takeIf { it in 32 until 0xFFFF && it != 127 }?.toChar()?.takeIf { !it.isISOControl() && Character.isDefined(it) }
                     if (typed != null && !event.isCtrlPressed && (prompt as? ChoicePrompt)?.searchable == true) {
                         interaction = typeInto(interaction, prompt, typed); return@onPreviewKeyEvent true
                     }
@@ -192,7 +195,8 @@ fun BoardScreen(
                     // Ctrl+←/→ moves the right column's edge, with Shift the zone columns' edge: the border goes the arrow's way.
                     if (event.isCtrlPressed && (event.key == Key.DirectionLeft || event.key == Key.DirectionRight)) {
                         val step = if (event.key == Key.DirectionRight) PANE_STEP else -PANE_STEP
-                        arrange(if (event.isShiftPressed) arrangement.copy(zoneCols = arrangement.zoneCols + step) else arrangement.copy(sideCols = arrangement.sideCols - step))
+                        // Clamped as kept, as a drag is: unclamped, the kept width ran past the bound, and the other arrow seemed dead as long.
+                        arrange((if (event.isShiftPressed) arrangement.copy(zoneCols = arrangement.zoneCols + step) else arrangement.copy(sideCols = arrangement.sideCols - step)).clampedTo(lastTotal[0]))
                         return@onPreviewKeyEvent true
                     }
                     val key = event.key.toUiKey() ?: return@onPreviewKeyEvent false
@@ -201,6 +205,7 @@ fun BoardScreen(
         ) {
             val cells = LocalCells.current
             val totalCols = cells.cols(constraints.maxWidth.toFloat())
+            lastTotal[0] = totalCols
             val totalRows = cells.rows(constraints.maxHeight.toFloat())
             // While an edge is dragged its pane follows the mouse; the width is kept when the drag ends.
             var zoneDragPx by remember { mutableStateOf(0f) }

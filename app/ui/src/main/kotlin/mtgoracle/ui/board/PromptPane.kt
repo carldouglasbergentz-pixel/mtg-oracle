@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.ChoicePrompt
@@ -197,9 +198,12 @@ fun sideboardValidity(prompt: SideboardPrompt, deck: Map<String, Int>): Pair<Str
  */
 @Composable
 private fun SearchedOptions(prompt: ChoicePrompt, state: Interaction, cols: Int, rows: Int, onClick: (ClickTarget) -> Unit, onHover: (ClickTarget?) -> Unit) {
-    val matches = prompt.matches(state.filter)
+    // Folded once per prompt, matched once per filter: not on every recomposition, over thirty thousand names.
+    val folded = remember(prompt.id) { prompt.foldedLabels() }
+    val matches = remember(prompt.id, state.filter) { prompt.matches(state.filter, folded) }
     val shownRows = maxOf(1, rows - 1)
-    val width = 30
+    // OptionGrid's own column width (" [x] " and room), so exactly what fits is taken.
+    val width = minOf(cols, maxOf(20, (matches.take(500).maxOfOrNull { prompt.options[it].label.length } ?: 0) + 9 + 1)).coerceAtLeast(1)
     val shown = matches.take(shownRows * maxOf(1, cols / width))
     val more = if (matches.size > shown.size) " · ${matches.size - shown.size} more: type to narrow" else ""
     GridText(fit("find: ${state.filter}_   ${matches.size} of ${prompt.options.size}$more", cols), color = Palette.accent, bold = true)
@@ -222,7 +226,7 @@ private fun OptionGrid(labels: List<String>, cols: Int, rows: Int, cell: @Compos
     BoxWithConstraints {
         val room = minOf(cols, LocalCells.current.cols(constraints.maxWidth.toFloat()))
         // " [x] 12. " is nine cells before the label.
-        val width = minOf(room, maxOf(20, (labels.maxOfOrNull { it.length } ?: 0) + 9 + 1))
+        val width = minOf(room, maxOf(20, (labels.maxOfOrNull { it.length } ?: 0) + 9 + 1)).coerceAtLeast(1) // a pane under a cell wide (a tiny window) divided by zero
         val perBand = rows * maxOf(1, room / width)
         Column {
             labels.indices.chunked(perBand).forEach { band ->
