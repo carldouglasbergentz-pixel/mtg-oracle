@@ -62,6 +62,11 @@ class GameRecorder(val file: File) : Closeable {
     private fun noteSpellsThisTurn(event: GameEventSpellAbilityCast) {
         val item = event.si()?.takeIf { !it.isAbility && !it.isTrigger } ?: return
         val caster = item.activatingPlayer ?: return
+        // A copy (replicate, storm) is logged as cast but isn't one (CR 707.10), and Forge rightly leaves it out.
+        if (runCatching { game?.stack?.firstOrNull { it.id == item.id }?.spellAbility?.isCopied }.getOrNull() == true) {
+            write("NOTE", "${caster.name}: a copy, not a cast (${item.sourceCard?.name})")
+            return
+        }
         val cast = runCatching { game?.stack?.spellCardsCastThisTurn?.filter { it.controller?.id == caster.id } }.getOrNull() ?: return
         write("NOTE", "${caster.name}: earlier spells this turn, as Forge counts them: ${cast.size} (${cast.joinToString { it.name }})")
     }

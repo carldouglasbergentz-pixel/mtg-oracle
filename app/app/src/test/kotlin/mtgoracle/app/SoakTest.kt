@@ -85,6 +85,11 @@ class SoakTest {
                     val who = line.substringAfter("Add To Stack: ").substringBefore(" cast ")
                     cast[who] = (cast[who] ?: 0) + 1
                 }
+                // The copy's "cast" line came just before: it isn't one.
+                " NOTE  " in line && ": a copy, not a cast" in line -> {
+                    val who = line.substringAfter(" NOTE  ").substringBefore(": a copy")
+                    cast[who] = (cast[who] ?: 1) - 1
+                }
                 " NOTE  " in line && ": earlier spells this turn, as Forge counts them: " in line -> {
                     val who = line.substringAfter(" NOTE  ").substringBefore(": earlier")
                     val forge = line.substringAfter("counts them: ").substringBefore(" ").toInt()
@@ -138,6 +143,9 @@ class SoakTest {
                     }
                 } catch (e: IllegalStateException) {
                     stall = e.message?.lineSequence()?.first()
+                } catch (e: RuntimeException) {
+                    // A crash drawing the board (Compose's "LayoutNode not found in RectList") ends this match, not the run.
+                    stall = "crash: $e at ${e.stackTrace.firstOrNull()}"
                 }
                 val found = findings(s.log).toMutableMap()
                 stall?.let { found["stall"] = listOf(it) }
