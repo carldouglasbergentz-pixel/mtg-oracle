@@ -98,7 +98,31 @@ data class DistributePrompt(
     val atLeastOne: Boolean,
     /** Forge's default split (lethal in order), shown pre-filled. */
     val suggested: List<Int>,
-) : Prompt
+    /**
+     * The target (by index) that may take damage only once every other target
+     * has its lethal: the player or planeswalker a trampler is attacking (CR
+     * 702.19b). Null when there is none: without trample a blocked creature's
+     * damage goes to its blockers only (CR 510.1c).
+     */
+    val excess: Int? = null,
+    /** Each target must have its lethal before the next gets any: the damage assignment order, where Forge still keeps one. */
+    val inOrder: Boolean = false,
+) : Prompt {
+    /** Why [amounts] can't be the answer (the total, at least one each, lethal first), or null when they can. */
+    fun problem(amounts: List<Int>): String? {
+        val sum = amounts.sum()
+        fun short(i: Int) = targets[i].lethal?.let { amounts.getOrElse(i) { 0 } < it } == true
+        return when {
+            amounts.size != targets.size || sum != total -> "assigned $sum of $total"
+            atLeastOne && amounts.any { it < 1 } -> "every target takes at least 1"
+            excess != null && amounts[excess] > 0 && targets.indices.any { it != excess && short(it) } ->
+                "${targets[excess].label} takes damage only once every blocker has lethal (trample)"
+            inOrder -> targets.indices.firstOrNull { i -> amounts[i] > 0 && (0 until i).any { it != excess && short(it) } }
+                ?.let { i -> "${targets[(0 until i).first { it != excess && short(it) }].label} needs lethal before ${targets[i].label}" }
+            else -> null
+        }
+    }
+}
 
 /** A number in [min]..[max]: X costs, "choose a number". */
 data class NumberPrompt(

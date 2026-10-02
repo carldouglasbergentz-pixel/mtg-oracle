@@ -776,19 +776,43 @@ class SeatGui(
      * the attackers one blocker blocks. The prompt comes pre-filled with lethal
      * damage in order, the rest to the defender or the last one.
      */
+    /**
+     * Combat damage among blockers (and, with trample, the one attacked), or
+     * among the attackers one blocker blocks: the prompt comes pre-filled
+     * with lethal damage in order and the rest to the last target.
+     *
+     * Forge passes the defender whenever there is one; whether it may take
+     * damage is the dialog's to decide (VAssignCombatDamage), and offering it
+     * always let a blocked creature without trample hit the player (CR
+     * 510.1c). As there: only with trample, after every blocker has lethal
+     * (CR 702.19b), or for a creature that may divide its damage as it
+     * chooses. Lethal is Forge's: deathtouch makes 1 lethal (CR 702.2c).
+     */
     override fun assignCombatDamage(attacker: CardView?, blockers: MutableList<CardView>, damage: Int, defender: GameEntityView?, overrideOrder: Boolean, maySkip: Boolean): MutableMap<CardView?, Int>? {
-        val lethal = blockers.map { maxOf(0, it.currentState.toughness - it.damage) }
-        val suggested = MutableList(blockers.size + if (defender != null) 1 else 0) { 0 }
+        val source = attacker?.currentState
+        val trample = defender != null && source?.hasTrample() == true
+        val divides = source?.hasDivideDamage() == true && overrideOrder
+        val toDefender = defender.takeIf { trample || divides }
+        val lethal = blockers.map { b ->
+            val need = maxOf(0, b.lethalDamage)
+            when {
+                b.currentState.isPlaneswalker -> b.currentState.loyalty.toIntOrNull() ?: need
+                source?.hasDeathtouch() == true -> minOf(need, 1)
+                else -> need
+            }
+        }
+        val suggested = MutableList(blockers.size + if (toDefender != null) 1 else 0) { 0 }
         var left = damage
         lethal.forEachIndexed { i, need -> val dealt = minOf(left, need); suggested[i] = dealt; left -= dealt }
-        if (left > 0) suggested[if (defender != null) blockers.size else blockers.lastIndex] += left
+        if (left > 0) suggested[if (toDefender != null) blockers.size else blockers.lastIndex] += left
         val targets = blockers.mapIndexed { i, b -> DistributeTarget(b.currentState.name, BoardRef.Card(b.id).also { cardViews[b.id] = b }, lethal[i]) } +
-            listOfNotNull(defender?.let { DistributeTarget(it.toString(), (it as? PlayerView)?.let { p -> BoardRef.Player(p.id) }, null) })
-        val source = attacker?.currentState?.name ?: "combat"
-        val amounts = distribute("$source: assign $damage damage", targets, damage, atLeastOne = false, suggested, allowSkip = maySkip) ?: return null
+            listOfNotNull(toDefender?.let { DistributeTarget(it.toString(), (it as? PlayerView)?.let { p -> BoardRef.Player(p.id) }, null) })
+        val name = source?.name ?: "combat"
+        val amounts = distribute("$name: assign $damage damage", targets, damage, atLeastOne = false, suggested, allowSkip = maySkip,
+            excess = if (trample && !divides) blockers.size else null, inOrder = !overrideOrder) ?: return null
         val result = LinkedHashMap<CardView?, Int>()
         blockers.forEachIndexed { i, b -> if (amounts[i] > 0) result[b] = amounts[i] }
-        if (defender != null && amounts.last() > 0) result[null] = amounts.last()
+        if (toDefender != null && amounts.last() > 0) result[null] = amounts.last()
         return result
     }
 
@@ -804,12 +828,16 @@ class SeatGui(
     }
 
     /** Amounts that sum to [total] (each at least one when [atLeastOne]), or null when skipped. */
-    private fun distribute(message: String, targets: List<DistributeTarget>, total: Int, atLeastOne: Boolean, suggested: List<Int>, allowSkip: Boolean): List<Int>? {
-        val action = awaitDialog({ DistributePrompt(it, message, targets, total, atLeastOne, suggested) }, SeatAction.Distribute(suggested))
+    private fun distribute(
+        message: String, targets: List<DistributeTarget>, total: Int, atLeastOne: Boolean, suggested: List<Int>, allowSkip: Boolean,
+        excess: Int? = null, inOrder: Boolean = false,
+    ): List<Int>? {
+        fun prompt(id: Long) = DistributePrompt(id, message, targets, total, atLeastOne, suggested, excess, inOrder)
+        val action = awaitDialog(::prompt, SeatAction.Distribute(suggested))
         if (action == SeatAction.Cancel && allowSkip) return null
         val amounts = (action as? SeatAction.Distribute)?.amounts
-        val valid = amounts != null && amounts.size == targets.size && amounts.sum() == total &&
-            amounts.all { it >= (if (atLeastOne) 1 else 0) }
+        // The board holds back Done on the same rule; this is the last line before Forge, which trusts the dialog.
+        val valid = amounts != null && prompt(0).problem(amounts) == null
         if (!valid) {
             autoAnswered("split", "invalid answer $action for '$message'; used Forge's $suggested")
             return suggested

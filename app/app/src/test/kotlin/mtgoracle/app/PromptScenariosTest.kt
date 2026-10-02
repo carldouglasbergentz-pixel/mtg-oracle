@@ -173,9 +173,47 @@ class PromptScenariosTest {
             s.playUntil { s.board.ai().graveyard.isNotEmpty() }
             val split = s.answered.first { it.first is DistributePrompt }
             assertEquals(listOf(2, 2), (split.first as DistributePrompt).suggested, "Forge suggested lethal to each")
+            assertEquals(listOf("Grizzly Bears", "Grizzly Bears"), (split.first as DistributePrompt).targets.map { it.label }, "a blocker's damage goes to the attackers only, never the player (CR 510.1d)")
             assertEquals(1, s.board.ai().graveyard.count { it.name == "Grizzly Bears" }, "our 4/0 split was honoured: one Bear dies")
             assertTrue(s.answered.any { (p, _) -> (p as? InputPrompt)?.kind == InputKind.BLOCK })
             s.png("scenario-block-damage")
+        }
+    }
+
+    /** We attack into two Bears; the AI, at 3 life, blocks. */
+    private fun attackInto(attacker: String, aiLife: Int) = listOf(
+        "turn=3", "activeplayer=human", "activephase=COMBAT_DECLARE_ATTACKERS", "removesummoningsickness=true", "humanlife=20", "ailife=$aiLife",
+        "humanhand=", "humanbattlefield=$attacker|Attacking", "humanlibrary=${library("Island")}",
+        "aihand=", "aibattlefield=Grizzly Bears;Grizzly Bears", "ailibrary=${library("Swamp")}",
+    )
+
+    @Test
+    fun `a blocked creature without trample assigns its damage to its blockers, never the player`() {
+        Scenario("blocked-no-trample", attackInto("Hill Giant", aiLife = 3)) { prompt, _, _ ->
+            if (prompt is DistributePrompt) SeatAction.Distribute(prompt.suggested) else null
+        }.use { s ->
+            s.playUntil { s.board.ai().graveyard.isNotEmpty() || s.board.ai().life < 3 || s.board.turn > 3 }
+            assertEquals(3, s.board.ai().life, "no damage reached the player")
+            s.answered.map { it.first }.filterIsInstance<DistributePrompt>().forEach { p ->
+                assertTrue(p.targets.none { it.ref is mtgoracle.core.model.BoardRef.Player }, "no player among ${p.targets.map { it.label }} (CR 510.1c)")
+                assertEquals(null, p.excess)
+            }
+        }
+    }
+
+    @Test
+    fun `trample reaches the player only past lethal to every blocker`() {
+        Scenario("blocked-trample", attackInto("Colossal Dreadmaw", aiLife = 5)) { prompt, _, _ ->
+            if (prompt is DistributePrompt) SeatAction.Distribute(prompt.suggested) else null
+        }.use { s ->
+            s.playUntil { s.answered.any { it.first is DistributePrompt } && s.board.stack.isEmpty() || s.board.turn > 3 }
+            val split = s.answered.map { it.first }.filterIsInstance<DistributePrompt>().first()
+            val player = split.targets.indexOfFirst { it.ref is mtgoracle.core.model.BoardRef.Player }
+            assertTrue(player >= 0, "the player is offered: ${split.targets.map { it.label }}")
+            assertEquals(player, split.excess, "as the trampler's excess")
+            val oneEach = split.targets.indices.map { if (it == player) 6 - (split.targets.size - 1) else 1 }
+            assertTrue(split.problem(oneEach) != null, "1 to each Bear and the rest to the player is refused (CR 702.19b): ${split.problem(oneEach)}")
+            assertEquals(null, split.problem(split.suggested), "Forge's lethal-first split is fine: ${split.suggested}")
         }
     }
 

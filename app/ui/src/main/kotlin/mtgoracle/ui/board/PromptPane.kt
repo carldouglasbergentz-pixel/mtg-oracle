@@ -149,8 +149,9 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
                     GridText(target.lethal?.let { "  lethal $it" } ?: "", color = Palette.dim)
                 }
             }
-            val sum = state.amounts.sum()
-            GridText(fit("assigned $sum of ${prompt.total}", cols), color = if (sum == prompt.total) Palette.foreground else Palette.accent)
+            // What still keeps Done off, or the count when nothing does.
+            val problem = prompt.problem(state.amounts)
+            GridText(fit(problem ?: "assigned ${state.amounts.sum()} of ${prompt.total}", cols), color = if (problem == null) Palette.foreground else Palette.accent)
         }
         is NumberPrompt -> Row {
             ControlButton("[-]", ClickTarget.Less(0), true, onClick)
@@ -176,7 +177,7 @@ private fun Buttons(prompt: Prompt?, state: Interaction, onClick: (ClickTarget) 
             prompt.min == 0 -> GridButton("None", ClickTarget.Done, true, onClick)
         }
         is OrderPrompt -> GridButton("Done", ClickTarget.Done, true, onClick)
-        is DistributePrompt -> GridButton("Done", ClickTarget.Done, state.amounts.sum() == prompt.total, onClick)
+        is DistributePrompt -> GridButton("Done", ClickTarget.Done, prompt.problem(state.amounts) == null, onClick)
         is NumberPrompt -> { GridButton("OK", ClickTarget.Done, true, onClick); if (prompt.cancellable) GridButton("Cancel", ClickTarget.Cancel, true, onClick) }
         is SideboardPrompt -> GridButton("Done", ClickTarget.Done, state.deck.values.sum() >= prompt.minMain, onClick)
     }

@@ -250,14 +250,14 @@ private fun distribute(state: Interaction, prompt: DistributePrompt, event: UiEv
             is ClickTarget.More -> Outcome(adjust(t.index, +1))
             is ClickTarget.Less -> Outcome(adjust(t.index, -1))
             is ClickTarget.Option -> Outcome(state.copy(row = t.index))
-            ClickTarget.Done -> Outcome(state, SeatAction.Distribute(state.amounts).takeIf { state.amounts.sum() == prompt.total })
+            ClickTarget.Done -> Outcome(state, SeatAction.Distribute(state.amounts).takeIf { prompt.problem(state.amounts) == null })
             ClickTarget.Cancel -> Outcome(state, SeatAction.Cancel)
             else -> Outcome(state)
         }
         is UiEvent.Key -> when (event.key) {
             UiKey.PLUS -> Outcome(adjust(state.row, +1))
             UiKey.MINUS -> Outcome(adjust(state.row, -1))
-            UiKey.ENTER -> Outcome(state, SeatAction.Distribute(state.amounts).takeIf { state.amounts.sum() == prompt.total })
+            UiKey.ENTER -> Outcome(state, SeatAction.Distribute(state.amounts).takeIf { prompt.problem(state.amounts) == null })
             UiKey.ESCAPE -> Outcome(state, SeatAction.Cancel)
             else -> event.key.digit?.let { d -> Outcome(state.copy(row = (d - 1).coerceIn(0, prompt.targets.lastIndex))) } ?: Outcome(state)
         }
