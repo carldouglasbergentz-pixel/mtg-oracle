@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The board has its own text or art, in art by default.** A T in the library once switched the board to text without a word. Now T and F7 in a game change only the board, the status line says which it is showing (`T text/art: art`), and the library's T changes only the library (`board.cardMode` in `settings.properties`).
 
 ### Fixed
+- **A card's chosen printing goes with its copies.** Moving copies between the deck and the sideboard gave the new row no printing, and making one copy of several the commander dropped it too; the history recorded the loss as if it were meant. The printing now goes along, unless the row the copies join has one of its own, and undo restores it (`PrintingMoveTest`).
 - **The status line keeps its message**: the board's hints run to about 170 cells and cut off the active yield and notices; the hints give way now. A button or card frame that loses its click target under the mouse no longer comes back lit.
 - **Game 2 of a match starts clean, and Forge's word to you reaches the board.**
   - Forge's log lines of game 2 and later were skipped: the recorder read past as many lines as game 1 had (each game has a log of its own).

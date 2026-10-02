@@ -114,7 +114,9 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         if (to == DeckSection.CONSIDERING) {
             setSectionQuantity(conn, deckId, canonical, to, (before[canonical to to]?.quantity ?: 0) + quantity)
         } else {
-            addCard(conn, deckId, canonical, quantity, sideboard = to == DeckSection.SIDEBOARD, force = force)
+            // The printing goes with the copies, unless the row they join has one of its own (a row without one leaves it alone).
+            val printing = before[canonical to from]?.printing?.takeIf { before[canonical to to]?.printing == null }
+            addCard(conn, deckId, canonical, quantity, sideboard = to == DeckSection.SIDEBOARD, force = force, printing = printing)
         }
         touch(conn, deckId)
         recordRevision(conn, deckId, "move", before, "$canonical: ${from.key} -> ${to.key}")
@@ -168,7 +170,12 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
             } else {
                 // One copy becomes the commander; the rest stay where they were.
                 conn.update("UPDATE deck_cards SET quantity = quantity - 1 WHERE id = ?", primary.id)
-                conn.update("INSERT INTO deck_cards (deck_id, card_name, quantity, is_commander, is_sideboard, added_at) VALUES (?, ?, 1, 1, 0, ?)", deckId, canonical, now())
+                // In the printing of the copies it came from: dropped, the commander lost the art the user chose.
+                conn.update(
+                    "INSERT INTO deck_cards (deck_id, card_name, quantity, is_commander, is_sideboard, added_at, set_code, collector_number) " +
+                        "SELECT deck_id, card_name, 1, 1, 0, ?, set_code, collector_number FROM deck_cards WHERE id = ?",
+                    now(), primary.id,
+                )
             }
             val formatSet = autoSetCommanderFormat(conn, deckId)
             touch(conn, deckId)
