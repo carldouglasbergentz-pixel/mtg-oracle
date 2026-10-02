@@ -7,7 +7,10 @@ import mtgoracle.data.MtgDb
  * The ingest upserts on name and never deletes, so a renamed card, a retired
  * Alchemy rebalance or a memorabilia face lingers with NULL Scryfall columns,
  * and a NULL colour identity reads as colourless in every `ci<=` filter. A
- * row a deck names is never touched: the deck the user built wins.
+ * row anything of the user's names is never touched: a deck, a deck's
+ * considering list, an AI substitute (either side) or a user combo. The
+ * delete runs with foreign keys off, so a row left out here would point at
+ * nothing (a considering row could no longer be moved into the deck).
  */
 object Prune {
     /** Every table keyed on a card name, cleaned before the card itself. */
@@ -26,15 +29,21 @@ object Prune {
         "layout" to "layout IN (${CardsIngest.SKIPPED_LAYOUTS.sorted().joinToString(", ") { "'$it'" }})",
     )
 
+    /** Where the user's own data names a card: such a card is kept, stale or not. */
+    private val USER_NAMES = listOf(
+        "deck_cards" to "card_name", "deck_considering" to "card_name",
+        "forge_substitutions" to "card_name", "forge_substitutions" to "substitute", "user_combo_cards" to "card_name",
+    )
+
     /** Anything near the whole table means the premise is wrong, not that the table is junk. */
     private const val MAX_FRACTION = 0.05
     private const val MAX_FLOOR = 250
 
     data class Report(
         val total: Int,
-        /** Stale rows no deck names: what [run] with `delete` removes. */
+        /** Stale rows nothing of the user's names: what [run] with `delete` removes. */
         val prunable: List<String>,
-        /** Stale rows a deck names: kept. */
+        /** Stale rows the user's data names ([USER_NAMES]): kept. */
         val kept: List<String>,
         /** Columns not yet filled anywhere, so not trusted. */
         val ignored: List<String>,
@@ -55,7 +64,7 @@ object Prune {
             val ignored = (CLAUSES - usable.toSet()).map { it.first }
             val rows = if (usable.isEmpty()) emptyList() else conn.createStatement().use { st ->
                 st.executeQuery(
-                    "SELECT name, EXISTS (SELECT 1 FROM deck_cards dc WHERE dc.card_name = cards.name COLLATE NOCASE) " +
+                    "SELECT name, " + USER_NAMES.joinToString(" OR ") { (t, c) -> "EXISTS (SELECT 1 FROM $t WHERE $t.$c = cards.name COLLATE NOCASE)" } + " " +
                         "FROM cards WHERE (${usable.joinToString(" OR ") { it.second }}) ORDER BY name",
                 ).use { rs -> buildList { while (rs.next()) add(rs.getString(1) to (rs.getInt(2) == 1)) } }
             }

@@ -44,6 +44,22 @@ class MaintenanceTest {
     }
 
     @Test
+    fun `prune keeps a card the user's considering list, AI substitutes or combos name`() {
+        sql(
+            card("Sol Ring"), card("Considered", ci = null), card("Swapped Out", ci = null), card("Swapped In", ci = null), card("In A Combo", ci = null), card("Nobody Else", ci = null),
+            "INSERT INTO decks (name, format, created_at, updated_at) VALUES ('Mine', NULL, 'now', 'now')",
+            "INSERT INTO deck_considering (deck_id, card_name, quantity, added_at) VALUES (1, 'Considered', 1, 'now')",
+            "INSERT INTO forge_substitutions (deck_id, card_name, substitute, added_at) VALUES (1, 'Swapped Out', 'Swapped In', 'now')",
+            "INSERT INTO user_combos (id, name, color_identity, added_at) VALUES (1, 'Mine', '', 'now')",
+            "INSERT INTO user_combo_cards (combo_id, card_name, quantity) VALUES (1, 'In A Combo', 1)",
+        )
+        val r = Prune.run(db, delete = true)
+        assertEquals(listOf("Nobody Else"), r.prunable)
+        assertEquals(listOf("Considered", "In A Combo", "Swapped In", "Swapped Out"), r.kept)
+        assertEquals(5, count("SELECT COUNT(*) FROM cards"), "Sol Ring and the four the user names")
+    }
+
+    @Test
     fun `too many stale rows to believe deletes nothing, and an unfilled column is not trusted`() {
         sql(card("Real"))
         (1..300).forEach { sql(card("Stale $it", ci = null)) }
