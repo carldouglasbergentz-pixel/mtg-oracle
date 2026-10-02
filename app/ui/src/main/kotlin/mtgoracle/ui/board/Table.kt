@@ -496,14 +496,14 @@ private fun ManaPoolLine(player: PlayerState, inner: Int, looks: Looks) {
 private fun HandCount(player: PlayerState, inner: Int, looks: Looks) {
     // The count, and a back per card this seat can't see. ASCII backs: shade blocks draw taller than a line.
     val backs = player.hand.count { it.hidden }
-    // One line: the count and backs, then any of an opponent's cards Forge shows us (Thoughtseize, Telepathy),
-    // on the same line so a reveal moves nothing; it scrolls sideways when long.
+    // One line: the count and backs, then the opponent's cards we know: shown us (Thoughtseize, Telepathy) or seen
+    // going there (a return, a bounce: KnownInHand). On the same line, so they move nothing; it scrolls sideways when long.
     val revealed = if (player.isSeat) emptyList() else player.hand.filter { !it.hidden }
     val count = "hand ${player.handCount}" + if (backs > 0) " " + "[#]".repeat(minOf(backs, (inner - 8) / 3)) else ""
     Row(Modifier.cells(inner, 1).horizontalScroll(rememberScrollState())) {
         GridText(if (revealed.isEmpty()) fit(count, inner) else count, color = if (player.isSeat) Palette.dim else Palette.foreground)
         if (revealed.isNotEmpty()) {
-            GridText(" revealed ", color = Palette.accent)
+            GridText(" known ", color = Palette.accent)
             revealed.forEach { CardChip(it.face(), looks.emphasis(it), ClickTarget.Card(it.id), looks.onClick, looks.onHover, looks.mark(it)) }
         }
     }

@@ -122,9 +122,10 @@ class SeatGui(
      * What this seat may see of [card]. A seat: Forge's own rule for its
      * player (AbstractGuiGame.mayView -> CardView.canBeShownToAny), which
      * follows reveals, "look at" effects and face-down ownership. A spectator:
-     * public zones only, unless both hands are switched on.
+     * public zones only, unless both hands are switched on. Either way, a
+     * card known to be in a hand ([KnownInHand]): it went there in plain sight.
      */
-    private fun visible(card: CardView): Boolean =
+    private fun visible(card: CardView): Boolean = knownInHand.knows(card) ||
         if (seatController != null) mayView(card)
         else showHandsFlow.value || (card.zone !in HIDDEN_ZONES && !card.isFaceDown)
 
@@ -139,6 +140,8 @@ class SeatGui(
     private val trail = Trail(named = seesCard, onChange = { dirty = true })
     private val floatingMana = FloatingMana(recorder)
     private val drawLog = DrawLog(recorder)
+    private val zoneLog = ZoneLog(recorder)
+    private val knownInHand = KnownInHand(isViewer = { it in seatPlayerIds })
     private val countered = Countered(named = seesCard, onCountered = ::reportCountered)
     /** The trail's seq when the seat last decided something: what came after is "just happened". */
     @Volatile private var decisionSeq = 0L
@@ -494,7 +497,7 @@ class SeatGui(
         selectableIds = emptySet(); actionableIds = emptySet(); highlightedIds = emptySet()
         cardViews.clear(); playerViews.clear()
         skippingTurn = null
-        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); countered.attach(it) }
+        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); zoneLog.attach(it); knownInHand.attach(it); countered.attach(it) }
         dirty = true
     }
 
