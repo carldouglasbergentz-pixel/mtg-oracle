@@ -450,7 +450,7 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
             Triple(getString("color_identity"), getString("type_line"), getString("oracle_text"))
         }.firstOrNull()
         if (!force && !commander) {
-            deckColorIdentity(conn, deckId)?.let { deckCi ->
+            commanderIdentity(conn, deckId)?.let { deckCi ->
                 val letters = meta?.first.orEmpty().split(",").filter { it.isNotEmpty() }.toSet()
                 val outside = (letters - deckCi.toSet()).sorted()
                 if (outside.isNotEmpty()) {
@@ -541,16 +541,6 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
             "ON p.card_name = dc.card_name COLLATE NOCASE AND p.format = ? WHERE dc.deck_id = ? AND dc.is_sideboard = 0",
         formatKey, deckId,
     ) { getInt(1) }.single()
-
-    /** The union of the commanders' identities, letters sorted; empty = colourless; null = no commander. */
-    private fun deckColorIdentity(conn: Connection, deckId: Int): List<String>? {
-        val identities = conn.query(
-            "SELECT c.color_identity FROM deck_cards dc LEFT JOIN cards c ON c.name = dc.card_name COLLATE NOCASE WHERE dc.deck_id = ? AND dc.is_commander = 1",
-            deckId,
-        ) { getString(1) }
-        if (identities.isEmpty()) return null
-        return identities.flatMap { it.orEmpty().split(",") }.map { it.trim() }.filter { it.isNotEmpty() }.toSortedSet().toList()
-    }
 
     private fun autoSetCommanderFormat(conn: Connection, deckId: Int): String? {
         if (deckFormat(conn, deckId) != null) return null
@@ -700,3 +690,18 @@ internal fun Connection.insert(sql: String, vararg params: Any?): Long =
         st.bindAll(params); st.executeUpdate()
         st.generatedKeys.use { rs -> rs.next(); rs.getLong(1) }
     }
+
+/**
+ * The union of deck [deckId]'s commanders' identities, letters sorted; empty =
+ * colourless; null = no commander. A row flagged sideboard is a sideboard card
+ * even when flagged commander too, as everywhere else (the export, the sections).
+ */
+internal fun commanderIdentity(conn: Connection, deckId: Int): List<String>? {
+    val identities = conn.query(
+        "SELECT c.color_identity FROM deck_cards dc LEFT JOIN cards c ON c.name = dc.card_name COLLATE NOCASE " +
+            "WHERE dc.deck_id = ? AND dc.is_commander = 1 AND dc.is_sideboard = 0",
+        deckId,
+    ) { getString(1) }
+    if (identities.isEmpty()) return null
+    return identities.flatMap { it.orEmpty().split(",") }.map { it.trim() }.filter { it.isNotEmpty() }.toSortedSet().toList()
+}

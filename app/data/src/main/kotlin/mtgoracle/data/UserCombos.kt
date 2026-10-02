@@ -15,7 +15,7 @@ class UserCombos(private val db: MtgDb, private val names: CardNames) {
     /**
      * Adds a combo of [cards] (each resolved, or nothing is written) that
      * does what [description] says; the colour identity is the cards',
-     * WUBRG order as Spellbook writes it. Returns the new id.
+     * WUBRG order as Spellbook writes it (`C` for none). Returns the new id.
      */
     fun add(cards: List<String>, description: String, name: String? = null): String {
         if (cards.size < 2) throw DeckRefusal(DeckRefusal.Kind.BAD_NAME, "a combo needs at least two cards")
@@ -29,7 +29,7 @@ class UserCombos(private val db: MtgDb, private val names: CardNames) {
             val identity = conn.query(
                 "SELECT DISTINCT color_identity FROM cards WHERE name COLLATE NOCASE IN (${canonical.joinToString(",") { "?" }})", *canonical.toTypedArray(),
             ) { getString(1) }.flatMap { it.orEmpty().split(",") }.map { it.trim() }.toSet()
-            val ci = "WUBRG".filter { it.toString() in identity }
+            val ci = "WUBRG".filter { it.toString() in identity }.ifEmpty { "C" }
             conn.update(
                 "INSERT INTO user_combos (id, name, color_identity, description, added_at, added_by) VALUES (?, ?, ?, ?, ?, 'user')",
                 id, name?.takeIf { it.isNotBlank() }, ci, description.trim(), Instant.now().truncatedTo(ChronoUnit.SECONDS).toString(),

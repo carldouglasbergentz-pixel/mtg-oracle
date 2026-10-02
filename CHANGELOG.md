@@ -40,6 +40,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The board has its own text or art, in art by default.** A T in the library once switched the board to text without a word. Now T and F7 in a game change only the board, the status line says which it is showing (`T text/art: art`), and the library's T changes only the library (`board.cardMode` in `settings.properties`).
 
 ### Fixed
+- **The review's smaller findings in the data and the search.**
+  - A search field with no value yet (`t:`, `ci:`, `r:`, empty quotes) says it needs one. The live hint read every card, or the colourless ones, while the query was still being typed.
+  - `r:` and `layout:` name a value the cards have, or say which one was meant (`r:mythc` — did you mean r:mythic?); a typo found nothing, silently. The values are read with the lookup, so a new layout is searchable after the sync that brings it.
+  - `is:spell` and `is:permanent` ask about the Land type, the word: `is:spell` left out Lander Rizzi, a creature (`LandWordTest`). `t:` is still a partial match, as Scryfall's is (`t:legend`).
+  - A query nested past 100 levels of `(` or `-` is an error; thousands of them overflowed the parser's stack on every keystroke.
+  - The incremental printings sync fetches a moved set in every language and keeps each collector number in English, or in the one language it was printed in, as the first sync's export does. It searched in English, then replaced the whole set, and lost the printings that exist only in another language. A page missing in the middle of a set's search now fails the source and leaves the set as it was, where it replaced the set with part of itself (`PrintingsSyncTest`).
+  - An empty cards or rulings export changes nothing and fails the source. The cards source clears every legality before it reads, and an empty export would have left every card illegal everywhere (`EmptyExportTest`).
+  - A combo is in a deck only with as many copies as it takes: Spellbook has one that takes two Dragon's Approach. A colourless user combo is `C`, as Spellbook writes it, not empty. The commander's colour identity leaves out a row flagged sideboard, as the export and the sections do (one shared query now, not two).
+  - `1996 World Champion`, the one card whose name reads as a count and a name, is a card in a pasted list, not 1996 copies of World Champion.
+  - A rule is found by its key (the rules write their letters in lower case) instead of a scan of every rule. The tokenizer uses its own list of two-character operators.
 - **The review's smaller findings in the screens.**
   - A right-click menu closes on Esc, as it said it did. It had no focusable node of its own, so Esc reached nothing, the menu stayed open and the screen's keys were dead behind it (`LibraryScreenEditTest`).
   - Zones that share a band overlap to fit. The step between overlapped cards left room only for the band's last card shown whole, while each zone's last card is, so three zones of four cards in 150 columns scrolled when they fit (`HalfPlanTest`).

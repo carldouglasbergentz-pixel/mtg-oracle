@@ -16,6 +16,13 @@ class SearchLanguageTest {
     private fun where(q: String) = SearchLanguage.parse(q).where
 
     @Test
+    fun `a query nested past the limit is an error, not a stack overflow`() {
+        assertFailsWith<SearchError> { SearchLanguage.parse("(".repeat(10_000) + "x" + ")".repeat(10_000)) }
+        assertFailsWith<SearchError> { SearchLanguage.parse("-".repeat(10_000) + "x") }
+        SearchLanguage.parse("(".repeat(50) + "x" + ")".repeat(50)) // a deep but sane one still parses
+    }
+
+    @Test
     fun `a dangling minus is an error, not a search for a hyphen`() {
         assertFailsWith<SearchError> { SearchLanguage.parse("t:goblin -") }
         assertFailsWith<SearchError> { SearchLanguage.parse("(t:goblin -)") }

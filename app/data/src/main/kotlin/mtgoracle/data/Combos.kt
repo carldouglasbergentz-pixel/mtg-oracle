@@ -47,7 +47,10 @@ class Combos(private val db: MtgDb, private val names: CardNames) {
         }
     }
 
-    /** Combos whose every card is in deck [deckId], sideboard included (decks.combos_in_deck). */
+    /**
+     * Combos whose every card is in deck [deckId], sideboard included (decks.combos_in_deck),
+     * in as many copies as the combo needs: Spellbook has one that takes two of a card.
+     */
     fun inDeck(deckId: Int, limit: Int = 50): List<ComboSummary> {
         fun branch(combos: String, cardsTable: String, source: String) = """
             SELECT c.id, c.color_identity, c.name,
@@ -56,7 +59,9 @@ class Combos(private val db: MtgDb, private val names: CardNames) {
                    '$source' AS source
             FROM $combos c
             WHERE c.id IN (SELECT cc.combo_id FROM $cardsTable cc
-                           WHERE cc.card_name COLLATE NOCASE IN (SELECT card_name FROM deck_cards WHERE deck_id = ?)
+                           JOIN (SELECT card_name, SUM(quantity) AS held FROM deck_cards
+                                 WHERE deck_id = ? GROUP BY card_name COLLATE NOCASE) d
+                             ON d.card_name = cc.card_name COLLATE NOCASE AND d.held >= COALESCE(cc.quantity, 1)
                            GROUP BY cc.combo_id
                            HAVING COUNT(DISTINCT cc.card_name) = (SELECT COUNT(*) FROM $cardsTable WHERE combo_id = cc.combo_id))
         """.trimIndent()

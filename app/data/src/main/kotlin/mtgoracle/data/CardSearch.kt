@@ -8,7 +8,13 @@ import mtgoracle.core.lookup.SearchRow
 
 /** The search language over `cards`, a page at a time. (scryfall_search.run_query / count_query) */
 class CardSearch(private val db: MtgDb, formats: FormatCatalog) {
-    private val sql = SearchSql(formats)
+    // Read with the lookup, as the formats are, so a sync that brings a new layout is searchable once the lookup is rebuilt.
+    private val sql = db.read { conn ->
+        fun distinct(column: String) = conn.prepareStatement("SELECT DISTINCT $column FROM cards WHERE $column IS NOT NULL").use { st ->
+            st.executeQuery().use { rs -> rs.rows { getString(1).lowercase() }.toSet() }
+        }
+        SearchSql(formats, rarities = distinct("rarity"), layouts = distinct("layout"))
+    }
 
     /** One page of [query]. Throws SearchError for anything the user can fix. */
     fun page(query: SearchQuery, page: Int = 1, pageSize: Int = 50, filters: List<String> = emptyList()): SearchPage {

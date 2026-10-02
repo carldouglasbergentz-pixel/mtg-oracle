@@ -45,7 +45,9 @@ object DeckParser {
     )
     private val GROUP_CONNECTIVES = setOf("and", "or")
     private val LEAD_COUNT = Regex("(?U)^(\\d+)[xX]?\\s+(.+)$")
-    private val TRAIL_COUNT = Regex("(?U)^(.+?)\\s+[xX](\\d+)\\s*$")
+    // The one card whose name reads as a count and a name (every card name checked): uncounted, it was 1996 × World Champion.
+    private val NAMES_LIKE_COUNTS = setOf("1996 world champion")
+    private val TRAIL_COUNT =Regex("(?U)^(.+?)\\s+[xX](\\d+)\\s*$")
     /** What Python's str.splitlines() splits on, so a list reads into the same lines. */
     private val LINE_BREAKS = Regex("\r\n|[\n\r\u000B\u000C\u001C\u001D\u001E\u0085\u2028\u2029]")
 
@@ -89,6 +91,7 @@ object DeckParser {
         }
         line = pyStrip(line)
         if (line.isEmpty()) return null
+        if (line.lowercase() in NAMES_LIKE_COUNTS) return ParsedRow(line, 1, "main", setCode, number)
         LEAD_COUNT.matchEntire(line)?.let { m ->
             val name = pyStrip(m.groupValues[2])
             if (name.isNotEmpty()) return ParsedRow(name, count(m.groupValues[1]), "main", setCode, number)

@@ -75,23 +75,33 @@ class PrintingsSyncTest {
         sync()
         assertEquals(listOf(Upstream.SCRYFALL_SETS), up.calls, "nothing moved: only the sets list")
 
-        // aaa gains a card (two pages), ccc is new and only in Japanese, ddd is digital.
+        // aaa gains a card (two pages, in three languages), ccc is new and only in Japanese, ddd is digital.
         up.sets = """{"data":[{"code":"aaa","card_count":3,"digital":false},{"code":"bbb","card_count":1,"digital":false},
             {"code":"ccc","card_count":1,"digital":false},{"code":"ddd","card_count":9,"digital":true}]}"""
         val page2 = "https://api.scryfall.com/cards/search?page=2&q=e%3Aaaa"
-        up.searches[Upstream.scryfallSetSearch("aaa")] =
-            """{"has_more":true,"next_page":"$page2","data":[${card("Sol Ring", "aaa", "1")},${card("Lightning Bolt", "aaa", "2")}]}"""
+        up.searches[Upstream.scryfallSetSearch("aaa")] = """{"has_more":true,"next_page":"$page2","data":[${card("Sol Ring", "aaa", "1", lang = "de")},""" +
+            """${card("Sol Ring", "aaa", "1")},${card("Lightning Bolt", "aaa", "2")},${card("Lightning Bolt", "aaa", "3", lang = "ja")}]}"""
         up.searches[page2] = """{"has_more":false,"data":[${card("Sol Ring", "aaa", "1s")}]}"""
-        up.searches[Upstream.scryfallSetSearch("ccc")] = null
-        up.searches[Upstream.scryfallSetSearch("ccc", anyLanguage = true)] = """{"has_more":false,"data":[${card("Brainstorm", "ccc", "1", lang = "ja")}]}"""
+        up.searches[Upstream.scryfallSetSearch("ccc")] = """{"has_more":false,"data":[${card("Brainstorm", "ccc", "1", lang = "ja")}]}"""
         up.calls.clear()
         val report = sync()
         assertEquals(emptyList(), report.failures)
-        assertEquals(listOf(Upstream.SCRYFALL_SETS, Upstream.scryfallSetSearch("aaa"), page2, Upstream.scryfallSetSearch("ccc"), Upstream.scryfallSetSearch("ccc", anyLanguage = true)), up.calls,
+        assertEquals(listOf(Upstream.SCRYFALL_SETS, Upstream.scryfallSetSearch("aaa"), page2, Upstream.scryfallSetSearch("ccc")), up.calls,
             "only the moved sets, every page; a digital set never; bbb unchanged")
-        assertEquals(listOf("1", "1s", "2"), rows(db, "SELECT collector_number FROM printings WHERE set_code = 'aaa' ORDER BY collector_number").map { it[0] })
+        assertEquals(listOf(listOf("1", "en"), listOf("1s", "en"), listOf("2", "en"), listOf("3", "ja")),
+            rows(db, "SELECT collector_number, lang FROM printings WHERE set_code = 'aaa' ORDER BY collector_number"),
+            "English where there is one, else the language it was printed in (a Japanese-only one kept, as default_cards keeps it)")
         assertEquals(listOf(listOf("Brainstorm", "ja")), rows(db, "SELECT card_name, lang FROM printings WHERE set_code = 'ccc'"))
-        assertTrue(report.notes.getValue(Source.PRINTINGS).single().contains("AAA: 3"), report.notes.toString())
+        assertTrue(report.notes.getValue(Source.PRINTINGS).single().contains("AAA: 4"), report.notes.toString())
+
+        // bbb grows, and its second page doesn't come: the source fails, and bbb is as it was and still due.
+        up.sets = up.sets.replace(""""code":"bbb","card_count":1""", """"code":"bbb","card_count":2""")
+        up.searches[Upstream.scryfallSetSearch("bbb")] =
+            """{"has_more":true,"next_page":"https://api.scryfall.com/cards/search?page=2&q=e%3Abbb","data":[${card("Opt", "bbb", "2")}]}"""
+        val failed = sync()
+        assertEquals(1, failed.failures.size, "${failed.failures}")
+        assertEquals(listOf(listOf("Counterspell")), rows(db, "SELECT card_name FROM printings WHERE set_code = 'bbb'"), "not replaced by its first page")
+        assertEquals("1", rows(db, "SELECT card_count FROM printing_sets WHERE set_code = 'bbb'").single()[0], "and fetched again next time")
 
         up.calls.clear()
         sync(force = true)

@@ -126,8 +126,7 @@ object SearchLanguage {
                     val ident = s.substring(i, j)
                     val op = when {
                         j >= n || s[j] !in OP_CHARS -> null
-                        s.regionMatches(j, ">=", 0, 2) || s.regionMatches(j, "<=", 0, 2) || s.regionMatches(j, "!=", 0, 2) -> s.substring(j, j + 2)
-                        else -> s[j].toString()
+                        else -> LONG_OPS.firstOrNull { s.startsWith(it, j) } ?: s[j].toString()
                     }
                     if (op == null) {
                         i = j
@@ -160,6 +159,14 @@ object SearchLanguage {
         private var pos = 0
         private fun peek(): Token? = tokens.getOrNull(pos)
 
+        // Each `(` and `-` is a level of recursion here and of nesting in the SQL: a pasted wall of them
+        // overflowed the stack, and SQLite refuses an expression past 1000 deep anyway.
+        private var depth = 0
+        private inline fun <T> nested(parse: () -> T): T {
+            if (++depth > MAX_DEPTH) throw SearchError("the query nests deeper than $MAX_DEPTH levels of '(' and '-'")
+            try { return parse() } finally { depth-- }
+        }
+
         fun parse(): SearchNode {
             val ast = or()
             peek()?.let { throw SearchError("unexpected token after query: ${describe(it)}") }
@@ -184,12 +191,12 @@ object SearchLanguage {
         }
 
         private fun not(): SearchNode {
-            if (peek() == Token.Not) { pos++; return SearchNode.Not(not()) }
+            if (peek() == Token.Not) { pos++; return nested { SearchNode.Not(not()) } }
             return primary()
         }
 
         private fun primary(): SearchNode = when (val t = peek()) {
-            Token.LParen -> {
+            Token.LParen -> nested {
                 pos++
                 val inner = or()
                 if (peek() != Token.RParen) throw SearchError("expected ')'")
@@ -201,6 +208,8 @@ object SearchLanguage {
             is Token.Bare -> { pos++; SearchNode.Free(t.word) }
             else -> throw SearchError("unexpected token: ${t?.let(::describe) ?: "end of query"}")
         }
+
+        private companion object { const val MAX_DEPTH = 100 }
 
         private fun describe(t: Token): String = when (t) {
             Token.LParen -> "'('"

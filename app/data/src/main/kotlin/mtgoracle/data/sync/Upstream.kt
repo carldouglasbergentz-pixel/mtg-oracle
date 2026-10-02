@@ -41,10 +41,10 @@ interface Upstream {
         const val RULES_PAGE = "https://magic.wizards.com/en/rules"
         const val SPELLBOOK = "https://json.commanderspellbook.com/variants.json"
 
-        /** The first page of [setCode]'s printings, extras and variations included. [anyLanguage] for a set with no English cards. */
-        fun scryfallSetSearch(setCode: String, anyLanguage: Boolean = false): String =
+        /** The first page of [setCode]'s printings in every language, extras and variations included. */
+        fun scryfallSetSearch(setCode: String): String =
             "https://api.scryfall.com/cards/search?q=" +
-                java.net.URLEncoder.encode("e:$setCode" + if (anyLanguage) " lang:any" else "", Charsets.UTF_8) +
+                java.net.URLEncoder.encode("e:$setCode lang:any", Charsets.UTF_8) +
                 "&unique=prints&include_extras=true&include_variations=true&order=set"
     }
 }

@@ -10,8 +10,10 @@ class Rules(private val db: MtgDb) {
     fun rule(number: String): Rule? {
         if (number.isBlank()) return null
         return db.read { conn ->
-            val rule = conn.prepareStatement("SELECT rule_number, section_title, text FROM rules WHERE rule_number = ? COLLATE NOCASE").use { st ->
-                st.setString(1, number.trim())
+            // The rules write their letters in lower case (702.19b), so lowering the input finds the row by its
+            // key; `= ? COLLATE NOCASE` read every rule, as the key's index is BINARY.
+            val rule = conn.prepareStatement("SELECT rule_number, section_title, text FROM rules WHERE rule_number = ?").use { st ->
+                st.setString(1, number.trim().lowercase())
                 st.executeQuery().use { rs -> if (rs.next()) Rule(rs.getString("rule_number"), rs.getString("section_title"), rs.getString("text").orEmpty()) else null }
             } ?: return@read null
             val children = conn.prepareStatement("SELECT rule_number, text FROM rules WHERE parent_rule = ?").use { st ->

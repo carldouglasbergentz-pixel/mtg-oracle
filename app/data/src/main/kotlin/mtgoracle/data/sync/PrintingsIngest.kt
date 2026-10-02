@@ -115,6 +115,13 @@ internal object PrintingsIngest {
             SetInfo(code, (s["card_count"] as? JsonPrimitive)?.intOrNull ?: 0, (s["digital"] as? JsonPrimitive)?.booleanOrNull ?: false)
         }
 
+    /**
+     * [cards] as `default_cards` holds a set: each collector number in English, or in
+     * the one language it was printed in when there is no English printing of it.
+     */
+    fun preferEnglish(cards: List<JsonObject>): List<JsonObject> =
+        cards.groupBy { it.text("collector_number") }.values.map { prints -> prints.firstOrNull { it.text("lang") == "en" } ?: prints.first() }
+
     /** One page of a search: its cards, and the next page's URL when there is one. */
     fun parsePage(json: String): Pair<List<JsonObject>, String?> {
         val page = Json.parseToJsonElement(json) as JsonObject

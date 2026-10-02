@@ -19,6 +19,7 @@ class MaintenanceTest {
     @AfterTest fun clean() { dir.deleteRecursively() }
 
     private fun sql(vararg statements: String) = DriverManager.getConnection("jdbc:sqlite:${db.file.path}").use { c -> c.createStatement().use { st -> statements.forEach { st.executeUpdate(it) } } }
+    private fun text(sql: String): String = DriverManager.getConnection("jdbc:sqlite:${db.file.path}").use { c -> c.createStatement().use { st -> st.executeQuery(sql).use { it.next(); it.getString(1) } } }
     private fun count(sql: String) = DriverManager.getConnection("jdbc:sqlite:${db.file.path}").use { c -> c.createStatement().use { st -> st.executeQuery(sql).use { it.next(); it.getInt(1) } } }
 
     private fun card(name: String, oracleId: String? = "o-$name", ci: String? = "", layout: String = "normal") =
@@ -84,11 +85,30 @@ class MaintenanceTest {
         assertEquals("UB", DriverManager.getConnection("jdbc:sqlite:${db.file.path}").use { c -> c.createStatement().use { st -> st.executeQuery("SELECT color_identity FROM user_combos").use { it.next(); it.getString(1) } } }, "WUBRG order")
         assertEquals(2, count("SELECT COUNT(*) FROM user_combo_cards WHERE combo_id = 'user-001'"))
         assertEquals("user-002", combos.add(listOf("Sol Ring", "Thassa's Oracle"), "x"))
+        sql("INSERT INTO cards (name, color_identity) VALUES ('Mind Stone', '')")
+        val colourless = UserCombos(db, CardNames(listOf("Sol Ring", "Mind Stone"))).add(listOf("Sol Ring", "Mind Stone"), "x")
+        assertEquals("C", text("SELECT color_identity FROM user_combos WHERE id = '$colourless'"), "colourless as Spellbook writes it, not ''")
         assertFailsWith<DeckRefusal> { combos.add(listOf("Sol Ring", "Not A Card"), "x") }
         assertFailsWith<DeckRefusal> { combos.add(listOf("Sol Ring"), "x") }
         assertFailsWith<DeckRefusal> { combos.remove("1234-5678") }
         assertTrue(combos.remove("user-001"))
         assertEquals(0, count("SELECT COUNT(*) FROM user_combo_cards WHERE combo_id = 'user-001'"))
         assertEquals(false, combos.remove("user-001"))
+    }
+
+    @Test
+    fun `a combo is in a deck only with as many copies as it takes`() {
+        sql(
+            "INSERT INTO combos (id, color_identity) VALUES ('1054-1538-1735', 'R')",
+            "INSERT INTO combo_cards (combo_id, card_name, quantity) VALUES ('1054-1538-1735', 'Coveted Prize', 1), " +
+                "('1054-1538-1735', 'Dragon''s Approach', 2), ('1054-1538-1735', 'Spellweaver Helix', 1)",
+            "INSERT INTO decks (id, name, created_at, updated_at) VALUES (1, 'Approach', 'now', 'now')",
+            "INSERT INTO deck_cards (deck_id, card_name, quantity, added_at) VALUES (1, 'Coveted Prize', 1, 'now'), " +
+                "(1, 'Dragon''s Approach', 1, 'now'), (1, 'Spellweaver Helix', 1, 'now')",
+        )
+        val combos = Combos(db, CardNames(emptyList()))
+        assertEquals(emptyList(), combos.inDeck(1).map { it.id }, "one Dragon's Approach of the two it takes")
+        sql("INSERT INTO deck_cards (deck_id, card_name, quantity, is_sideboard, added_at) VALUES (1, 'Dragon''s Approach', 1, 1, 'now')")
+        assertEquals(listOf("1054-1538-1735"), combos.inDeck(1).map { it.id }, "the second in the sideboard: there, as the sideboard counts")
     }
 }

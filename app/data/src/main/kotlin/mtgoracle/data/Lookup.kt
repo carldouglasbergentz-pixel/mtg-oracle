@@ -72,16 +72,7 @@ class Lookup(val db: MtgDb) {
             st.setInt(1, deckId)
             st.executeQuery().use { rs -> if (rs.next()) rs.getString("name") to rs.getString("format") else null }
         } ?: return@read null
-        val identities = conn.prepareStatement(
-            "SELECT c.color_identity FROM deck_cards dc LEFT JOIN cards c ON c.name = dc.card_name COLLATE NOCASE " +
-                "WHERE dc.deck_id = ? AND dc.is_commander = 1",
-        ).use { st ->
-            st.setInt(1, deckId)
-            st.executeQuery().use { rs -> rs.rows { getString(1) } }
-        }
-        val ci = if (identities.isEmpty()) null
-        else identities.flatMap { it.orEmpty().split(",") }.map { it.trim() }.filter { it.isNotEmpty() }.toSortedSet().toList()
-        DeckScope(deckId, name, ci, formats.resolve(format))
+        DeckScope(deckId, name, commanderIdentity(conn, deckId), formats.resolve(format))
     }
 
     private fun readCustomFormats(): List<CustomFormat> = db.read { conn ->

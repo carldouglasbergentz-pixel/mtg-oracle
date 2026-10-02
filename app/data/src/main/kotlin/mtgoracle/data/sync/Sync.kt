@@ -84,11 +84,14 @@ class Sync(
             db.write(foreignKeys = false) { conn ->
                 if (type == "oracle_cards") {
                     val r = CardsIngest.cards(conn, file)
+                    // Thrown inside the write, so nothing is committed: an empty export would leave every card illegal everywhere.
+                    check(r.cards > 0) { "the oracle_cards export held no cards: nothing was changed" }
                     log("$type: ${r.cards} cards (${r.skipped} non-card entries skipped)")
                     if (r.collisions > 0) notes += "${r.collisions} duplicate-name export entries resolved to the printing legal somewhere"
                     SyncState.set(conn, key, marker, r.cards)
                 } else {
                     val n = CardsIngest.rulings(conn, file)
+                    check(n > 0) { "the rulings export held no rulings: nothing was changed" }
                     log("$type: $n rulings")
                     SyncState.set(conn, key, marker, n)
                 }
@@ -206,7 +209,9 @@ class Sync(
         val notes = mutableListOf<String>()
         for (set in moved) {
             log("printings: fetching ${set.code} (${known[set.code]?.let { "$it → ${set.cardCount}" } ?: "new, ${set.cardCount}"} cards)")
-            val cards = searchSet(set.code).ifEmpty { searchSet(set.code, anyLanguage = true) }
+            // Every language, as the first sync's export has them: an English-only search lost the set's
+            // printings that exist only in another language, since the set is replaced whole.
+            val cards = PrintingsIngest.preferEnglish(searchSet(set.code))
             db.write(foreignKeys = false) { conn ->
                 val n = PrintingsIngest.replaceSet(conn, set.code, cards)
                 PrintingsIngest.saveSets(conn, listOf(set), nowStamp())
@@ -220,12 +225,18 @@ class Sync(
         return listOf("new or changed sets: " + notes.joinToString(", "))
     }
 
-    /** Every page of one set's printings; empty when Scryfall has none (in English, unless [anyLanguage]). */
-    private fun searchSet(setCode: String, anyLanguage: Boolean = false): List<kotlinx.serialization.json.JsonObject> {
+    /**
+     * Every page of one set's printings; empty when Scryfall has none (its search answers 404).
+     * A page missing after the first fails the source, so the set is not replaced by part of itself.
+     */
+    private fun searchSet(setCode: String): List<kotlinx.serialization.json.JsonObject> {
         val cards = mutableListOf<kotlinx.serialization.json.JsonObject>()
-        var url: String? = Upstream.scryfallSetSearch(setCode, anyLanguage)
+        var url: String? = Upstream.scryfallSetSearch(setCode)
+        var pages = 0
         while (url != null) {
-            val page = upstream.scryfallApi(url) ?: break
+            val page = upstream.scryfallApi(url)
+                ?: if (pages == 0) break else error("Scryfall's search for ${setCode.uppercase()} stopped after page $pages: the set is left as it was")
+            pages++
             val (onPage, next) = PrintingsIngest.parsePage(page)
             cards += onPage
             url = next

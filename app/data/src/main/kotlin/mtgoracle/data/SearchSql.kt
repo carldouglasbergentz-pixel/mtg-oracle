@@ -16,14 +16,20 @@ data class Sql(val text: String, val params: List<Any> = emptyList())
  * means. Always parameterised; the only text spliced in is our own. A port
  * of scryfall_search.compile_term / _build_order_by, operator for operator.
  */
-class SearchSql(private val formats: FormatCatalog) {
+class SearchSql(
+    private val formats: FormatCatalog,
+    /** The rarities and layouts the cards have, which `r:` and `layout:` must name; empty, anything goes (no cards yet). */
+    private val rarities: Set<String> = emptySet(),
+    private val layouts: Set<String> = emptySet(),
+) {
 
     fun where(node: SearchNode?): Sql = if (node == null) Sql("1=1") else compile(node)
 
     private fun compile(node: SearchNode): Sql = when (node) {
         is SearchNode.Term -> term(node)
         // Names compare folded (fold(), MtgDb): `eowyn` finds Éowyn, as `card eowyn` does.
-        is SearchNode.Free -> contains(node.value).let { p ->
+        is SearchNode.Free -> if (node.value.isBlank()) throw SearchError("empty quotes: put what to find between them")
+        else contains(node.value).let { p ->
             Sql("(fold(c.name) LIKE ? ESCAPE '!' OR c.type_line LIKE ? ESCAPE '!' COLLATE NOCASE " +
                 "OR c.oracle_text LIKE ? ESCAPE '!' COLLATE NOCASE)", listOf(contains(NameFold.fold(node.value)), p, p))
         }
@@ -32,6 +38,14 @@ class SearchSql(private val formats: FormatCatalog) {
         is SearchNode.Not -> compile(node.expr).let { Sql("NOT COALESCE((${it.text}), 0)", it.params) }
         is SearchNode.And -> join(node.parts, " AND ")
         is SearchNode.Or -> join(node.parts, " OR ")
+    }
+
+    /** [value] as one of [known], or a SearchError naming the likely one: a typo found nothing, silently. */
+    private fun oneOf(what: String, field: String, value: String, known: Set<String>): String {
+        val v = value.trim().lowercase()
+        if (known.isNotEmpty() && v !in known) throw SearchError("unknown $what: '$value'" +
+            (closest(v, known)?.let { " — did you mean $field:$it?" } ?: "") + ". Valid: ${known.sorted().joinToString(", ")}")
+        return v
     }
 
     private fun join(parts: List<SearchNode>, op: String): Sql {
@@ -44,6 +58,8 @@ class SearchSql(private val formats: FormatCatalog) {
             ?: throw SearchError("unknown field: '${t.field}'" + (closest(t.field, SearchFields.ALIAS.keys)?.let { " — did you mean $it${t.op}?" } ?: ""))
         val op = t.op
         val value = t.value
+        // Typed as far as `ci:` or `t:`, the live hint read every card (contains '') or the colourless ones (no colours).
+        if (value.isBlank()) throw SearchError("'${t.field}${t.op}' needs a value")
         fun textOnly(what: String) { if (op != ":" && op != "=") throw SearchError("$what supports only ':' or '=', got '$op'") }
         return when (field) {
             "o" -> { textOnly("oracle text"); Sql("c.oracle_text LIKE ? ESCAPE '!' COLLATE NOCASE", listOf(contains(value))) }
@@ -94,8 +110,8 @@ class SearchSql(private val formats: FormatCatalog) {
             }
             "pow" -> powerOrToughness("power", op, value)
             "tou" -> powerOrToughness("toughness", op, value)
-            "r" -> { textOnly("rarity"); Sql("c.rarity = ?", listOf(value.lowercase())) }
-            "layout" -> { textOnly("layout"); Sql("c.layout = ?", listOf(value.lowercase())) }
+            "r" -> { textOnly("rarity"); Sql("c.rarity = ?", listOf(oneOf("rarity", "r", value, rarities))) }
+            "layout" -> { textOnly("layout"); Sql("c.layout = ?", listOf(oneOf("layout", "layout", value, layouts))) }
             // Restricted cards are legal to play (one copy), so `f:vintage` includes them, as on Scryfall.
             "f" -> legality(op, value, listOf("legal", "restricted"))
             "banned" -> legality(op, value, listOf("banned"))
@@ -219,8 +235,9 @@ class SearchSql(private val formats: FormatCatalog) {
             // A legendary creature, or a card that says it can be your commander.
             "commander" to "(($FRONT_TYPE LIKE '%Legendary%' AND $FRONT_TYPE LIKE '%Creature%') OR c.oracle_text LIKE '%can be your commander%')",
             "permanent" to "($FRONT_TYPE LIKE '%Artifact%' OR $FRONT_TYPE LIKE '%Creature%' OR $FRONT_TYPE LIKE '%Enchantment%' " +
-                "OR $FRONT_TYPE LIKE '%Land%' OR $FRONT_TYPE LIKE '%Planeswalker%' OR $FRONT_TYPE LIKE '%Battle%')",
-            "spell" to "($FRONT_TYPE NOT LIKE '%Land%')",
+                "OR ' ' || $FRONT_TYPE || ' ' LIKE '% Land %' OR $FRONT_TYPE LIKE '%Planeswalker%' OR $FRONT_TYPE LIKE '%Battle%')",
+            // The Land type, the word: Lander Rizzi is a Lander, and a spell.
+            "spell" to "(' ' || $FRONT_TYPE || ' ' NOT LIKE '% Land %')",
             "historic" to "($FRONT_TYPE LIKE '%Legendary%' OR $FRONT_TYPE LIKE '%Artifact%' OR $FRONT_TYPE LIKE '%Saga%')",
             "dfc" to "c.layout IN ('transform', 'modal_dfc', 'reversible_card')",
             "mdfc" to "c.layout = 'modal_dfc'",
