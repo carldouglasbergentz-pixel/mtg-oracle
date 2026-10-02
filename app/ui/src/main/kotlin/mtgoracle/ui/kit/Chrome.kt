@@ -60,25 +60,25 @@ internal fun Modifier.drawnBorder(chrome: Chrome, title: String?, right: String?
         TitleBar.TAPPED -> Palette.tapped to chrome.titleText
         TitleBar.INACTIVE -> chrome.inactiveTitle to chrome.inactiveTitleText
     }
-    val titleStyle = chromeTextStyle(chrome.titleFont, cells, density, barText, bold = true)
+    val titleStyle = chromeTextStyle(chrome.titleFont, cells, density, barText, bold = chrome.titleBold)
     val badgeStyle = chromeTextStyle(chrome.titleFont, cells, density, barText)
     return drawWithCache {
         val cols = cells.cols(size.width)
         val rows = cells.rows(size.height)
         val pad = 2 * hairline()
-        val bar = titleBarRect(chrome, size.width, cells.height)
+        val barRect = titleBarRect(chrome, size.width, cells.height)
         fun line(text: String?, style: TextStyle, maxWidth: Float): TextLayoutResult? = text?.takeIf { it.isNotBlank() && maxWidth > 0 }?.let {
             measurer.measure(chromeSafe(it), style, TextOverflow.Ellipsis, softWrap = false, maxLines = 1, constraints = Constraints(maxWidth = maxWidth.toInt()))
         }
-        val room = bar.width - 2 * pad
+        val room = barRect.width - 2 * pad
         val badge = line(right, badgeStyle, room / 2)
         val head = line(title, titleStyle, room - (badge?.let { it.size.width + 2 * pad } ?: 0f))
         onDrawWithContent {
             drawContent()
             if (cols < 2 || rows < 2) return@onDrawWithContent
-            paintPaneFrame(chrome, barColor, cells.height)
-            head?.let { paintTitleText(chrome, it, Offset(bar.left + pad, bar.top + (bar.height - it.size.height) / 2), barColor) }
-            badge?.let { paintTitleText(chrome, it, Offset(bar.right - pad - it.size.width, bar.top + (bar.height - it.size.height) / 2), barColor) }
+            paintPaneFrame(chrome, barColor, bar, cells.height)
+            head?.let { paintTitleText(chrome, it, Offset(barRect.left + pad, barRect.top + (barRect.height - it.size.height) / 2), barColor) }
+            badge?.let { paintTitleText(chrome, it, Offset(barRect.right - pad - it.size.width, barRect.top + (barRect.height - it.size.height) / 2), barColor) }
         }
     }
 }
@@ -162,12 +162,7 @@ fun RuleLine(cols: Int, modifier: Modifier = Modifier, label: String? = null, en
             if (line[i] != h) { i++; continue }
             val from = i
             while (i < line.length && line[i] == h) i++
-            val x = from * cells.width
-            val w = (i - from) * cells.width
-            for (y in if (heavy) listOf(mid - 2 * p, mid + p) else listOf(mid)) {
-                drawRect(chrome.shadow, Offset(x, y), Size(w, p))
-                drawRect(chrome.light, Offset(x, y + p), Size(w, p))
-            }
+            for (y in if (heavy) listOf(mid - 2 * p, mid + p) else listOf(mid)) paintRule(chrome, from * cells.width, y, (i - from) * cells.width)
         }
     }, color = color, bold = bold)
 }

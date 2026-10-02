@@ -23,8 +23,8 @@ decisions so implementation choices stay coherent.
   the TAPPED label and a tapped frame's border, at 4.5:1 or better against
   the background, because a tapped card missed is a game lost.
 - **Looks of other eras** (the theme picker lists them by year, beside the
-  themes): Windows 95 and XP so far, with Vista, 7 and a modern Linux
-  desktop (KDE Breeze) to follow, for people
+  themes): Windows 95, XP, Vista, 7 and a modern Linux desktop (KDE
+  Breeze Dark), for people
   who don't take to the IDE look. These are a deliberate exception to the
   rules here: they draw bevels, title bars and buttons (`Theme.chrome`). The
   house look stays the default and is unchanged. Two rules hold for them as

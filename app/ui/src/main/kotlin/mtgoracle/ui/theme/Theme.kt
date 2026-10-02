@@ -38,6 +38,9 @@ enum class Era(val label: String) {
     TERMINAL("terminal"),
     Y1995("1995"),
     Y2001("2001"),
+    Y2006("2006"),
+    Y2009("2009"),
+    TODAY("today"),
 }
 
 /**
@@ -54,10 +57,12 @@ data class Chrome(
     val light: Color, val midLight: Color, val shadow: Color, val darkShadow: Color,
     /** The title bar of the pane that has the user's attention (a prompt, a dialog, the command line typing), and of every other. */
     val title: Color, val titleText: Color, val inactiveTitle: Color, val inactiveTitleText: Color,
-    /** The family buttons (and titles, unless [titleFont]) are set in; the grid font when it isn't installed. */
+    /** The families buttons (and titles, unless [titleFont]) are set in, the first installed of a comma-separated list; the grid font when none is. */
     val font: String,
-    /** The title bars' family where it differs (XP set them in Trebuchet MS, its buttons in Tahoma). */
+    /** The title bars' families where they differ (XP set them in Trebuchet MS, its buttons in Tahoma). */
     val titleFont: String = font,
+    /** Titles in bold (95, XP), or not (Vista and 7 set them in plain Segoe UI). */
+    val titleBold: Boolean = true,
     val style: ChromeStyle = ChromeStyle.Bevel,
 )
 
@@ -72,6 +77,20 @@ sealed interface ChromeStyle {
      * [outline] that [glow] under the mouse.
      */
     data class Luna(val outline: Color, val glow: Color) : ChromeStyle
+
+    /**
+     * Vista's and 7's Aero: title bars and frames of tinted glass with a
+     * sheen on their upper half, the title in black on a white glow; buttons
+     * shaded in two halves with an [outline], [hoverFace] and [hoverEdge]
+     * under the mouse.
+     */
+    data class Aero(val outline: Color, val hoverFace: Color, val hoverEdge: Color) : ChromeStyle
+
+    /**
+     * KDE's Breeze: flat surfaces, thin rounded outlines; what has the user's
+     * attention is outlined in the accent, as Breeze marks focus.
+     */
+    data object Breeze : ChromeStyle
 }
 
 object Themes {
@@ -113,7 +132,45 @@ object Themes {
         Era.Y2001,
     )
 
-    val ALL = listOf(HOUSE, ROSE_PINE, PAPER, CODE_DARK, SOLARIZED, WIN95, XP)
+    /** Aero's glass buttons and its blue, shared by Vista and 7: they differ in the glass. */
+    private val AERO = ChromeStyle.Aero(outline = Color(0xFF707070), hoverFace = Color(0xFFBEE6FD), hoverEdge = Color(0xFF3C7FB1))
+
+    /**
+     * Windows Vista: its smoky glass, the light face of its dialogs, Segoe UI; 7's link blue as the accent
+     * (Aero's selection blue, #3399FF, reads at 2.9:1 as text on white).
+     */
+    val VISTA = Theme(
+        "vista", "windows vista", Color(0xFFFFFFFF), Color(0xFF000000), Color(0xFF6B6B6B), Color(0xFF0066CC), Color(0xFFC00000),
+        Chrome(
+            face = Color(0xFFF0F0F0), light = Color(0xFFFFFFFF), midLight = Color(0xFFF7F7F7), shadow = Color(0xFFA0A0A0), darkShadow = Color(0xFF3A3A3A),
+            title = Color(0xFF52707F), titleText = Color(0xFF000000), inactiveTitle = Color(0xFF8B9DA8), inactiveTitleText = Color(0xFF3A3A3A),
+            font = "Segoe UI", titleBold = false, style = AERO,
+        ),
+        Era.Y2006,
+    )
+
+    /** Windows 7: Vista's look under its default "Sky" glass. */
+    val SEVEN = VISTA.copy(
+        key = "seven", label = "windows 7",
+        chrome = VISTA.chrome!!.copy(title = Color(0xFF5B8ED0), inactiveTitle = Color(0xFF9DB8DC)),
+        era = Era.Y2009,
+    )
+
+    /**
+     * KDE Plasma's Breeze Dark, the desktop of SteamOS and Bazzite: its window and view greys, its blue, Noto Sans (Segoe UI where it isn't installed).
+     * Breeze's negative red (#DA4453) is lightened to read on the view (5.6:1, where Breeze's own is 4.0:1).
+     */
+    val BREEZE = Theme(
+        "breeze-dark", "breeze dark (KDE)", Color(0xFF1B1E20), Color(0xFFFCFCFC), Color(0xFFA1A9B1), Color(0xFF3DAEE9), Color(0xFFEE6A75),
+        Chrome(
+            face = Color(0xFF2A2E32), light = Color(0xFFFCFCFC), midLight = Color(0xFF3B4045), shadow = Color(0xFF4D5257), darkShadow = Color(0xFF232629),
+            title = Color(0xFF31363B), titleText = Color(0xFFFCFCFC), inactiveTitle = Color(0xFF2A2E32), inactiveTitleText = Color(0xFFA1A9B1),
+            font = "Noto Sans, Segoe UI", style = ChromeStyle.Breeze,
+        ),
+        Era.TODAY,
+    )
+
+    val ALL = listOf(HOUSE, ROSE_PINE, PAPER, CODE_DARK, SOLARIZED, WIN95, XP, VISTA, SEVEN, BREEZE)
 
     fun byKey(key: String?): Theme? = ALL.firstOrNull { it.key == key }
 
@@ -177,9 +234,11 @@ object HouseFont {
 object ChromeFont {
     private val families = java.util.concurrent.ConcurrentHashMap<String, FontFamily>()
 
-    fun family(name: String): FontFamily = families.getOrPut(name) {
-        FontMgr.default.matchFamilyStyle(name, FontStyle.NORMAL)?.takeIf { it.familyName.equals(name, ignoreCase = true) }
-            ?.let { FontFamily(Typeface(it)) } ?: HouseFont.family
+    /** The first installed of [names] (comma-separated), or the grid font. */
+    fun family(names: String): FontFamily = families.getOrPut(names) {
+        names.split(',').map { it.trim() }.firstNotNullOfOrNull { name ->
+            FontMgr.default.matchFamilyStyle(name, FontStyle.NORMAL)?.takeIf { it.familyName.equals(name, ignoreCase = true) }
+        }?.let { FontFamily(Typeface(it)) } ?: HouseFont.family
     }
 }
 
