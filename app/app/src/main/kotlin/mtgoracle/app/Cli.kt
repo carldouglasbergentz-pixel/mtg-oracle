@@ -110,12 +110,8 @@ object Cli {
     private fun lookup(db: MtgDb, command: String, rest: List<String>, asJson: Boolean): Int {
         val lookup = Lookup(db)
         val library = Library(db)
-        fun deck(text: String): DeckSummary? {
-            val folder = if ('/' in text) text.substringBefore('/').trim() else null
-            val name = text.substringAfter('/').trim()
-            val matches = library.decks().filter { it.name.equals(name, ignoreCase = true) && (folder == null || it.folderName.equals(folder, ignoreCase = true)) }
-            return matches.singleOrNull()
-        }
+        // The window's own resolver: `(unsorted)/X` works, and a name in several folders says which.
+        fun deck(text: String): DeckSummary? = LookupCommands.resolveDeck(library.decks(), text).getOrElse { System.err.println(it.message); null }
         val arg = rest.joinToString(" ")
         // Text: the app's own commands, the last one's output as the pane would show it.
         fun text(vararg lines: String, selected: DeckSummary? = null): Int {

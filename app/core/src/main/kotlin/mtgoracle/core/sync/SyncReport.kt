@@ -41,5 +41,4 @@ data class SyncReport(
     val state: List<Triple<String, String?, Int?>>,
 ) {
     val touched: Boolean get() = changes.any { (it.added ?: 0) + (it.removed ?: 0) + (it.modified ?: 0) + kotlin.math.abs(it.net ?: 0) > 0 }
-    val changedCards: Boolean get() = changes.any { it.table in setOf("cards", "points", "oracletags", "tags") && ((it.added ?: 0) + (it.removed ?: 0) + (it.modified ?: 0) + kotlin.math.abs(it.net ?: 0) > 0) }
 }

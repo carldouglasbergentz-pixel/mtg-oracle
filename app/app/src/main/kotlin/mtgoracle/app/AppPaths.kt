@@ -3,6 +3,7 @@ package mtgoracle.app
 import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.play.MatchFormat
 import mtgoracle.forge.ForgeSetup
+import mtgoracle.forge.Log
 import mtgoracle.ui.board.BoardLayout
 import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.library.DECK_LIST_COLS
@@ -52,7 +53,8 @@ data class AppPaths(
 /** The few preferences the app keeps; a missing or broken file means the defaults. */
 class Settings(private val file: File) {
     private val props = Properties().apply {
-        if (file.isFile) runCatching { file.reader(Charsets.UTF_8).use(::load) }
+        // A broken file means the defaults, but said: the next save writes over it.
+        if (file.isFile) runCatching { file.reader(Charsets.UTF_8).use(::load) }.onFailure { Log.warn("settings in $file unreadable, using the defaults: $it") }
     }
 
     var stops: PhaseStops

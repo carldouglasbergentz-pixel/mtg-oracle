@@ -99,12 +99,15 @@ class LookupCommands(
     var scope by mutableStateOf<DeckScope?>(null)
         private set
 
-    /** Opens deck [id] to work on: search follows it from now on. False when it is gone. */
-    fun enterDeck(id: Int): Boolean {
+    /**
+     * Opens deck [id] to work on: search follows it from now on. False when it is gone.
+     * [carried]: the same deck, re-entered after a sync rebuilt the lookup — its output stays.
+     */
+    fun enterDeck(id: Int, carried: Boolean = false): Boolean {
         val entered = lookup.deckScope(id) ?: return false
         // Another deck starts with an empty output: the last deck's searches and reports only crowd it.
         // The same deck again keeps what it had; a `cd` keeps its own echo.
-        if (id != lastDeck) {
+        if (id != lastDeck && !carried) {
             val echo = output.entries.lastOrNull()?.takeIf { it.isEcho }
             output.clear()
             echo?.let { output.entries += it }
@@ -447,20 +450,7 @@ class LookupCommands(
     }
 
     /** The deck `<deck>` or `<folder>/<deck>` names; null for none, a failure naming the folders when several match. */
-    private fun findDeck(arg: String): Result<DeckSummary?> {
-        val folder = if ('/' in arg) arg.substringBefore('/').trim() else null
-        val name = arg.substringAfter('/').trim()
-        val matches = decks().filter { d ->
-            d.name.equals(name, ignoreCase = true) &&
-                (folder == null || (d.folderName ?: UNSORTED).equals(folder, ignoreCase = true) || (d.folderName == null && folder.equals("(no folder)", ignoreCase = true)))
-        }
-        return when (matches.size) {
-            0 -> Result.success(null)
-            1 -> Result.success(matches.single())
-            else -> Result.failure(IllegalArgumentException(
-                "('$name' is in several folders: ${matches.joinToString(", ") { it.folderName ?: UNSORTED }} — use `<folder>/$name`)"))
-        }
-    }
+    private fun findDeck(arg: String): Result<DeckSummary?> = resolveDeck(decks(), arg)
 
     /** The decks in the folder named [name] (ignoring case), or null when no folder has that name. */
     private fun folderDecks(name: String): List<DeckSummary>? =
@@ -641,5 +631,25 @@ class LookupCommands(
         const val PAGE_SIZE = 50
         /** How `cd` names the decks outside every folder (the TUI's path for them). */
         const val UNSORTED = "(unsorted)"
+
+        /**
+         * The deck `<deck>` or `<folder>/<deck>` names among [decks]: null for none, a failure naming the folders
+         * when several match (never the first). `(unsorted)/X` and `(no folder)/X` are the decks outside every folder.
+         * The window's commands and the command line both resolve through here.
+         */
+        fun resolveDeck(decks: List<DeckSummary>, arg: String): Result<DeckSummary?> {
+            val folder = if ('/' in arg) arg.substringBefore('/').trim() else null
+            val name = arg.substringAfter('/').trim()
+            val matches = decks.filter { d ->
+                d.name.equals(name, ignoreCase = true) &&
+                    (folder == null || (d.folderName ?: UNSORTED).equals(folder, ignoreCase = true) || (d.folderName == null && folder.equals("(no folder)", ignoreCase = true)))
+            }
+            return when (matches.size) {
+                0 -> Result.success(null)
+                1 -> Result.success(matches.single())
+                else -> Result.failure(IllegalArgumentException(
+                    "('$name' is in several folders: ${matches.joinToString(", ") { it.folderName ?: UNSORTED }} — use `<folder>/$name`)"))
+            }
+        }
     }
 }

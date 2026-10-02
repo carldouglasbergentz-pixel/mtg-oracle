@@ -107,7 +107,8 @@ class AppController(private val paths: AppPaths) {
     private lateinit var library: Library
     private var analysis: Analysis? = null
     private lateinit var sessions: Sessions
-    private val deckCache = mutableMapOf<Int, Deck>()
+    // Read by the prefetch thread while the UI thread clears it.
+    private val deckCache = java.util.concurrent.ConcurrentHashMap<Int, Deck>()
     /** Each deck's analysis block until the deck changes: arrowing through the list re-reads nothing. */
     private val insightCache = mutableMapOf<Int, DeckInsight>()
 
@@ -164,7 +165,8 @@ class AppController(private val paths: AppPaths) {
             showOutput = carry?.ui?.showOutput ?: false
             intent = actions::handle
         }
-        carry?.scope?.let { lookupCommands.enterDeck(it.deckId) }
+        // The new commands have no last deck: entered as new, the deck would lose the output (prune's own report) that was just carried over.
+        carry?.scope?.let { lookupCommands.enterDeck(it.deckId, carried = true) }
     }
 
     /** The sync running, if one is; its log line is the notice. */
@@ -195,7 +197,8 @@ class AppController(private val paths: AppPaths) {
             java.awt.EventQueue.invokeLater {
                 val current = commands ?: return@invokeLater
                 if (report == null) { notice = "sync failed: see ${paths.appLog}"; return@invokeLater }
-                if (report.changedCards) buildLookup(database, carry = current)
+                // Always: a points change (4 to 3) keeps the row count, so the report can't tell; a rebuild is ~130 ms.
+                buildLookup(database, carry = current)
                 commands?.output?.add(mtgoracle.ui.lookup.renderSyncReport(report))
                 lookupUi?.showOutput = true
                 notice = if (report.failures.isEmpty()) "sync done" + if (report.touched) "" else ": everything was up to date"
@@ -231,6 +234,11 @@ class AppController(private val paths: AppPaths) {
             return
         } catch (e: SchemaTooNewException) {
             screen = Screen.Blocked(e.message!!)
+            return
+        } catch (e: Exception) {
+            // A locked or corrupt file, a backup that couldn't be written: a window that says so, not none at all.
+            Log.error("could not open ${paths.db}", e)
+            screen = Screen.Blocked("Couldn't open ${paths.db}: ${e.message ?: e::class.simpleName}. The full trace is in ${paths.appLog}.")
             return
         }
         thread(name = "forge-start", isDaemon = true) {
@@ -563,6 +571,7 @@ class AppController(private val paths: AppPaths) {
     var crash by mutableStateOf<String?>(null)
     /** A new window after a crash in the old one's composition (Main keys the window on it). */
     var windowEpoch by mutableStateOf(0)
+    /** The match whose window broke: closing the app then records its game as unfinished, not conceded. */
     @Volatile private var crashed: RunningMatch? = null
 
     /**
@@ -574,9 +583,10 @@ class AppController(private val paths: AppPaths) {
     fun onCrash(where: String, error: Throwable) {
         Log.error("CRASH in $where", error)
         match?.recorder?.note("APP CRASH in $where: ${Log.trace(error).replace("\n", " | ")}")
-        crashed = match
         val line = "${error::class.simpleName}: ${error.message ?: "no message"}"
         if (where == "window") {
+            // Only a broken window breaks the game off; after an error elsewhere it plays on, and leaving it is the player's choice.
+            crashed = match
             crash = line
             screen = Screen.Crashed
             windowEpoch++
@@ -597,19 +607,19 @@ class AppController(private val paths: AppPaths) {
         backToLibrary()
     }
 
-    /** From the crash screen: try the board again (the game is still on). */
     /** Where the app log is, for the crash screen. */
     val appLogPath: String get() = paths.appLog.absolutePath
 
+    /** From the crash screen: try the board again (the game is still on, and leaving it is a concession again). */
     fun retryBoard() {
         crash = null
+        crashed = null
         screen = if (match != null) Screen.Playing else Screen.Library
     }
 
     /** The theme to start in: the one picked here, else the TUI's (the user runs rose-pine there), else the house one. */
     fun startTheme(): Theme = Themes.byKey(settings.theme) ?: Themes.fromTextual(tuiTheme(paths.tuiConfig)) ?: Themes.HOUSE
 
-    /** F8: the next theme, everywhere at once, and remembered. */
     /** The theme picker (F8, the toolbar's Theme button): open while non-null, holding the theme Esc goes back to. */
     var themePickerFrom by mutableStateOf<Theme?>(null)
         private set

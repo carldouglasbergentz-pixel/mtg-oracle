@@ -141,6 +141,10 @@ class LibraryActions(
             }
         } catch (e: DeckRefusal) {
             say(e.message ?: e.kind.name)
+        } catch (e: Exception) {
+            // A read before the question (the decks in a folder) failing: said, as a write's failure is, not the crash screen's "the board hit an error".
+            Log.error("library action failed", e)
+            say("failed: ${e.message}")
         }
     }
 
