@@ -47,12 +47,35 @@ class ThemeAndPanesTest {
             board(FakeSeat(sampleBoard(), null)).use { it.settle(5); it.savePng(file) }
             val image = ImageIO.read(file)
             assertEquals(theme.background.toArgb(), image.getRGB(900, 300), "${theme.key}: the table's background")
-            // A colour any other theme defines, drawn exactly, would be a colour the theme didn't reach.
-            val others = Themes.ALL.filter { it != theme }.flatMap { listOf(it.background, it.foreground, it.accent) }.map { it.toArgb() }.toSet()
+            // A colour any other theme defines (and this one doesn't), drawn exactly, would be a colour the theme didn't reach.
+            fun tones(t: mtgoracle.ui.theme.Theme) = listOf(t.background, t.foreground, t.accent).map { it.toArgb() }
+            val own = (tones(theme) + listOfNotNull(theme.chrome).flatMap { c -> listOf(c.face, c.light, c.midLight, c.shadow, c.darkShadow, c.title, c.titleText, c.inactiveTitle, c.inactiveTitleText).map { it.toArgb() } }).toSet()
+            // An antialiased edge between two of the theme's own tones can land on any colour between them (black text on white makes every grey).
+            fun blend(c: Int) = own.any { a -> own.any { b -> between(a, b, c) } }
+            val others = (Themes.ALL.filter { it != theme }.flatMap(::tones).toSet() - own).filterNot(::blend).toSet()
             val pixels = image.getRGB(0, 0, image.width, image.height, null, 0, image.width)
             val strays = pixels.count { it in others }
             assertEquals(0, strays, "${theme.key}: $strays pixels in another theme's colours")
         }
+    }
+
+    /** Whether [c] lies on the line from [a] to [b], one step of rounding allowed per channel. */
+    private fun between(a: Int, b: Int, c: Int): Boolean {
+        fun ch(v: Int, shift: Int) = (v shr shift) and 0xFF
+        val ts = listOf(16, 8, 0).mapNotNull { sh -> (ch(b, sh) - ch(a, sh)).takeIf { it != 0 }?.let { (ch(c, sh) - ch(a, sh)).toFloat() / it } }
+        val t = ts.firstOrNull() ?: return a == c
+        return t in 0f..1f && listOf(16, 8, 0).all { sh -> kotlin.math.abs(ch(a, sh) + t * (ch(b, sh) - ch(a, sh)) - ch(c, sh)) <= 1.5f }
+    }
+
+    @Test
+    fun `a drawn chrome moves nothing - every region and card sits where the house look puts it`() {
+        fun layout(theme: mtgoracle.ui.theme.Theme): Map<ClickTarget, androidx.compose.ui.geometry.Rect> {
+            Palette.theme = theme
+            return board(FakeSeat(sampleBoard(), null)).use { d -> d.settle(5); d.registry.targets.associateWith { d.registry[it]!! } }
+        }
+        val house = layout(Themes.HOUSE)
+        assertTrue(house.size > 20, "the board registers its regions and cards: ${house.size}")
+        for (theme in Themes.ALL.filter { it.chrome != null }) assertEquals(house, layout(theme), "${theme.key}: the layout")
     }
 
     @Test

@@ -73,6 +73,7 @@ fun Modifier.boxBorder(title: String? = null, right: String? = null, border: Bor
     val titleStyle = gridStyle.copy(color = titleColor, fontWeight = FontWeight.Bold)
     title?.let { RecordText(it) }
     right?.let { RecordText(it) }
+    Palette.chrome?.let { return drawnBorder(it, title, right, titleBar(border, color)) }
     return drawWithCache {
         val cols = cells.cols(size.width)
         val rows = cells.rows(size.height)
@@ -95,7 +96,18 @@ fun Modifier.boxBorder(title: String? = null, right: String? = null, border: Bor
     }
 }
 
-/** A titled pane: a character border one cell wide, content inside it. */
+/**
+ * The title bar a drawn chrome gives what the character border says with its
+ * lines and colour: a double line or the accent has the user's attention, a
+ * dashed line or the tapped tone is a tapped card (or a crash).
+ */
+private fun titleBar(border: Border, color: Color): TitleBar = when {
+    border == Border.DASHED || color == Palette.tapped -> TitleBar.TAPPED
+    border == Border.DOUBLE || color == Palette.accent -> TitleBar.ACTIVE
+    else -> TitleBar.INACTIVE
+}
+
+/** A titled pane: a character border one cell wide (or a drawn chrome in the same cells), content inside it. */
 @Composable
 fun BoxPane(
     title: String?,

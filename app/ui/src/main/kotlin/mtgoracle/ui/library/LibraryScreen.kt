@@ -35,6 +35,7 @@ import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.ui.board.SIDE_COLS
 import mtgoracle.ui.kit.BoxPane
+import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.kit.ClickTarget
@@ -132,7 +133,7 @@ fun LibraryScreen(
         showDeck(decks[(at + by).coerceIn(0, decks.lastIndex)].id)
     }
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(Palette.background).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
+        Modifier.fillMaxSize().background(Palette.surface).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
             when (lookup?.let { routeKey(e, it, commandFocus) } ?: KeyRoute.TO_SCREEN) {
                 KeyRoute.HANDLED -> return@onPreviewKeyEvent true
@@ -261,7 +262,7 @@ internal val TYPING_HINTS = listOf("Enter" to "run", "↑↓" to "history", "Tab
 internal fun Buttons(buttons: List<Pair<String, String>>, onClick: (ClickTarget) -> Unit) {
     Row {
         buttons.forEach { (name, label) ->
-            GridText(label, Modifier.clickTarget(ClickTarget.Control(name), onClick), color = Palette.background, background = Palette.foreground)
+            ControlButton(label, ClickTarget.Control(name), true, onClick)
             GridText("  ")
         }
     }

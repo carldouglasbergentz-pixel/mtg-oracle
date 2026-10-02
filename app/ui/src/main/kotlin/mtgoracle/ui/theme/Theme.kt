@@ -27,6 +27,26 @@ data class Theme(
     val key: String, val label: String, val background: Color, val foreground: Color, val dim: Color, val accent: Color,
     /** A status tone beside the two tones: tapped (its label and frame). At least 4.5:1 against [background] (ThemeAndPanesTest). */
     val tapped: Color,
+    /** Drawn chrome (bevels, title bars, buttons) instead of box-drawing characters; null for the house look. */
+    val chrome: Chrome? = null,
+)
+
+/**
+ * A look that draws its own chrome, as a desktop of its era did: the tones
+ * of its surfaces and edges and the face its titles and buttons are set in.
+ * The chrome is drawn in the cells the character border takes, so a look
+ * changes no layout. The panes' content stays on [Theme.background] in the
+ * grid font.
+ */
+data class Chrome(
+    /** The window's own surface: around and between panes, behind buttons and the status line. */
+    val face: Color,
+    /** The edges of a raised or sunken surface, lightest to darkest. */
+    val light: Color, val midLight: Color, val shadow: Color, val darkShadow: Color,
+    /** The title bar of the pane that has the user's attention (a prompt, a dialog, the command line typing), and of every other. */
+    val title: Color, val titleText: Color, val inactiveTitle: Color, val inactiveTitleText: Color,
+    /** The family titles and buttons are set in; the grid font when it isn't installed. */
+    val font: String,
 )
 
 object Themes {
@@ -39,7 +59,20 @@ object Themes {
     /** Solarized dark: base03, base1, base01, yellow; its red, lightened to read on base03 (4.8:1, where the published red is 3.3:1). */
     val SOLARIZED = Theme("solarized-dark", "solarized dark", Color(0xFF002B36), Color(0xFF93A1A1), Color(0xFF586E75), Color(0xFFB58900), Color(0xFFF2645D))
 
-    val ALL = listOf(HOUSE, ROSE_PINE, PAPER, CODE_DARK, SOLARIZED)
+    /**
+     * Windows 95's standard scheme: the white of its list views for the panes, its button face around them, navy title bars.
+     * One departure: an inactive title is white, not 95's light grey on grey (1.9:1), because a card's name is in its title.
+     */
+    val WIN95 = Theme(
+        "win95", "windows 95", Color(0xFFFFFFFF), Color(0xFF000000), Color(0xFF6B6B6B), Color(0xFF000080), Color(0xFFC00000),
+        Chrome(
+            face = Color(0xFFC0C0C0), light = Color(0xFFFFFFFF), midLight = Color(0xFFDFDFDF), shadow = Color(0xFF808080), darkShadow = Color(0xFF000000),
+            title = Color(0xFF000080), titleText = Color(0xFFFFFFFF), inactiveTitle = Color(0xFF808080), inactiveTitleText = Color(0xFFFFFFFF),
+            font = "Microsoft Sans Serif",
+        ),
+    )
+
+    val ALL = listOf(HOUSE, ROSE_PINE, PAPER, CODE_DARK, SOLARIZED, WIN95)
 
     fun byKey(key: String?): Theme? = ALL.firstOrNull { it.key == key }
 
@@ -69,6 +102,11 @@ object Palette {
     val dim: Color get() = theme.dim
     val accent: Color get() = theme.accent
     val tapped: Color get() = theme.tapped
+    val chrome: Chrome? get() = theme.chrome
+    /** The window behind the panes: the chrome's face, or the background where the panes are drawn in characters. */
+    val surface: Color get() = theme.chrome?.face ?: theme.background
+    /** Text set straight on [surface] (the status line): dim in the house look, where it sits on the background; full on a face, where dim would not read. */
+    val surfaceText: Color get() = if (theme.chrome != null) theme.foreground else theme.dim
     /** Behind whatever the mouse is on: the background leaning toward the accent, so every tone still reads on it. */
     val hover: Color get() = lerp(theme.background, theme.accent, 0.25f)
 }
@@ -92,6 +130,16 @@ object HouseFont {
     }
 
     val family: FontFamily by lazy { FontFamily(Typeface(typeface)) }
+}
+
+/** The chrome's own faces (titles, buttons), by family name, each looked up once. */
+object ChromeFont {
+    private val families = java.util.concurrent.ConcurrentHashMap<String, FontFamily>()
+
+    fun family(name: String): FontFamily = families.getOrPut(name) {
+        FontMgr.default.matchFamilyStyle(name, FontStyle.NORMAL)?.takeIf { it.familyName.equals(name, ignoreCase = true) }
+            ?.let { FontFamily(Typeface(it)) } ?: HouseFont.family
+    }
 }
 
 val gridStyle: TextStyle

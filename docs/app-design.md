@@ -22,6 +22,13 @@ decisions so implementation choices stay coherent.
   red, a Solarized red lightened to read on base03). It is used only for
   the TAPPED label and a tapped frame's border, at 4.5:1 or better against
   the background, because a tapped card missed is a game lost.
+- **Looks of other eras** (F8, beside the themes): Windows 95 so far, with
+  XP, Vista, 7 and a modern Linux desktop (KDE Breeze) to follow, for people
+  who don't take to the IDE look. These are a deliberate exception to the
+  rules here: they draw bevels, title bars and buttons (`Theme.chrome`). The
+  house look stays the default and is unchanged. Two rules hold for them as
+  well: the chrome is drawn in the cells the character border takes, so a
+  look never moves anything, and the panes' content stays in the grid font.
 - On the table a tapped permanent is also *turned* a quarter clockwise, art
   and all, as a hand turns it, and scaled by the same factor both ways to
   stay inside its upright slot, so tapping moves nothing around it. R

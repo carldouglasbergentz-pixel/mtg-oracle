@@ -23,6 +23,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.ui.kit.BoxPane
+import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.StatusLine
@@ -95,7 +96,7 @@ fun SetupScreen(
         onSelect(opponents[(at + by).coerceIn(0, opponents.lastIndex)].deck.id)
     }
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(Palette.background).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
+        Modifier.fillMaxSize().background(Palette.surface).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
             when (e.key) {
                 Key.DirectionUp -> move(-1)
@@ -159,14 +160,11 @@ fun SetupScreen(
                     GridText("")
                     Row {
                         val startable = canStart && !simRunning
-                        GridText("[ Start ]", Modifier.clickTarget(ClickTarget.Control("start"), onClick),
-                            color = if (startable) Palette.background else Palette.dim, background = if (startable) Palette.foreground else Color.Unspecified)
+                        ControlButton("[ Start ]", ClickTarget.Control("start"), startable, onClick)
                         GridText("  ")
-                        val simulable = canStart || simRunning
-                        GridText(if (simRunning) "[ Stop simulation ]" else "[ Simulate $simGames ]", Modifier.clickTarget(ClickTarget.Control("simulate"), onClick),
-                            color = if (simulable) Palette.background else Palette.dim, background = if (simulable) Palette.foreground else Color.Unspecified)
+                        ControlButton(if (simRunning) "[ Stop simulation ]" else "[ Simulate $simGames ]", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
                         GridText("  ")
-                        GridText("[ Back ]", Modifier.clickTarget(ClickTarget.Control("back"), onClick), color = Palette.background, background = Palette.foreground)
+                        ControlButton("[ Back ]", ClickTarget.Control("back"), true, onClick)
                         GridText(if (forgeReady) "" else "   Forge is loading…", color = Palette.dim)
                     }
                 }

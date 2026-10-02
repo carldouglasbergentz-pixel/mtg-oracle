@@ -135,7 +135,7 @@ fun DeckWorkspace(
         }
     }
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(Palette.background).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
+        Modifier.fillMaxSize().background(Palette.surface).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
             when (routeKey(e, lookup, commandFocus)) {
                 KeyRoute.HANDLED -> return@onPreviewKeyEvent true

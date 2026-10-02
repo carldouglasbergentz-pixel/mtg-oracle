@@ -173,7 +173,7 @@ fun BoardScreen(
 
     CompositionLocalProvider(LocalClickRegistry provides registry) {
         BoxWithConstraints(
-            Modifier.fillMaxSize().background(Palette.background)
+            Modifier.fillMaxSize().background(Palette.surface)
                 .focusRequester(focus).focusable()
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false

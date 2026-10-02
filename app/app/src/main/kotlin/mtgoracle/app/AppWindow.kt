@@ -128,7 +128,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
 @Composable
 private fun CrashScreen(app: AppController) {
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
-    Box(Modifier.fillMaxSize().background(Palette.background)
+    Box(Modifier.fillMaxSize().background(Palette.surface)
         .focusRequester(focus).focusable()
         .onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false

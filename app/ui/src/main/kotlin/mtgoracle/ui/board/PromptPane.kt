@@ -27,6 +27,7 @@ import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.Emphasis
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.cellHeight
+import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.face
@@ -43,9 +44,7 @@ const val PROMPT_ROWS = PROMPT_CONTENT_ROWS + 2 + 2 // + buttons, hint, and the 
 /** A `[ label ]` button; disabled ones are drawn dim and can't be clicked. */
 @Composable
 fun GridButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (ClickTarget) -> Unit) {
-    val text = "[ $label ]"
-    if (enabled) GridText(text, Modifier.clickTarget(target, onClick), color = Palette.background, background = Palette.foreground)
-    else GridText(text, color = Palette.dim)
+    ControlButton("[ $label ]", target, enabled, onClick)
     GridText("  ")
 }
 
@@ -149,9 +148,9 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
             GridText(fit("assigned $sum of ${prompt.total}", cols), color = if (sum == prompt.total) Palette.foreground else Palette.accent)
         }
         is NumberPrompt -> Row {
-            GridText("[-]", Modifier.clickTarget(ClickTarget.Less(0), onClick), color = Palette.background, background = Palette.foreground)
+            ControlButton("[-]", ClickTarget.Less(0), true, onClick)
             GridText(" %4s ".format(state.digits.ifEmpty { prompt.default().toString() }), bold = true)
-            GridText("[+]", Modifier.clickTarget(ClickTarget.More(0), onClick), color = Palette.background, background = Palette.foreground)
+            ControlButton("[+]", ClickTarget.More(0), true, onClick)
             GridText("   ${prompt.min}–${if (prompt.max == Int.MAX_VALUE) "any" else prompt.max}" + (prompt.note?.let { " · $it" } ?: ""), color = Palette.dim)
         }
     }

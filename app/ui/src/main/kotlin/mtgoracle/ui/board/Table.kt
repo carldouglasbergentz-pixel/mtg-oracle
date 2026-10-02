@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import mtgoracle.ui.kit.PaneDrag
+import mtgoracle.ui.kit.RuleLine
 import mtgoracle.ui.kit.PaneEdge
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -260,8 +261,7 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
         Box(Modifier.fillMaxSize().then(if (band in plan.scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier)) {
             Box(Modifier.cells(contentCols, bandRows(looks.tier, looks.attach))) {
                 segments.forEach { seg ->
-                    val label = "─ ${seg.zone.label} "
-                    GridText(fit(label + "─".repeat(maxOf(0, seg.width - label.length - 1)), maxOf(1, seg.width - 1)), Modifier.offset(x = dx(seg.x)), color = Palette.dim)
+                    RuleLine(maxOf(1, seg.width - 1), Modifier.offset(x = dx(seg.x)), label = seg.zone.label)
                 }
                 places.forEachIndexed { order, place ->
                     val slot = lanes.zone(place.zone)[place.index]
@@ -350,7 +350,7 @@ const val TRAIL_LINES = HEADER_ROWS - 1
 /** The midline: the heavy rule between the halves, nothing on it — the news is in the header. */
 @Composable
 fun MidRule(cols: Int, modifier: Modifier = Modifier) {
-    GridText("═".repeat(maxOf(0, cols)), modifier.cellHeight(MIDLINE_ROWS), color = Palette.accent)
+    RuleLine(cols, modifier.cellHeight(MIDLINE_ROWS), heavy = true, color = Palette.accent)
 }
 
 /**
@@ -373,10 +373,8 @@ fun Header(title: String, board: BoardState?, cols: Int, modifier: Modifier = Mo
         })
         if (board.gameOver) append(" · GAME OVER: ${board.result}")
     }
-    val head = "═══ $text "
-    val tail = " $title ═══"
     Column(modifier.cellHeight(HEADER_ROWS)) {
-        GridText(fit(head + "═".repeat(maxOf(0, cols - head.length - tail.length)) + tail, cols), color = Palette.accent, bold = true)
+        RuleLine(cols, label = text, end = title, heavy = true, color = Palette.accent, bold = true)
         Column(Modifier.cells(cols, TRAIL_LINES).region("trail")) { if (board != null) TrailStrip(board, cols) }
     }
 }

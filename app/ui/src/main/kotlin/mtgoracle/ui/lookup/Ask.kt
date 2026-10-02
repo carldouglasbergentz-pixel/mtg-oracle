@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import mtgoracle.ui.kit.BoxPane
+import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.FitText
 import mtgoracle.ui.kit.GridText
@@ -152,7 +153,6 @@ private fun ChooseAsk(ask: Ask.Choose, onClose: () -> Unit) {
 @Composable
 private fun Button(label: String, name: String, onClick: () -> Unit) {
     GridText(" ")
-    GridText("[ $label ]", Modifier.clickTarget(ClickTarget.Control(name), { onClick() }).pointerHoverIcon(PointerIcon.Hand),
-        color = Palette.background, background = Palette.foreground)
+    ControlButton("[ $label ]", ClickTarget.Control(name), true) { onClick() }
 }
 

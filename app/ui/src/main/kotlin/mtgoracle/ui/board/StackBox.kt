@@ -25,6 +25,7 @@ import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.StackEntry
 import mtgoracle.core.model.StackKind
 import mtgoracle.ui.kit.Border
+import mtgoracle.ui.kit.RuleLine
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardFrame
 import mtgoracle.ui.kit.CardMode
@@ -97,7 +98,7 @@ fun StackBox(
         Box(Modifier.padding(with(density) { cells.width.toDp() }, with(density) { cells.height.toDp() }).cells(inner, rows - 2)) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 board.stack.forEachIndexed { i, item ->
-                    if (i > 0) GridText("─".repeat(inner), color = Palette.dim)
+                    if (i > 0) RuleLine(inner)
                     val theirs = item.controllerId == farId
                     val pick = BoardRef.StackItem(item.id) in picks
                     var over by remember { mutableStateOf(false) }
