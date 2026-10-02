@@ -50,6 +50,9 @@ open class StagedGame(
     seatDeck: mtgoracle.core.deck.PlayDeck = basics(1, "Island"),
     /** The AI's deck; it must be of the seat deck's game type. */
     opponentDeck: mtgoracle.core.deck.PlayDeck = basics(2, "Swamp"),
+    /** Forge's random seed: a staged board plays the same every time with one. */
+    seed: Long = 1,
+    format: mtgoracle.core.play.MatchFormat = mtgoracle.core.play.MatchFormat.BO1,
 ) : AutoCloseable {
     companion object {
         /** 60 basics: a deck that never does anything on its own, so only the staged cards matter. */
@@ -69,7 +72,7 @@ open class StagedGame(
 
     init {
         log.delete()
-        match = ForgeMatch.start(MatchSpec(gameMode, seatDeck, opponentDeck, log, seed = 1, startState = startState))
+        match = ForgeMatch.start(MatchSpec(gameMode, seatDeck, opponentDeck, log, seed = seed, startState = startState, format = format))
         driver = OffscreenDriver(width, height) {
             CompositionLocalProvider(LocalArt provides images) { BoardScreen(match.seat, name, modeState.value) }
         }
@@ -78,8 +81,8 @@ open class StagedGame(
     val board: BoardState get() = match.seat.board.value ?: fail("no board yet")
     fun logText(): String = log.takeIf { it.isFile }?.readText().orEmpty()
 
-    /** Plays until [until] holds; every decision must be expressible by clicking the board. */
-    fun playUntil(timeoutMillis: Long = 60_000, until: () -> Boolean) {
+    /** Plays until [until] holds; every decision must be expressible by clicking the board, unless [anyFallbacks] (a long scripted match, where only the game matters). */
+    fun playUntil(timeoutMillis: Long = 60_000, anyFallbacks: Boolean = false, until: () -> Boolean) {
         val seat = ScriptedSeat(match.seat, policy, retryAfterMillis = 1500, submit = { prompt, action ->
             answered += prompt to action
             // A dialog option that stands for a stack object: click the stack entry itself.
@@ -95,7 +98,7 @@ open class StagedGame(
             }
         })
         if (!seat.play(timeoutMillis = timeoutMillis, until = { driver.frame(); until() })) fail("scenario timed out; log:\n${logText().lines().filter { " SEAT " in it || " LOG " in it }.takeLast(40).joinToString("\n")}")
-        check(fallbacks == 0) { "$fallbacks decisions could not be made by clicking the board" }
+        check(anyFallbacks || fallbacks == 0) { "$fallbacks decisions could not be made by clicking the board" }
     }
 
     /** Everything drawn as text on the board right now, and the same without the log pane's lines. */
