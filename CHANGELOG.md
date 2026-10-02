@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The board has its own text or art, in art by default.** A T in the library once switched the board to text without a word. Now T and F7 in a game change only the board, the status line says which it is showing (`T text/art: art`), and the library's T changes only the library (`board.cardMode` in `settings.properties`).
 
 ### Fixed
+- **Forge's achievement pop-up ("Win 1 Commander game") is no longer reported as UNHANDLED.** It has nothing to answer; it is logged as information. `SoakTest` flagged it.
 - **A printing with `†`, `Φ`, `_` or `★` inside its number survives export and import.** `1 Savage Twister (MIR) 280†` kept the number in the name, so the card couldn't be resolved and an import or load lost it (93 printings, all choosable in the art chooser). The parser now reads every character the printings hold (`PrintingTailTest`).
 - **Five fixes from a review of the app layer.**
   - A sync or prune run inside an open deck no longer clears the output pane, prune's own "deleted N rows" report included: the deck is re-entered as carried, not as new (`LookupCommands.enterDeck(carried)`).
