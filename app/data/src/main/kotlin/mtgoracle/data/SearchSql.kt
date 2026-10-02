@@ -1,6 +1,7 @@
 package mtgoracle.data
 
 import mtgoracle.core.lookup.FormatCatalog
+import mtgoracle.core.lookup.NameFold
 import mtgoracle.core.lookup.SearchError
 import mtgoracle.core.lookup.SearchFields
 import mtgoracle.core.lookup.closest
@@ -21,9 +22,10 @@ class SearchSql(private val formats: FormatCatalog) {
 
     private fun compile(node: SearchNode): Sql = when (node) {
         is SearchNode.Term -> term(node)
+        // Names compare folded (fold(), MtgDb): `eowyn` finds Éowyn, as `card eowyn` does.
         is SearchNode.Free -> contains(node.value).let { p ->
-            Sql("(c.name LIKE ? ESCAPE '!' COLLATE NOCASE OR c.type_line LIKE ? ESCAPE '!' COLLATE NOCASE " +
-                "OR c.oracle_text LIKE ? ESCAPE '!' COLLATE NOCASE)", listOf(p, p, p))
+            Sql("(fold(c.name) LIKE ? ESCAPE '!' OR c.type_line LIKE ? ESCAPE '!' COLLATE NOCASE " +
+                "OR c.oracle_text LIKE ? ESCAPE '!' COLLATE NOCASE)", listOf(contains(NameFold.fold(node.value)), p, p))
         }
         // A comparison against NULL is NULL, and NOT NULL is still NULL — so
         // `-pow>=4` dropped every non-creature. Unknown is "no match".
@@ -49,8 +51,8 @@ class SearchSql(private val formats: FormatCatalog) {
             // `=` is "exactly" everywhere in this language (c=, ci=), so for names too;
             // `n:"Lightning Bolt"` also matches 'Emeritus of Conflict // Lightning Bolt'.
             "n" -> when (op) {
-                "=" -> Sql("c.name = ? COLLATE NOCASE", listOf(value))
-                ":" -> Sql("c.name LIKE ? ESCAPE '!' COLLATE NOCASE", listOf(contains(value)))
+                "=" -> Sql("(c.name = ? COLLATE NOCASE OR fold(c.name) = ?)", listOf(value, NameFold.fold(value)))
+                ":" -> Sql("fold(c.name) LIKE ? ESCAPE '!'", listOf(contains(NameFold.fold(value))))
                 else -> throw SearchError("name supports only ':' or '=', got '$op'")
             }
             "kw" -> {

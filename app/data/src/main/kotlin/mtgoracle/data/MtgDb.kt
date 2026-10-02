@@ -61,8 +61,17 @@ class MtgDb(val file: File) {
             enforceForeignKeys(foreignKeys)
             busyTimeout = 5_000 // the TUI may be writing at the same moment
         }
-        return config.createConnection("jdbc:sqlite:${file.path}")
+        return config.createConnection("jdbc:sqlite:${file.path}").also(::addFold)
     }
+
+    /**
+     * `fold(text)` in SQL: [NameFold] (case and accents off, ligatures spelled
+     * out), which SQLite's NOCASE can't do past ASCII — `eowyn` found no
+     * Éowyn. One instance per connection: a function holds its call's state.
+     */
+    private fun addFold(conn: Connection) = org.sqlite.Function.create(conn, "fold", object : org.sqlite.Function() {
+        override fun xFunc() { result(value_text(0)?.let(mtgoracle.core.lookup.NameFold::fold)) }
+    })
 
     /**
      * Fails unless the database has every table, column, index and foreign

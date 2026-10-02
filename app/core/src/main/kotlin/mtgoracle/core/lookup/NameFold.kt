@@ -19,6 +19,8 @@ object NameFold {
 
     fun fold(s: String): String {
         if (s.isEmpty()) return ""
+        // Most names are plain ASCII: the search folds every card name per query, so that case skips the normalizer.
+        if (s.all { it.code < 128 && it !in QUOTES }) return s.lowercase()
         val spelled = buildString(s.length) {
             for (ch in s) {
                 if (ch in QUOTES) continue
