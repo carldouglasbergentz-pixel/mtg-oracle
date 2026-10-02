@@ -37,6 +37,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntOffset
@@ -179,6 +180,11 @@ fun BoardScreen(
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     if (matchKey(event.key, event.isCtrlPressed)) return@onPreviewKeyEvent true
+                    // A searchable choice ("choose a card name") takes what is typed before the board's letter keys do.
+                    val typed = event.utf16CodePoint.takeIf { it in 32..0xFFFF }?.toChar()
+                    if (typed != null && !event.isCtrlPressed && (prompt as? ChoicePrompt)?.searchable == true) {
+                        interaction = typeInto(interaction, prompt, typed); return@onPreviewKeyEvent true
+                    }
                     if (onExtraKey(event.key)) return@onPreviewKeyEvent true
                     if (event.key == Key.H && seat?.canShowAllHands == true) { seat.setShowAllHands(!showAllHands); return@onPreviewKeyEvent true }
                     if (event.key == Key.S) { arrange(arrangement.copy(stackCollapsed = !arrangement.stackCollapsed)); return@onPreviewKeyEvent true }

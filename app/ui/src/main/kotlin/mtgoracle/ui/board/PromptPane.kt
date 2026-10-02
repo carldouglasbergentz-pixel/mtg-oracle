@@ -121,7 +121,7 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
         }
         is ConfirmPrompt -> {}
         is SideboardPrompt -> sideboardValidity(prompt, state.deck).let { (line, ok) -> GridText(fit(line, cols), color = if (ok) Palette.foreground else Palette.accent, bold = !ok) }
-        is ChoicePrompt -> OptionGrid(prompt.labels, cols, rowsLeft) { i, width ->
+        is ChoicePrompt -> if (prompt.searchable) SearchedOptions(prompt, state, cols, rowsLeft, onClick, onHover) else OptionGrid(prompt.labels, cols, rowsLeft) { i, width ->
             val mark = when {
                 prompt.isReveal -> "  "
                 prompt.max > 1 -> if (i in state.picks) "[x]" else "[ ]"
@@ -192,6 +192,26 @@ fun sideboardValidity(prompt: SideboardPrompt, deck: Map<String, Int>): Pair<Str
 }
 
 /**
+ * A [searchable] choice: the filter on its own line, then only the matches
+ * that fit the rows left, in columns, each clicked as its own option.
+ */
+@Composable
+private fun SearchedOptions(prompt: ChoicePrompt, state: Interaction, cols: Int, rows: Int, onClick: (ClickTarget) -> Unit, onHover: (ClickTarget?) -> Unit) {
+    val matches = prompt.matches(state.filter)
+    val shownRows = maxOf(1, rows - 1)
+    val width = 30
+    val shown = matches.take(shownRows * maxOf(1, cols / width))
+    val more = if (matches.size > shown.size) " · ${matches.size - shown.size} more: type to narrow" else ""
+    GridText(fit("find: ${state.filter}_   ${matches.size} of ${prompt.options.size}$more", cols), color = Palette.accent, bold = true)
+    OptionGrid(shown.map { prompt.options[it].label }, cols, shownRows) { i, w ->
+        val option = shown[i]
+        val mark = if (prompt.max > 1 && option in state.picks) "[x]" else "  "
+        GridText(fit(" $mark ${prompt.options[option].label}", w), Modifier.clickTarget(ClickTarget.Option(option), onClick, onHover),
+            color = if (option in state.picks) Palette.accent else Palette.foreground)
+    }
+}
+
+/**
  * [labels] as columns of [rows] lines, as many columns as fit [cols] (each
  * wide enough for the longest label, up to the whole width); a list longer
  * than that continues in a second band below, which the pane scrolls to.
@@ -244,6 +264,7 @@ private fun hint(prompt: Prompt?): String = when (prompt) {
     }
     is ConfirmPrompt -> "Enter ${prompt.yesLabel} · Esc ${prompt.noLabel}"
     is ChoicePrompt -> if (prompt.isReveal) "shown for information · Enter to continue"
+        else if (prompt.searchable) "type part of a name to narrow · Backspace erases · click one${if (prompt.max <= 1) ", or Enter for the first" else " · Enter done"}"
         else "choose ${if (prompt.min == prompt.max) "${prompt.min}" else "${prompt.min}–${prompt.max}"} · click, or 1–9 · Enter done"
     is OrderPrompt -> "click in order, ${prompt.firstLabel} first; unpicked keep their order after · Enter done · Esc clear"
     is DistributePrompt -> "1–9 pick a row · + / - adjust · Enter done"

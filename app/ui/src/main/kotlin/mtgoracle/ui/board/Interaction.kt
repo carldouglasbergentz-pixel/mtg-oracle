@@ -41,6 +41,8 @@ data class Interaction(
     val deck: Map<String, Int> = emptyMap(),
     /** A pass waiting on the floating-mana warning ([manaAtRisk]); while set, only Pass and Stay act. */
     val pendingPass: PendingPass? = null,
+    /** What has been typed to narrow a [searchable] choice. */
+    val filter: String = "",
 ) {
     companion object {
         fun start(prompt: Prompt?): Interaction = when (prompt) {
@@ -57,6 +59,31 @@ fun sideboardTarget(inMain: Boolean, name: String) = ClickTarget.Control((if (in
 
 /** Copies of each card between deck and sideboard. */
 fun SideboardPrompt.total(name: String): Int = (main + side).filter { it.name == name }.sumOf { it.count }
+
+/**
+ * A choice too long to show whole: "choose a card name" offers every card
+ * there is, and drawing tens of thousands of rows crashed the board. Typing
+ * narrows it ([typeInto]); only the matches that fit are drawn.
+ */
+const val SEARCHABLE_CHOICES = 60
+
+val ChoicePrompt.searchable: Boolean get() = options.size > SEARCHABLE_CHOICES
+
+/** The options [filter] keeps, in their order: every word of it in the label, case and accents aside. */
+fun ChoicePrompt.matches(filter: String): List<Int> {
+    val words = fold(filter).split(' ').filter { it.isNotEmpty() }
+    if (words.isEmpty()) return options.indices.toList()
+    return options.indices.filter { i -> fold(options[i].label).let { label -> words.all { it in label } } }
+}
+
+private fun fold(text: String) = java.text.Normalizer.normalize(text.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
+
+/** A character typed while a [searchable] choice is up: it goes to the filter, not to the board's keys. */
+fun typeInto(state0: Interaction, prompt: Prompt?, char: Char): Interaction {
+    if (prompt !is ChoicePrompt || !prompt.searchable) return state0
+    val state = if (state0.promptId != prompt.id) Interaction.start(prompt) else state0
+    return state.copy(filter = state.filter + char)
+}
 
 sealed interface UiEvent {
     data class Click(val target: ClickTarget) : UiEvent
@@ -201,11 +228,15 @@ private fun optionFor(options: List<mtgoracle.core.model.ChoiceOption>, target: 
 }
 
 private fun choice(state: Interaction, prompt: ChoicePrompt, event: UiEvent): Outcome {
+    val key = (event as? UiEvent.Key)?.key
+    if (prompt.searchable && key == UiKey.BACKSPACE) return Outcome(state.copy(filter = state.filter.dropLast(1)))
     val picked: Int? = when (event) {
         is UiEvent.Click -> optionFor(prompt.options, event.target)
-        is UiEvent.Key -> event.key.digit?.let { it - 1 }?.takeIf { it in prompt.options.indices }
+        // In a searchable choice digits are typed into the filter, and Enter takes the first match.
+        is UiEvent.Key -> if (prompt.searchable) prompt.matches(state.filter).firstOrNull()?.takeIf { key == UiKey.ENTER && prompt.max <= 1 }
+            else event.key.digit?.let { it - 1 }?.takeIf { it in prompt.options.indices }
     }
-    val done = (event as? UiEvent.Click)?.target == ClickTarget.Done || (event as? UiEvent.Key)?.key == UiKey.ENTER
+    val done = (event as? UiEvent.Click)?.target == ClickTarget.Done || key == UiKey.ENTER
     if (prompt.isReveal) return Outcome(state, SeatAction.Choose(emptyList()).takeIf { done })
     if (prompt.max <= 1) {
         return when {
