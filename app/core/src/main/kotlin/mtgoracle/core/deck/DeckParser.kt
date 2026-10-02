@@ -34,7 +34,8 @@ object DeckParser {
     // Archidekt's `[Ramp] ^Have,#37d67a^` after the set block; no card name has `[` or `^`.
     private val CATEGORY_TAIL = Regex("(?U)\\s*\\[[^\\]]*\\](?:\\s*\\^[^^]*\\^)?\\s*$")
     // ` (SET) number`, the set code all upper or all lower (Title Case is part of a name: `Unearth (Theme)`).
-    private val SET_TAIL = Regex("(?U)\\s*\\((?<set>[A-Z0-9]{2,6}|[a-z0-9]{2,6})\\)(?:\\s*(?<number>[A-Za-z0-9][A-Za-z0-9-]*))?\\s*(?<star>[★*])?\\s*$")
+    // A number is as Scryfall writes it, which export writes back: `280†`, `130★s`, `DDN-64`, `Φ1` (every character the printings hold).
+    private val SET_TAIL = Regex("(?U)\\s*\\((?<set>[A-Z0-9]{2,6}|[a-z0-9]{2,6})\\)(?:\\s*(?<number>[A-Za-z0-9Φ][A-Za-z0-9_†Φ★-]*))?\\s*(?<star>[★*])?\\s*$")
     private val FOIL_TAIL = Regex("(?U)\\s*\\*(?:[A-Za-z]|foil|etched|showcase|borderless)\\*\\s*$", RegexOption.IGNORE_CASE)
     // mtgtop8's `40 LANDS (42)`: a grouping inside the main deck, shouted, from a closed vocabulary.
     private val TYPE_GROUP = Regex("(?U)^\\d+\\s+(?<label>[A-Za-z .&]+?)\\s*(?:\\(\\d+\\))?\\s*:?\\s*$")
