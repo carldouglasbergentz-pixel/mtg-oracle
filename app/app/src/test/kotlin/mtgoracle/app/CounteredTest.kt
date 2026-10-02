@@ -46,6 +46,26 @@ class CounteredTest {
     }
 
     @Test
+    fun `a spell returned to its owner's hand is not said to be countered`() {
+        var stage = 0
+        Scenario("bounced", state("Opt;Unsubstantiate", "Island;Island;Island")) { p, b, _ ->
+            val me = b.seat!!
+            when {
+                p is InputPrompt && p.kind == InputKind.PRIORITY && stage == 0 && b.stack.isEmpty() -> { stage = 1; SeatAction.ClickCard(me.hand.first { it.name == "Opt" }.id) }
+                p is InputPrompt && p.kind == InputKind.PRIORITY && stage == 1 && b.stack.isNotEmpty() -> { stage = 2; SeatAction.ClickCard(me.hand.first { it.name == "Unsubstantiate" }.id) }
+                p is ChoicePrompt && p.labels.any { "Opt" in it } -> SeatAction.Choose(listOf(p.labels.indexOfFirst { "Opt" in it }))
+                p is InputPrompt && p.kind == InputKind.PAY_MANA -> SeatAction.Ok
+                else -> null
+            }
+        }.use { s ->
+            s.playUntil { s.board.stack.isEmpty() && s.board.seat!!.graveyard.any { it.name == "Unsubstantiate" } }
+            assertTrue(s.board.trail.any { it.text == "Unsubstantiate returned Opt to its owner's hand" }, "${s.board.trail}")
+            assertTrue(s.board.trail.none { "countered" in it.text }, "${s.board.trail}")
+            assertTrue("Removed: Unsubstantiate returned Opt to its owner's hand." in s.board.recentLog, "${s.board.recentLog}")
+        }
+    }
+
+    @Test
     fun `a spell whose target is gone fizzles, and says so`() {
         var stage = 0
         Scenario("fizzled", state("Lightning Bolt;Unsummon", "Grizzly Bears;Mountain;Island")) { p, b, _ ->

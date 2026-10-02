@@ -453,7 +453,7 @@ class SeatGui(
      */
     private fun reportCountered(report: Countered.Report) {
         trail.note(report.actorId, report.text, report.card)
-        recorder.play("${if (report.fizzled) "Fizzled" else "Countered"}: ${report.text}.")
+        recorder.play("${report.kind}: ${report.text}.")
         if (report.controllerId in seatPlayerIds) warningFlow.value = "${report.text}."
     }
 

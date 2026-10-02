@@ -2,6 +2,7 @@ package mtgoracle.forge
 
 import com.google.common.eventbus.Subscribe
 import forge.game.Game
+import forge.game.ability.ApiType
 import forge.game.card.CardView
 import forge.game.event.GameEventSpellAbilityCast
 import forge.game.event.GameEventSpellRemovedFromStack
@@ -15,8 +16,11 @@ import forge.game.event.GameEventSpellResolved
  * going on; [onCountered] makes it a line of its own.
  *
  * An item is followed from its cast. One that resolves is reported only if
- * it fizzled; one removed without resolving was countered by what is
- * resolving then (a counterspell stays on top of the stack while it does).
+ * it fizzled; one removed without resolving was taken by what is resolving
+ * then (a counterspell stays on top of the stack while it does). Forge says
+ * "removed" for a counter and a bounce alike, so the remover's own effect
+ * decides the word: Counterspell (and Remand) counter, Bilbo's Gambit only
+ * returns a spell to its owner's hand.
  * Everything named was on the stack, and so public, but a face-down spell
  * is named only under the seat's own rule ([named]).
  */
@@ -24,13 +28,27 @@ internal class Countered(
     private val named: (CardView) -> Boolean,
     private val onCountered: (Report) -> Unit,
 ) {
-    /** [controllerId] is whose the item was; [actorId] whose doing it was (the counterspell's caster, else the same). */
-    data class Report(val controllerId: Int, val actorId: Int, val what: String, val by: String?, val fizzled: Boolean, val card: CardView?) {
+    /**
+     * [controllerId] is whose the item was; [actorId] whose doing it was (the counterspell's caster, else the same).
+     * [countered] is false when [by] moved it rather than countered it, to Forge's zone [destination] (`Hand`, `Library`, `Exile`).
+     */
+    data class Report(
+        val controllerId: Int, val actorId: Int, val what: String, val by: String?, val fizzled: Boolean, val card: CardView?,
+        val countered: Boolean = true, val destination: String? = null,
+    ) {
         val text: String get() = when {
             fizzled -> "$what fizzled: its targets were gone"
-            by != null -> "$by countered $what"
+            by != null && countered -> "$by countered $what"
+            by != null -> when (destination) {
+                "Hand" -> "$by returned $what to its owner's hand"
+                "Library" -> "$by put $what into its owner's library"
+                "Exile" -> "$by exiled $what"
+                else -> "$by removed $what from the stack"
+            }
             else -> "$what left the stack without resolving"
         }
+        /** The game log's word for it. */
+        val kind: String get() = when { fizzled -> "Fizzled"; countered -> "Countered"; else -> "Removed" }
     }
 
     @Volatile private var game: Game? = null
@@ -71,15 +89,23 @@ internal class Countered(
     fun onRemoved(event: GameEventSpellRemovedFromStack) {
         val id = event.sa()?.id ?: return
         val item = synchronized(this) { open.remove(id) } ?: return
-        val (by, actor) = counteredBy(id) ?: (null to item.controllerId)
-        onCountered(Report(item.controllerId, actor, item.what, by, fizzled = false, item.card))
+        val remover = removedBy(id)
+        onCountered(Report(item.controllerId, remover?.actorId ?: item.controllerId, item.what, remover?.name, fizzled = false, item.card,
+            countered = remover?.counters ?: true, destination = remover?.destination))
     }
 
-    /** What is resolving now, unless it is the item itself: the counterspell, and who cast it. */
-    private fun counteredBy(id: Int): Pair<String?, Int>? = runCatching {
+    private data class Remover(val name: String?, val actorId: Int, val counters: Boolean, val destination: String?)
+
+    /** What is resolving now, unless it is the item itself: the counterspell (or the bounce), who cast it, and what its effect does. */
+    private fun removedBy(id: Int): Remover? = runCatching {
         val top = game?.stack?.takeIf { it.isResolving }?.peek() ?: return null
         if (top.spellAbility.view.id == id) return null
         val name = top.sourceCard?.view?.takeIf { named(it) }?.currentState?.name
-        name to (top.activatingPlayer?.id ?: return null)
+        val effects = generateSequence(top.spellAbility) { it.subAbility }.toList()
+        Remover(
+            name, top.activatingPlayer?.id ?: return null,
+            counters = effects.any { it.api == ApiType.Counter },
+            destination = effects.firstOrNull { it.api == ApiType.ChangeZone }?.getParam("Destination"),
+        )
     }.getOrNull()
 }
