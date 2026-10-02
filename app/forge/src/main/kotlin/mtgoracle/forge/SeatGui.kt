@@ -139,6 +139,7 @@ class SeatGui(
     /** The trail's seq when the seat last decided something: what came after is "just happened". */
     @Volatile private var decisionSeq = 0L
     private val promptIds = AtomicLong()
+    private val failedCasts = FailedCasts(promptCount = { promptIds.get() }, isSeats = { cv -> cv.controller?.id in seatPlayerIds }, onFailed = ::castFailed)
     private val refreshHook: AutoCloseable = edt.afterEachTask { refresh() }
 
     @Volatile private var seatController: PlayerControllerHuman? = null
@@ -427,6 +428,16 @@ class SeatGui(
         warningFlow.value = "auto-answered $where: $detail (see the game log)"
     }
 
+    /** A cast Forge stopped without a word ([FailedCasts]): said in the game log, the trail and the warning line. */
+    private fun castFailed(card: CardView, from: ZoneType, forbiddenBy: String?) {
+        val name = card.currentState?.name ?: "a card"
+        val where = from.name.lowercase()
+        val why = forbiddenBy?.let { ": $it forbids it" }.orEmpty()
+        recorder.note("WARNING $name couldn't be cast from the $where$why; it went back and nothing happened")
+        trail.note(card.controller?.id ?: -1, "couldn't cast $name" + (forbiddenBy?.let { " ($it)" }.orEmpty()), card)
+        warningFlow.value = "$name couldn't be cast from your $where$why. Nothing happened."
+    }
+
     /** Whether a person answers this seat's prompts (false when watching AI vs AI). */
     val isHumanSeat: Boolean get() = seatController != null
 
@@ -437,7 +448,7 @@ class SeatGui(
         seatPlayerIds = myPlayers?.map { it.id }?.toSet().orEmpty()
         finished = false
         conceded = false
-        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it) }
+        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it) }
         dirty = true
     }
 

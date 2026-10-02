@@ -110,6 +110,9 @@ internal class Trail(
         add(actor, text, card.takeIf { name != null }, mergeDraws = text == "drew a card")
     }
 
+    /** A line from outside Forge's events, such as a cast Forge stopped without a word (FailedCasts). [card] is one the seat may see. */
+    fun note(actor: Int, text: String, card: CardView?) { add(actor, text, card) }
+
     /** Entries whose card is named when the trail is read (see [onZone]), by seq. */
     private val pending = HashMap<Long, Pair<Int, (String) -> String>>()
 
