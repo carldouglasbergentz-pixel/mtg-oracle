@@ -54,7 +54,7 @@ object Scripted {
         prepared.notes.forEach { Log.info("note: $it") }
         val match = sessions.start(prepared, seed = seed)
         val mode = mutableStateOf(CardMode.ART)
-        val art = ArtImages(ForgeRuntime.images)
+        val art = ArtImages(ForgeRuntime.images, decoder = { it.run() }) // every PNG shows its art: decoded before the frame, not after
         val driver = OffscreenDriver(1800, 2200) {
             CompositionLocalProvider(LocalArt provides art) {
                 BoardScreen(match.seat, "${prepared.seat.name} vs ${prepared.opponent.name} · scripted", mode.value)

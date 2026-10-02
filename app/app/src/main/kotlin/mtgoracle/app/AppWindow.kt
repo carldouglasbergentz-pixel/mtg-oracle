@@ -11,7 +11,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
-import mtgoracle.core.art.NoArt
 import mtgoracle.ui.board.BoardScreen
 import mtgoracle.ui.board.MatchControls
 import mtgoracle.ui.board.MatchStatus
@@ -38,7 +37,8 @@ import androidx.compose.ui.input.key.type
 /** Everything the window shows, by screen. Also what the offscreen driver renders in the app's tests. */
 @Composable
 fun AppContent(app: AppController, onQuit: () -> Unit) {
-    val art = remember(app.forgeReady) { ArtImages(if (app.forgeReady) app.art else NoArt) }
+    // Anew when Forge comes up: what was asked for before it could be fetched is asked again.
+    val art = remember(app.forgeReady) { ArtImages(app.shownArt) }
     HouseTheme {
         CompositionLocalProvider(LocalArt provides art, LocalGlobalHints provides listOf("F7" to "text/art", "F8" to "theme: ${Palette.theme.label}")) {
             // F8 cycles the theme and F7 text/art on every screen, typing or not: seen here before any screen's keys.

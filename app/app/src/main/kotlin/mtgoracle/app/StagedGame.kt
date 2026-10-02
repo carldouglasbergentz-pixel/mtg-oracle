@@ -58,7 +58,7 @@ open class StagedGame(
 
     val log: File = File(logDir, "$name.log")
     private val modeState = androidx.compose.runtime.mutableStateOf(mode)
-    private val images = ArtImages(art)
+    private val images = ArtImages(art, decoder = { it.run() }) // the snapshots mode saves PNGs: art decoded before the frame
 
     /** Art or text frames, from now on. */
     fun setMode(mode: CardMode) { modeState.value = mode; driver.settle(5) }

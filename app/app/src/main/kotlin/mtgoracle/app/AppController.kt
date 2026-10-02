@@ -305,11 +305,13 @@ class AppController(private val paths: AppPaths) {
         }
     }
 
-    fun keyFor(card: DeckCard): String? =
-        if (forgeReady) art.keyFor(card.name, card.setCode, card.collectorNumber) else null
+    fun keyFor(card: DeckCard): String? = shownArt.keyFor(card.name, card.setCode, card.collectorNumber)
 
     /** Forge's images, and Scryfall's for a printing Forge lacks: what every screen draws with once Forge is up. */
     val art: PrintingArt by lazy { PrintingArt(ForgeRuntime.images, { currentLookup?.printings }, paths.home.resolve("scryfall")) }
+
+    /** What the window draws with: [art] once Forge is up, and before that the images the index knows are on disk. */
+    val shownArt: IndexedArt by lazy { IndexedArt(ArtIndex(paths.home.resolve("art-index.tsv"))) { if (forgeReady) art else null } }
 
     /** What the zoom pane shows of a card named in the output: its default printing's art, and its text. */
     private val zoomInfo = object : LinkedHashMap<String, Pair<String, mtgoracle.core.deck.CardInfo>?>(64, 0.75f, true) {

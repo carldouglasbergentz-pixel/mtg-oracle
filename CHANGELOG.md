@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PrintingsSyncTest` covers the incremental case (an unchanged set, a set with more cards over two pages, a new non-English set, a digital set, `--force`). The fixture gained 514 printings of twelve cards. `PrintingArtTest` and `PrintingOnBoardTest` cover the art.
 
 ### Fixed
+- **Art shows sooner, and the window no longer stalls while it loads.**
+  - **Before Forge is up.** Forge takes 6 to 15 seconds to start, and no image showed until it had, even one already on disk. `data/app/art-index.tsv` now remembers each card's image key and files from earlier runs, so cached art shows as the window opens. Forge still answers everything once it is up, and the index is only a cache: delete it and the art comes back after the first wait.
+  - **Decoding.** Each JPEG is decoded off the UI thread. A deck's 86 art crops took 570 ms to decode, all on the UI thread, during which the window drew nothing.
 - **"max affordable" on the X prompt prices the cost actually paid, with the mana you really have.**
   - **The cost.** It is taken from the spell on the stack, so a miracle is priced by its miracle cost. Entreat the Angels by miracle with 8 Plains now suggests 6, where it said 2 from the printed {X}{X}{W}{W}{W}.
   - **The mana.** Each X is checked with Forge's own payment check, which knows which sources make mana and in what colours. It used to count every land as a mana. With Wrath of the Skies and 8 lands, including Arid Mesa and Urza's Saga with no lore counter, it now says 4, where it said 6.
