@@ -86,7 +86,13 @@ data class OrderPrompt(
     val firstLabel: String,
 ) : Prompt
 
-data class DistributeTarget(val label: String, val ref: BoardRef?, /** Lethal damage, when it applies. */ val lethal: Int?)
+data class DistributeTarget(
+    val label: String, val ref: BoardRef?,
+    /** Lethal damage, when it applies. */
+    val lethal: Int?,
+    /** The most this target may take ("two mana of different colors": 1 each); null for no limit. */
+    val max: Int? = null,
+)
 
 /** Divide [total] among [targets]: combat damage, divided damage, shields. */
 data class DistributePrompt(
@@ -115,6 +121,8 @@ data class DistributePrompt(
         return when {
             amounts.size != targets.size || sum != total -> "assigned $sum of $total"
             atLeastOne && amounts.any { it < 1 } -> "every target takes at least 1"
+            targets.indices.any { i -> targets[i].max?.let { amounts[i] > it } == true } ->
+                targets.indices.first { i -> targets[i].max?.let { amounts[i] > it } == true }.let { "${targets[it].label} takes at most ${targets[it].max}" }
             excess != null && amounts[excess] > 0 && targets.indices.any { it != excess && short(it) } ->
                 "${targets[excess].label} takes damage only once every blocker has lethal (trample)"
             inOrder -> targets.indices.firstOrNull { i -> amounts[i] > 0 && (0 until i).any { it != excess && short(it) } }

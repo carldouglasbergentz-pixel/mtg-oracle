@@ -199,7 +199,8 @@ class SeatGui(
             val yields = controller.yieldController
             val atPriority = controller.inputQueue.input is InputPassPriority
             when (command) {
-                SeatCommand.PASS -> if (controller.inputQueue.input != null) controller.selectButtonOk()
+                // Forge's Inputs trust the button state: OK on a discard to hand size with nothing picked discards nothing.
+                SeatCommand.PASS -> if (controller.inputQueue.input != null && okEnabled) controller.selectButtonOk()
                 SeatCommand.CANCEL_YIELDS -> {
                     floatingMana.forget()
                     yields.clearActiveYieldAndDispatch()
@@ -275,8 +276,9 @@ class SeatGui(
             }
             is SeatAction.ClickPlayer -> playerViews[action.playerId]?.let { controller.selectPlayer(it, null) }
             is SeatAction.UseMana -> MANA_BYTES[action.colour]?.let { controller.useMana(it) } ?: Log.warn("no mana colour ${action.colour}")
-            SeatAction.Ok -> controller.selectButtonOk()
-            SeatAction.Cancel -> controller.selectButtonCancel()
+            // Only a button that is on: Forge's Inputs don't check (an OK with too few picks, an Auto with no plan to pay).
+            SeatAction.Ok -> if (okEnabled) controller.selectButtonOk() else recorder.seat("  (OK is off: ignored)")
+            SeatAction.Cancel -> if (cancelEnabled) controller.selectButtonCancel() else recorder.seat("  (Cancel is off: ignored)")
             else -> Log.warn("$action is not a gesture")
         }
     }
@@ -818,9 +820,15 @@ class SeatGui(
 
     override fun assignGenericAmount(effectSource: CardView?, target: MutableMap<Any, Int>, amount: Int, atLeastOne: Boolean, amountLabel: String?): MutableMap<Any, Int> {
         val keys = target.keys.toList()
+        // Each value is that target's most, as Forge's dialog has it (VAssignGenericAmount): "two mana of different colors" is 1 a colour.
+        val caps = keys.map { target[it] }
         val suggested = MutableList(keys.size) { if (atLeastOne) 1 else 0 }
-        if (keys.isNotEmpty()) suggested[0] += amount - suggested.sum()
-        val targets = keys.map { key -> optionFor(key, key.toString()).let { DistributeTarget(it.label, it.ref, null) } }
+        var left = amount - suggested.sum()
+        for (i in keys.indices) {
+            val room = minOf(left, (caps[i] ?: amount) - suggested[i]).coerceAtLeast(0)
+            suggested[i] += room; left -= room
+        }
+        val targets = keys.mapIndexed { i, key -> optionFor(key, key.toString()).let { DistributeTarget(it.label, it.ref, null, max = caps[i]) } }
         val source = effectSource?.currentState?.name ?: "effect"
         val amounts = distribute("$source: divide $amount ${amountLabel.orEmpty()}".trim(), targets, amount, atLeastOne, suggested, allowSkip = false)
             ?: suggested

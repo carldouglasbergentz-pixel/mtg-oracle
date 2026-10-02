@@ -69,11 +69,14 @@ const val SEARCHABLE_CHOICES = 60
 
 val ChoicePrompt.searchable: Boolean get() = options.size > SEARCHABLE_CHOICES
 
+/** Each option's label as [matches] compares it: lower case, accents off. Worth keeping per prompt: 30,000 labels. */
+fun ChoicePrompt.foldedLabels(): List<String> = options.map { fold(it.label) }
+
 /** The options [filter] keeps, in their order: every word of it in the label, case and accents aside. */
-fun ChoicePrompt.matches(filter: String): List<Int> {
+fun ChoicePrompt.matches(filter: String, folded: List<String> = foldedLabels()): List<Int> {
     val words = fold(filter).split(' ').filter { it.isNotEmpty() }
     if (words.isEmpty()) return options.indices.toList()
-    return options.indices.filter { i -> fold(options[i].label).let { label -> words.all { it in label } } }
+    return options.indices.filter { i -> words.all { it in folded[i] } }
 }
 
 private fun fold(text: String) = java.text.Normalizer.normalize(text.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
@@ -233,7 +236,8 @@ private fun choice(state: Interaction, prompt: ChoicePrompt, event: UiEvent): Ou
     val picked: Int? = when (event) {
         is UiEvent.Click -> optionFor(prompt.options, event.target)
         // In a searchable choice digits are typed into the filter, and Enter takes the first match.
-        is UiEvent.Key -> if (prompt.searchable) prompt.matches(state.filter).firstOrNull()?.takeIf { key == UiKey.ENTER && prompt.max <= 1 }
+        // Not with nothing typed: the first of thirty thousand names is no one's choice.
+        is UiEvent.Key -> if (prompt.searchable) prompt.matches(state.filter).firstOrNull()?.takeIf { key == UiKey.ENTER && prompt.max <= 1 && state.filter.isNotBlank() }
             else event.key.digit?.let { it - 1 }?.takeIf { it in prompt.options.indices }
     }
     val done = (event as? UiEvent.Click)?.target == ClickTarget.Done || key == UiKey.ENTER
@@ -272,7 +276,7 @@ private fun distribute(state: Interaction, prompt: DistributePrompt, event: UiEv
         if (row !in prompt.targets.indices) return state
         val amounts = state.amounts.toMutableList()
         val next = amounts[row] + by
-        if (next < floor || amounts.sum() + by > prompt.total) return state.copy(row = row)
+        if (next < floor || amounts.sum() + by > prompt.total || prompt.targets[row].max?.let { next > it } == true) return state.copy(row = row)
         amounts[row] = next
         return state.copy(amounts = amounts, row = row)
     }

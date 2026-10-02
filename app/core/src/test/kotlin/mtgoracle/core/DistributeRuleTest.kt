@@ -32,6 +32,14 @@ class DistributeRuleTest {
     }
 
     @Test
+    fun `a target takes no more than its most - two mana of different colors`() {
+        val colours = listOf("W", "U", "B").map { DistributeTarget(it, null, null, max = 1) }
+        val split = prompt(2, targets = colours)
+        assertNotNull(split.problem(listOf(2, 0, 0)), "{W}{W} is not two different colors")
+        assertEquals(null, split.problem(listOf(1, 1, 0)))
+    }
+
+    @Test
     fun `in the old assignment order each blocker has lethal before the next gets any`() {
         val ordered = prompt(4, inOrder = true)
         assertNotNull(ordered.problem(listOf(1, 3)))
