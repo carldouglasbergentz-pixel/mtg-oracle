@@ -134,9 +134,11 @@ class SeatGui(
     /** Per player name, the cards whose chosen printing Forge lacks and the art key to draw them with instead. */
     internal fun setArtOverrides(overrides: Map<String, Map<String, String>>) { snapshots.artOverrides = overrides }
     /** Named under the board's own rule: seen, and if face-down, peekable. */
-    private val trail = Trail(named = { cv -> visible(cv) && (!cv.isFaceDown || peek(cv)) }, onChange = { dirty = true })
+    private val seesCard: (CardView) -> Boolean = { cv -> visible(cv) && (!cv.isFaceDown || peek(cv)) }
+    private val trail = Trail(named = seesCard, onChange = { dirty = true })
     private val floatingMana = FloatingMana(recorder)
     private val drawLog = DrawLog(recorder)
+    private val countered = Countered(named = seesCard, onCountered = ::reportCountered)
     /** The trail's seq when the seat last decided something: what came after is "just happened". */
     @Volatile private var decisionSeq = 0L
     private val promptIds = AtomicLong()
@@ -439,6 +441,17 @@ class SeatGui(
         warningFlow.value = "$name couldn't be cast from your $where$why. Nothing happened."
     }
 
+    /**
+     * A spell or ability that left the stack without resolving ([Countered]):
+     * a line in the trail and the log pane, and for one of the seat's own the
+     * warning line too, so it is not lost among triggers.
+     */
+    private fun reportCountered(report: Countered.Report) {
+        trail.note(report.actorId, report.text, report.card)
+        recorder.play("${if (report.fizzled) "Fizzled" else "Countered"}: ${report.text}.")
+        if (report.controllerId in seatPlayerIds) warningFlow.value = "${report.text}."
+    }
+
     /** Whether a person answers this seat's prompts (false when watching AI vs AI). */
     val isHumanSeat: Boolean get() = seatController != null
 
@@ -449,7 +462,7 @@ class SeatGui(
         seatPlayerIds = myPlayers?.map { it.id }?.toSet().orEmpty()
         finished = false
         conceded = false
-        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it) }
+        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); countered.attach(it) }
         dirty = true
     }
 
