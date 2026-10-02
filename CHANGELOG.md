@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The board has its own text or art, in art by default.** A T in the library once switched the board to text without a word. Now T and F7 in a game change only the board, the status line says which it is showing (`T text/art: art`), and the library's T changes only the library (`board.cardMode` in `settings.properties`).
 
 ### Fixed
+- **Game 2 of a match starts clean, and Forge's word to you reaches the board.**
+  - Forge's log lines of game 2 and later were skipped: the recorder read past as many lines as game 1 had (each game has a log of its own).
+  - The seat's picks, selectable and actionable cards and card views are reset for each game, since Forge's card ids start again: game 1's picks could mark game 2's cards.
+  - What Forge tells the player (what the AI chose for its Pithing Needle, a colour or a vote; "attack declaration invalid"; why a sideboarded deck was refused) went only to the log file. It is now on the warning line and in the log pane.
 - **The searchable choice takes only characters.** A key with none (Shift, the arrows, F2) reports 0xFFFF and was typed into the filter, so a capital letter matched nothing; Enter with nothing typed no longer picks the first of 30,000 names. Each name is folded once per prompt, not on every key, and the matches shown are as many as the grid really fits.
 - **The board's Ctrl+←/→ keeps the widths inside their bounds**, as a drag does: unclamped, the kept width ran past the bound and the other arrow seemed dead for as many presses. `OptionGrid` no longer divides by zero in a pane under a cell wide.
 - **OK, Cancel and F2 act only when Forge has the button on.** Forge's Inputs trust the button state and don't check it again: F2 at cleanup with too many cards in hand discarded nothing, and on a payment it ran Forge's auto-pay when Forge had found no way to pay. A gesture on a button that is off is logged and ignored.

@@ -40,6 +40,8 @@ class GameRecorder(val file: File) : Closeable {
     fun attach(game: Game) {
         if (!attached.add(game.id)) return
         this.game = game
+        // Each game has a log of its own: game 2 read past as many of its lines as game 1 had.
+        logLinesSeen = 0
         game.subscribeToEvents(this)
         val log = game.gameLog
         log.addObserver(Observer { _, _ -> drainGameLog(game) })

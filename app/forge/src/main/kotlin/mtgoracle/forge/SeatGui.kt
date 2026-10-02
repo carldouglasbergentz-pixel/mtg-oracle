@@ -469,6 +469,10 @@ class SeatGui(
         seatPlayerIds = myPlayers?.map { it.id }?.toSet().orEmpty()
         finished = false
         conceded = false
+        // Card ids start again in every game: game 1's picks and views must not mark game 2's cards (Forge's own openView clears its selection).
+        selectableIds = emptySet(); actionableIds = emptySet(); highlightedIds = emptySet()
+        cardViews.clear(); playerViews.clear()
+        skippingTurn = null
         gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); countered.attach(it) }
         dirty = true
     }
@@ -602,11 +606,29 @@ class SeatGui(
 
     // --- direct dialogs ------------------------------------------------------
 
-    override fun message(message: String?, title: String?) = recorder.note("MESSAGE ${title.orEmpty()}: ${message.orEmpty()}")
+    /**
+     * Forge's word to this player: what the AI chose for a card of its own
+     * (Pithing Needle's name, a colour, a vote), "attack declaration
+     * invalid", "no cards in hand". It went only to the log file, and the
+     * board had no other way to learn it; now the warning line and the log pane say it.
+     */
+    override fun message(message: String?, title: String?) {
+        recorder.note("MESSAGE ${title.orEmpty()}: ${message.orEmpty()}")
+        tell(title, message)
+    }
 
+    /** Forge refusing something (a sideboarded deck, with why): said as a message is. */
     override fun showErrorDialog(message: String?, title: String?) {
         recorder.note("ERROR DIALOG ${title.orEmpty()}: ${message.orEmpty()}")
         Log.warn("Forge error dialog: $title: $message")
+        tell(title, message)
+    }
+
+    private fun tell(title: String?, message: String?) {
+        val text = listOfNotNull(title?.takeIf { it.isNotBlank() }, message?.takeIf { it.isNotBlank() }).joinToString(": ").replace(Regex("""\s*\n\s*"""), " ").trim()
+        if (text.isEmpty() || !isHumanSeat) return
+        warningFlow.value = text
+        recorder.play(text)
     }
 
     override fun showConfirmDialog(message: String, title: String?, yesButtonText: String, noButtonText: String, defaultYes: Boolean): Boolean {
