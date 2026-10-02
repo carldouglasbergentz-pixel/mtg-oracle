@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -23,7 +24,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.ui.kit.BoxPane
-import mtgoracle.ui.kit.ControlButton
+import mtgoracle.ui.kit.BigButton
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.StatusLine
@@ -158,13 +159,13 @@ fun SetupScreen(
                     GridText("")
                     notes.forEach { WrapText(it, color = Palette.accent) }
                     GridText("")
-                    Row {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         val startable = canStart && !simRunning
-                        ControlButton("[ Start ]", ClickTarget.Control("start"), startable, onClick)
-                        GridText("  ")
-                        ControlButton(if (simRunning) "[ Stop simulation ]" else "[ Simulate $simGames ]", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
-                        GridText("  ")
-                        ControlButton("[ Back ]", ClickTarget.Control("back"), true, onClick)
+                        BigButton("Start", ClickTarget.Control("start"), startable, onClick)
+                        GridText(" ")
+                        BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
+                        GridText(" ")
+                        BigButton("Back", ClickTarget.Control("back"), true, onClick)
                         GridText(if (forgeReady) "" else "   Forge is loading…", color = Palette.dim)
                     }
                 }

@@ -36,6 +36,7 @@ import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.ui.board.SIDE_COLS
 import mtgoracle.ui.kit.BoxPane
+import mtgoracle.ui.kit.Toolbar
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.kit.ClickTarget
@@ -198,6 +199,11 @@ fun DeckWorkspace(
         val middle = cols - left - side
         perRow[0] = gridColumns(middle - 2)
         Column(Modifier.fillMaxSize()) {
+            Toolbar(listOf(
+                "library" to "Library", "play" to "Play", "import" to "Import", "export" to "Export", "format" to "Format",
+                "results" to if (lookup.grid) "Results as lines" else "Results as grid",
+                "deck-mode" to if (deckMode == CardMode.TEXT) "Deck as frames" else "Deck as lines",
+            ), onClick)
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
                 val spent = deck?.cards?.filter { !it.isSideboard }?.sumOf { c -> (lookup.pointsOf(c.name) ?: 0) * c.quantity }
                 val right = deck?.let { d ->
@@ -272,11 +278,6 @@ fun DeckWorkspace(
                 preview = lookup.preview,
                 count = lookup.count,
             )
-            Buttons(listOf(
-                "library" to "[ Library ]", "play" to "[ Play ]", "import" to "[ Import ]", "export" to "[ Export ]", "format" to "[ Format ]",
-                "results" to if (lookup.grid) "[ Results as lines ]" else "[ Results as grid ]",
-                "deck-mode" to if (deckMode == CardMode.TEXT) "[ Deck as frames ]" else "[ Deck as lines ]",
-            ), onClick)
             val hints = if (lookup.command.focused) TYPING_HINTS
             else if (inDeck) listOf("↑↓" to "card", "+ -" to "copies", "Del" to "remove", "Enter" to "open", "Tab" to "results", "1-4" to "tabs", "right-click" to "menu", "Esc" to "library")
             else listOf(":" to "search", "←→↑↓" to "select", "+ S C" to "deck / side / consider", "Tab" to "deck", "T" to "grid/lines", "1-4" to "tabs", "P" to "play", "Esc" to "library")

@@ -27,6 +27,8 @@ import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.Emphasis
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.cellHeight
+import mtgoracle.ui.kit.BUTTON_ROWS
+import mtgoracle.ui.kit.BigButton
 import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.clickTarget
@@ -37,15 +39,18 @@ import mtgoracle.ui.kit.wrap
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 
-/** The prompt pane's fixed rows: the scrolling content, then one button row and one hint row. */
-const val PROMPT_CONTENT_ROWS = 5
-const val PROMPT_ROWS = PROMPT_CONTENT_ROWS + 2 + 2 // + buttons, hint, and the border
+/**
+ * The prompt pane's fixed rows: the scrolling content, then the buttons and one hint row.
+ * The big buttons took their second row from the content, not from the table: the crowded board must still fit 1280x720 (ZonesTest).
+ */
+const val PROMPT_CONTENT_ROWS = 4
+const val PROMPT_ROWS = PROMPT_CONTENT_ROWS + BUTTON_ROWS + 1 + 2 // + buttons, hint, and the border
 
-/** A `[ label ]` button; disabled ones are drawn dim and can't be clicked. */
+/** A prompt's button, a cell apart from the next; disabled ones are drawn dim and can't be clicked. */
 @Composable
 fun GridButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (ClickTarget) -> Unit) {
-    ControlButton("[ $label ]", target, enabled, onClick)
-    GridText("  ")
+    BigButton(label, target, enabled, onClick)
+    GridText(" ")
 }
 
 /**
@@ -75,7 +80,7 @@ fun PromptBody(
                 else Content(prompt, board, state, cols, onClick, onHover)
             }
         }
-        Row(Modifier.fillMaxWidth().cellHeight(1).region("prompt-buttons")) {
+        Row(Modifier.fillMaxWidth().cellHeight(BUTTON_ROWS).region("prompt-buttons")) {
             if (pending != null) { GridButton("Pass", ManaWarningTargets.PASS, true, onClick); GridButton("Stay", ManaWarningTargets.STAY, true, onClick) }
             else Buttons(prompt, state, onClick)
         }

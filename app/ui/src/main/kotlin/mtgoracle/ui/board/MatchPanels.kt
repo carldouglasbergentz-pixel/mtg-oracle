@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import mtgoracle.core.model.SideboardPrompt
 import mtgoracle.core.play.MatchResult
 import mtgoracle.core.play.Winner
+import mtgoracle.ui.kit.BUTTON_ROWS
 import mtgoracle.ui.kit.Border
 import mtgoracle.ui.kit.BoxPane
 import mtgoracle.ui.kit.ClickTarget
@@ -85,7 +87,7 @@ fun ResultPanel(status: MatchStatus, onClick: (ClickTarget) -> Unit, modifier: M
             else -> "the match is drawn"
         })
     }
-    Box(modifier.cells(cols, lines.size + 5).background(Palette.background)
+    Box(modifier.cells(cols, lines.size + 4 + BUTTON_ROWS).background(Palette.background)
         .boxBorder(if (status.over) "match over" else "game over", border = Border.DOUBLE, color = Palette.accent)
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
         .region("match-result")) {
@@ -107,13 +109,15 @@ fun ConcedeMenu(status: MatchStatus?, onClick: (ClickTarget) -> Unit, modifier: 
     val cols = 68
     // In a match with games still to come, conceding a game is not leaving.
     val gamesLeft = status != null && status.gamesInMatch > 1
-    Box(modifier.cells(cols, if (gamesLeft) 8 else 7).background(Palette.background)
+    Box(modifier.cells(cols, (if (gamesLeft) 3 else 2) * (BUTTON_ROWS + 1) + 4).background(Palette.background)
         .boxBorder("leave the game?", border = Border.DOUBLE, color = Palette.accent)
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
         .region("concede-menu")) {
         Column(Modifier.padding(start = with(LocalDensity.current) { LocalCells.current.width.toDp() * 2 }, top = with(LocalDensity.current) { LocalCells.current.height.toDp() })) {
-            if (gamesLeft) Row { GridButton("1  concede this game", MatchTargets.CONCEDE_GAME, true, onClick); GridText("then sideboarding, next game", color = Palette.dim) }
-            Row { GridButton("${if (gamesLeft) 2 else 1}  concede the match", MatchTargets.LEAVE, true, onClick); GridText("back to the library", color = Palette.dim) }
+            // A row between the buttons: two of them touching read as one.
+            if (gamesLeft) { Row(verticalAlignment = Alignment.CenterVertically) { GridButton("1  concede this game", MatchTargets.CONCEDE_GAME, true, onClick); GridText("then sideboarding, next game", color = Palette.dim) }; GridText("") }
+            Row(verticalAlignment = Alignment.CenterVertically) { GridButton("${if (gamesLeft) 2 else 1}  concede the match", MatchTargets.LEAVE, true, onClick); GridText("back to the library", color = Palette.dim) }
+            GridText("")
             Row { GridButton("Esc  cancel", MatchTargets.CANCEL, true, onClick) }
             GridText("")
             GridText(fit("a conceded game is recorded as a loss", cols - 4), color = Palette.dim)

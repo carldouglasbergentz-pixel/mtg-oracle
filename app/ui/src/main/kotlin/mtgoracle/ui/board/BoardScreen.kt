@@ -54,6 +54,7 @@ import mtgoracle.core.model.SideboardPrompt
 import mtgoracle.core.model.Prompt
 import mtgoracle.ui.kit.Border
 import mtgoracle.ui.kit.BoxPane
+import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.kit.ClickRegistry
@@ -265,7 +266,7 @@ fun BoardScreen(
                             border = if (prompt != null) Border.DOUBLE else Border.SINGLE,
                             borderColor = if (prompt != null) Palette.accent else Palette.dim) {
                             PromptBody(prompt, board, interaction, leftCols - 2, mode, onClick, onHover,
-                                trailing = if (matchControls != null && !showResult) ({ GridButton("concede", MatchTargets.OPEN_MENU, true, onClick) }) else null)
+                                trailing = if (matchControls != null && !showResult) ({ ControlButton("[ concede ]", MatchTargets.OPEN_MENU, true, onClick) }) else null)
                         }
                     }
                     Box(Modifier.cellWidth(sideCols).fillMaxHeight()) {

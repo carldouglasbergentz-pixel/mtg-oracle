@@ -37,7 +37,7 @@ import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.ui.board.SIDE_COLS
 import mtgoracle.ui.kit.BoxPane
-import mtgoracle.ui.kit.ControlButton
+import mtgoracle.ui.kit.Toolbar
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.kit.ClickTarget
@@ -174,6 +174,10 @@ fun LibraryScreen(
         val left = drag.live.left
         val side = drag.live.right
         Column(Modifier.fillMaxSize()) {
+            Toolbar(listOf(
+                "edit" to "Edit", "play" to "Play", "new-deck" to "New deck", "new-folder" to "New folder", "import" to "Import",
+                "mode" to if (mode == CardMode.ART) "Text" else "Art", "prefetch" to "Fetch images", "sync" to "Sync",
+            ), onClick)
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
                 Box(Modifier.cellWidth(left).fillMaxHeight()) {
                     BoxPane("decks", Modifier.fillMaxSize().region("library-decks")) {
@@ -245,10 +249,6 @@ fun LibraryScreen(
                     count = lookup.count,
                 )
             }
-            Buttons(listOf(
-                "edit" to "[ Edit ]", "play" to "[ Play ]", "new-deck" to "[ New deck ]", "new-folder" to "[ New folder ]", "import" to "[ Import ]",
-                "mode" to if (mode == CardMode.ART) "[ Text ]" else "[ Art ]", "prefetch" to "[ Fetch images ]", "sync" to "[ Sync ]",
-            ), onClick)
             val hints = if (lookup?.command?.focused == true) TYPING_HINTS
             else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter" to "edit", "P" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
             StatusLine(hints, notice, cols)
@@ -280,13 +280,3 @@ fun LibraryScreen(
 /** The status line's hints while the command line has the keyboard. */
 internal val TYPING_HINTS = listOf("Enter" to "run", "↑↓" to "history", "Tab" to "autofill", "PgUp/PgDn" to "scroll", "Esc" to "leave")
 
-/** A row of `[ Label ]` controls. */
-@Composable
-internal fun Buttons(buttons: List<Pair<String, String>>, onClick: (ClickTarget) -> Unit) {
-    Row {
-        buttons.forEach { (name, label) ->
-            ControlButton(label, ClickTarget.Control(name), true, onClick)
-            GridText("  ")
-        }
-    }
-}

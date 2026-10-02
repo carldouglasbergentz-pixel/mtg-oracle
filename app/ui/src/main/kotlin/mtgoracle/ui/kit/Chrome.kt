@@ -3,6 +3,10 @@ package mtgoracle.ui.kit
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -11,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
@@ -28,6 +33,7 @@ import mtgoracle.ui.theme.Chrome
 import mtgoracle.ui.theme.ChromeFont
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
+import mtgoracle.ui.theme.gridStyle
 import kotlin.math.floor
 
 /** Which title bar a pane gets in a drawn chrome: the one with the user's attention, a tapped card, or any other. */
@@ -144,6 +150,38 @@ fun ControlButton(text: String, target: ClickTarget, enabled: Boolean, onClick: 
     }, contentAlignment = Alignment.Center) {
         // Sized by the very line the house look draws, unseen: cells × width rounds differently, and a row of buttons drifted a pixel each.
         GridText(text, color = Color.Transparent)
+        BasicText(chromeSafe(label), style = style, softWrap = false, maxLines = 1, overflow = TextOverflow.Clip)
+    }
+}
+
+/** How tall a [BigButton] is, in rows: big enough to hit without aiming. */
+const val BUTTON_ROWS = 2
+
+/**
+ * A button for what is pressed often (a toolbar's, a prompt's OK, a dialog's):
+ * [BUTTON_ROWS] tall and two cells of room either side of [label]. In the
+ * house look an inverted block that takes the accent under the mouse; in a
+ * drawn chrome a raised button. The same cells either way.
+ */
+@Composable
+fun BigButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (ClickTarget) -> Unit) {
+    var over by remember { mutableStateOf(false) }
+    val chrome = Palette.chrome
+    var modifier = Modifier.cells(label.length + 4, BUTTON_ROWS)
+    if (enabled) modifier = modifier.clickTarget(target, onClick, mark = false, onHoverChange = { over = it }).pointerHoverIcon(PointerIcon.Hand)
+    RecordText(label)
+    if (chrome == null) {
+        val fill = when { !enabled -> Color.Unspecified; over -> Palette.accent; else -> Palette.foreground }
+        Box(modifier.drawBehind { if (fill != Color.Unspecified) drawRect(fill) else drawRect(Palette.dim, style = Stroke(hairline())) }, contentAlignment = Alignment.Center) {
+            BasicText(chromeSafe(label), style = gridStyle.copy(color = if (enabled) Palette.background else Palette.dim), softWrap = false, maxLines = 1)
+        }
+        return
+    }
+    val style = chromeTextStyle(chrome, LocalCells.current, LocalDensity.current, if (enabled) Palette.foreground else chrome.shadow)
+    Box(modifier.drawBehind {
+        drawRect(chrome.face)
+        raised(chrome, 0f, 0f, size.width, size.height)
+    }, contentAlignment = Alignment.Center) {
         BasicText(chromeSafe(label), style = style, softWrap = false, maxLines = 1, overflow = TextOverflow.Clip)
     }
 }

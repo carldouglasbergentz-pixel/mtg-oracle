@@ -135,7 +135,8 @@ class FloatingManaTest {
             s.key(Key.Enter) // OK: pass
             val asked = s.screenText()
             assertContains(asked, "{W} $warning")
-            assertContains(asked, "[ Pass ]"); assertContains(asked, "[ Stay ]")
+            val lines = asked.lines().map { it.trim() }
+            assertTrue("Pass" in lines && "Stay" in lines, "the two buttons: $lines")
             assertEquals(before, s.layout(), "the warning takes the prompt's own rows; nothing moves")
             s.png("floating-warning")
             assertEquals(prompt.id, s.match.seat.prompt.value?.id, "nothing was sent")
