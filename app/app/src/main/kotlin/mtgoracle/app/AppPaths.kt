@@ -60,6 +60,11 @@ class Settings(private val file: File) {
         get() = CardMode.entries.firstOrNull { it.name == props.getProperty("cardMode") } ?: CardMode.ART
         set(value) { props.setProperty("cardMode", value.name); save() }
 
+    /** The board's own text-or-art, apart from the library's: a T there once turned a game's art off unseen. */
+    var boardCardMode: CardMode
+        get() = CardMode.entries.firstOrNull { it.name == props.getProperty("board.cardMode") } ?: CardMode.ART
+        set(value) { props.setProperty("board.cardMode", value.name); save() }
+
     /** The board as the viewer arranged it: where the stack box is and whether it is folded, the pane widths. */
     var boardLayout: BoardLayout
         get() = BoardLayout().let { d ->

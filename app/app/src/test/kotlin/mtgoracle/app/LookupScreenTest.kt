@@ -105,12 +105,14 @@ class LookupScreenTest {
         assertTrue(ui.command.focused, "Tab took the suggestion, it did not move the focus")
 
         val mode = app.mode
+        val board = app.boardMode
         driver.key(Key.T, char = 't'.code)
         assertEquals(mode, app.mode, "T typed in the line is not the text/art key")
         driver.key(Key.Escape)
         assertFalse(ui.command.focused, "Esc gives the keyboard back")
         driver.key(Key.T, char = 't'.code)
         assertTrue(mode != app.mode, "now T is the screen's again")
+        assertEquals(board, app.boardMode, "the library's T leaves the board's art alone")
         app.toggleMode()
     }
 

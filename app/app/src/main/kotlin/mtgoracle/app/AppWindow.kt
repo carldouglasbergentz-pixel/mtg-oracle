@@ -102,8 +102,8 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             BoardScreen(
                 seat = match.seat,
                 title = "${match.spec.seat.name} vs ${match.spec.opponent.name}" + if (match.spec.format.games > 1) " · ${match.spec.format.label}" else "",
-                mode = app.mode,
-                extraHints = listOf("T" to "text/art"),
+                mode = app.boardMode,
+                extraHints = listOf("T" to "text/art: ${app.boardMode.name.lowercase()}"),
                 notice = app.notice,
                 layout = remember { app.settings.boardLayout },
                 onLayoutChange = { app.settings.boardLayout = it },

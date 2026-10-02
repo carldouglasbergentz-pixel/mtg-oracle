@@ -86,6 +86,8 @@ class AppController(private val paths: AppPaths) {
     var insight by mutableStateOf<DeckInsight?>(null)
         private set
     var mode by mutableStateOf(settings.cardMode)
+    /** Text or art on the board, toggled only there (T, F7) and shown in its status line. */
+    var boardMode by mutableStateOf(settings.boardCardMode)
     var notice by mutableStateOf<String?>(null)
     var forgeReady by mutableStateOf(false)
     var opponentId by mutableStateOf<Int?>(null)
@@ -347,10 +349,16 @@ class AppController(private val paths: AppPaths) {
     }
 
     /**
-     * T / F7: what "text or art" means where you are. In the workspace it is
-     * the search results (grid or lines); elsewhere the deck view and the board.
+     * T / F7: what "text or art" means where you are. In a game it is the
+     * board; in the workspace the search results (grid or lines); in the
+     * library the deck view.
      */
     fun toggleMode() {
+        if (screen == Screen.Playing) {
+            boardMode = if (boardMode == CardMode.ART) CardMode.TEXT else CardMode.ART
+            settings.boardCardMode = boardMode
+            return
+        }
         val ui = lookupUi
         if (screen == Screen.Library && editing != null && ui != null) {
             ui.grid = !ui.grid
