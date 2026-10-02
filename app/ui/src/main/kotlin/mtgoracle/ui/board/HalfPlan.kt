@@ -84,7 +84,10 @@ fun planTable(
     rows: Int, tiers: List<FrameTier>, handRows: (FrameTier) -> Int,
     farWants: (FrameTier) -> Int, nearWants: (FrameTier) -> Int, farFloor: Int, nearFloor: Int,
 ): TablePlan {
+    // The opponent's cards are never drawn larger than yours past the full frame: a near half that needs
+    // compact frames leaves the far one full, but a large far half beside a full near one would be odd.
     val combos = tiers.flatMap { near -> tiers.map { far -> near to far } }
+        .filter { (near, far) -> far.ordinal >= minOf(near.ordinal, FrameTier.FULL.ordinal) }
         .sortedWith(compareBy({ it.first.ordinal + it.second.ordinal }, { maxOf(it.first.ordinal, it.second.ordinal) }, { it.first.ordinal }))
     for ((near, far) in combos) {
         val hand = handRows(near)

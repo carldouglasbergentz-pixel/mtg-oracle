@@ -40,27 +40,52 @@ object FrameSize {
     /** The compact art frame: two rows of art, the credit, and cost, type and stats on one line. */
     const val COMPACT_ROWS = 6
     const val COMPACT_ROWS_OF_ART = 2
+    /**
+     * The large frames, for a table with room to spare: the full frame's lines
+     * around more art. Their art box keeps the crop's shape (about 1.4 : 1 at a
+     * cell's 7 × 16 px), where the full frame's four rows letterbox it.
+     */
+    const val LARGE_COLS = 28
+    const val LARGE_ROWS = 13
+    const val LARGE_ROWS_OF_ART = 8
+    const val LAND_LARGE_COLS = 22
+    const val XL_COLS = 36
+    const val XL_ROWS = 16
+    const val XL_ROWS_OF_ART = 11
+    const val LAND_XL_COLS = 28
     fun cols(mode: CardMode, land: Boolean = false) = cols(tierOf(mode), land)
     fun rows(mode: CardMode) = rows(tierOf(mode))
     fun cols(tier: FrameTier, land: Boolean = false) = when (tier) {
+        FrameTier.XL -> if (land) LAND_XL_COLS else XL_COLS
+        FrameTier.LARGE -> if (land) LAND_LARGE_COLS else LARGE_COLS
         FrameTier.FULL, FrameTier.COMPACT -> if (land) LAND_ART_COLS else ART_COLS
         FrameTier.TEXT -> if (land) LAND_TEXT_COLS else TEXT_COLS
     }
     fun rows(tier: FrameTier) = when (tier) {
+        FrameTier.XL -> XL_ROWS
+        FrameTier.LARGE -> LARGE_ROWS
         FrameTier.FULL -> ART_ROWS
         FrameTier.COMPACT -> COMPACT_ROWS
         FrameTier.TEXT -> TEXT_ROWS
+    }
+    /** Rows of art in a frame that has the credit, cost and type and stats lines each on their own. */
+    fun artRows(tier: FrameTier) = when (tier) {
+        FrameTier.XL -> XL_ROWS_OF_ART
+        FrameTier.LARGE -> LARGE_ROWS_OF_ART
+        else -> ART_ROWS_OF_ART
     }
     /** A mode's own frame: art mode's full one, text mode's text one. */
     fun tierOf(mode: CardMode) = if (mode == CardMode.ART) FrameTier.FULL else FrameTier.TEXT
 }
 
 /**
- * How big a card frame is drawn. Art mode starts at [FULL] and the table
- * steps down — [COMPACT], then [TEXT] — when a half can't hold its cards
- * otherwise (see planTable); text mode is always [TEXT].
+ * How big a card frame is drawn, largest first. Lists, the zoom pane's
+ * neighbours and the stack draw [FULL]; on the table art mode takes the
+ * largest that shows every card — [XL] and [LARGE] when there is room to
+ * spare, [COMPACT], then [TEXT] when a half can't hold its cards otherwise
+ * (see planTable). Text mode is always [TEXT].
  */
-enum class FrameTier { FULL, COMPACT, TEXT }
+enum class FrameTier { XL, LARGE, FULL, COMPACT, TEXT }
 
 /**
  * A card in our own frame: its name in the top edge, then — in art mode —
@@ -150,8 +175,8 @@ fun CardFrame(
             if (face.hidden) {
                 // A card back: the same cells, a plain pattern, nothing else.
                 repeat(FrameSize.rows(tier) - 2) { r -> GridText((if (r % 2 == 0) "/\\" else "\\/").repeat(inner / 2 + 1).take(inner), color = Palette.dim) }
-            } else if (tier == FrameTier.FULL) {
-                ArtBox(face, inner, FrameSize.ART_ROWS_OF_ART)
+            } else if (tier == FrameTier.FULL || tier == FrameTier.LARGE || tier == FrameTier.XL) {
+                ArtBox(face, inner, FrameSize.artRows(tier))
                 ArtistLine(face, inner)
                 GridText(fit(costAndType, inner), color = textColor)
                 StatsLine(face, inner, textColor)
