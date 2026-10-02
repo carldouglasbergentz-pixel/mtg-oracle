@@ -3,6 +3,7 @@ package mtgoracle.ui.kit
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -73,14 +74,19 @@ fun Modifier.clickTarget(
 ): Modifier = composed {
     val registry = LocalClickRegistry.current
     DisposableEffect(target, registry) { onDispose { registry?.remove(target) } }
+    // The handlers drawn now, not the ones first drawn: the tap detector lives as long as the target, and two
+    // questions in a row with a button of the same name (`ask:0`) ran the first question's handler.
+    val click by rememberUpdatedState(onClick)
+    val hover by rememberUpdatedState(onHover)
+    val hoverChange by rememberUpdatedState(onHoverChange)
     var m = this
         .onGloballyPositioned { registry?.put(target, it.boundsInWindow()) }
-        .pointerInput(target) { detectTapGestures { onClick(target) } }
+        .pointerInput(target) { detectTapGestures { click(target) } }
     if (onHover != null) {
-        m = m.onPointerEvent(PointerEventType.Enter) { onHover(target) }
+        m = m.onPointerEvent(PointerEventType.Enter) { hover?.invoke(target) }
     }
     if (onHoverChange != null) {
-        m = m.onPointerEvent(PointerEventType.Enter) { onHoverChange(true) }.onPointerEvent(PointerEventType.Exit) { onHoverChange(false) }
+        m = m.onPointerEvent(PointerEventType.Enter) { hoverChange?.invoke(true) }.onPointerEvent(PointerEventType.Exit) { hoverChange?.invoke(false) }
     }
     if (mark) m = m.hoverBackground()
     m
