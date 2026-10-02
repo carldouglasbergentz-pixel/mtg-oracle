@@ -356,7 +356,7 @@ class SeatGui(
      * [playable] the ones Forge says can be played from there (Future Sight's top card). The zones it does draw are clickable in place.
      */
     private fun selectableElsewhere(playable: Boolean): List<CardState> {
-        val shown = boardFlow.value?.players.orEmpty().flatMap { it.hand + it.battlefield + it.graveyard + it.exile + it.command }.map { it.id }.toSet()
+        val shown = boardFlow.value?.players.orEmpty().flatMap { it.cards }.map { it.id }.toSet()
         // The board's rule here too: a card the seat may not see is a back (its own id, to be clicked; the id names nothing),
         // and a face-down card is named only when the seat may look (Snapshots.sees).
         return (selectableIds + if (playable) actionableIds else emptySet()).filter { it !in shown }.mapNotNull { id ->
@@ -733,26 +733,26 @@ class SeatGui(
         return choose("$name: choose an ability", 0, 1, menu) { it.description }.firstOrNull()
     }
 
-    override fun chooseSingleEntityForEffect(title: String, optionList: List<GameEntityView>, delayedReveal: DelayedReveal?, isOptional: Boolean): GameEntityView? {
-        showDelayedReveal(delayedReveal)
-        return choose(title, if (isOptional) 0 else 1, 1, optionList) { it.toString() }.firstOrNull()
-    }
+    override fun chooseSingleEntityForEffect(title: String, optionList: List<GameEntityView>, delayedReveal: DelayedReveal?, isOptional: Boolean): GameEntityView? =
+        choose(withReveal(title, delayedReveal, optionList), if (isOptional) 0 else 1, 1, optionList) { it.toString() }.firstOrNull()
 
-    override fun chooseEntitiesForEffect(title: String, optionList: List<GameEntityView>, min: Int, max: Int, delayedReveal: DelayedReveal?): MutableList<GameEntityView> {
-        showDelayedReveal(delayedReveal)
-        return choose(title, min, max, optionList) { it.toString() }.toMutableList()
-    }
+    override fun chooseEntitiesForEffect(title: String, optionList: List<GameEntityView>, min: Int, max: Int, delayedReveal: DelayedReveal?): MutableList<GameEntityView> =
+        choose(withReveal(title, delayedReveal, optionList), min, max, optionList) { it.toString() }.toMutableList()
 
     /**
-     * "Look at the top five, you may take a creature": every card looked at,
-     * shown before the choice that offers only some of them, as Forge's own
-     * window does (CMatchUI). Forge passes it only to the player who looks.
+     * "Look at the top five, you may take a creature": the cards looked at that
+     * can't be taken, said in the choice's own question (named up to ten, else
+     * counted). A prompt of their own before the choice made a library search
+     * (Ash Barrens) a list of the whole library and a click before the lands
+     * on offer. Forge passes a reveal only to the player who looks.
      */
-    private fun showDelayedReveal(reveal: DelayedReveal?) {
-        val cards = reveal?.cards?.toList().orEmpty()
-        if (cards.isEmpty()) return
-        recorder.seat("  (${cards.size} cards revealed for this choice)")
-        choose(reveal?.messagePrefix?.takeIf { it.isNotBlank() } ?: "Looked at", -1, -1, cards) { it.toString() }
+    private fun withReveal(title: String, reveal: DelayedReveal?, options: List<GameEntityView>): String {
+        val offered = options.mapNotNull { (it as? CardView)?.id }.toSet()
+        val others = reveal?.cards?.filter { it.id !in offered }.orEmpty()
+        if (others.isEmpty()) return title
+        recorder.seat("  (${others.size} more card(s) looked at for this choice)")
+        val seen = if (others.size <= 10) others.joinToString(", ") { it.name } else "${others.size} other cards"
+        return "$title · also looked at: $seen"
     }
 
     override fun getInteger(message: String, min: Int, max: Int, sortDesc: Boolean): Int? =

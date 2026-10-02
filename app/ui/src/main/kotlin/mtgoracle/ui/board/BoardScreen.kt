@@ -244,17 +244,17 @@ fun BoardScreen(
                             val (far, near) = b.sides!!
                             val seatStops = if (b.seat != null) stops else null
                             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                                // The frame sizes and the heights of both halves and the hand, planned together (planTable):
-                                // the largest frames that show every card, each half the rows its cards need.
+                                // The frame sizes of both halves and the hand (planTable): even halves, each with the
+                                // largest frames that show its own cards, and the hand sized by the window.
                                 val fieldCols = leftCols - panes.zoneCols - 2
                                 val attach = { p: mtgoracle.core.model.PlayerState -> p.battlefield.any { it.attachedToId != null } }
                                 fun wants(p: mtgoracle.core.model.PlayerState, t: FrameTier, handLane: Boolean): Int =
-                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks), t), fieldCols) * bandRows(t, attach(p)) + 2 +
+                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks), t), fieldCols) * bandRows(t, attach(p)) + 2 + emblemRows(p) +
                                         if (handLane) FrameSize.rows(t) else 0
                                 val tiers = if (mode == CardMode.ART) FrameTier.entries else listOf(FrameTier.TEXT)
                                 val plan = planTable(cells.rows(constraints.maxHeight.toFloat()) - MIDLINE_ROWS, tiers, handRows = { FrameSize.rows(it) + 2 },
                                     farWants = { wants(far, it, handLane = showAllHands) }, nearWants = { wants(near, it, handLane = false) },
-                                    farFloor = ZONE_COLUMN_MIN_ROWS, nearFloor = ZONE_COLUMN_MIN_ROWS)
+                                    halfFloor = ZONE_COLUMN_MIN_ROWS)
                                 val farLooks = looks.sized(plan.farTier, attach(far))
                                 val nearLooks = looks.sized(plan.nearTier, attach(near))
                                 Column(Modifier.fillMaxSize()) {
@@ -268,7 +268,7 @@ fun BoardScreen(
                                     val showNearHand = b.seat != null || showAllHands
                                     BoxPane(if (showNearHand) "hand (${near.handCount})" else "hand ${near.handCount} (hidden: H shows)",
                                         Modifier.fillMaxWidth().weight(1f).region("hand")) {
-                                        if (showNearHand) HandLane(near, nearLooks.sized(plan.nearTier, false))
+                                        if (showNearHand) HandLane(near, nearLooks.sized(plan.handTier, false))
                                     }
                                 }
                             }

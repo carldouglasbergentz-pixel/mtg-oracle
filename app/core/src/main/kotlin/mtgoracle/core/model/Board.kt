@@ -73,9 +73,14 @@ data class PlayerState(
     /** The seat's own: the pool empties when this step ends (false for mana that stays, as with Upwelling). */
     val manaEmpties: Boolean = true,
     val poison: Int = 0,
-    /** The command zone: commanders, emblems. */
+    /** The command zone but its emblems: commanders, and Forge's other effects kept there. */
     val command: List<CardState> = emptyList(),
-)
+    /** Emblems: permanent effects nothing can touch, given a place of their own on the board. */
+    val emblems: List<CardState> = emptyList(),
+) {
+    /** Every card of this player's the board carries, zone by zone, emblems included. */
+    val cards: List<CardState> get() = hand + battlefield + graveyard + exile + command + emblems
+}
 
 enum class StackKind(val verb: String) { SPELL("cast"), ACTIVATED("activated"), TRIGGERED("triggered") }
 
@@ -141,7 +146,7 @@ data class BoardState(
     val sides: Pair<PlayerState, PlayerState>? get() = seat?.let { me -> opponentsOf(me).firstOrNull()?.let { it to me } }
         ?: players.takeIf { it.size >= 2 }?.let { it[0] to it[1] }
     fun card(id: Int): CardState? = players.asSequence()
-        .flatMap { (it.hand + it.battlefield + it.graveyard + it.exile + it.command).asSequence() }
+        .flatMap { it.cards.asSequence() }
         .firstOrNull { it.id == id && !it.hidden }
     /** New since your last decision and not your own doing (watching: the last few). */
     val freshEntries: List<TrailEntry> get() = if (seat == null) trail.takeLast(FRESH_WATCHING)

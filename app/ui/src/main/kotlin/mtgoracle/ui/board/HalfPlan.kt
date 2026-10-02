@@ -65,61 +65,50 @@ fun planZoneColumn(rows: Int, graveyard: Int, exile: Int, ladderWanted: Boolean)
     return ZoneColumnPlan(ladder, g, e, maxOf(0, left))
 }
 
-/** How the table is sized: each half's frame tier and rows, and the hand pane's rows. */
-data class TablePlan(val nearTier: FrameTier, val farTier: FrameTier, val handRows: Int, val farRows: Int, val nearRows: Int)
+/** How the table is sized: each half's frame tier and rows, and the hand pane's tier and rows. */
+data class TablePlan(val nearTier: FrameTier, val farTier: FrameTier, val handTier: FrameTier, val handRows: Int, val farRows: Int, val nearRows: Int)
+
+/** The most of the table the hand pane takes: a quarter. */
+private const val HAND_SHARE = 4
 
 /**
  * The frame sizes and heights for the table, out of [rows] (the halves and
- * the hand pane). The largest frames that let every card show without
- * overlapping win: combinations are tried by how much they give up in all,
- * then by how evenly, then with your own side kept larger. The hand follows
- * your side's tier. The halves are even while both fit in one; a half that
- * needs more takes it from the other, which keeps only what it uses. When no
- * combination fits, the smallest frames overlap.
+ * the hand pane). The halves are always the same size, and only the cards
+ * shrink: each half takes the largest frames that show its own cards without
+ * overlap in its half, so one side's cards can be larger than the other's.
+ * The hand is sized by the window alone (the largest frames in a quarter of
+ * the table, leaving each half at least [halfFloor] rows), so nothing moves
+ * as cards come and go. When no frames fit a half, its smallest overlap.
  *
  * [farWants] / [nearWants] are the rows a half needs at a tier, border
  * included; [handRows] the hand pane's.
  */
 fun planTable(
     rows: Int, tiers: List<FrameTier>, handRows: (FrameTier) -> Int,
-    farWants: (FrameTier) -> Int, nearWants: (FrameTier) -> Int, farFloor: Int, nearFloor: Int,
+    farWants: (FrameTier) -> Int, nearWants: (FrameTier) -> Int, halfFloor: Int,
 ): TablePlan {
-    // Each half sized by its own cards, as MTGO does: a sparse half takes large frames beside a crowded one, whoever's it is.
-    val combos = tiers.flatMap { near -> tiers.map { far -> near to far } }
-        .sortedWith(compareBy({ it.first.ordinal + it.second.ordinal }, { maxOf(it.first.ordinal, it.second.ordinal) }, { it.first.ordinal }))
-    for ((near, far) in combos) {
-        val hand = handRows(near)
-        val f = maxOf(farFloor, farWants(far))
-        val n = maxOf(nearFloor, nearWants(near))
-        if (hand + f + n <= rows) {
-            // Even halves while both fit in one, so a half's edge (where its lands sit) holds still as cards
-            // come and go; only a half that outgrows its share takes rows from the other.
-            val halves = rows - hand
-            val even = halves / 2
-            return when {
-                f <= even && n <= halves - even -> TablePlan(near, far, hand, even, halves - even)
-                n > halves - even -> TablePlan(near, far, hand, halves - n, n)
-                else -> TablePlan(near, far, hand, f, halves - f)
-            }
-        }
-    }
-    // Nothing fits: the smallest frames, the halves as even as their floors allow, and overlap does the rest.
-    val t = tiers.last()
-    val hand = handRows(t)
-    val left = rows - hand
-    val far = minOf(maxOf(farFloor, farWants(t)), left / 2).coerceAtLeast(minOf(farFloor, left / 2))
-    return TablePlan(t, t, hand, far, left - far)
+    val handTier = tiers.firstOrNull { handRows(it) * HAND_SHARE <= rows && (rows - handRows(it)) / 2 >= halfFloor } ?: tiers.last()
+    val hand = handRows(handTier)
+    val far = (rows - hand) / 2
+    val near = rows - hand - far
+    fun tierFor(rowsHere: Int, wants: (FrameTier) -> Int) = tiers.firstOrNull { wants(it) <= rowsHere } ?: tiers.last()
+    return TablePlan(tierFor(near, nearWants), tierFor(far, farWants), handTier, hand, far, near)
 }
 
 /**
  * The fewest bands that show every one of [zones]' cards at full width —
  * nothing overlapped, nothing scrolled — as planHalf would pack them
- * (middle zones sharing a band where they fit). An empty half needs one.
+ * (middle zones sharing a band where they fit), with the lands on bands of
+ * their own: creatures stand in front of the lands. Sized by its own cards, a
+ * sparse half got one band's rows, and its creatures and lands shared it. An
+ * empty half needs one.
  */
 fun bandsNeeded(zones: List<ZoneContent>, cols: Int, most: Int = 6): Int {
     for (b in 1..most) {
         val plan = planHalf(zones, cols, b)
-        if (plan.bands <= b && plan.scrolls.isEmpty() && plan.slots.all { s -> s.visible == zones.first { it.kind == s.zone }.widths[s.index] }) return b
+        val landBands = plan.slots.filter { it.zone == ZoneKind.LANDS }.map { it.band }.toSet()
+        val mixed = plan.slots.any { it.zone != ZoneKind.LANDS && it.band in landBands }
+        if (plan.bands <= b && !mixed && plan.scrolls.isEmpty() && plan.slots.all { s -> s.visible == zones.first { it.kind == s.zone }.widths[s.index] }) return b
     }
     return most
 }

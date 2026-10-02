@@ -141,7 +141,8 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             // A back says face-down only when the card is (face-down is public; what it is, is not).
             graveyard = cards(p, ZoneType.Graveyard).map { if (sees(it)) card(it) else CardState.back(stand(), it.isFaceDown) },
             exile = cards(p, ZoneType.Exile).map { if (sees(it)) card(it) else CardState.back(stand(), it.isFaceDown) },
-            command = cards(p, ZoneType.Command).map { if (sees(it)) commandCard(p, it) else CardState.back(stand(), it.isFaceDown) },
+            command = cards(p, ZoneType.Command).filterNot { it.isEmblem }.map { if (sees(it)) commandCard(p, it) else CardState.back(stand(), it.isFaceDown) },
+            emblems = cards(p, ZoneType.Command).filter { it.isEmblem }.map { if (sees(it)) card(it) else CardState.back(stand(), it.isFaceDown) },
             manaPool = manaPool(p),
             poison = p.counters?.entrySet()?.firstOrNull { it.element.name.equals("poison", ignoreCase = true) }?.count ?: 0,
         )
@@ -182,7 +183,8 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             damage = cv.damage,
             isToken = cv.isToken,
             attachedToId = cv.attachedTo?.id,
-            text = if (cv.isFaceDown) "" else state.oracleText.orEmpty(),
+            // An emblem (and Forge's other effects) has no oracle text: what it does is its abilities' text.
+            text = if (cv.isFaceDown) "" else state.oracleText?.takeIf { it.isNotBlank() } ?: state.abilityText.orEmpty(),
             imageKey = if (cv.isFaceDown) null else artOverrides[cv.owner?.name]?.get(state.name) ?: state.imageKey,
             counters = counters(cv),
             faceDown = cv.isFaceDown,

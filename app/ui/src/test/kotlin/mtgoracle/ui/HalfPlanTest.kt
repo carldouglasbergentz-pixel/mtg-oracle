@@ -48,35 +48,38 @@ class HalfPlanTest {
     }
 
     @Test
-    fun `the table plan - the largest frames that show every card, each half only what it needs`() {
+    fun `the table plan - even halves always, each with the largest frames its own cards fit`() {
         val tiers = mtgoracle.ui.kit.FrameTier.entries
         val rows = { t: mtgoracle.ui.kit.FrameTier -> mtgoracle.ui.kit.FrameSize.rows(t) }
         fun half(bands: Int) = { t: mtgoracle.ui.kit.FrameTier -> bands * (1 + rows(t)) + 2 }
-        // 80 rows: our three bands large, the opponent's one band XL, and the spare shared.
-        val roomy = mtgoracle.ui.board.planTable(80, tiers, { rows(it) + 2 }, half(1), half(3), 13, 13)
-        assertEquals(mtgoracle.ui.kit.FrameTier.LARGE to mtgoracle.ui.kit.FrameTier.XL, roomy.nearTier to roomy.farTier)
-        assertEquals(80, roomy.handRows + roomy.farRows + roomy.nearRows)
-        // A tall window with few cards: the largest frames.
-        val tall = mtgoracle.ui.board.planTable(120, tiers, { rows(it) + 2 }, half(1), half(2), 13, 13)
-        assertEquals(mtgoracle.ui.kit.FrameTier.XL to mtgoracle.ui.kit.FrameTier.XL, tall.nearTier to tall.farTier)
-        // 60 rows, our side crowded: full frames for us, large for the opponent's one band. Each half by its own cards.
-        val mixed = mtgoracle.ui.board.planTable(60, tiers, { rows(it) + 2 }, half(1), half(3), 13, 13)
-        assertEquals(mtgoracle.ui.kit.FrameTier.FULL, mixed.nearTier, "$mixed")
-        assertEquals(mtgoracle.ui.kit.FrameTier.LARGE, mixed.farTier, "the sparse half takes the room: $mixed")
-        // 1600x900's 44 rows: compact frames on our side, the opponent's half no bigger than its floor.
-        val tight = mtgoracle.ui.board.planTable(44, tiers, { rows(it) + 2 }, half(1), half(3), 13, 13)
-        assertEquals(mtgoracle.ui.kit.FrameTier.COMPACT, tight.nearTier, "$tight")
-        assertTrue(tight.nearRows >= half(3)(tight.nearTier), "our three bands fit: $tight")
-        assertTrue(tight.farRows <= 14, "the opponent gives up what it doesn't need: $tight")
+        fun plan(total: Int, far: Int, near: Int) = mtgoracle.ui.board.planTable(total, tiers, { rows(it) + 2 }, half(far), half(near), 13)
+        for (total in listOf(120, 80, 60, 44, 20)) {
+            val sparse = plan(total, 1, 3)
+            val crowded = plan(total, 3, 1)
+            for (p in listOf(sparse, crowded)) {
+                assertTrue(kotlin.math.abs(p.farRows - p.nearRows) <= 1, "the halves are even at $total rows: $p")
+                assertEquals(total, p.handRows + p.farRows + p.nearRows)
+            }
+            assertEquals(sparse.handRows to sparse.handTier, crowded.handRows to crowded.handTier, "the hand by the window alone, at $total rows")
+            assertEquals(sparse.farRows, crowded.farRows, "and the halves too: cards coming and going move no edge")
+            assertTrue(sparse.farTier.ordinal <= sparse.nearTier.ordinal, "the sparse half's frames are no smaller: $sparse")
+            assertTrue(half(3)(sparse.nearTier) <= sparse.nearRows || sparse.nearTier == tiers.last(), "the crowded half's cards fit its half: $sparse")
+        }
+        // 80 rows: one band large or bigger, three bands smaller, the halves the same.
+        val roomy = plan(80, 1, 3)
+        assertTrue(roomy.farTier.ordinal < roomy.nearTier.ordinal, "the opponent's single band takes larger frames: $roomy")
+        assertTrue(roomy.handRows * 4 <= 80, "the hand takes at most a quarter")
         // Too small for any: the smallest frames, and overlap takes the rest.
-        val tiny = mtgoracle.ui.board.planTable(20, tiers, { rows(it) + 2 }, half(1), half(3), 13, 13)
-        assertEquals(mtgoracle.ui.kit.FrameTier.TEXT, tiny.nearTier)
+        assertEquals(mtgoracle.ui.kit.FrameTier.TEXT, plan(20, 1, 3).nearTier)
     }
 
     @Test
     fun `bands needed - the fewest that show every card with no overlap, middle zones sharing`() {
         assertEquals(4, mtgoracle.ui.board.bandsNeeded(crowded(), 150), "creatures; walkers with artifacts; nine loose lands on two")
         assertEquals(1, mtgoracle.ui.board.bandsNeeded(emptyList(), 150))
+        assertEquals(2, mtgoracle.ui.board.bandsNeeded(listOf(ZoneContent(ZoneKind.CREATURES, List(1) { creature }), ZoneContent(ZoneKind.LANDS, List(2) { land })), 150),
+            "one creature and two lands fit in one band, but the creature stands in front of the lands")
+        assertEquals(1, mtgoracle.ui.board.bandsNeeded(listOf(ZoneContent(ZoneKind.LANDS, List(3) { land })), 150), "lands alone: one band")
         assertEquals(1, mtgoracle.ui.board.bandsNeeded(listOf(ZoneContent(ZoneKind.WALKERS, List(2) { creature }), ZoneContent(ZoneKind.PERMANENTS, List(2) { creature })), 150), "they share a band")
     }
 

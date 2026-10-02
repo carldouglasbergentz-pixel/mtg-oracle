@@ -228,19 +228,24 @@ private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, lo
             val cols = cells.cols(constraints.maxWidth.toFloat())
             // Watching with hands shown, the far hand takes a lane at that player's edge.
             val handRows = if (far && showHand) FrameSize.rows(looks.tier) else 0
-            val rows = cells.rows(constraints.maxHeight.toFloat()) - handRows
+            // The emblems' row sits at the midline edge: the top of the near half, the bottom of the far one.
+            val emblems = emblemRows(player)
+            val rows = cells.rows(constraints.maxHeight.toFloat()) - handRows - emblems
             val band = bandRows(looks.tier, looks.attach)
             val plan = planHalf(zoneContents(lanes, looks.tier), cols, maxOf(1, rows / band))
             // More bands than rows is the last resort: then the half scrolls. Otherwise it fits exactly.
             val contentRows = maxOf(rows, plan.bands * band)
             Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                Box(Modifier.fillMaxWidth().cellHeight(contentRows + handRows)) {
+                Box(Modifier.fillMaxWidth().cellHeight(contentRows + handRows + emblems)) {
                     if (handRows > 0) HandLane(player, looks)
+                    if (emblems > 0) Box(Modifier.offset(y = with(density) { ((if (far) handRows + contentRows else 0) * cells.height).toDp() })) {
+                        EmblemRow(player, looks, if (far) "far" else "near")
+                    }
                     for (b in 0 until plan.bands) {
                         // Rows from the midline: nonland bands pack outwards from it (band 0 touches it); the
                         // lands bands pack inwards from the player's edge, so free rows fall between the two.
                         val fromMidline = if (b < plan.landsFrom) b * band else contentRows - (plan.bands - b) * band
-                        val y = if (far) handRows + contentRows - fromMidline - band else fromMidline
+                        val y = if (far) handRows + contentRows - fromMidline - band else emblems + fromMidline
                         BandView(b, plan, lanes, looks, cols, if (far) "far" else "near", Modifier.offset(y = with(density) { (y * cells.height).toDp() }))
                     }
                 }
