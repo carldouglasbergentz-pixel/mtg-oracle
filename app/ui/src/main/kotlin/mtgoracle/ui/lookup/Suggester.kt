@@ -47,7 +47,7 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "compare" to "compare <deck>|<folder>: this deck head to head, or against every deck in the folder",
     "results" to "results [<deck>]: wins–losses–draws against each opponent, your games and the simulated ones",
     "prune" to "prune [--yes]: the card rows no export writes any more (a dry run without --yes; decks keep theirs)",
-    "sync" to "sync [--force] [cards|rules|combos|tags|oracletags|formats ...]: fetch what moved upstream (decks are never touched)",
+    "sync" to "sync [--force] [cards|rules|combos|tags|oracletags|formats|printings ...]: fetch what moved upstream (decks are never touched)",
 )
 
 /**

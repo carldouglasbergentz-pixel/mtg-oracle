@@ -47,7 +47,7 @@ ANALYSIS
 
 DATA
   sync [--force] [<source> ...]       fetch what moved upstream: cards, rules, combos, tags,
-                                      oracletags, formats (decks are never touched); --force
+                                      oracletags, formats, printings (decks are never touched); --force
                                       fetches it all again
   prune [--yes]                       card rows no export writes any more; a dry run
                                       without --yes, and a deck's cards are always kept

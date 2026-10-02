@@ -97,10 +97,11 @@ the layout.
 
 ## Data/app boundary
 
-The app is a thin client over the same SQLite schema currently being built.
-It consumes `cards`, `rulings`, `rules`, `combos`, and the planned
-`card_tags` / `card_abilities` tables. It does **not** own any data — a
-fresh install can bootstrap by running the existing `sync.py` orchestrator.
+The app owns the SQLite database: its schema and migrations
+(`data/Schema.kt`), its sync from Scryfall, Wizards and Spellbook
+(`data/sync/`), and the user's decks, games and corrections. A fresh install
+starts with an empty database and fills it with one [ Sync ]; the Python
+tooling it replaced is history (git tag `python-final`).
 
 LLM integration (when added) sits beside the app, not inside it: a
 tool-use agent reads the same DB via the same SQL tools a human query
@@ -114,7 +115,7 @@ The app is no longer text-only. Card art is used the way an IDE uses an image pr
 - **A zoom pane** shows the full card image for the card under the cursor or selected, as in MTGO. This is where you read an unfamiliar card.
 - **A text-mode toggle** drops the art and gives the ASCII blocks above, for maximum density.
 - **Art follows the printing.** A deck row keeps the printing the user chose: set plus collector number, taken from the paste (Moxfield writes `1 Sol Ring (C18) 263`), and changeable in the app. It carries through to Forge (`Sol Ring|C18`).
-- **Source:** Forge fetches images from Scryfall and caches them per edition. With the engine in-process we use its image keys and its cache rather than building our own. Images are cached, so the app works offline once they are fetched. Scryfall's terms apply: never crop off the copyright or the artist, and never distort or recolour.
+- **Source:** Forge fetches images from Scryfall and caches them per edition. With the engine in-process we use its image keys and its cache; a printing Forge lacks is fetched from Scryfall into our own cache (`data/app/scryfall/`, `PrintingArt`), and `data/app/art-index.tsv` remembers what is on disk so art shows before Forge is up. Images are cached, so the app works offline once they are fetched. Scryfall's terms apply: never crop off the copyright or the artist, and never distort or recolour.
 
 ## The game board (decided 2026-09-29)
 

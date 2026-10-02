@@ -43,7 +43,7 @@ gradlew :app:installLocal       :: builds a snapshot into app\dist\<timestamp>\
 run-mtg-oracle.cmd              :: plays the newest snapshot (run-mtg-oracle.sh elsewhere)
 ```
 
-On a first start there is no database. The app creates an empty one and asks you to press **[ Sync ]**. That fetches the cards, rulings, rules, combos and tags, which takes a few minutes and mostly goes on Spellbook's 600 MB export. After that, [ Sync ] (or `sync` on the command line) fetches only what moved upstream.
+On a first start there is no database. The app creates an empty one and asks you to press **[ Sync ]**. That fetches the cards, rulings, rules, combos, tags and printings, which takes a few minutes and mostly goes on Spellbook's 600 MB export and Scryfall's 80 MB of printings. After that, [ Sync ] (or `sync` on the command line) fetches only what moved upstream.
 
 Play from the snapshot, not `gradlew :app:run`. A build replaces the class files under a running game. Each snapshot is stamped with its git hash, which the window title shows, and the three newest are kept.
 
@@ -181,7 +181,7 @@ mtg-oracle/
 
 ## Conventions
 
-- All SQL is parameterised. Reads use a read-only connection. Writes happen only in the sync, the deck engine and game records, one transaction each.
+- All SQL is parameterised. Reads use a read-only connection. Writes happen only through the data layer's writers (the sync and prune, DeckWriter and LibraryWriter, game records, substitutions, user combos), one transaction each.
 - Card names are case-insensitive everywhere, and diacritics, ligatures and apostrophes fold.
 - Don't fetch from Scryfall, Wizards or Spellbook at query time: the sync is the refresh path. Don't edit `data/raw/`, which every sync overwrites.
 - Spellbook is comprehensive for known combos, not exhaustive. Your own combos fill the gap.

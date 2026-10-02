@@ -10,7 +10,7 @@ Steps:
 
    Arguments:
    - `--force` re-ingests every source regardless of upstream state.
-   - One or more source keys limit the run: `cards`, `rules`, `combos`, `tags`, `oracletags`, `formats`.
+   - One or more source keys limit the run: `cards`, `rules`, `combos`, `tags`, `oracletags`, `formats`, `printings`.
    - `--json` prints the report as JSON.
 
    In the app itself, the [ Sync ] button and the `sync` command do the same, and reload the lookup afterwards. The app keeps a backup before the first sync of a database (`data/backups/`).
@@ -26,6 +26,7 @@ Sources:
 - **combos**: Commander Spellbook `variants.json` (weekly, ~600 MB).
 - **tags**: the local tagging pass (CR 702 keywords, type-line types, per-ability `has_target` / `produces_mana` / `is_mana_ability` per CR 605.1a/b), rebuilt from the `cards` table.
 - **oracletags**: Scryfall Tagger's oracle tags (daily).
+- **printings**: every paper printing Scryfall has, for card art (the bulk file once, then only the sets whose card count moved).
 - **formats**: the curated points lists in `data/formats/*.json`.
 
 The sync never touches a deck. Stale card rows (names no export writes any more) are a separate step: `app\mtg.cmd prune` is a dry run, `prune --yes` deletes.

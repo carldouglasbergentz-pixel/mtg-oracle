@@ -18,7 +18,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 
 | Feature | Today (TUI) | Step | Status |
 |---|---|---|---|
-| Theme switching, persisted between runs (the user runs `rose-pine`) | Ctrl+P palette → theme, saved to `data/config.json` | 2 | ✓ F8 cycles five two-tone themes; the first run takes the TUI's |
+| Theme switching, persisted between runs (the user runs `rose-pine`) | Ctrl+P palette → theme, saved to `data/config.json` | 2 | ✓ F8 (or the toolbar's Theme button) opens a picker of ten themes by era; the first run takes the TUI's |
 | Command line / palette: type any command, `:` to focus | command input | 3 | ✓ `:` or Ctrl+K; Esc leaves it |
 | Autofill: card names, rule numbers, commands, `;` segments | Suggester | 3 | ✓ plus deck names for `cd`, help topics |
 | Command history with Up/Down, restoring a pending draft | input history | 3 | ✓ |
@@ -61,7 +61,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 | Replace from a list with diff; abort on unknown cards | `paste --replace` | 4 | ✓ 4b: Import > Replace shows the changes first (a dry run), then asks; unknown names are named and left out only on yes |
 | History and undo / redo | `history`, `undo` | 4 | ✓ 4a: the History tab (every change, both apps' alike) and `undo` (undo of undo is redo) |
 | Printings (set + collector number) kept from the paste, used for art | parser + `deck_cards` | 2 | ✓ kept on import and replace, written back by export |
-| Choose a card's printing / art in the app (pick from its printings in the deck view or zoom pane; recorded in deck history, undoable) | — (new; wanted 2026-09-29 — Jace set to WWK 31 by hand) | 4 | ✓ 4b: a row's menu > choose printing..., every printing Forge knows, newest first, the art in the zoom pane on hover; a `printing` revision, undoable |
+| Choose a card's printing / art in the app (pick from its printings in the deck view or zoom pane; recorded in deck history, undoable) | — (new; wanted 2026-09-29 — Jace set to WWK 31 by hand) | 4 | ✓ 4b: a row's menu > choose printing..., every paper printing Scryfall has, newest first, the art in the zoom pane on hover; a `printing` revision, undoable |
 | Export to clipboard / file, round-trips; `--front-face`, `--grouped` | `export` | 4 | ✓ to the clipboard (full names, front faces, grouped by role), and to a file with `mtg deck export <deck> [--front-face] [--grouped] > file.txt` |
 | Combos fully contained in a deck | `combos` in a deck | 5 | ✓ `combos` with no argument in or on a deck, and the block's `[ N combos in the deck ]` |
 
@@ -91,7 +91,7 @@ Status legend: ✓ in the new app · ▶ in progress · ○ planned.
 
 | Feature | Today | Step | Status |
 |---|---|---|---|
-| Sync: cards, rulings, rules, combos, tags, oracle tags, formats; skip-unchanged, `--force`, `--only`, changelog | `sync.py`, `sync` in the TUI | 6 | ✓ 6b: `data/sync/`; [ Sync ] and `sync [--force] [<source> ...]` in the app, `gradlew :app:sync` in a terminal. SyncParityTest (`-PsyncParity`) finds all 14 tables identical to Python's on the cached exports. First real run 2026-10-01 |
+| Sync: cards, rulings, rules, combos, tags, oracle tags, formats; skip-unchanged, `--force`, `--only`, changelog | `sync.py`, `sync` in the TUI | 6 | ✓ 6b: `data/sync/`; [ Sync ] and `sync [--force] [<source> ...]` in the app, `gradlew :app:sync` in a terminal. SyncParityTest (part of the suite) finds all 14 tables identical to Python's on the cached exports. First real run 2026-10-01 |
 | Prune stale cards | `prune_stale_cards.py` | 6 | ✓ 6c: `prune [--yes]` (a dry run; --yes asks first) and `mtg prune`; a deck's cards are kept, and too many "stale" rows refuse |
 | Schema: create, migrate, backup | `init_db.py`, `self_heal.py` + `scripts/migrations/` | 6a | ✓ the app's `Schema` (`user_version`): creates v1, adopts a Python-made database unchanged, backs up before migrating; v2 dropped the empty `forge_matches`. `self_heal` leaves a versioned database alone |
 | User combos | `add_user_combo.py` | 3 (show) / 4 (add) | ✓ 6c: `combo add <card>; <card>` asks what it does and its name; `combo remove <user-NNN>` after a yes |
