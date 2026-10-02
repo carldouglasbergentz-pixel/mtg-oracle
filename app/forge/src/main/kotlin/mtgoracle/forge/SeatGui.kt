@@ -136,6 +136,7 @@ class SeatGui(
     /** Named under the board's own rule: seen, and if face-down, peekable. */
     private val trail = Trail(named = { cv -> visible(cv) && (!cv.isFaceDown || peek(cv)) }, onChange = { dirty = true })
     private val floatingMana = FloatingMana(recorder)
+    private val drawLog = DrawLog(recorder)
     /** The trail's seq when the seat last decided something: what came after is "just happened". */
     @Volatile private var decisionSeq = 0L
     private val promptIds = AtomicLong()
@@ -448,7 +449,7 @@ class SeatGui(
         seatPlayerIds = myPlayers?.map { it.id }?.toSet().orEmpty()
         finished = false
         conceded = false
-        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it) }
+        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it) }
         dirty = true
     }
 

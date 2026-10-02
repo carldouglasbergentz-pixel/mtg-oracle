@@ -14,7 +14,8 @@ import java.util.Observer
  * line, and every answer our seat gave, in one append-only file.
  *
  * Three line kinds, so a reader can filter:
- *   LOG   — Forge's GameLog (the human-readable play-by-play)
+ *   LOG   — Forge's GameLog (the human-readable play-by-play), and our own
+ *           lines in it ([play]: a draw)
  *   EVENT — every GameEvent off the game's event bus, class + fields
  *   SEAT  — a prompt shown to our seat and the answer we gave
  */
@@ -48,6 +49,20 @@ class GameRecorder(val file: File) : Closeable {
 
     fun seat(line: String) = write("SEAT", line)
     fun note(line: String) = write("NOTE", line)
+
+    /**
+     * A play-by-play line of ours, beside Forge's. [merge] may fold it into
+     * the line before it (two draws in a row): it gets the last line and this
+     * one, and returns the line to stand for both, or null to keep them apart.
+     */
+    @Synchronized
+    fun play(line: String, merge: ((last: String, next: String) -> String?)? = null) {
+        write("LOG", line)
+        val folded = recent.peekLast()?.let { last -> merge?.invoke(last, line) }
+        if (folded != null) recent.removeLast()
+        recent.addLast(folded ?: line)
+        while (recent.size > 200) recent.removeFirst()
+    }
 
     /** The last few play-by-play lines, newest last, for the board's log pane. */
     @Synchronized
