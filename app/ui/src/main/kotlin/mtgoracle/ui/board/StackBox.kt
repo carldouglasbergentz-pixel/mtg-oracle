@@ -34,6 +34,7 @@ import mtgoracle.ui.kit.Emphasis
 import mtgoracle.ui.kit.FrameSize
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.boxBorder
+import mtgoracle.ui.kit.chromeShape
 import mtgoracle.ui.kit.cells
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.face
@@ -83,7 +84,7 @@ fun StackBox(
     val textCols = inner - frameCols - 1
     val frameRows = FrameSize.rows(mode)
     Box(
-        modifier.cells(STACK_BOX_COLS, rows).background(Palette.background)
+        modifier.cells(STACK_BOX_COLS, rows).chromeShape().background(Palette.background)
             .boxBorder("stack · ${board.stack.size} · top first", right = "drag · S folds", border = Border.DOUBLE, color = Palette.accent)
             // Solid to the pointer as well as the eye: a click on the panel never reaches the card beneath.
             .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }

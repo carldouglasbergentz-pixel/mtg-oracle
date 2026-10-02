@@ -46,10 +46,10 @@ fun StatusLine(hints: List<Pair<String, String>>, message: String?, cols: Int, m
     val left = (hints + mtgoracle.ui.theme.LocalGlobalHints.current).joinToString("  ") { (key, what) -> "$key $what" }
     if (warning != null) {
         // A warning takes the line over, in the accent: something decided for you, and you should know.
-        GridText(fit(" ! $warning", cols), modifier = modifier.sunkenPanel(), color = Palette.accent, bold = true)
+        GridText(fit(" ! $warning", cols), modifier = modifier.statusPanel(), color = Palette.accent, bold = true)
         return
     }
     val right = message.orEmpty()
     val gap = maxOf(1, cols - left.length - right.length - 2)
-    GridText(fit(" $left" + " ".repeat(gap) + right, cols), modifier = modifier.sunkenPanel(), color = Palette.surfaceText)
+    GridText(fit(" $left" + " ".repeat(gap) + right, cols), modifier = modifier.statusPanel(), color = Palette.surfaceText)
 }

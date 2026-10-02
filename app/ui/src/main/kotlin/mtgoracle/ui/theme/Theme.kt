@@ -37,6 +37,7 @@ data class Theme(
 enum class Era(val label: String) {
     TERMINAL("terminal"),
     Y1995("1995"),
+    Y2001("2001"),
 }
 
 /**
@@ -53,9 +54,25 @@ data class Chrome(
     val light: Color, val midLight: Color, val shadow: Color, val darkShadow: Color,
     /** The title bar of the pane that has the user's attention (a prompt, a dialog, the command line typing), and of every other. */
     val title: Color, val titleText: Color, val inactiveTitle: Color, val inactiveTitleText: Color,
-    /** The family titles and buttons are set in; the grid font when it isn't installed. */
+    /** The family buttons (and titles, unless [titleFont]) are set in; the grid font when it isn't installed. */
     val font: String,
+    /** The title bars' family where it differs (XP set them in Trebuchet MS, its buttons in Tahoma). */
+    val titleFont: String = font,
+    val style: ChromeStyle = ChromeStyle.Bevel,
 )
+
+/** How a [Chrome] draws its shapes, with the tones only that shape needs. */
+sealed interface ChromeStyle {
+    /** Windows 95: edges two lines deep, square corners, a flat title bar. */
+    data object Bevel : ChromeStyle
+
+    /**
+     * Windows XP's Luna: a title bar with rounded top corners, shaded top to
+     * bottom, the window framed in its title's colour; rounded buttons with an
+     * [outline] that [glow] under the mouse.
+     */
+    data class Luna(val outline: Color, val glow: Color) : ChromeStyle
+}
 
 object Themes {
     val HOUSE = Theme("house", "house", Color(0xFF111315), Color(0xFFD7D7D2), Color(0xFF7C8084), Color(0xFFE2B350), Color(0xFFEF5B53))
@@ -81,7 +98,22 @@ object Themes {
         Era.Y1995,
     )
 
-    val ALL = listOf(HOUSE, ROSE_PINE, PAPER, CODE_DARK, SOLARIZED, WIN95)
+    /**
+     * Windows XP's Luna in blue: the beige face, the blue title bars, Tahoma and Trebuchet MS, XP's selection blue as the accent.
+     * One departure: an inactive title is a deeper blue than Luna's (3.9:1 against white, not 2.9:1), because a card's name is in it.
+     */
+    val XP = Theme(
+        "xp", "windows xp", Color(0xFFFFFFFF), Color(0xFF000000), Color(0xFF6B6B6B), Color(0xFF316AC5), Color(0xFFC00000),
+        Chrome(
+            face = Color(0xFFECE9D8), light = Color(0xFFFFFFFF), midLight = Color(0xFFF1EFE2), shadow = Color(0xFFACA899), darkShadow = Color(0xFF716F64),
+            title = Color(0xFF0054E3), titleText = Color(0xFFFFFFFF), inactiveTitle = Color(0xFF5F7FD6), inactiveTitleText = Color(0xFFFFFFFF),
+            font = "Tahoma", titleFont = "Trebuchet MS",
+            style = ChromeStyle.Luna(outline = Color(0xFF003C74), glow = Color(0xFFF8B330)),
+        ),
+        Era.Y2001,
+    )
+
+    val ALL = listOf(HOUSE, ROSE_PINE, PAPER, CODE_DARK, SOLARIZED, WIN95, XP)
 
     fun byKey(key: String?): Theme? = ALL.firstOrNull { it.key == key }
 

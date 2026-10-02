@@ -118,7 +118,7 @@ fun BoxPane(
     content: @Composable () -> Unit,
 ) {
     val cells = LocalCells.current
-    Box(modifier.snapToCells().background(Palette.background).boxBorder(title, right, border, borderColor)) {
+    Box(modifier.snapToCells().chromeShape().background(Palette.background).boxBorder(title, right, border, borderColor)) {
         // Clipped: a line wider than the pane (a wide table) stops at the border instead of running into the next pane.
         Box(Modifier.insideBorder(cells).clipToBounds()) { content() }
     }

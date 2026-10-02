@@ -138,7 +138,7 @@ fun CardFrame(
     val costAndType = listOf(face.manaCost, face.typeLine).filter { it.isNotEmpty() }.joinToString(" ")
     // Hovered, the frame's own background takes the hover tone: a mark drawn behind it would be hidden, and one over it would tint the art.
     var over by remember { mutableStateOf(false) }
-    var modifier = Modifier.cells(cols, FrameSize.rows(tier)).background(if (over || hovered) Palette.hover else Palette.background)
+    var modifier = Modifier.cells(cols, FrameSize.rows(tier)).chromeShape().background(if (over || hovered) Palette.hover else Palette.background)
         .boxBorder(title = title, right = listOfNotNull(mark, "×$stack".takeIf { stack > 1 }).joinToString(" ").ifEmpty { null },
             border = border, color = borderColor, titleColor = textColor)
     if (target != null) modifier = modifier.clickTarget(target, onClick, onHover, mark = false, onHoverChange = { over = it })

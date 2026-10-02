@@ -26,6 +26,7 @@ import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.FitText
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.boxBorder
+import mtgoracle.ui.kit.chromeShape
 import mtgoracle.ui.kit.cells
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.fit
@@ -87,7 +88,7 @@ fun ResultPanel(status: MatchStatus, onClick: (ClickTarget) -> Unit, modifier: M
             else -> "the match is drawn"
         })
     }
-    Box(modifier.cells(cols, lines.size + 4 + BUTTON_ROWS).background(Palette.background)
+    Box(modifier.cells(cols, lines.size + 4 + BUTTON_ROWS).chromeShape().background(Palette.background)
         .boxBorder(if (status.over) "match over" else "game over", border = Border.DOUBLE, color = Palette.accent)
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
         .region("match-result")) {
@@ -109,7 +110,7 @@ fun ConcedeMenu(status: MatchStatus?, onClick: (ClickTarget) -> Unit, modifier: 
     val cols = 68
     // In a match with games still to come, conceding a game is not leaving.
     val gamesLeft = status != null && status.gamesInMatch > 1
-    Box(modifier.cells(cols, (if (gamesLeft) 3 else 2) * (BUTTON_ROWS + 1) + 4).background(Palette.background)
+    Box(modifier.cells(cols, (if (gamesLeft) 3 else 2) * (BUTTON_ROWS + 1) + 4).chromeShape().background(Palette.background)
         .boxBorder("leave the game?", border = Border.DOUBLE, color = Palette.accent)
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
         .region("concede-menu")) {

@@ -49,7 +49,10 @@ class ThemeAndPanesTest {
             assertEquals(theme.background.toArgb(), image.getRGB(900, 300), "${theme.key}: the table's background")
             // A colour any other theme defines (and this one doesn't), drawn exactly, would be a colour the theme didn't reach.
             fun tones(t: mtgoracle.ui.theme.Theme) = listOf(t.background, t.foreground, t.accent).map { it.toArgb() }
-            val own = (tones(theme) + listOfNotNull(theme.chrome).flatMap { c -> listOf(c.face, c.light, c.midLight, c.shadow, c.darkShadow, c.title, c.titleText, c.inactiveTitle, c.inactiveTitleText).map { it.toArgb() } }).toSet()
+            val own = (tones(theme) + listOf(theme.tapped.toArgb()) + listOfNotNull(theme.chrome).flatMap { c ->
+                val style = (c.style as? mtgoracle.ui.theme.ChromeStyle.Luna)?.let { listOf(it.outline, it.glow) }.orEmpty()
+                (listOf(c.face, c.light, c.midLight, c.shadow, c.darkShadow, c.title, c.titleText, c.inactiveTitle, c.inactiveTitleText) + style).map { it.toArgb() }
+            }).toSet()
             // An antialiased edge between two of the theme's own tones can land on any colour between them (black text on white makes every grey).
             fun blend(c: Int) = own.any { a -> own.any { b -> between(a, b, c) } }
             val others = (Themes.ALL.filter { it != theme }.flatMap(::tones).toSet() - own).filterNot(::blend).toSet()
