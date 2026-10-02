@@ -52,17 +52,17 @@ class HalfPlanTest {
         val tiers = mtgoracle.ui.kit.FrameTier.entries
         val rows = { t: mtgoracle.ui.kit.FrameTier -> mtgoracle.ui.kit.FrameSize.rows(t) }
         fun half(bands: Int) = { t: mtgoracle.ui.kit.FrameTier -> bands * (1 + rows(t)) + 2 }
-        // 80 rows: room for large frames on both sides (XL would need 90), and the spare shared.
+        // 80 rows: our three bands large, the opponent's one band XL, and the spare shared.
         val roomy = mtgoracle.ui.board.planTable(80, tiers, { rows(it) + 2 }, half(1), half(3), 13, 13)
-        assertEquals(mtgoracle.ui.kit.FrameTier.LARGE to mtgoracle.ui.kit.FrameTier.LARGE, roomy.nearTier to roomy.farTier)
+        assertEquals(mtgoracle.ui.kit.FrameTier.LARGE to mtgoracle.ui.kit.FrameTier.XL, roomy.nearTier to roomy.farTier)
         assertEquals(80, roomy.handRows + roomy.farRows + roomy.nearRows)
         // A tall window with few cards: the largest frames.
         val tall = mtgoracle.ui.board.planTable(120, tiers, { rows(it) + 2 }, half(1), half(2), 13, 13)
         assertEquals(mtgoracle.ui.kit.FrameTier.XL to mtgoracle.ui.kit.FrameTier.XL, tall.nearTier to tall.farTier)
-        // 60 rows, our side crowded: full frames for us, and the opponent's no larger, though its one band would fit large.
+        // 60 rows, our side crowded: full frames for us, large for the opponent's one band. Each half by its own cards.
         val mixed = mtgoracle.ui.board.planTable(60, tiers, { rows(it) + 2 }, half(1), half(3), 13, 13)
         assertEquals(mtgoracle.ui.kit.FrameTier.FULL, mixed.nearTier, "$mixed")
-        assertEquals(mtgoracle.ui.kit.FrameTier.FULL, mixed.farTier, "the opponent's cards are never larger than ours past full: $mixed")
+        assertEquals(mtgoracle.ui.kit.FrameTier.LARGE, mixed.farTier, "the sparse half takes the room: $mixed")
         // 1600x900's 44 rows: compact frames on our side, the opponent's half no bigger than its floor.
         val tight = mtgoracle.ui.board.planTable(44, tiers, { rows(it) + 2 }, half(1), half(3), 13, 13)
         assertEquals(mtgoracle.ui.kit.FrameTier.COMPACT, tight.nearTier, "$tight")
