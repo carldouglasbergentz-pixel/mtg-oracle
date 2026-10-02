@@ -114,9 +114,9 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
     val rowsLeft = maxOf(1, PROMPT_CONTENT_ROWS - message.size - (if (action != null) 1 else 0))
     when (prompt) {
         is InputPrompt -> if (prompt.selectableElsewhere.isNotEmpty()) {
-            // Cards the board doesn't draw (a library being searched): as chips, hover for the card.
+            // Cards the board doesn't draw (a library being searched, Future Sight's top card): as chips, hover for the card.
             Row(Modifier.horizontalScroll(rememberScrollState())) {
-                GridText("choose from: ", color = Palette.dim)
+                GridText(if (prompt.kind == InputKind.PRIORITY) "playable from elsewhere: " else "choose from: ", color = Palette.dim)
                 prompt.selectableElsewhere.forEach { card -> CardChip(card.face(), Emphasis.SELECTABLE, ClickTarget.Card(card.id), onClick, onHover); GridText(" ") }
             }
         }

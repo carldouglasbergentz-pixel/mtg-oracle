@@ -114,16 +114,16 @@ class SeatGui(
         edt.later { }
     }
 
+    /** A face-down card's real face: Forge's rule, as its own board's mayFlip uses it. */
+    private fun peek(card: CardView): Boolean =
+        if (seatController != null) card.canFaceDownBeShownToAny(localPlayers) else showHandsFlow.value
+
     /**
      * What this seat may see of [card]. A seat: Forge's own rule for its
      * player (AbstractGuiGame.mayView -> CardView.canBeShownToAny), which
      * follows reveals, "look at" effects and face-down ownership. A spectator:
      * public zones only, unless both hands are switched on.
      */
-    /** A face-down card's real face: Forge's rule, as its own board's mayFlip uses it. */
-    private fun peek(card: CardView): Boolean =
-        if (seatController != null) card.canFaceDownBeShownToAny(localPlayers) else showHandsFlow.value
-
     private fun visible(card: CardView): Boolean =
         if (seatController != null) mayView(card)
         else showHandsFlow.value || (card.zone !in HIDDEN_ZONES && !card.isFaceDown)
@@ -186,7 +186,12 @@ class SeatGui(
         recorder.seat("ANSWER #$promptId $action${describe(action, current)}")
         decisionSeq = trail.lastSeq()
         when (current) {
-            is InputPrompt -> edt.later { applyGesture(action) }
+            // Only to the Input the prompt was about: a second answer queued behind the first would land on whatever Forge holds by then.
+            is InputPrompt -> edt.later {
+                val top = seatController?.inputQueue?.input
+                if (top != null && System.identityHashCode(top) != current.inputSerial) recorder.seat("  (the input moved on before #$promptId's $action: ignored)")
+                else applyGesture(action)
+            }
             else -> synchronized(dialogs) { dialogs.firstOrNull { it.prompt.id == promptId }?.reply?.complete(action) }
         }
     }
@@ -205,6 +210,8 @@ class SeatGui(
                     floatingMana.forget()
                     yields.clearActiveYieldAndDispatch()
                     yields.clearAutoYields()
+                    // clearAutoYields empties only this game's tier; Forge's default keeps yields for the match, and F3 means all of them.
+                    yields.autoYields.toList().forEach { yields.setShouldAutoYield(it, false, yields.isAbilityScope) }
                     endSkip(controller)
                 }
                 // With mana floating, the yield is held (not dropped) before this pass: the engine
@@ -335,13 +342,28 @@ class SeatGui(
         )
         if (current is InputPrompt && current.copy(id = 0, selectableElsewhere = emptyList()) == candidate) return
         snapshot() // the engine is parked on this Input: the board is consistent now
-        publish(candidate.copy(id = promptIds.incrementAndGet(), selectableElsewhere = selectableElsewhere()))
+        val elsewhere = selectableElsewhere(playable = candidate.kind == InputKind.PRIORITY)
+        // Under the dialogs' lock, checked again: a dialog opened while the board was read has the prompt, and an
+        // Input prompt over it left the dialog unseen and its thread waiting for good.
+        synchronized(dialogs) {
+            if (dialogs.isNotEmpty()) return
+            publish(candidate.copy(id = promptIds.incrementAndGet(), selectableElsewhere = elsewhere))
+        }
     }
 
-    /** Selectable cards the board doesn't draw (a library being searched): the zones it does draw are clickable in place. */
-    private fun selectableElsewhere(): List<CardState> {
+    /**
+     * Cards the board doesn't draw that a click can take: selectable ones (a library being searched), and with
+     * [playable] the ones Forge says can be played from there (Future Sight's top card). The zones it does draw are clickable in place.
+     */
+    private fun selectableElsewhere(playable: Boolean): List<CardState> {
         val shown = boardFlow.value?.players.orEmpty().flatMap { it.hand + it.battlefield + it.graveyard + it.exile + it.command }.map { it.id }.toSet()
-        return selectableIds.filter { it !in shown }.mapNotNull { id -> cardViews[id]?.let { snapshots.card(it) } }
+        // The board's rule here too: a card the seat may not see is a back (its own id, to be clicked; the id names nothing),
+        // and a face-down card is named only when the seat may look (Snapshots.sees).
+        return (selectableIds + if (playable) actionableIds else emptySet()).filter { it !in shown }.mapNotNull { id ->
+            cardViews[id]?.let { cv ->
+                if (!visible(cv) || (cv.isFaceDown && !peek(cv))) CardState.back(cv.id, cv.isFaceDown) else snapshots.card(cv)
+            }
+        }
     }
 
     private fun publish(prompt: Prompt) {
@@ -378,9 +400,8 @@ class SeatGui(
         if (pricing) throw PricingAsked(make(0).message)
         if (finished && !betweenGames) return fallback
         val pending = PendingDialog(make(promptIds.incrementAndGet()))
-        synchronized(dialogs) { dialogs.addLast(pending) }
         if (!edt.isCurrent()) snapshot() // the calling engine thread is the one waiting
-        publish(pending.prompt)
+        synchronized(dialogs) { dialogs.addLast(pending); publish(pending.prompt) }
         try {
             return pending.reply.get()
         } finally {
@@ -651,7 +672,7 @@ class SeatGui(
 
     override fun showInputDialog(message: String?, title: String?, icon: FSkinProp?, initialInput: String?, inputOptions: MutableList<String>?, isNumeric: Boolean): String? {
         if (!inputOptions.isNullOrEmpty()) return choose("${title.orEmpty()}: ${message.orEmpty()}", 1, 1, inputOptions) { it }.firstOrNull()
-        if (isNumeric) return number("${title.orEmpty()}: ${message.orEmpty()}", 0, Int.MAX_VALUE, cancellable = true)?.toString()
+        if (isNumeric) return number("${title.orEmpty()}: ${message.orEmpty()}", 0, Int.MAX_VALUE)?.toString()
         unhandled("showInputDialog", "free text '$message' -> '$initialInput'")
         return initialInput
     }
@@ -683,8 +704,15 @@ class SeatGui(
         return IGuiGame.OrderResult(choose(message, minPick, maxPick, sourceChoices) { it.toString() }.toMutableList(), false)
     }
 
-    override fun manipulateCardList(title: String?, cards: Iterable<CardView>, manipulable: Iterable<CardView>?, toTop: Boolean, toBottom: Boolean, toAnywhere: Boolean): MutableList<CardView> =
-        ordered(title ?: "Arrange the cards", "top", cards.toList()) { it.currentState.name }.toMutableList()
+    /**
+     * Unreached while Forge's UI_SELECT_FROM_CARD_DISPLAYS is off (ForgeRuntime): only [manipulable] is ordered,
+     * the rest keep their places after it, as PlayerControllerHuman.arrangeForMove reads the result.
+     */
+    override fun manipulateCardList(title: String?, cards: Iterable<CardView>, manipulable: Iterable<CardView>?, toTop: Boolean, toBottom: Boolean, toAnywhere: Boolean): MutableList<CardView> {
+        val movable = manipulable?.toList() ?: cards.toList()
+        val ordered = ordered(title ?: "Arrange the cards", "top", movable) { it.currentState.name }
+        return (ordered + cards.filter { it !in movable }).toMutableList()
+    }
 
     /**
      * Which ability to play. Forge asks this for a card clicked at priority,
@@ -706,26 +734,40 @@ class SeatGui(
     }
 
     override fun chooseSingleEntityForEffect(title: String, optionList: List<GameEntityView>, delayedReveal: DelayedReveal?, isOptional: Boolean): GameEntityView? {
-        delayedReveal?.let { recorder.seat("  (${it.cards.size} cards revealed for this choice)") }
+        showDelayedReveal(delayedReveal)
         return choose(title, if (isOptional) 0 else 1, 1, optionList) { it.toString() }.firstOrNull()
     }
 
     override fun chooseEntitiesForEffect(title: String, optionList: List<GameEntityView>, min: Int, max: Int, delayedReveal: DelayedReveal?): MutableList<GameEntityView> {
-        delayedReveal?.let { recorder.seat("  (${it.cards.size} cards revealed for this choice)") }
+        showDelayedReveal(delayedReveal)
         return choose(title, min, max, optionList) { it.toString() }.toMutableList()
     }
 
+    /**
+     * "Look at the top five, you may take a creature": every card looked at,
+     * shown before the choice that offers only some of them, as Forge's own
+     * window does (CMatchUI). Forge passes it only to the player who looks.
+     */
+    private fun showDelayedReveal(reveal: DelayedReveal?) {
+        val cards = reveal?.cards?.toList().orEmpty()
+        if (cards.isEmpty()) return
+        recorder.seat("  (${cards.size} cards revealed for this choice)")
+        choose(reveal?.messagePrefix?.takeIf { it.isNotBlank() } ?: "Looked at", -1, -1, cards) { it.toString() }
+    }
+
     override fun getInteger(message: String, min: Int, max: Int, sortDesc: Boolean): Int? =
-        if (max <= min) min else number(message, min, max, cancellable = true)
+        if (max <= min) min else number(message, min, max)
 
     override fun getInteger(message: String, min: Int, max: Int, cutoff: Int): Int? =
-        if (max <= min || cutoff < min) min else number(message, min, max, cancellable = true)
+        if (max <= min || cutoff < min) min else number(message, min, max)
 
-    private fun number(message: String, min: Int, max: Int, cancellable: Boolean): Int? {
-        val affordable = runCatching { affordableX(message) }.getOrNull()?.coerceIn(min, max)
-        val action = awaitDialog({ NumberPrompt(it, message, min, max, cancellable, suggested = affordable, note = affordable?.let { a -> "max affordable $a" }) },
-            SeatAction.Number(if (cancellable) null else min))
-        val value = (action as? SeatAction.Number)?.value ?: return if (cancellable) null else min
+    /** A number in [min]..[max], or null when cancelled (every number Forge asks of a person can be). */
+    private fun number(message: String, min: Int, max: Int): Int? {
+        // Only a hint: a failure leaves the prompt without one, but said in the log.
+        val affordable = runCatching { affordableX(message) }.onFailure { Log.warn("affordable X for '$message' not worked out: $it") }.getOrNull()?.coerceIn(min, max)
+        val action = awaitDialog({ NumberPrompt(it, message, min, max, cancellable = true, suggested = affordable, note = affordable?.let { a -> "max affordable $a" }) },
+            SeatAction.Number(null))
+        val value = (action as? SeatAction.Number)?.value ?: return null
         return value.coerceIn(min, max)
     }
 
@@ -796,11 +838,6 @@ class SeatGui(
     private class PricingAsked(question: String) : RuntimeException(question)
 
     /**
-     * Combat damage among blockers (and the defender, with trample), or among
-     * the attackers one blocker blocks. The prompt comes pre-filled with lethal
-     * damage in order, the rest to the defender or the last one.
-     */
-    /**
      * Combat damage among blockers (and, with trample, the one attacked), or
      * among the attackers one blocker blocks: the prompt comes pre-filled
      * with lethal damage in order and the rest to the last target.
@@ -813,6 +850,10 @@ class SeatGui(
      * chooses. Lethal is Forge's: deathtouch makes 1 lethal (CR 702.2c).
      */
     override fun assignCombatDamage(attacker: CardView?, blockers: MutableList<CardView>, damage: Int, defender: GameEntityView?, overrideOrder: Boolean, maySkip: Boolean): MutableMap<CardView?, Int>? {
+        // Nothing to decide, as Forge's own window skips it (CMatchUI): no damage, or a first blocker that takes it all in the old order.
+        if (damage <= 0) return mutableMapOf()
+        val first = blockers.firstOrNull()
+        if (first != null && !overrideOrder && attacker?.currentState?.hasDeathtouch() != true && first.lethalDamage >= damage) return mutableMapOf(first to damage)
         val source = attacker?.currentState
         val trample = defender != null && source?.hasTrample() == true
         val divides = source?.hasDivideDamage() == true && overrideOrder
@@ -884,7 +925,9 @@ class SeatGui(
         val sideCards = sideboard?.toFlatList().orEmpty()
         if (sideCards.isEmpty()) return null // nothing to swap: Forge keeps the deck
         fun entries(cards: List<PaperCard>) = cards.groupingBy { it.name }.eachCount().map { (name, n) -> DeckEntry(name, n) }.sortedBy { it.name }
-        val action = awaitDialog({ SideboardPrompt(it, message ?: "Sideboard for the next game", entries(mainCards), entries(sideCards), minOf(60, mainCards.size)) },
+        // Forge's own least (PlayerControllerHuman.sideboard): the format's main minimum, not 60 — a Duel Commander deck cut to 60 was refused.
+        val least = gameView?.game?.rules?.gameType?.deckFormat?.mainRange?.minimum ?: 60
+        val action = awaitDialog({ SideboardPrompt(it, message ?: "Sideboard for the next game", entries(mainCards), entries(sideCards), minOf(least, mainCards.size)) },
             SeatAction.Sideboard(mainCards.groupingBy { it.name }.eachCount()), betweenGames = true)
         val wanted = (action as? SeatAction.Sideboard)?.main ?: return null
         // The same card objects Forge gave us, re-dealt: every copy of a name is interchangeable.
@@ -895,7 +938,7 @@ class SeatGui(
     }
 
     private companion object {
-        /** What F4 stops for and F6 ignores. */
+        /** Zones a spectator sees nothing of unless both hands are switched on ([visible]). */
         val HIDDEN_ZONES = setOf(ZoneType.Hand, ZoneType.Library)
         /** Cost reductions whose check asks the controller (CostAdjustment.adjust): such a spell's X is estimated, not priced. */
         val ASKS_WHILE_PRICED = listOf(Keyword.DELVE, Keyword.CONVOKE, Keyword.IMPROVISE, Keyword.ASSIST)

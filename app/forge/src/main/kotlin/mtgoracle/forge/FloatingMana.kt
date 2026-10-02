@@ -32,7 +32,11 @@ internal class FloatingMana(private val recorder: GameRecorder) {
     fun attach(game: Game) {
         if (this.game === game) return
         this.game = game
-        synchronized(this) { heldTurn = null; autoYieldsWereDisabled = null }
+        // A hold from the last game is undone, not forgotten: Forge keeps "auto-yields off" on the player for the whole match.
+        synchronized(this) {
+            autoYieldsWereDisabled?.let { was -> controller?.setDisableAutoYields(was) }
+            heldTurn = null; autoYieldsWereDisabled = null
+        }
         game.subscribeToEvents(this)
     }
 

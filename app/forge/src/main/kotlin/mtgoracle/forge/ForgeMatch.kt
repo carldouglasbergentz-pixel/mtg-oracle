@@ -111,6 +111,8 @@ class RunningMatch internal constructor(
         if (result.matchOver) {
             gui.dispose()
             if (ForgeRuntime.guiBase.activeSeat === gui) ForgeRuntime.guiBase.activeSeat = null
+            // A watched match's seat was the spectator GUI Forge asks for: let it go with the match.
+            ForgeRuntime.guiBase.releaseSpectator(gui)
         }
         resultFlow.value = result
     }

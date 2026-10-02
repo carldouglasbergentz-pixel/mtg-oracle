@@ -40,6 +40,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The board has its own text or art, in art by default.** A T in the library once switched the board to text without a word. Now T and F7 in a game change only the board, the status line says which it is showing (`T text/art: art`), and the library's T changes only the library (`board.cardMode` in `settings.properties`).
 
 ### Fixed
+- **The rest of the review's findings at the Forge boundary.**
+  - The cards looked at before a choice ("look at the top five, you may take a creature") are shown first, as Forge's own window does; only the count was logged.
+  - Cards Forge says can be played from where the board draws nothing (Future Sight's or Bolas's Citadel's top card) are offered in the prompt, "playable from elsewhere", where they couldn't be clicked at all.
+  - Those cards, and the selectable ones the board doesn't draw, follow the board's visibility rule: a card the seat may not see is a back, and a face-down card is named only when the seat may look.
+  - An answer reaches only the Forge Input its prompt was about: a second answer queued behind the first landed on whatever Forge held by then.
+  - An Input prompt can no longer cover a dialog that opened while the board was being read, which left the dialog unseen and its thread waiting.
+  - F3 also clears the match's auto-yields (Forge keeps them for the match by default); a floating-mana hold is undone when a new game starts, where it left auto-yields off for the rest of the match.
+  - No damage prompt for no damage, or for a first blocker that takes it all in the old order, as Forge skips them.
+  - Sideboarding asks for the format's own least main deck (Duel Commander's), not 60.
+  - A watched match's seat is let go when the match ends. The affordable-X hint logs a failure instead of swallowing it. `manipulateCardList`, unreached, would now order only the cards it may move; `number()` lost a parameter that was always true; three stale doc comments fixed.
 - **A reversible card's printings are offered.** The export names them after both faces (`Hallowed Fountain // Hallowed Fountain`, `Bloomvine Regent // Claim Territory // Bloomvine Regent`), and a lookup by the card's name missed all 71 such cards' printings, Hallowed Fountain's ECL 347 among them (`ReversiblePrintingsTest`).
 - **Search finds a name typed without its accents.** SQLite's NOCASE folds ASCII only, so `eowyn` and `n:éowyn` found no Éowyn while `card eowyn` did (97 card names). Names now compare through a SQL `fold()` that MtgDb registers on every connection, the same `NameFold` the name lookup uses; type lines and oracle text are as before (`SearchFoldTest`; `SearchParityTest` unchanged).
 - **`prune` keeps every card the user's data names**, not only a deck's: a considering list's, an AI substitute's (either side) and a user combo's. The delete runs with foreign keys off, so those rows were left pointing at nothing, and a considered card could no longer be moved into the deck. No such card was stale yet (`MaintenanceTest`).

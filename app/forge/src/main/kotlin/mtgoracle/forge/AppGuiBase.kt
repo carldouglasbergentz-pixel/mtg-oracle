@@ -16,6 +16,9 @@ import org.jupnp.UpnpServiceConfiguration
 import java.io.File
 import java.util.function.Consumer
 
+/** No match is being watched: Forge asking for a spectator GUI now is a bug. */
+private val NO_SPECTATOR: () -> IGuiGame = { error("no spectator GUI registered") }
+
 /**
  * Forge's process-wide GUI (`GuiBase.setInterface`): threads, paths, the image
  * fetcher, and the handful of app-level dialogs. Everything else visual is a
@@ -32,7 +35,13 @@ class AppGuiBase(
     private val imageFetcher: ImageFetcher,
 ) : IGuiBase {
     /** HostedMatch asks for a GUI when a game has no human: that is our spectator seat. */
-    @Volatile var spectatorFactory: () -> IGuiGame = { error("no spectator GUI registered") }
+    @Volatile var spectatorFactory: () -> IGuiGame = NO_SPECTATOR
+
+    /** Forgets [gui] as the spectator GUI once its match is over, so the old seat isn't kept alive. */
+    fun releaseSpectator(gui: IGuiGame) {
+        val current = spectatorFactory
+        if (current !== NO_SPECTATOR && runCatching { current() }.getOrNull() === gui) spectatorFactory = NO_SPECTATOR
+    }
 
     override fun isRunningOnDesktop() = true
     override fun isLibgdxPort() = false
