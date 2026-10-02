@@ -1,6 +1,7 @@
 package mtgoracle.ui.library
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,7 +56,10 @@ fun rememberColumnDrag(kept: SideColumns, total: Int, onKeep: (SideColumns) -> U
     val cell = LocalCells.current.width
     var leftPx by remember { mutableStateOf(0f) }
     var rightPx by remember { mutableStateOf(0f) }
-    val live = SideColumns(kept.left + (leftPx / cell).roundToInt(), kept.right - (rightPx / cell).roundToInt()).clampedTo(total)
+    // Read through derived cells, so the screen recomposes when an edge crosses a cell, not per pixel.
+    val leftCols by remember(cell) { derivedStateOf { (leftPx / cell).roundToInt() } }
+    val rightCols by remember(cell) { derivedStateOf { (rightPx / cell).roundToInt() } }
+    val live = SideColumns(kept.left + leftCols, kept.right - rightCols).clampedTo(total)
     return ColumnDrag(
         live,
         PaneDrag({ leftPx += it }) { leftPx = 0f; onKeep(live) },

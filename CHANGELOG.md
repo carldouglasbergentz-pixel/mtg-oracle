@@ -40,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The board has its own text or art, in art by default.** A T in the library once switched the board to text without a word. Now T and F7 in a game change only the board, the status line says which it is showing (`T text/art: art`), and the library's T changes only the library (`board.cardMode` in `settings.properties`).
 
 ### Fixed
+- **The review's smaller findings in the screens.**
+  - A right-click menu closes on Esc, as it said it did. It had no focusable node of its own, so Esc reached nothing, the menu stayed open and the screen's keys were dead behind it (`LibraryScreenEditTest`).
+  - Zones that share a band overlap to fit. The step between overlapped cards left room only for the band's last card shown whole, while each zone's last card is, so three zones of four cards in 150 columns scrolled when they fit (`HalfPlanTest`).
+  - The controls still written as characters are drawn as controls in the drawn looks: a distribution's `[-]`/`[+]`, the mana pool's colours while paying, `[ add anyway (F) ]`, a result's `[+] [sb] [?]`, a deck row's `[-][+]`, the AI copy's `[x]`, and the deck tabs (`LinkButton`, `TabButton`: a link and an inverted tab in the house look, as before). A deck's group headings are `RuleLine`s. A button is sized by its grid line alone, since a chrome font's line is taller than a cell and a list of buttons grew a pixel a row in Vista (`ChromeScreensTest`).
+  - The floating-mana warning writes the pool as the pool line does (`{C}×5` past three, not past eight).
+  - Smaller: a hanging wrap could repeat its first line when the guard replaced a glyph in it; image arrivals counted from several threads could lose one; a pane edge's drag recomposed the screen per pixel rather than per cell; the output pane tells Compose which entries are grids. Unused imports and parameters, and a stale doc line, removed.
 - **The rest of the review's findings at the Forge boundary.**
   - The cards looked at before a choice ("look at the top five, you may take a creature") are shown first, as Forge's own window does; only the count was logged.
   - Cards Forge says can be played from where the board draws nothing (Future Sight's or Bolas's Citadel's top card) are offered in the prompt, "playable from elsewhere", where they couldn't be clicked at all.

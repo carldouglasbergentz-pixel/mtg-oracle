@@ -9,7 +9,6 @@ import mtgoracle.core.model.NumberPrompt
 import mtgoracle.core.model.OrderPrompt
 import mtgoracle.core.model.Prompt
 import mtgoracle.core.model.SeatAction
-import mtgoracle.core.seat.Policy
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals

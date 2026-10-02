@@ -1,7 +1,6 @@
 package mtgoracle.data
 
 import mtgoracle.core.deck.DeckParser
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

@@ -13,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
@@ -22,6 +21,9 @@ import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.DeckRevision
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.core.deck.Section
+import mtgoracle.ui.kit.LinkButton
+import mtgoracle.ui.kit.TabButton
+import mtgoracle.ui.kit.RuleLine
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardFrame
 import mtgoracle.ui.kit.CardMode
@@ -123,7 +125,7 @@ internal fun EditableDeck(
                 if (mode == CardMode.ART && tab == DeckTab.DECK) {
                     val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
                     rows.groupBy { it.group }.forEach { (g, inGroup) ->
-                        GridText(fit("─ $g (${inGroup.sumOf { it.card.quantity }})", cols), color = Palette.dim, bold = true)
+                        RuleLine(cols, label = "$g (${inGroup.sumOf { it.card.quantity }})", bold = true)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
                             inGroup.forEach { row ->
                                 val face = row.card.face(keyFor(row.card))
@@ -139,7 +141,7 @@ internal fun EditableDeck(
                 } else rows.forEachIndexed { i, row ->
                     if (row.group != group) {
                         group = row.group
-                        GridText(fit("─ ${row.group} (${rows.filter { it.group == row.group }.sumOf { it.card.quantity }})", cols), color = Palette.dim, bold = true)
+                        RuleLine(cols, label = "${row.group} (${rows.filter { it.group == row.group }.sumOf { it.card.quantity }})", bold = true)
                     }
                     Line(row, i == selected, cols, keyFor, points, flags[row.card.name], onEdit, onOpen, onHover) { at -> menu = row to at }
                 }
@@ -173,8 +175,7 @@ private fun Tabs(deck: Deck, tab: DeckTab, revisions: Int, onTab: (DeckTab) -> U
             }
             // One cell either side, the same width chosen or not: four tabs fit the 58-column deck pane.
             val label = if (t == tab) "[${t.label} $count]" else " ${t.label} $count "
-            GridText(label, Modifier.clickTarget(ClickTarget.Control("tab:${t.name}"), { onTab(t) }).pointerHoverIcon(PointerIcon.Hand),
-                color = if (t == tab) Palette.background else Palette.foreground, background = if (t == tab) Palette.foreground else Color.Unspecified, bold = t == tab)
+            TabButton(label, ClickTarget.Control("tab:${t.name}"), chosen = t == tab) { onTab(t) }
             GridText(" ")
         }
     }
@@ -191,7 +192,7 @@ private fun Controls(row: DeckRow, onEdit: (EditAction) -> Unit) {
         else -> listOf("-" to EditAction.Remove(c, row.section), "+" to EditAction.Add(c, row.section))
     }
     controls.forEachIndexed { k, (label, action) ->
-        GridText("[$label]", Modifier.clickTarget(ClickTarget.Link(OutputLink.Edit(action), linkAt(row, k + 1)), { onEdit(action) }).pointerHoverIcon(PointerIcon.Hand), color = Palette.accent)
+        LinkButton("[$label]", ClickTarget.Link(OutputLink.Edit(action), linkAt(row, k + 1))) { onEdit(action) }
     }
 }
 
@@ -232,7 +233,7 @@ private fun AiCopyTab(deck: Deck, cols: Int, onOpen: (String) -> Unit, onUnsubst
     if (deck.substitutions.isEmpty()) { GridText(fit("No substitutions: the AI plays the deck as built.", cols), color = Palette.dim); return }
     deck.substitutions.forEachIndexed { i, s ->
         Row {
-            GridText("[x]", Modifier.clickTarget(ClickTarget.Control("unsubstitute:$i"), { onUnsubstitute(s.cardName) }).pointerHoverIcon(PointerIcon.Hand), color = Palette.accent)
+            LinkButton("[x]", ClickTarget.Control("unsubstitute:$i")) { onUnsubstitute(s.cardName) }
             GridText(" ")
             val room = maxOf(8, (cols - 8) / 2)
             GridText(fit(s.cardName, room), Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(s.cardName), linkAt(s.cardName, DeckSection.MAIN, 9)), { onOpen(s.cardName) }).pointerHoverIcon(PointerIcon.Hand))

@@ -63,10 +63,12 @@ fun OutputPane(
             if (latest >= 0) listState.scrollToItem(latest)
         }
         LazyColumn(state = listState) {
-            items(log.entries, key = { it.id }) { entry ->
+            // Only the latest search is drawn as a grid; telling Compose so lets the plain entries reuse each other.
+            fun isGrid(entry: OutputLog.Entry) = grid && entry.page?.rows?.isNotEmpty() == true && entry.id == log.latestSearch?.id
+            items(log.entries, key = { it.id }, contentType = { if (isGrid(it)) "grid" else "lines" }) { entry ->
                 val lines = remember(entry.id, cols) { entry.rendering.lines(cols) }
                 val page = entry.page
-                if (grid && page != null && page.rows.isNotEmpty() && entry.id == log.latestSearch?.id) {
+                if (isGrid(entry) && page != null) {
                     SearchGrid(page, lines, entry.id * 100_000, selected, faceOf, onOpen, onHover, actions, points)
                 } else Column {
                     lines.forEachIndexed { i, line ->

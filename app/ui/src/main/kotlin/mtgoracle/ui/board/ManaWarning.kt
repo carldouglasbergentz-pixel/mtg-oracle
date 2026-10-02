@@ -21,11 +21,8 @@ object ManaWarningTargets {
     val STAY = ClickTarget.Control("mana:stay")
 }
 
-/** "W2 R1", as the board carries the pool, as symbols: `{W}{W}{R}`. */
-fun poolSymbols(pool: String): String = pool.split(' ').filter { it.isNotBlank() }.joinToString("") { part ->
-    val count = part.drop(1).toIntOrNull() ?: 1
-    if (count > 8) "{${part.first()}}×$count" else "{${part.first()}}".repeat(count)
-}
+/** "W2 R1", as the board carries the pool, as symbols: `{W}{W}{R}`, written as the pool line writes them. */
+fun poolSymbols(pool: String): String = poolParts(pool).joinToString("") { (colour, amount) -> poolSymbols(colour, amount) }
 
 /**
  * The seat's floating mana as symbols when passing priority now could lose

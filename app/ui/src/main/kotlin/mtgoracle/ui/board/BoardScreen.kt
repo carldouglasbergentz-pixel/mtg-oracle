@@ -10,12 +10,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -69,7 +68,6 @@ import mtgoracle.ui.kit.StatusLine
 import mtgoracle.ui.kit.ZoomPane
 import mtgoracle.ui.kit.cellHeight
 import mtgoracle.ui.kit.cellWidth
-import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.kit.region
@@ -208,11 +206,14 @@ fun BoardScreen(
             lastTotal[0] = totalCols
             val totalRows = cells.rows(constraints.maxHeight.toFloat())
             // While an edge is dragged its pane follows the mouse; the width is kept when the drag ends.
+            // The board recomposes when a drag crosses a cell, not on every pixel of it.
             var zoneDragPx by remember { mutableStateOf(0f) }
             var sideDragPx by remember { mutableStateOf(0f) }
+            val zoneDragCols by remember(cells.width) { derivedStateOf { (zoneDragPx / cells.width).roundToInt() } }
+            val sideDragCols by remember(cells.width) { derivedStateOf { (sideDragPx / cells.width).roundToInt() } }
             val panes = arrangement.copy(
-                zoneCols = arrangement.zoneCols + (zoneDragPx / cells.width).roundToInt(),
-                sideCols = arrangement.sideCols - (sideDragPx / cells.width).roundToInt(),
+                zoneCols = arrangement.zoneCols + zoneDragCols,
+                sideCols = arrangement.sideCols - sideDragCols,
             ).clampedTo(totalCols)
             val zoneDrag = PaneDrag({ zoneDragPx += it }) { zoneDragPx = 0f; arrange(arrangement.copy(zoneCols = panes.zoneCols, sideCols = panes.sideCols)) }
             val sideDrag = PaneDrag({ sideDragPx += it }) { sideDragPx = 0f; arrange(arrangement.copy(zoneCols = panes.zoneCols, sideCols = panes.sideCols)) }
@@ -276,7 +277,7 @@ fun BoardScreen(
                             Modifier.fillMaxWidth().cellHeight(PROMPT_ROWS).region("prompt"),
                             border = if (prompt != null) Border.DOUBLE else Border.SINGLE,
                             borderColor = if (prompt != null) Palette.accent else Palette.dim) {
-                            PromptBody(prompt, board, interaction, leftCols - 2, mode, onClick, onHover,
+                            PromptBody(prompt, board, interaction, leftCols - 2, onClick, onHover,
                                 trailing = if (matchControls != null && !showResult) ({ ControlButton("[ concede ]", MatchTargets.OPEN_MENU, true, onClick) }) else null)
                         }
                     }

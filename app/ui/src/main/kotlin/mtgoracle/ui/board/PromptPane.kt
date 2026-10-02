@@ -23,7 +23,6 @@ import mtgoracle.core.model.Prompt
 import mtgoracle.core.model.StackKind
 import mtgoracle.core.model.SideboardPrompt
 import mtgoracle.ui.kit.CardChip
-import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.Emphasis
 import mtgoracle.ui.kit.GridText
@@ -65,7 +64,6 @@ fun PromptBody(
     board: BoardState?,
     interaction: Interaction,
     cols: Int,
-    mode: CardMode,
     onClick: (ClickTarget) -> Unit,
     onHover: (ClickTarget?) -> Unit,
     /** Drawn at the right end of the hint row (the board's `[ concede ]`). */
@@ -144,9 +142,9 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
                 Row {
                     GridText(if (i == state.row) ">" else " ", color = Palette.accent)
                     GridText(fit(" ${i + 1}. ${target.label}", labelCols), Modifier.clickTarget(ClickTarget.Option(i), onClick, onHover))
-                    GridText("[-]", Modifier.clickTarget(ClickTarget.Less(i), onClick), color = Palette.background, background = Palette.foreground)
+                    ControlButton("[-]", ClickTarget.Less(i), true, onClick)
                     GridText(" %3d ".format(state.amounts.getOrElse(i) { 0 }), bold = true)
-                    GridText("[+]", Modifier.clickTarget(ClickTarget.More(i), onClick), color = Palette.background, background = Palette.foreground)
+                    ControlButton("[+]", ClickTarget.More(i), true, onClick)
                     GridText(target.lethal?.let { "  lethal $it" } ?: "", color = Palette.dim)
                 }
             }

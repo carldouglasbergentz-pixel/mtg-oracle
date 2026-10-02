@@ -1,7 +1,9 @@
 package mtgoracle.ui.kit
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -9,7 +11,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isSecondaryPressed
@@ -53,13 +62,19 @@ fun ContextMenu(title: String, items: List<Pair<String, () -> Unit>>, at: Offset
             )
         }
     }
+    // The menu takes the keyboard while it is open, as the theme picker does: with no focusable node of its
+    // own, Esc reached nothing and the menu stayed open, the screen's keys dead behind it.
+    val focus = remember { FocusRequester() }
     Popup(popupPositionProvider = place, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
         BoxPane(title, borderColor = Palette.accent) {
-            Column {
+            Column(Modifier.focusRequester(focus).focusable().onPreviewKeyEvent { e ->
+                if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onDismiss(); true } else false
+            }) {
                 items.forEachIndexed { i, (label, act) ->
                     GridText(" $label ", Modifier.clickTarget(ClickTarget.Control("menu:$i"), { onDismiss(); act() }).pointerHoverIcon(PointerIcon.Hand))
                 }
             }
         }
     }
+    LaunchedEffect(Unit) { focus.requestFocus() }
 }

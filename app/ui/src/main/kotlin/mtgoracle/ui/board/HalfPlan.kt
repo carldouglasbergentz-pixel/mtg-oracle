@@ -222,11 +222,13 @@ private fun layBand(items: List<Triple<ZoneKind, Int, Int>>, band: Int, cols: In
     if (items.isEmpty()) return
     val zonesHere = items.map { it.first }.distinct()
     val full = items.sumOf { it.third + SLOT_GAP } + ZONE_GAP * (zonesHere.size - 1)
-    // The step between cards when they must overlap: the same for every card in the band.
-    val lastWidth = items.last().third
-    val spaces = items.size - 1
-    val step: Int? = if (full <= cols || spaces == 0) null
-        else maxOf(MIN_VISIBLE_COLS, (cols - lastWidth - ZONE_GAP * (zonesHere.size - 1)) / spaces)
+    // The step between cards when they must overlap: the same for every card in the band. Each
+    // zone's last card is shown whole, so the step shares out what those cards leave, not just the band's last.
+    val lastOfZone = items.indices.filter { it == items.lastIndex || items[it + 1].first != items[it].first }.toSet()
+    val stepped = items.size - lastOfZone.size
+    val whole = lastOfZone.sumOf { items[it].third + SLOT_GAP } - SLOT_GAP
+    val step: Int? = if (full <= cols || stepped == 0) null
+        else maxOf(MIN_VISIBLE_COLS, (cols - whole - ZONE_GAP * (zonesHere.size - 1)) / stepped)
     var x = 0
     var zoneStart = 0
     var current = items.first().first
@@ -236,9 +238,8 @@ private fun layBand(items: List<Triple<ZoneKind, Int, Int>>, band: Int, cols: In
     }
     items.forEachIndexed { i, (kind, index, width) ->
         if (kind != current) { closeSegment(current, x); x += ZONE_GAP; zoneStart = x; current = kind }
-        val lastOfZone = i == items.lastIndex || items[i + 1].first != kind
-        val advance = if (step == null || lastOfZone) width + SLOT_GAP else step
-        slots += SlotPlace(kind, index, band, x, if (step == null || lastOfZone) width else step)
+        val advance = if (step == null || i in lastOfZone) width + SLOT_GAP else step
+        slots += SlotPlace(kind, index, band, x, if (step == null || i in lastOfZone) width else step)
         x += advance
     }
     closeSegment(current, x)

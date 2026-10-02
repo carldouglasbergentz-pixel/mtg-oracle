@@ -12,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -103,9 +102,42 @@ fun ControlButton(text: String, target: ClickTarget, enabled: Boolean, onClick: 
     val label = text.removePrefix("[").removeSuffix("]").trim()
     val style = chromeTextStyle(chrome.font, LocalCells.current, LocalDensity.current, if (enabled) Palette.foreground else chrome.shadow)
     Box(modifier.drawBehind { paintButton(chrome, enabled, over = false) }, contentAlignment = Alignment.Center) {
-        // Sized by the very line the house look draws, unseen: cells × width rounds differently, and a row of buttons drifted a pixel each.
+        // Sized by the very line the house look draws, unseen, and only by it: cells × width rounds differently, and a row of
+        // buttons drifted a pixel each; a chrome font's line is taller than a cell, and a list of them grew a pixel a row.
         GridText(text, color = Color.Transparent)
-        BasicText(chromeSafe(label), style = style, softWrap = false, maxLines = 1, overflow = TextOverflow.Clip)
+        Box(Modifier.matchParentSize(), contentAlignment = Alignment.Center) { BasicText(chromeSafe(label), style = style, softWrap = false, maxLines = 1, overflow = TextOverflow.Clip) }
+    }
+}
+
+/**
+ * A control beside every row of a list (`[+]`, `[x]`): in the house look a
+ * link in the accent, quieter than [ControlButton]'s block repeated down a
+ * column; in a drawn chrome a button of its style. The same cells either way.
+ */
+@Composable
+fun LinkButton(text: String, target: ClickTarget, onClick: (ClickTarget) -> Unit) {
+    if (Palette.chrome != null) return ControlButton(text, target, true, onClick)
+    GridText(text, Modifier.clickTarget(target, onClick).pointerHoverIcon(PointerIcon.Hand), color = Palette.accent)
+}
+
+/**
+ * A tab, [text] as `[Deck 60]` when [chosen] and ` Deck 60 ` when not, so the
+ * width never changes. The house look inverts the chosen one; a drawn chrome
+ * raises it as a button and leaves the others flat.
+ */
+@Composable
+fun TabButton(text: String, target: ClickTarget, chosen: Boolean, onClick: (ClickTarget) -> Unit) {
+    val modifier = Modifier.clickTarget(target, onClick).pointerHoverIcon(PointerIcon.Hand)
+    val chrome = Palette.chrome
+    if (chrome == null) {
+        GridText(text, modifier, color = if (chosen) Palette.background else Palette.foreground,
+            background = if (chosen) Palette.foreground else Color.Unspecified, bold = chosen)
+        return
+    }
+    val style = chromeTextStyle(chrome.font, LocalCells.current, LocalDensity.current, Palette.foreground, bold = chosen)
+    Box(modifier.drawBehind { if (chosen) paintButton(chrome, enabled = true, over = true) }, contentAlignment = Alignment.Center) {
+        GridText(text, color = Color.Transparent)
+        Box(Modifier.matchParentSize(), contentAlignment = Alignment.Center) { BasicText(chromeSafe(text.removePrefix("[").removeSuffix("]").trim()), style = style, softWrap = false, maxLines = 1, overflow = TextOverflow.Clip) }
     }
 }
 

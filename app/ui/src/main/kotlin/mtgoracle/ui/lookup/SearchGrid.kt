@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import mtgoracle.core.lookup.SearchPage
 import mtgoracle.core.lookup.SearchRow
+import mtgoracle.ui.kit.LinkButton
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardFrame
 import mtgoracle.ui.kit.CardMode
@@ -21,12 +22,8 @@ import mtgoracle.ui.kit.Emphasis
 import mtgoracle.ui.kit.FrameSize
 import mtgoracle.ui.kit.displayCost
 import mtgoracle.ui.theme.LocalCells
-import mtgoracle.ui.theme.Palette
 import mtgoracle.ui.kit.GridText
-import mtgoracle.ui.kit.clickTarget
 import mtgoracle.core.deck.DeckSection
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 
 /** Where a grid's frames number their click targets within an entry: past any line's (`line * 100 + span`). */
 const val GRID_TARGETS = 90_000
@@ -86,7 +83,7 @@ private fun GridActions(card: String, at: Long, onOpen: (OutputLink) -> Unit) {
     androidx.compose.foundation.layout.Row {
         listOf("[+]" to DeckSection.MAIN, "[sb]" to DeckSection.SIDEBOARD, "[?]" to DeckSection.CONSIDERING).forEachIndexed { k, (label, section) ->
             val link = OutputLink.Edit(EditAction.Add(card, section))
-            GridText(label, Modifier.clickTarget(ClickTarget.Link(link, at + k), { onOpen(link) }).pointerHoverIcon(PointerIcon.Hand), color = Palette.accent)
+            LinkButton(label, ClickTarget.Link(link, at + k)) { onOpen(link) }
             GridText(" ")
         }
     }

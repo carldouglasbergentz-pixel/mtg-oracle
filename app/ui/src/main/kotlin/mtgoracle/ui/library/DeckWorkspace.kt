@@ -35,6 +35,7 @@ import mtgoracle.core.analysis.DeckInsight
 import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.ui.board.SIDE_COLS
+import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.BoxPane
 import mtgoracle.ui.kit.Toolbar
 import mtgoracle.ui.kit.CardFace
@@ -54,7 +55,6 @@ import mtgoracle.ui.lookup.DeckTab
 import mtgoracle.ui.lookup.EditAction
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.ui.kit.FitText
-import mtgoracle.ui.kit.clickTarget
 import androidx.compose.ui.input.key.utf16CodePoint
 import mtgoracle.ui.lookup.KeyRoute
 import mtgoracle.ui.lookup.LookupUi
@@ -266,7 +266,7 @@ fun DeckWorkspace(
                 Row(Modifier.fillMaxWidth()) {
                     GridText(" ✗ ", color = Palette.tapped, bold = true)
                     FitText(r.text, Modifier.weight(1f), color = Palette.tapped)
-                    if (r.forceable) GridText(" [ add anyway (F) ] ", Modifier.clickTarget(ClickTarget.Control("force"), onClick), color = Palette.background, background = Palette.tapped)
+                    if (r.forceable) { GridText(" "); ControlButton("[ add anyway (F) ]", ClickTarget.Control("force"), true, onClick); GridText(" ") }
                 }
             }
             CommandLine(

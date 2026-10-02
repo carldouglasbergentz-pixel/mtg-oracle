@@ -52,9 +52,11 @@ fun wrap(text: String, width: Int): List<String> {
  */
 fun wrapHanging(text: String, width: Int, hang: Int = 0): List<String> {
     val lead = " ".repeat(text.takeWhile { it == ' ' }.length)
-    val body = text.trimStart()
+    // Guarded before it is wrapped, so the first line is a prefix of it: a glyph the guard
+    // replaced made `removePrefix` miss and the first line come out twice.
+    val body = GlyphGuard.safe(text.trimStart())
     val first = wrap(body, maxOf(1, width - lead.length)).firstOrNull() ?: return emptyList()
-    val rest = body.removePrefix(first).trimStart()
+    val rest = body.drop(first.length).trimStart()
     if (rest.isEmpty()) return listOf(lead + first)
     val indent = lead + " ".repeat(hang)
     return listOf(lead + first) + wrap(rest, maxOf(1, width - indent.length)).map { indent + it }

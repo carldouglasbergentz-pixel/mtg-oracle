@@ -86,6 +86,18 @@ class HalfPlanTest {
     }
 
     @Test
+    fun `zones sharing a band overlap to fit - every zone's last card is whole, not only the band's`() {
+        // One band, three zones that overlap: the step once ignored the whole cards ending the first two zones.
+        val zones = listOf(
+            ZoneContent(ZoneKind.PERMANENTS, List(4) { creature }), ZoneContent(ZoneKind.WALKERS, List(3) { creature }),
+            ZoneContent(ZoneKind.CREATURES, List(4) { creature }),
+        )
+        val plan = planHalf(zones, cols = 150, maxBands = 1)
+        assertEquals(emptySet(), plan.scrolls, "it fits by overlapping: $plan")
+        assertTrue(plan.slots.all { it.x + it.visible <= 150 }, "every card on the board: ${plan.slots}")
+    }
+
+    @Test
     fun `when even overlapping can't hold them, the band scrolls and counts what is out of view`() {
         val plan = planHalf(listOf(ZoneContent(ZoneKind.CREATURES, List(30) { creature })), cols = 104, maxBands = 1)
         assertTrue(0 in plan.scrolls)

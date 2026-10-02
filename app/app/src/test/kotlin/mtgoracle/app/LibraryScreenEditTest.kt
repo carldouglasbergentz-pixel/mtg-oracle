@@ -69,6 +69,21 @@ class LibraryScreenEditTest {
     }
 
     @Test
+    fun `a menu closes on Esc and the screen has the keys again`() {
+        open()
+        val deck = app.selectedId!!
+        assertTrue(driver.rightClick(ClickTarget.Control("deck:$deck")))
+        driver.settle(3)
+        assertNotNull(driver.registry[ClickTarget.Control("menu:0")], "the menu is open")
+        driver.key(Key.Escape)
+        driver.settle(3)
+        assertNull(driver.registry[ClickTarget.Control("menu:0")], "Esc closes it (it had no focus, and stayed open)")
+        driver.key(Key.DirectionDown)
+        driver.settle(3)
+        assertTrue(app.selectedId != deck, "↓ moves the selection again")
+    }
+
+    @Test
     fun `the workspace exports, imports with a preview, and chooses a printing`() {
         open()
         driver.key(Key.Enter) // open the selected deck

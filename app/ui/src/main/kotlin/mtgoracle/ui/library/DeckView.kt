@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalDensity
 import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.Section
+import mtgoracle.ui.kit.RuleLine
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardFrame
 import mtgoracle.ui.kit.CardMode
@@ -18,7 +19,6 @@ import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.theme.LocalCells
-import mtgoracle.ui.theme.Palette
 
 /** The order the deck view groups by, front face's type deciding. */
 internal val TYPE_ORDER = listOf("Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land")
@@ -43,7 +43,7 @@ internal fun DeckView(deck: Deck, keyFor: (DeckCard) -> String?, mode: CardMode,
         val groups = cards.groupBy { if (section == Section.MAIN) primaryType(it) else section.name.lowercase().replaceFirstChar { c -> c.uppercase() } }
         val order = (listOf("Commander", "Sideboard") + TYPE_ORDER + "Other")
         for ((group, groupCards) in groups.entries.sortedBy { order.indexOf(it.key) }) {
-            GridText(fit("─ $group (${groupCards.sumOf { it.quantity }})", cols), color = Palette.dim, bold = true)
+            RuleLine(cols, label = "$group (${groupCards.sumOf { it.quantity }})", bold = true)
             if (mode == CardMode.TEXT) {
                 groupCards.forEachIndexed { i, card ->
                     val face = card.face(keyFor(card))

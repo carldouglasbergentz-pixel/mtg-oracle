@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -25,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.PaneDrag
 import mtgoracle.ui.kit.RuleLine
 import mtgoracle.ui.kit.PaneEdge
@@ -515,7 +515,7 @@ private fun ManaPoolLine(player: PlayerState, inner: Int, looks: Looks) {
         if (parts.isEmpty()) GridText("—", color = Palette.dim)
         parts.forEach { (colour, amount) ->
             val symbols = poolSymbols(colour, amount)
-            if (paying) GridText("[$symbols]", Modifier.clickTarget(ClickTarget.Mana(colour), looks.onClick), color = Palette.background, background = Palette.accent, bold = true)
+            if (paying) ControlButton("[$symbols]", ClickTarget.Mana(colour), true, looks.onClick)
             else GridText(symbols, color = Palette.foreground, bold = true)
             GridText(" ")
         }

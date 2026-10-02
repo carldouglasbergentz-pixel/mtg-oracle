@@ -12,6 +12,7 @@ import org.jetbrains.skia.Image
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Decoded card images, and the fetches for ones not on disk yet.
@@ -29,6 +30,9 @@ class ArtImages(val art: CardArt, private val capacity: Int = 400, private val d
     private val requested = ConcurrentHashMap.newKeySet<Pair<String, ArtKind>>()
     private val decoding = ConcurrentHashMap.newKeySet<Pair<String, ArtKind>>()
     internal val arrivals = mutableIntStateOf(0)
+    // Fetches and decodes land on several threads, where a read-then-write of the state could lose an arrival.
+    private val arrived = AtomicInteger()
+    private fun arrive() { arrivals.intValue = arrived.incrementAndGet() }
 
     /** The decoded image, or null while it is being fetched or decoded (everything showing art recomposes when it is ready). */
     fun load(key: String, kind: ArtKind): ImageBitmap? {
@@ -36,7 +40,7 @@ class ArtImages(val art: CardArt, private val capacity: Int = 400, private val d
         synchronized(decoded) { decoded[id]?.let { return it } }
         val file = art.file(key, kind)
         if (file == null) {
-            if (requested.add(id)) art.request(key, kind) { arrivals.intValue++ }
+            if (requested.add(id)) art.request(key, kind) { arrive() }
             return null
         }
         if (decoding.add(id)) decoder.execute {
@@ -44,7 +48,7 @@ class ArtImages(val art: CardArt, private val capacity: Int = 400, private val d
                 val bitmap = runCatching { Image.makeFromEncoded(file.readBytes()).toComposeImageBitmap() }.getOrNull()
                 if (bitmap != null) {
                     synchronized(decoded) { decoded[id] = bitmap }
-                    arrivals.intValue++
+                    arrive()
                 }
             } finally {
                 decoding.remove(id)

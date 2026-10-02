@@ -299,7 +299,6 @@ private fun distribute(state: Interaction, prompt: DistributePrompt, event: UiEv
     }
 }
 
-/** What Enter sends before anything is typed: 1, within bounds (X = 1 is the common case). */
 /** Where the number starts: the prompt's suggestion (an affordable X), else 1 within range. Never enumerates the range. */
 fun NumberPrompt.default(): Int = (suggested ?: maxOf(min, 1)).coerceIn(min, max)
 
