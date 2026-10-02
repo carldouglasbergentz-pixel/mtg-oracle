@@ -20,6 +20,8 @@ import mtgoracle.ui.kit.ArtImages
 import mtgoracle.ui.kit.BoxPane
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.LocalArt
+import mtgoracle.ui.kit.LocalThemeMenu
+import mtgoracle.ui.kit.ThemePicker
 import mtgoracle.ui.kit.WrapText
 import androidx.compose.foundation.layout.fillMaxWidth
 import mtgoracle.ui.library.DeckWorkspace
@@ -40,16 +42,22 @@ fun AppContent(app: AppController, onQuit: () -> Unit) {
     // Anew when Forge comes up: what was asked for before it could be fetched is asked again.
     val art = remember(app.forgeReady) { ArtImages(app.shownArt) }
     HouseTheme {
-        CompositionLocalProvider(LocalArt provides art, LocalGlobalHints provides listOf("F7" to "text/art", "F8" to "theme: ${Palette.theme.label}")) {
-            // F8 cycles the theme and F7 text/art on every screen, typing or not: seen here before any screen's keys.
+        CompositionLocalProvider(
+            LocalArt provides art, LocalGlobalHints provides listOf("F7" to "text/art", "F8" to "theme: ${Palette.theme.label}"),
+            LocalThemeMenu provides app::openThemePicker,
+        ) {
+            // F8 opens the theme picker and F7 switches text/art on every screen, typing or not: seen here before any screen's keys.
             Box(Modifier.fillMaxSize().onPreviewKeyEvent { e ->
                 when {
                     e.type != KeyEventType.KeyDown -> false
-                    e.key == Key.F8 -> { app.cycleTheme(); true }
+                    e.key == Key.F8 -> { app.openThemePicker(); true }
                     e.key == Key.F7 -> { app.toggleMode(); true }
                     else -> false
                 }
-            }) { Screens(app, onQuit) }
+            }) {
+                Screens(app, onQuit)
+                app.themePickerFrom?.let { from -> ThemePicker(from, app::previewTheme, app::keepTheme, app::cancelThemePicker) }
+            }
         }
     }
 }

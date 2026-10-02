@@ -610,10 +610,24 @@ class AppController(private val paths: AppPaths) {
     fun startTheme(): Theme = Themes.byKey(settings.theme) ?: Themes.fromTextual(tuiTheme(paths.tuiConfig)) ?: Themes.HOUSE
 
     /** F8: the next theme, everywhere at once, and remembered. */
-    fun cycleTheme() {
-        val next = Themes.ALL[(Themes.ALL.indexOf(Palette.theme) + 1) % Themes.ALL.size]
-        Palette.theme = next
-        settings.theme = next.key
+    /** The theme picker (F8, the toolbar's Theme button): open while non-null, holding the theme Esc goes back to. */
+    var themePickerFrom by mutableStateOf<Theme?>(null)
+        private set
+
+    fun openThemePicker() { if (themePickerFrom == null) themePickerFrom = Palette.theme }
+
+    /** Shown on everything at once while the picker is open, kept only by [keepTheme]. */
+    fun previewTheme(theme: Theme) { Palette.theme = theme }
+
+    fun keepTheme(theme: Theme) {
+        Palette.theme = theme
+        settings.theme = theme.key
+        themePickerFrom = null
+    }
+
+    fun cancelThemePicker() {
+        themePickerFrom?.let { Palette.theme = it }
+        themePickerFrom = null
     }
 
     fun saveStops(stops: PhaseStops) {

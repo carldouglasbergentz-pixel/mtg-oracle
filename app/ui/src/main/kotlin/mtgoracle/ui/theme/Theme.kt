@@ -29,7 +29,15 @@ data class Theme(
     val tapped: Color,
     /** Drawn chrome (bevels, title bars, buttons) instead of box-drawing characters; null for the house look. */
     val chrome: Chrome? = null,
+    /** Where the theme picker lists it. */
+    val era: Era = Era.TERMINAL,
 )
+
+/** The theme picker's sections, in the order shown: the house look and its kin, then a journey through the years. */
+enum class Era(val label: String) {
+    TERMINAL("terminal"),
+    Y1995("1995"),
+}
 
 /**
  * A look that draws its own chrome, as a desktop of its era did: the tones
@@ -70,6 +78,7 @@ object Themes {
             title = Color(0xFF000080), titleText = Color(0xFFFFFFFF), inactiveTitle = Color(0xFF808080), inactiveTitleText = Color(0xFFFFFFFF),
             font = "Microsoft Sans Serif",
         ),
+        Era.Y1995,
     )
 
     val ALL = listOf(HOUSE, ROSE_PINE, PAPER, CODE_DARK, SOLARIZED, WIN95)

@@ -22,9 +22,16 @@ class SettingsTest {
         data.resolve("config.json").writeText("""{"theme": "rose-pine", "nav_width": 58}""")
         val first = AppController(paths)
         assertEquals(Themes.ROSE_PINE, Palette.theme, "the old app's saved choice")
-        first.cycleTheme()
+        first.openThemePicker()
+        first.previewTheme(Themes.PAPER)
+        first.cancelThemePicker()
+        assertEquals(Themes.ROSE_PINE, Palette.theme, "Esc in the picker goes back")
+        AppController(paths)
+        assertEquals(Themes.ROSE_PINE, Palette.theme, "and a preview is never kept")
+        first.openThemePicker()
+        first.keepTheme(Themes.WIN95)
         val picked = Palette.theme
-        assertEquals(Themes.ALL[(Themes.ALL.indexOf(Themes.ROSE_PINE) + 1) % Themes.ALL.size], picked)
+        assertEquals(Themes.WIN95, picked)
         Palette.theme = Themes.HOUSE
         AppController(paths)
         assertEquals(picked, Palette.theme, "the next run starts in the theme picked here, over the TUI's")
