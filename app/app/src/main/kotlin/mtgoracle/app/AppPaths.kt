@@ -5,6 +5,9 @@ import mtgoracle.core.play.MatchFormat
 import mtgoracle.forge.ForgeSetup
 import mtgoracle.ui.board.BoardLayout
 import mtgoracle.ui.kit.CardMode
+import mtgoracle.ui.library.DECK_LIST_COLS
+import mtgoracle.ui.library.SideColumns
+import mtgoracle.ui.library.defaultWorkspaceColumns
 import java.io.File
 import java.util.Properties
 
@@ -83,6 +86,28 @@ class Settings(private val file: File) {
             put("pane.zoneCols", value.zoneCols); put("pane.sideCols", value.sideCols); put("board.rotateTapped", value.rotateTapped)
             save()
         }
+
+    /** The library's deck list and zoom pane, in cells, as last kept. */
+    var libraryColumns: SideColumns
+        get() = SideColumns(
+            props.getProperty("library.leftCols")?.toIntOrNull() ?: DECK_LIST_COLS,
+            props.getProperty("library.rightCols")?.toIntOrNull() ?: mtgoracle.ui.board.SIDE_COLS,
+        )
+        set(value) { props.setProperty("library.leftCols", value.left.toString()); props.setProperty("library.rightCols", value.right.toString()); save() }
+
+    /** The workspace's deck pane in [mode] (lines and frames want different widths) and its zoom pane, as last kept. */
+    fun workspaceColumns(mode: CardMode): SideColumns = defaultWorkspaceColumns(mode).let { d ->
+        SideColumns(
+            props.getProperty("workspace.deckCols.${mode.name}")?.toIntOrNull() ?: d.left,
+            props.getProperty("workspace.rightCols")?.toIntOrNull() ?: d.right,
+        )
+    }
+
+    fun keepWorkspaceColumns(mode: CardMode, value: SideColumns) {
+        props.setProperty("workspace.deckCols.${mode.name}", value.left.toString())
+        props.setProperty("workspace.rightCols", value.right.toString())
+        save()
+    }
 
     /** The deck workspace's search results: a grid of cards (the default) or lines. */
     var resultsGrid: Boolean

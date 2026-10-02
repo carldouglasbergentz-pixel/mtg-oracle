@@ -3,6 +3,7 @@ package mtgoracle.ui.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -41,7 +43,9 @@ import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.StatusLine
+import mtgoracle.ui.kit.PaneEdge
 import mtgoracle.ui.kit.ZoomPane
+import mtgoracle.ui.kit.region
 import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.fit
@@ -97,7 +101,14 @@ fun LibraryScreen(
     pointsOf: (String) -> Int? = { null },
     /** The selected deck's colour identity when it has a commander (`{U}{W}`), and its points spent of its budget (`9/10 pts`). */
     badges: List<String> = emptyList(),
+    /** The deck list's and the zoom pane's widths as last kept (drag their edges, Ctrl+(Shift+)←/→). */
+    columns: SideColumns = SideColumns(DECK_LIST_COLS, SIDE_COLS),
+    onColumnsChange: (SideColumns) -> Unit = {},
 ) {
+    var kept by remember { mutableStateOf(columns) }
+    // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
+    val total = remember { intArrayOf(Int.MAX_VALUE) }
+    fun keep(next: SideColumns) { kept = next.clampedTo(total[0]); onColumnsChange(kept) }
     var menu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
     val selectedFolder = decks.firstOrNull { it.id == selectedId }?.folderId
     var zoom by remember { mutableStateOf<CardFace?>(null) }
@@ -140,6 +151,7 @@ fun LibraryScreen(
                 KeyRoute.TO_LINE -> return@onPreviewKeyEvent false
                 KeyRoute.TO_SCREEN -> {}
             }
+            kept.stepped(e)?.let { keep(it); return@onPreviewKeyEvent true }
             when (e.key) {
                 Key.Tab -> if (lookup != null) lookup.showOutput = !lookup.showOutput else return@onPreviewKeyEvent false
                 Key.PageUp -> page(-1)
@@ -157,37 +169,45 @@ fun LibraryScreen(
         },
     ) {
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
+        total[0] = cols
+        val drag = rememberColumnDrag(kept, cols, ::keep)
+        val left = drag.live.left
+        val side = drag.live.right
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
-                BoxPane("decks", Modifier.cellWidth(DECK_LIST_COLS).fillMaxHeight()) {
-                    Column(Modifier.verticalScroll(rememberScrollState())) {
-                        // Every folder, empty or not, then the decks outside them. A right-click opens a menu.
-                        // The folders listed, and any a deck names that the list lacks: no deck may go missing.
-                        val known = folders.map { it.id as Int? to it.name }
-                        val unlisted = decks.filter { d -> d.folderId != null && known.none { it.first == d.folderId } }
-                            .map { it.folderId to (it.folderName ?: "folder #${it.folderId}") }.distinct()
-                        val groups = (known + unlisted).sortedBy { it.second.lowercase() } + (null to "(no folder)")
-                        for ((folderId, folderName) in groups) {
-                            val inFolder = decks.filter { it.folderId == folderId }
-                            if (folderId == null && inFolder.isEmpty()) continue
-                            // A folder with a default format carries its tag: `Duel Commander [DC]`.
-                            val tag = folders.firstOrNull { it.id == folderId }?.format?.takeIf { it.isNotBlank() }?.let { " [${Formats.shortName(it)}]" }.orEmpty()
-                            GridText(fit(folderName + tag + if (inFolder.isEmpty()) "  (empty)" else "", DECK_LIST_COLS - 2),
-                                Modifier.clickTarget(ClickTarget.Control("folder:${folderId ?: "none"}"), {}).onRightClick { at -> folderId?.let { menu = "folder:$it" to at } },
-                                color = Palette.dim, bold = true)
-                            inFolder.forEach { d ->
-                                val selected = d.id == selectedId
-                                GridText(
-                                    fit("  ${d.name}".padEnd(DECK_LIST_COLS - 8) + "%4d".format(d.cardCount), DECK_LIST_COLS - 2),
-                                    Modifier.clickTarget(ClickTarget.Control("deck:${d.id}"), onClick).onRightClick { at -> showDeck(d.id); menu = "deck:${d.id}" to at },
-                                    color = if (selected) Palette.background else Palette.foreground,
-                                    background = if (selected) Palette.foreground else Color.Unspecified,
-                                )
+                Box(Modifier.cellWidth(left).fillMaxHeight()) {
+                    BoxPane("decks", Modifier.fillMaxSize().region("library-decks")) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            // Every folder, empty or not, then the decks outside them. A right-click opens a menu.
+                            // The folders listed, and any a deck names that the list lacks: no deck may go missing.
+                            val known = folders.map { it.id as Int? to it.name }
+                            val unlisted = decks.filter { d -> d.folderId != null && known.none { it.first == d.folderId } }
+                                .map { it.folderId to (it.folderName ?: "folder #${it.folderId}") }.distinct()
+                            val groups = (known + unlisted).sortedBy { it.second.lowercase() } + (null to "(no folder)")
+                            for ((folderId, folderName) in groups) {
+                                val inFolder = decks.filter { it.folderId == folderId }
+                                if (folderId == null && inFolder.isEmpty()) continue
+                                // A folder with a default format carries its tag: `Duel Commander [DC]`.
+                                val tag = folders.firstOrNull { it.id == folderId }?.format?.takeIf { it.isNotBlank() }?.let { " [${Formats.shortName(it)}]" }.orEmpty()
+                                GridText(fit(folderName + tag + if (inFolder.isEmpty()) "  (empty)" else "", left - 2),
+                                    Modifier.clickTarget(ClickTarget.Control("folder:${folderId ?: "none"}"), {}).onRightClick { at -> folderId?.let { menu = "folder:$it" to at } },
+                                    color = Palette.dim, bold = true)
+                                inFolder.forEach { d ->
+                                    val selected = d.id == selectedId
+                                    GridText(
+                                        fit("  ${d.name}".padEnd(left - 8) + "%4d".format(d.cardCount), left - 2),
+                                        Modifier.clickTarget(ClickTarget.Control("deck:${d.id}"), onClick).onRightClick { at -> showDeck(d.id); menu = "deck:${d.id}" to at },
+                                        color = if (selected) Palette.background else Palette.foreground,
+                                        background = if (selected) Palette.foreground else Color.Unspecified,
+                                    )
+                                }
                             }
                         }
                     }
+                    // Its right border is the handle.
+                    PaneEdge(drag.leftEdge, "left-edge", Modifier.align(Alignment.CenterEnd))
                 }
-                val middle = cols - DECK_LIST_COLS - SIDE_COLS
+                val middle = cols - left - side
                 val right = deck?.let { d ->
                     (listOfNotNull(d.format?.let(Formats::shortName)) + badges + listOfNotNull("${d.mainCount} cards", d.substitutions.takeIf { it.isNotEmpty() }?.let { "AI copy: ${it.size} substitutions" })).joinToString(" · ")
                 }
@@ -208,7 +228,10 @@ fun LibraryScreen(
                         }
                     }
                 }
-                ZoomPane(lookup?.hoverFace ?: zoom, SIDE_COLS, imageRows = 20, textMode = mode == CardMode.TEXT, modifier = Modifier.cellWidth(SIDE_COLS).fillMaxHeight())
+                Box(Modifier.cellWidth(side).fillMaxHeight().region("library-zoom")) {
+                    ZoomPane(lookup?.hoverFace ?: zoom, side, imageRows = 20, textMode = mode == CardMode.TEXT, modifier = Modifier.fillMaxWidth())
+                    PaneEdge(drag.rightEdge, "right-edge", Modifier.align(Alignment.CenterStart))
+                }
             }
             lookup?.ask?.let { ask -> AskBar(ask) { lookup.ask = null; lookup.hoverFace = null; focus.requestFocus() } }
             if (lookup != null) {

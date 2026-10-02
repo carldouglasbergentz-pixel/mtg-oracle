@@ -68,6 +68,8 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 insight = app.insight?.takeIf { it.deckId == open.deckId },
                 onLeave = app::leaveEdit, onToggleResults = app::toggleMode, onToggleDeckMode = app::toggleDeckPaneMode,
                 onPlay = app::openSetup, onQuit = onQuit,
+                columns = app.settings.workspaceColumns(app.deckPaneMode),
+                onColumnsChange = { app.settings.keepWorkspaceColumns(app.deckPaneMode, it) },
             )
         } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
@@ -79,6 +81,8 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             insight = app.insight?.takeIf { it.deckId == app.selectedId },
             pointsOf = { name -> app.deckPoints[name.lowercase()] },
             badges = app.deckBadges,
+            columns = remember { app.settings.libraryColumns },
+            onColumnsChange = { app.settings.libraryColumns = it },
         )
         Screen.Setup -> {
             val me = app.decks.first { it.id == app.selectedId }

@@ -3,6 +3,7 @@ package mtgoracle.ui.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -41,6 +43,7 @@ import mtgoracle.ui.kit.FrameSize
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.StatusLine
 import mtgoracle.ui.kit.WrapText
+import mtgoracle.ui.kit.PaneEdge
 import mtgoracle.ui.kit.ZoomPane
 import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.region
@@ -63,8 +66,8 @@ import mtgoracle.ui.lookup.startFocus
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 
-/** The deck pane's width: one line per card in text mode, three frames across in art mode. */
-private fun deckCols(mode: CardMode) = if (mode == CardMode.TEXT) 58 else 3 * (FrameSize.cols(CardMode.ART) + 1) + 1
+/** The deck pane's width until one is kept: one line per card in text mode, three frames across in art mode; and the zoom pane's. */
+fun defaultWorkspaceColumns(mode: CardMode) = SideColumns(if (mode == CardMode.TEXT) 58 else 3 * (FrameSize.cols(CardMode.ART) + 1) + 1, SIDE_COLS)
 
 /**
  * One deck opened to work on, as Moxfield opens one: the deck on the left,
@@ -96,7 +99,14 @@ fun DeckWorkspace(
     onQuit: () -> Unit,
     /** The analysis block, fixed above the search: every edit's effect in view. */
     insight: DeckInsight? = null,
+    /** The deck pane's (in this [deckMode]) and the zoom pane's widths as last kept (drag their edges, Ctrl+(Shift+)←/→). */
+    columns: SideColumns = defaultWorkspaceColumns(deckMode),
+    onColumnsChange: (SideColumns) -> Unit = {},
 ) {
+    var kept by remember(deckMode) { mutableStateOf(columns) }
+    // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
+    val total = remember { intArrayOf(Int.MAX_VALUE) }
+    fun keep(next: SideColumns) { kept = next.clampedTo(total[0]); onColumnsChange(kept) }
     var zoom by remember { mutableStateOf<CardFace?>(null) }
     val focus = remember { FocusRequester() }
     val commandFocus = remember { FocusRequester() }
@@ -142,6 +152,7 @@ fun DeckWorkspace(
                 KeyRoute.TO_LINE -> return@onPreviewKeyEvent false
                 KeyRoute.TO_SCREEN -> {}
             }
+            kept.stepped(e)?.let { keep(it); return@onPreviewKeyEvent true }
             val step = if (lookup.grid) perRow[0] else 1
             val plus = e.key == Key.Plus || e.key == Key.NumPadAdd || e.key == Key.Equals || e.utf16CodePoint == '+'.code
             val minus = e.key == Key.Minus || e.key == Key.NumPadSubtract || e.utf16CodePoint == '-'.code
@@ -180,8 +191,11 @@ fun DeckWorkspace(
         },
     ) {
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
-        val left = deckCols(deckMode)
-        val middle = cols - left - SIDE_COLS
+        total[0] = cols
+        val drag = rememberColumnDrag(kept, cols, ::keep)
+        val left = drag.live.left
+        val side = drag.live.right
+        val middle = cols - left - side
         perRow[0] = gridColumns(middle - 2)
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
@@ -189,28 +203,32 @@ fun DeckWorkspace(
                 val right = deck?.let { d ->
                     listOfNotNull(d.format?.let(mtgoracle.core.lookup.Formats::shortName), "${d.mainCount} cards", lookup.pointsBudget?.let { b -> "$spent/$b pts" + if ((spent ?: 0) > b) "!" else "" }).joinToString(" · ")
                 }
-                BoxPane(deck?.name ?: "deck", Modifier.cellWidth(left).fillMaxHeight().region("workspace-deck"), right = right) {
-                    Column(Modifier.verticalScroll(rememberScrollState())) {
-                        if (deck == null) GridText("This deck is gone.", color = Palette.dim)
-                        else EditableDeck(
-                            deck, lookup.deckTab, deckMode, left - 2, selected = deckRow.takeIf { inDeck }, keyFor = keyFor,
-                            points = lookup::pointsOf, flags = lookup.flags, history = lookup.history,
-                            extraMenu = { row ->
-                                if (row.section == DeckSection.CONSIDERING) emptyList()
-                                else {
-                                    val sub = deck.substitutions.firstOrNull { it.cardName.equals(row.card.name, ignoreCase = true) }
-                                    listOfNotNull(
-                                        "choose printing..." to { lookup.intent(LibraryIntent.ChoosePrinting(deck.id, row.card.name, row.section)) },
-                                        (if (sub == null) "AI substitute..." else "AI substitute (now ${sub.substitute})...") to { lookup.intent(LibraryIntent.AiSubstitute(deck.id, row.card.name)) },
-                                        sub?.let { "no AI substitute" to { lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, row.card.name)) } },
-                                    )
-                                }
-                            },
-                            onUnsubstitute = { card -> lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, card)) },
-                            onTab = { lookup.deckTab = it; deckRow = null }, onEdit = lookup.edit,
-                            onOpen = { lookup.open(OutputLink.Card(it)) }, onHover = { zoom = it },
-                        )
+                Box(Modifier.cellWidth(left).fillMaxHeight()) {
+                    BoxPane(deck?.name ?: "deck", Modifier.fillMaxSize().region("workspace-deck"), right = right) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            if (deck == null) GridText("This deck is gone.", color = Palette.dim)
+                            else EditableDeck(
+                                deck, lookup.deckTab, deckMode, left - 2, selected = deckRow.takeIf { inDeck }, keyFor = keyFor,
+                                points = lookup::pointsOf, flags = lookup.flags, history = lookup.history,
+                                extraMenu = { row ->
+                                    if (row.section == DeckSection.CONSIDERING) emptyList()
+                                    else {
+                                        val sub = deck.substitutions.firstOrNull { it.cardName.equals(row.card.name, ignoreCase = true) }
+                                        listOfNotNull(
+                                            "choose printing..." to { lookup.intent(LibraryIntent.ChoosePrinting(deck.id, row.card.name, row.section)) },
+                                            (if (sub == null) "AI substitute..." else "AI substitute (now ${sub.substitute})...") to { lookup.intent(LibraryIntent.AiSubstitute(deck.id, row.card.name)) },
+                                            sub?.let { "no AI substitute" to { lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, row.card.name)) } },
+                                        )
+                                    }
+                                },
+                                onUnsubstitute = { card -> lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, card)) },
+                                onTab = { lookup.deckTab = it; deckRow = null }, onEdit = lookup.edit,
+                                onOpen = { lookup.open(OutputLink.Card(it)) }, onHover = { zoom = it },
+                            )
+                        }
                     }
+                    // Its right border is the handle.
+                    PaneEdge(drag.leftEdge, "left-edge", Modifier.align(Alignment.CenterEnd))
                 }
                 val title = "search" + if (filters.isEmpty()) " · the whole pool" else " · ${filters.joinToString("  ")}"
                 Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -232,7 +250,10 @@ fun DeckWorkspace(
                     }
                 }
                 }
-                ZoomPane(lookup.hoverFace ?: zoom, SIDE_COLS, imageRows = 20, textMode = false, modifier = Modifier.cellWidth(SIDE_COLS).fillMaxHeight())
+                Box(Modifier.cellWidth(side).fillMaxHeight().region("workspace-zoom")) {
+                    ZoomPane(lookup.hoverFace ?: zoom, side, imageRows = 20, textMode = false, modifier = Modifier.fillMaxWidth())
+                    PaneEdge(drag.rightEdge, "right-edge", Modifier.align(Alignment.CenterStart))
+                }
             }
             lookup.ask?.let { ask -> AskBar(ask) { lookup.ask = null; lookup.hoverFace = null; focus.requestFocus() } }
             lookup.refusal?.let { r ->
