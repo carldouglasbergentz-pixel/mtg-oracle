@@ -5,6 +5,7 @@ import forge.deck.CardPool
 import forge.game.GameEntityView
 import forge.game.GameState
 import forge.game.card.CardView
+import forge.game.keyword.Keyword
 import forge.game.phase.PhaseType
 import forge.game.player.DelayedReveal
 import forge.game.player.IHasIcon
@@ -165,6 +166,8 @@ class SeatGui(
     @Volatile private var selectableIds: Set<Int> = emptySet()
     @Volatile private var actionableIds: Set<Int> = emptySet()
     @Volatile private var highlightedIds: Set<Int> = emptySet()
+    /** X is being priced ([affordableX]): a dialog now would be Forge asking the human about a payment no one is making. */
+    @Volatile private var pricing = false
 
     // Direct dialogs in flight, innermost last. A click can open a dialog on
     // the EDT while the game thread is parked on an Input, so this can nest.
@@ -370,6 +373,7 @@ class SeatGui(
 
     /** Blocks the calling Forge thread until the seat answers [make]'s prompt. */
     private fun awaitDialog(make: (Long) -> Prompt, fallback: SeatAction, betweenGames: Boolean = false): SeatAction {
+        if (pricing) throw PricingAsked(make(0).message)
         if (finished && !betweenGames) return fallback
         val pending = PendingDialog(make(promptIds.incrementAndGet()))
         synchronized(dialogs) { dialogs.addLast(pending) }
@@ -718,19 +722,54 @@ class SeatGui(
         val player = gameView?.game?.players?.firstOrNull { it.id in seatPlayerIds } ?: return null
         val cast = player.getCardsIn(ZoneType.Stack).firstOrNull { it.name == name }?.castSA
         if (cast != null && cast.payCosts.totalMana.countX() > 0) {
+            // Forge's check asks the controller to delve or convoke, test or not: for the human that was a real prompt per X tried (Logic Knot).
+            val helpers = ASKS_WHILE_PRICED.filter { cast.hostCard.hasKeyword(it) }
+            if (helpers.isNotEmpty()) return estimateX(player, cast.payCosts.totalMana, helpers)
             fun payable(x: Int) = forge.ai.ComputerUtilMana.canPayManaCost(cast, player, x, false)
-            if (!payable(0)) return 0
-            var x = 0
-            while (x < MAX_SUGGESTED_X && payable(x + 1)) x++
-            return x
+            pricing = true
+            try {
+                if (!payable(0)) return 0
+                var x = 0
+                while (x < MAX_SUGGESTED_X && payable(x + 1)) x++
+                return x
+            } catch (e: PricingAsked) {
+                Log.debug("affordable X for $name not suggested: pricing it asked '${e.message}'")
+                return null
+            } finally {
+                pricing = false
+            }
         }
         // An activated ability (Walking Ballista): nothing on the stack yet, so the printed cost and Forge's estimate of its sources.
         val card = player.getCardsIn(ZoneType.Battlefield).firstOrNull { it.name == name } ?: player.getCardsIn(ZoneType.Hand).firstOrNull { it.name == name } ?: return null
         val xs = card.manaCost.countX().takeIf { it > 0 } ?: return null
         val pool = MANA_BYTES.values.sumOf { player.manaPool.getAmountOfColor(it) }
-        val available = forge.ai.ComputerUtilMana.getAvailableManaEstimate(player, false) + pool
+        val available = forge.ai.ComputerUtilMana.getAvailableManaEstimate(player, true) + pool
         return maxOf(0, (available - card.manaCost.cmc) / xs)
     }
+
+    /**
+     * The largest X [cost] could take with the mana Forge estimates and what
+     * [helpers] pay for generic mana: a graveyard card each for delve, an
+     * untapped creature for convoke, an untapped artifact for improvise. A
+     * hint, colour-blind; assist (another player's mana) adds nothing.
+     */
+    private fun estimateX(player: forge.game.player.Player, cost: forge.card.mana.ManaCost, helpers: List<Keyword>): Int {
+        val untapped = player.getCardsIn(ZoneType.Battlefield).filter { !it.isTapped }
+        val help = helpers.sumOf { k ->
+            when (k) {
+                Keyword.DELVE -> player.getCardsIn(ZoneType.Graveyard).size
+                Keyword.CONVOKE -> untapped.count { it.isCreature }
+                Keyword.IMPROVISE -> untapped.count { it.isArtifact }
+                else -> 0
+            }
+        }
+        val pool = MANA_BYTES.values.sumOf { player.manaPool.getAmountOfColor(it) }
+        val available = forge.ai.ComputerUtilMana.getAvailableManaEstimate(player, true) + pool + help
+        return maxOf(0, (available - cost.cmc) / cost.countX())
+    }
+
+    /** A dialog raised while X is only being priced: never shown, the pricing stops instead. */
+    private class PricingAsked(question: String) : RuntimeException(question)
 
     /**
      * Combat damage among blockers (and the defender, with trample), or among
@@ -800,6 +839,8 @@ class SeatGui(
     private companion object {
         /** What F4 stops for and F6 ignores. */
         val HIDDEN_ZONES = setOf(ZoneType.Hand, ZoneType.Library)
+        /** Cost reductions whose check asks the controller (CostAdjustment.adjust): such a spell's X is estimated, not priced. */
+        val ASKS_WHILE_PRICED = listOf(Keyword.DELVE, Keyword.CONVOKE, Keyword.IMPROVISE, Keyword.ASSIST)
         /** Where the affordable-X search stops: each step is one of Forge's payment checks. */
         const val MAX_SUGGESTED_X = 99
         /** The pool's letters (as Snapshots writes them) to Forge's mana atoms, which the pool click takes (colourless has its own bit). */

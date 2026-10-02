@@ -84,6 +84,31 @@ class PromptScenariosTest {
     }
 
     @Test
+    fun `X with delve - Logic Knot asks X once and delve once, never while X is priced`() {
+        val state = mainPhase("Lightning Bolt;Logic Knot", "Mountain;Island;Island") + "humangraveyard=Opt;Consider;Brainstorm"
+        Scenario("logic-knot", state) { prompt, board, _ ->
+            when {
+                prompt is InputPrompt && prompt.kind == InputKind.PRIORITY && board.stack.isEmpty() -> board.inHand("Lightning Bolt")?.let { SeatAction.ClickCard(it.id) } ?: SeatAction.Ok
+                prompt is InputPrompt && prompt.kind == InputKind.PRIORITY -> board.inHand("Logic Knot")?.let { SeatAction.ClickCard(it.id) } ?: SeatAction.Ok
+                prompt is InputPrompt && prompt.kind == InputKind.TARGET -> SeatAction.ClickPlayer(board.ai().id)
+                prompt is NumberPrompt -> SeatAction.Number(2)
+                prompt is ChoicePrompt && prompt.message.startsWith("Delve how many") -> SeatAction.Choose(listOf(prompt.options.lastIndex))
+                prompt is ChoicePrompt && prompt.options.isNotEmpty() -> SeatAction.Choose(listOf(0))
+                else -> null
+            }
+        }.use { s ->
+            s.playUntil { s.board.seat!!.graveyard.any { it.name == "Logic Knot" } }
+            val asked = s.answered.map { it.first }
+            val delves = asked.indices.filter { (asked[it] as? ChoicePrompt)?.message?.startsWith("Delve how many") == true }
+            val x = asked.indexOfFirst { it is NumberPrompt }
+            assertEquals(1, delves.size, "delve is asked once: ${asked.map { it.message }}")
+            assertTrue(x in 0 until delves.single(), "X first, then delve, as Forge pays it")
+            // Two Islands untapped and three cards to delve, against {X}{U}{U}: an estimate of three.
+            assertEquals(3, (asked[x] as NumberPrompt).suggested)
+        }
+    }
+
+    @Test
     fun `X cost - Blaze announces X through the number prompt, then targets the AI`() {
         Scenario("x-cost", mainPhase("Blaze", "Mountain;Mountain;Mountain;Mountain")) { prompt, board, _ ->
             when (prompt) {
