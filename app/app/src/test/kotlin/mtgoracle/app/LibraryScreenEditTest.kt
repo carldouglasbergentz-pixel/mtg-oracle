@@ -84,6 +84,26 @@ class LibraryScreenEditTest {
     }
 
     @Test
+    fun `a deck exports for Arena to the clipboard, and for MTGO to a file as well`() {
+        open()
+        driver.key(Key.Enter) // open the selected deck: Export is the workspace's
+        val deck = app.decks.first { it.id == app.editing!!.deckId }
+        assertTrue(driver.click(ClickTarget.Control("export")))
+        assertTrue(driver.click(ClickTarget.Control("ask:3")), "Arena")
+        val arena = assertNotNull(clipboard)
+        assertTrue(arena.startsWith("Commander\n") || arena.startsWith("Deck\n"), arena.take(80))
+        assertTrue(" (" !in arena.lines().first { it.firstOrNull()?.isDigit() == true }, "no printing: ${arena.take(200)}")
+        assertTrue("for Arena" in app.notice.orEmpty(), "${app.notice}")
+
+        assertTrue(driver.click(ClickTarget.Control("export")))
+        assertTrue(driver.click(ClickTarget.Control("ask:4")), "MTGO")
+        val file = File(data, "exports").listFiles().orEmpty().single()
+        assertEquals(file.readText(), clipboard, "the file and the clipboard hold the same list")
+        assertTrue("Commander" !in file.readText() && "Deck\n" !in file.readText(), "MTGO's file has no headers")
+        assertTrue("saved ${deck.name} for MTGO" in app.notice.orEmpty(), "${app.notice}")
+    }
+
+    @Test
     fun `the workspace exports, imports with a preview, and chooses a printing`() {
         open()
         driver.key(Key.Enter) // open the selected deck

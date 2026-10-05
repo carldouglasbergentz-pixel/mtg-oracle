@@ -158,6 +158,7 @@ class AppController(private val paths: AppPaths) {
             },
             faceOf = { name, printing -> printingFace(lookup, name, printing) },
             substitutions = Substitutions(db),
+            exports = paths.exports,
             forgeSupport = { name -> if (forgeReady) ForgeCards.support(name) else null },
         )
         lookupUi = lookupCommands.ui.apply {

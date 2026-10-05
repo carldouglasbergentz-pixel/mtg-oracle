@@ -29,6 +29,10 @@ import mtgoracle.ui.lookup.message
 /** The folder chooser's "make one now": no folder id is ever this. */
 private const val NEW_FOLDER = "+new"
 
+/** The games an export is for, as `cards.games` names them. */
+private const val ARENA = "arena"
+private const val MTGO = "mtgo"
+
 /**
  * The library's changes, as the screens' buttons and menus ask for them:
  * each intent becomes a question (a name, a choice, a confirmation), then
@@ -64,6 +68,8 @@ class LibraryActions(
     private val faceOf: (String, Printing?) -> CardFace? = { _, _ -> null },
     /** The AI copies' substitutions. */
     private val substitutions: Substitutions? = null,
+    /** Where an export for Magic Online is saved; null saves none (tests). */
+    private val exports: java.io.File? = null,
     /** Whether Forge has a card and its AI plays it; null before Forge is up. */
     private val forgeSupport: (String) -> ForgeSupport? = { null },
 ) {
@@ -125,6 +131,8 @@ class LibraryActions(
                     "Full names" to { export(intent.deckId, frontFace = false) },
                     "Front faces only" to { export(intent.deckId, frontFace = true) },
                     "Grouped by role" to { export(intent.deckId, frontFace = false, grouped = true) },
+                    "Arena" to { exportFor(intent.deckId, ARENA) },
+                    "MTGO" to { exportFor(intent.deckId, MTGO) },
                 ))
                 is LibraryIntent.ChoosePrinting -> choosePrinting(intent)
                 is LibraryIntent.AiSubstitute -> {
@@ -319,6 +327,32 @@ class LibraryActions(
         writeClipboard(text)
         say("copied ${deck.name} to the clipboard: ${deck.cards.sumOf { it.quantity }} card(s)" +
             (if (frontFace) ", front faces" else "") + (if (grouped) ", grouped by role" else ""))
+    }
+
+    /**
+     * For MTG Arena (to the clipboard, which its Import button reads) or Magic
+     * Online (saved as `data/exports/<deck>.txt` too, since MTGO imports a file).
+     * For Arena it says which cards Arena lacks; the list goes out whole all the
+     * same. For MTGO the database can't tell (see Lookup.notOnArena), so it says nothing.
+     */
+    private fun exportFor(deckId: Int, game: String) {
+        val deck = library.deck(deckId) ?: return say("no such deck")
+        val text = if (game == ARENA) DeckExport.arena(deck, lookup::layout) else DeckExport.mtgo(deck, lookup::layout)
+        writeClipboard(text)
+        val label = if (game == ARENA) "Arena" else "MTGO"
+        val saved = if (game == MTGO) exports?.let { dir -> saveExport(dir, deck.name, text) } else null
+        val missing = if (game == ARENA) lookup.notOnArena(deck.cards.map { it.name }) else emptyList()
+        say((saved?.let { "saved ${deck.name} for $label as $it and copied it" } ?: "copied ${deck.name} to the clipboard for $label") +
+            ": ${deck.cards.sumOf { it.quantity }} card(s)" +
+            if (missing.isEmpty()) "" else " · ${missing.size} not on $label: ${missing.joinToString(", ")}")
+    }
+
+    /** [text] as `<dir>/<deck name>.txt`, the name kept to what a file name may hold. */
+    private fun saveExport(dir: java.io.File, deckName: String, text: String): java.io.File {
+        dir.mkdirs()
+        val file = java.io.File(dir, deckName.replace(Regex("""[\\/:*?"<>|]"""), "_").trim('.', ' ').ifEmpty { "deck" } + ".txt")
+        file.writeText(text, Charsets.UTF_8)
+        return file
     }
 
     /**

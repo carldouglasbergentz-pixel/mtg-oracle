@@ -25,18 +25,10 @@ object DeckExport {
         layoutOf: (String) -> String? = { null },
         primaryOf: ((String) -> String?)? = null,
     ): String {
-        val buckets = ORDER.associate { it.first to LinkedHashMap<String, Int>() }
+        val buckets = sections(deck)
         val printings = HashMap<Pair<String, String>, String>()
         for (row in deck.cards) {
-            // The sideboard wins, as in the history: a sideboard row flagged commander is not in the command zone.
-            val section = when {
-                row.isSideboard -> "sideboard"
-                row.isCommander -> "commander"
-                else -> "main"
-            }
-            val entries = buckets.getValue(section)
-            entries[row.name] = (entries[row.name] ?: 0) + row.quantity
-            val key = section to row.name
+            val key = sectionOf(row) to row.name
             if (row.setCode != null && key !in printings) {
                 printings[key] = " (${row.setCode.uppercase()})" + (row.collectorNumber?.let { " $it" } ?: "")
             }
@@ -64,6 +56,59 @@ object DeckExport {
             }
         }
         return if (lines.isEmpty()) "" else lines.joinToString("\n") + "\n"
+    }
+
+    /**
+     * The deck as MTG Arena's Import button reads it: `Commander`, `Deck` and
+     * `Sideboard` sections, a two-faced card by its front face and a split
+     * card as `Fire // Ice`. No printings: Arena takes only its own digital
+     * ones, which the database doesn't hold, and imports a bare name in its default.
+     */
+    fun arena(deck: Deck, layoutOf: (String) -> String?): String =
+        listing(deck, { name -> if (layoutOf(name) == "split") name else name.substringBefore(" // ") }) { sections ->
+            listOf("Commander" to sections.getValue("commander"), "Deck" to sections.getValue("main"), "Sideboard" to sections.getValue("sideboard"))
+                .filter { it.second.isNotEmpty() }
+                .joinToString("\n\n") { (header, rows) -> (listOf(header) + rows).joinToString("\n") }
+        }
+
+    /**
+     * The deck as Magic Online imports a `.txt`: the main deck, a blank line,
+     * then the sideboard, where MTGO keeps a commander too (commanders first).
+     * No headers; a split card is `Fire/Ice` (one slash, no spaces, or the
+     * import breaks) and any other two-faced card its front face.
+     */
+    fun mtgo(deck: Deck, layoutOf: (String) -> String?): String =
+        listing(deck, { name -> if (layoutOf(name) == "split") name.replace(" // ", "/") else name.substringBefore(" // ") }) { sections ->
+            val side = sections.getValue("commander") + sections.getValue("sideboard")
+            listOf(sections.getValue("main"), side).filter { it.isNotEmpty() }.joinToString("\n\n") { it.joinToString("\n") }
+        }
+
+    /** [deck]'s rows as `N Name` lines per section, names as [display] has them, in code-point order; [layout] puts the sections together. */
+    private fun listing(deck: Deck, display: (String) -> String, layout: (Map<String, List<String>>) -> String): String {
+        val lines = sections(deck).mapValues { (_, entries) ->
+            val named = LinkedHashMap<String, Int>()
+            entries.forEach { (name, n) -> named.merge(display(name), n, Int::plus) }
+            named.keys.sortedWith(CODE_POINT_ORDER).map { "${named.getValue(it)} $it" }
+        }
+        val text = layout(lines)
+        return if (text.isEmpty()) "" else text + "\n"
+    }
+
+    /** Copies per card in each section: commander, main, sideboard. */
+    private fun sections(deck: Deck): Map<String, LinkedHashMap<String, Int>> {
+        val buckets = ORDER.associate { it.first to LinkedHashMap<String, Int>() }
+        for (row in deck.cards) {
+            val entries = buckets.getValue(sectionOf(row))
+            entries[row.name] = (entries[row.name] ?: 0) + row.quantity
+        }
+        return buckets
+    }
+
+    /** The sideboard wins, as in the history: a sideboard row flagged commander is not in the command zone. */
+    private fun sectionOf(row: DeckCard): String = when {
+        row.isSideboard -> "sideboard"
+        row.isCommander -> "commander"
+        else -> "main"
     }
 
     /** Python's `sorted()` over str: by code point, not by UTF-16 unit. */

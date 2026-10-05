@@ -56,7 +56,7 @@ object Cli {
           combo-info <id>                  one combo in full
           deck list                        the decks, by folder
           deck show <deck>                 a deck's cards
-          deck export <deck> [--front-face] [--grouped]
+          deck export <deck> [--front-face] [--grouped | --arena | --mtgo]
           profile <deck>|<folder>          what the cards do, and when each role is castable
           profile --dir <path>             ...over a folder of decklist .txt files
           compare <deck> --against <deck>|<folder>
@@ -226,7 +226,16 @@ object Cli {
         return when (sub) {
             "show", "export" -> {
                 val pool = if ("--grouped" in flags) lookup.analysis.pool(deck.cards.map { it.name }) else null
-                val text = DeckExport.text(deck, frontFace = "--front-face" in flags, layoutOf = lookup::layout, primaryOf = pool?.let { p -> { n -> p.classify(n)?.primary } })
+                val game = when { "--arena" in flags -> "arena"; "--mtgo" in flags -> "mtgo"; else -> null }
+                val text = when (game) {
+                    "arena" -> DeckExport.arena(deck, lookup::layout)
+                    "mtgo" -> DeckExport.mtgo(deck, lookup::layout)
+                    else -> DeckExport.text(deck, frontFace = "--front-face" in flags, layoutOf = lookup::layout, primaryOf = pool?.let { p -> { n -> p.classify(n)?.primary } })
+                }
+                // On stderr, so the list on stdout stays a list to redirect into a file.
+                if (game == "arena") lookup.notOnArena(deck.cards.map { it.name }).takeIf { it.isNotEmpty() }?.let { missing ->
+                    System.err.println("${missing.size} card(s) not on Arena: ${missing.joinToString(", ")}")
+                }
                 if (!asJson) out.print(text)
                 else emit(buildJsonObject {
                     put("name", deck.name); put("folder", deck.folderName); put("format", deck.format); put("text", text)

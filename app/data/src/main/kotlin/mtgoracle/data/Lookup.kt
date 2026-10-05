@@ -56,6 +56,22 @@ class Lookup(val db: MtgDb) {
     fun layout(card: String): String? =
         db.read { conn -> conn.query("SELECT layout FROM cards WHERE name = ? COLLATE NOCASE", card) { getString(1) }.firstOrNull() }
 
+    /**
+     * Of [names], the cards MTG Arena doesn't have, sorted: what a list exported
+     * for Arena must change. A card on Arena has a row in one of Arena's own
+     * formats, legal or banned there. `cards.games` can't tell: it is the games
+     * of the one printing Scryfall chose (Eternal Witness's lacks Arena).
+     */
+    fun notOnArena(names: Collection<String>): List<String> {
+        val distinct = names.distinctBy { it.lowercase() }
+        if (distinct.isEmpty()) return emptyList()
+        val on = db.read { conn ->
+            conn.query("SELECT DISTINCT card_name FROM card_legalities WHERE card_name COLLATE NOCASE IN (${distinct.joinToString(",") { "?" }}) " +
+                "AND format IN ($ARENA_FORMATS)", *distinct.toTypedArray()) { getString(1).lowercase() }
+        }.toSet()
+        return distinct.filter { it.lowercase() !in on }.sorted()
+    }
+
     /** The names on deck [deckId]'s considering list. */
     fun deckConsidering(deckId: Int): List<String> =
         db.read { conn -> conn.query("SELECT card_name FROM deck_considering WHERE deck_id = ? ORDER BY card_name COLLATE NOCASE", deckId) { getString(1) } }
@@ -98,3 +114,6 @@ class Lookup(val db: MtgDb) {
         }
     }
 }
+
+/** Scryfall's formats played only on MTG Arena: a card with a row in any of them is on Arena. */
+private const val ARENA_FORMATS = "'timeless', 'historic', 'brawl', 'alchemy', 'standardbrawl', 'gladiator'"

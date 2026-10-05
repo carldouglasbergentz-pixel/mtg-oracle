@@ -19,6 +19,7 @@ import java.util.Properties
  *   mtg.db        the database: the app owns its schema and sync, and writes decks, games and combos
  *   backups/      the database as it was before each migration (three kept)
  *   game_logs/    one full log per game
+ *   exports/      decks exported for Magic Online, which imports a file
  *   app/forge/    Forge's user data and image cache (never %APPDATA%\Forge)
  *   app/settings.properties   the theme, phase stops, text or art, pane widths and the board's layout
  *   app/app.log   every warning and error, crash traces in full
@@ -31,6 +32,8 @@ data class AppPaths(
 ) {
     val db: File get() = data.resolve("mtg.db")
     val gameLogs: File get() = data.resolve("game_logs")
+    /** Decks exported for Magic Online, which imports a `.txt` file rather than the clipboard. */
+    val exports: File get() = data.resolve("exports")
     /** Where a migration's backup goes (the three newest are kept). */
     val backups: File get() = data.resolve("backups")
     val home: File get() = data.resolve("app")
