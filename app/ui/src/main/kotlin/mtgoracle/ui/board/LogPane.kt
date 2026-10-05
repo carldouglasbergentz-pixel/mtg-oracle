@@ -98,13 +98,14 @@ private fun colorOf(kind: LogKind): Color = when (kind) {
 }
 
 /**
- * The match's play-by-play, whole, with a scrollbar. It follows the newest
+ * The match's play-by-play, whole, with a scrollbar; without the steps of
+ * each turn unless [steps]. It follows the newest
  * line while it is scrolled to the bottom; scrolled up, it stays where it was
  * read. A card named in a line is bold, and hovering it puts it in the zoom
  * pane ([onHover] with a [ClickTarget.LogCard]).
  */
 @Composable
-internal fun LogPane(log: List<LogLine>, cols: Int, onHover: (ClickTarget?) -> Unit, modifier: Modifier) {
+internal fun LogPane(log: List<LogLine>, cols: Int, onHover: (ClickTarget?) -> Unit, modifier: Modifier, steps: Boolean = true) {
     // One column for the scrollbar, beside the border's two.
     val inner = maxOf(8, cols - 3)
     val state = rememberLazyListState()
@@ -114,11 +115,12 @@ internal fun LogPane(log: List<LogLine>, cols: Int, onHover: (ClickTarget?) -> U
         // value: before the first scroll down the list is at its top, and reading that stopped the following.
         snapshotFlow { state.isScrollInProgress }.drop(1).collect { scrolling -> if (!scrolling) follow = !state.canScrollForward }
     }
-    LaunchedEffect(log.size) { if (follow && log.isNotEmpty()) state.scrollToItem(log.lastIndex) }
-    BoxPane("log", modifier) {
+    val shown = remember(log, steps) { if (steps) log else log.filter { it.kind != LogKind.PHASE } }
+    LaunchedEffect(shown.size) { if (follow && shown.isNotEmpty()) state.scrollToItem(shown.lastIndex) }
+    BoxPane("log", modifier, right = if (steps) null else "events only") {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-                items(log, key = { it.seq }) { line ->
+                items(shown, key = { it.seq }) { line ->
                     if (line.kind == LogKind.TURN) RuleLine(inner, label = line.text, color = Palette.accent, bold = true)
                     else remember(line, inner) { logRows(line, inner) }.forEach { row -> LogRowView(line, row, onHover) }
                 }

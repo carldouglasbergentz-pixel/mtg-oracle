@@ -198,6 +198,7 @@ fun BoardScreen(
                     if (event.key == Key.H && seat?.canShowAllHands == true) { seat.setShowAllHands(!showAllHands); return@onPreviewKeyEvent true }
                     if (event.key == Key.S) { arrange(arrangement.copy(stackCollapsed = !arrangement.stackCollapsed)); return@onPreviewKeyEvent true }
                     if (event.key == Key.R && !event.isCtrlPressed) { arrange(arrangement.copy(rotateTapped = !arrangement.rotateTapped)); return@onPreviewKeyEvent true }
+                    if (event.key == Key.L && !event.isCtrlPressed) { arrange(arrangement.copy(logSteps = !arrangement.logSteps)); return@onPreviewKeyEvent true }
                     // Ctrl+←/→ moves the right column's edge, with Shift the zone columns' edge: the border goes the arrow's way.
                     if (event.isCtrlPressed && (event.key == Key.DirectionLeft || event.key == Key.DirectionRight)) {
                         val step = if (event.key == Key.DirectionRight) PANE_STEP else -PANE_STEP
@@ -292,14 +293,15 @@ fun BoardScreen(
                     Box(Modifier.cellWidth(sideCols).fillMaxHeight()) {
                         Column(Modifier.fillMaxSize()) {
                             ZoomPane(zoom, sideCols, imageRows = 20, textMode = mode == CardMode.TEXT, modifier = Modifier.fillMaxWidth().region("zoom"))
-                            LogPane(board?.log.orEmpty(), sideCols, onHover, Modifier.fillMaxWidth().weight(1f).region("log"))
+                            LogPane(board?.log.orEmpty(), sideCols, onHover, Modifier.fillMaxWidth().weight(1f).region("log"), steps = arrangement.logSteps)
                         }
                         // Its left border is the handle.
                         PaneEdge(sideDrag, "side-edge", Modifier.align(Alignment.CenterStart))
                     }
                 }
                 val watchHint = if (seat?.canShowAllHands == true) listOf("H" to if (showAllHands) "hide hands" else "show hands") else emptyList()
-                val stackHint = listOf("S" to if (arrangement.stackCollapsed) "open stack" else "fold stack", "R" to if (arrangement.rotateTapped) "tapped: turned" else "tapped: upright")
+                val stackHint = listOf("S" to if (arrangement.stackCollapsed) "open stack" else "fold stack", "R" to if (arrangement.rotateTapped) "tapped: turned" else "tapped: upright",
+                    "L" to if (arrangement.logSteps) "log: events only" else "log: every step")
                 val matchHint = if (matchControls != null) listOf("Ctrl+Q" to "concede") else emptyList()
                 StatusLine(hints(prompt) + stackHint + matchHint + watchHint + extraHints, notice ?: yieldStatus, totalCols, Modifier.region("status"), warning = warning)
             }

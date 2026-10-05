@@ -94,12 +94,14 @@ class Settings(private val file: File) {
                 zoneCols = props.getProperty("pane.zoneCols")?.toIntOrNull() ?: d.zoneCols,
                 sideCols = props.getProperty("pane.sideCols")?.toIntOrNull() ?: d.sideCols,
                 rotateTapped = props.getProperty("board.rotateTapped")?.let { it == "true" } ?: d.rotateTapped,
+                logSteps = props.getProperty("board.logSteps")?.let { it == "true" } ?: d.logSteps,
             )
         }
         set(value) {
             fun put(key: String, v: Any?) { if (v == null) props.remove(key) else props.setProperty(key, v.toString()) }
             put("stackBox.col", value.stackCol); put("stackBox.row", value.stackRow); put("stackBox.folded", value.stackCollapsed)
             put("pane.zoneCols", value.zoneCols); put("pane.sideCols", value.sideCols); put("board.rotateTapped", value.rotateTapped)
+            put("board.logSteps", value.logSteps)
             save()
         }
 

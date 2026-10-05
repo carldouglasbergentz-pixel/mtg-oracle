@@ -19,6 +19,8 @@ data class BoardLayout(
     val sideCols: Int = SIDE_COLS,
     /** Tapped cards turned a quarter, as on a real table (R); off, they only shift a cell and take the tapped tone. */
     val rotateTapped: Boolean = true,
+    /** The log pane shows each step of a turn (L); off, only what happened: most of a game's lines are steps. */
+    val logSteps: Boolean = true,
 )
 
 /** [pos] kept inside a window of [total] cells for something [size] cells long. */

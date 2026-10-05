@@ -66,6 +66,14 @@ class LogPaneTest {
             d.settle(3)
             assertTrue("draws three cards" in d.text.all(), "hovering the name zooms the card as printed")
             d.savePng(File(pngDir, "log-pane.png"))
+            // L: only what happened. The steps go, the events stay, and the pane says it is filtered.
+            d.key(androidx.compose.ui.input.key.Key.L)
+            d.settle(3)
+            assertFalse("Your Upkeep step 299" in d.text.all(), "the steps are hidden")
+            assertTrue("AI discards Ancestral Recall." in d.text.all() && "events only" in d.text.all())
+            d.key(androidx.compose.ui.input.key.Key.L)
+            d.settle(3)
+            assertTrue("Your Upkeep step 299" in d.text.all(), "and back")
         }
     }
 }
