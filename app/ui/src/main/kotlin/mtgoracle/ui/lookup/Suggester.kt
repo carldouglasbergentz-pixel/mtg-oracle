@@ -14,7 +14,7 @@ val COMMANDS = listOf(
     // Games.
     "results",
     // The data.
-    "sync", "prune",
+    "sync", "autosync", "prune",
 )
 
 /** What a line's first word must be to run as a command; anything else is a search. */
@@ -48,6 +48,7 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "results" to "results [<deck>]: wins–losses–draws against each opponent, your games and the simulated ones",
     "prune" to "prune [--yes]: the card rows no export writes any more (a dry run without --yes; decks keep theirs)",
     "sync" to "sync [--force] [cards|rules|combos|tags|oracletags|formats|printings ...]: fetch what moved upstream (decks are never touched)",
+    "autosync" to "autosync [on|off]: the daily sync in the background (Spellbook weekly); on by default",
 )
 
 /**

@@ -129,7 +129,7 @@ class AppController(private val paths: AppPaths) {
             lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
             copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
             writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
-            selectedDeck = { selectedId }, sync = ::sync,
+            selectedDeck = { selectedId }, sync = { force, only -> sync(force, only) }, autoSync = ::autoSyncSetting,
             onCardsChanged = { commands?.let { current -> buildLookup(db, carry = current) } },
             output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
         )
@@ -172,6 +172,11 @@ class AppController(private val paths: AppPaths) {
 
     /** The sync running, if one is; its log line is the notice. */
     @Volatile private var syncing = false
+    /** The time, for the sync's record; the tests move it. */
+    var clock: () -> java.time.Instant = java.time.Instant::now
+    /** What the status line says about the sync while nothing else is said: a failure, or a stale sync (AutoSync.status). */
+    var syncWarning by mutableStateOf<String?>(null)
+        private set
     /** Where the network is for a sync; the tests serve files instead. */
     var upstream: mtgoracle.data.sync.Upstream = mtgoracle.data.sync.HttpUpstream()
 
@@ -181,11 +186,11 @@ class AppController(private val paths: AppPaths) {
      * output; when it changed the cards, the lookup is built again so search
      * and names see them. Decks are never touched.
      */
-    fun sync(force: Boolean = false, only: Set<mtgoracle.core.sync.Source> = mtgoracle.core.sync.Source.entries.toSet()) {
+    fun sync(force: Boolean = false, only: Set<mtgoracle.core.sync.Source> = mtgoracle.core.sync.Source.entries.toSet(), auto: Boolean = false) {
         val database = db ?: return
         if (syncing) { notice = "a sync is running already"; return }
         syncing = true
-        notice = "sync: starting"
+        notice = if (auto) "sync (daily): starting" else "sync: starting"
         thread(name = "sync", isDaemon = true) {
             val report = try {
                 mtgoracle.data.sync.Sync(database, upstream, paths.data.resolve("raw"), paths.data.resolve("formats"), log = { notice = "sync: $it" }).run(force, only)
@@ -196,16 +201,58 @@ class AppController(private val paths: AppPaths) {
                 syncing = false
             }
             java.awt.EventQueue.invokeLater {
+                recordSync(only, failed = report?.failures?.map { it.first }?.toSet() ?: only)
                 val current = commands ?: return@invokeLater
                 if (report == null) { notice = "sync failed: see ${paths.appLog}"; return@invokeLater }
                 // Always: a points change (4 to 3) keeps the row count, so the report can't tell; a rebuild is ~130 ms.
                 buildLookup(database, carry = current)
                 commands?.output?.add(mtgoracle.ui.lookup.renderSyncReport(report))
-                lookupUi?.showOutput = true
+                // A daily run reports to the output without opening it over what you are looking at.
+                if (!auto) lookupUi?.showOutput = true
                 notice = if (report.failures.isEmpty()) "sync done" + if (report.touched) "" else ": everything was up to date"
                 else "sync done, ${report.failures.size} source(s) failed: ${report.failures.joinToString { it.first.key }}"
             }
         }
+    }
+
+    /** A sync of [ran] finished, [failed] among them: kept in the settings, so the warning outlives a restart. */
+    private fun recordSync(ran: Set<mtgoracle.core.sync.Source>, failed: Set<mtgoracle.core.sync.Source>) {
+        val now = clock()
+        settings.syncLast = now
+        if (mtgoracle.core.sync.Source.COMBOS in ran && mtgoracle.core.sync.Source.COMBOS !in failed) settings.syncLastCombos = now
+        settings.syncFailed = settings.syncFailed.filterKeys { it !in ran } + failed.associateWith { settings.syncFailed[it] ?: now }
+        refreshSyncWarning()
+    }
+
+    private fun refreshSyncWarning() {
+        syncWarning = mtgoracle.core.sync.AutoSync.status(clock(), settings.syncLast, settings.syncFailed)
+    }
+
+    /**
+     * The daily sync, if it is due (AutoSync.due) and nothing would be in its
+     * way: auto-sync on, no sync running, and no game or simulation, whose
+     * writes would wait on the sync's long transactions. True when it started.
+     */
+    fun autoSyncIfDue(): Boolean {
+        if (!settings.autoSync || db == null || syncing || match != null || simulation != null) return false
+        val sources = mtgoracle.core.sync.AutoSync.due(clock(), settings.syncLast, settings.syncLastCombos)
+        if (sources.isEmpty()) return false
+        Log.info("daily sync: ${sources.joinToString { it.key }}")
+        sync(only = sources, auto = true)
+        return true
+    }
+
+    /** Looks every hour whether the daily sync is due, the first time a minute after start. Only the window starts it, never a test. */
+    fun startAutoSync() {
+        val timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "auto-sync").apply { isDaemon = true } }
+        timer.scheduleAtFixedRate({ java.awt.EventQueue.invokeLater { autoSyncIfDue() } }, 1, 60, java.util.concurrent.TimeUnit.MINUTES)
+    }
+
+    /** `autosync on|off`, or with null what it is: the answer for the output. */
+    fun autoSyncSetting(on: Boolean?): String {
+        if (on != null) settings.autoSync = on
+        val last = settings.syncLast?.let { " · last sync ${java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(java.time.ZoneId.systemDefault()).format(it)}" }.orEmpty()
+        return if (settings.autoSync) "daily sync: on (Spellbook weekly)$last" else "daily sync: off · `sync` fetches by hand$last"
     }
 
     /** Opens the database (migrating it to this build's schema first), then brings Forge up in the background. */
@@ -220,7 +267,7 @@ class AppController(private val paths: AppPaths) {
             }
             if (created) {
                 Log.info("created an empty database at ${paths.db}")
-                notice = "a new, empty database: press [ Sync ] to fetch the cards, rules and combos (a few minutes)"
+                notice = "a new, empty database: the daily sync fetches the cards, rules and combos within a minute (a few minutes in all), or press [ Sync ]"
             }
             library = Library(db)
             sessions = Sessions(GameStore(db), paths.gameLogs)
@@ -229,6 +276,7 @@ class AppController(private val paths: AppPaths) {
             decks.firstOrNull()?.let { select(it.id) }
             this.db = db
             buildLookup(db, carry = null)
+            refreshSyncWarning()
             screen = Screen.Library
         } catch (e: SchemaTooOldException) {
             screen = Screen.Blocked(e.message!!)

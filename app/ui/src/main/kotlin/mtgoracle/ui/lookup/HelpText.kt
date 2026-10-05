@@ -49,6 +49,8 @@ DATA
   sync [--force] [<source> ...]       fetch what moved upstream: cards, rules, combos, tags,
                                       oracletags, formats, printings (decks are never touched); --force
                                       fetches it all again
+  autosync [on|off]                   the daily sync in the background, on by default:
+                                      once a day, Spellbook's 675 MB once a week
   prune [--yes]                       card rows no export writes any more; a dry run
                                       without --yes, and a deck's cards are always kept
 

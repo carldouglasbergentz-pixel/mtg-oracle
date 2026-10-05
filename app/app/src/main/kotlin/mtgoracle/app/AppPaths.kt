@@ -136,6 +136,39 @@ class Settings(private val file: File) {
         get() = props.getProperty("theme")
         set(value) { if (value == null) props.remove("theme") else props.setProperty("theme", value); save() }
 
+    /** Whether the app syncs by itself once a day (AutoSync); on unless turned off with `autosync off`. */
+    var autoSync: Boolean
+        get() = props.getProperty("sync.auto") != "false"
+        set(value) { props.setProperty("sync.auto", value.toString()); save() }
+
+    /** When the last sync finished, manual or automatic. */
+    var syncLast: java.time.Instant?
+        get() = instant("sync.last")
+        set(value) { setInstant("sync.last", value) }
+
+    /** When Commander Spellbook was last synced without failing: the automatic sync takes it once a week. */
+    var syncLastCombos: java.time.Instant?
+        get() = instant("sync.lastCombos")
+        set(value) { setInstant("sync.lastCombos", value) }
+
+    /** The sources whose last sync failed, and since when: said in the status line until a later sync of them succeeds. */
+    var syncFailed: Map<mtgoracle.core.sync.Source, java.time.Instant>
+        get() = props.getProperty("sync.failed").orEmpty().split(';').filter { it.isNotBlank() }.mapNotNull { entry ->
+            val source = mtgoracle.core.sync.Source.of(entry.substringBefore('@')) ?: return@mapNotNull null
+            runCatching { java.time.Instant.parse(entry.substringAfter('@')) }.getOrNull()?.let { source to it }
+        }.toMap()
+        set(value) {
+            if (value.isEmpty()) props.remove("sync.failed")
+            else props.setProperty("sync.failed", value.entries.joinToString(";") { (s, at) -> "${s.key}@$at" })
+            save()
+        }
+
+    private fun instant(key: String): java.time.Instant? = props.getProperty(key)?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+    private fun setInstant(key: String, value: java.time.Instant?) {
+        if (value == null) props.remove(key) else props.setProperty(key, value.toString())
+        save()
+    }
+
     private fun save() {
         file.parentFile.mkdirs()
         file.writer(Charsets.UTF_8).use { props.store(it, "MTG Oracle app settings") }

@@ -77,6 +77,8 @@ class LookupCommands(
     private val selectedDeck: () -> Int? = { null },
     /** `sync`: runs the data pipeline (in the background) with these options; null where there is none (tests of lookup alone). */
     private val sync: ((force: Boolean, only: Set<Source>) -> Unit)? = null,
+    /** `autosync on|off` (null: just say): the answer for the output; null where there is none (tests of lookup alone). */
+    private val autoSync: ((Boolean?) -> String)? = null,
     /** The cards changed under the lookup (a prune): rebuild it, as after a sync. */
     private val onCardsChanged: () -> Unit = {},
     /** The scrollback and the command line, carried over when the lookup is rebuilt after a sync. */
@@ -210,6 +212,7 @@ class LookupCommands(
             "compare" -> compare(arg)
             "results" -> results(arg)
             "sync" -> sync(arg)
+            "autosync" -> autoSync(arg)
             "combo-info" -> comboInfo(arg)
             "rule" -> if (arg.isEmpty()) say("usage: rule <rule_number>") else rule(arg)
             "search-rules" -> if (arg.isEmpty()) say("usage: search-rules <text>") else say(renderRulesSearch(arg, lookup.rules.search(arg, limit = 25)))
@@ -519,6 +522,16 @@ class LookupCommands(
     }
 
     /** `sync [--force] [<source> ...]`: the whole pipeline, or the sources named, in their own order. */
+    private fun autoSync(arg: String) {
+        val set = autoSync ?: return say("(the daily sync is not available here)", Tone.DIM)
+        when (arg.trim().lowercase()) {
+            "" -> say(set(null))
+            "on" -> say(set(true))
+            "off" -> say(set(false))
+            else -> say("usage: autosync [on|off]")
+        }
+    }
+
     private fun sync(arg: String) {
         val run = sync ?: return say("(sync is not available here)", Tone.DIM)
         val words = arg.split(' ').filter { it.isNotEmpty() && it != "--only" }

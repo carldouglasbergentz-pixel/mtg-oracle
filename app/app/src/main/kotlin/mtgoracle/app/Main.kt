@@ -83,6 +83,7 @@ private fun runWindow(paths: AppPaths) {
     Thread.setDefaultUncaughtExceptionHandler { thread, error -> app.onCrash("thread ${thread.name}", error) }
     app.boot()
     if (app.screen is Screen.Blocked) Log.error((app.screen as Screen.Blocked).message)
+    else app.startAutoSync()
     application {
         val quit = {
             app.shutdown()

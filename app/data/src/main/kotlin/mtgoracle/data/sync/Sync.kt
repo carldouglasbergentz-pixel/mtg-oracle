@@ -27,6 +27,10 @@ class Sync(
     private val log: (String) -> Unit = {},
 ) {
     fun run(force: Boolean = false, only: Set<Source> = Source.entries.toSet()): SyncReport {
+        // A download cut off (the app closed mid-sync) leaves its .part; the next download writes a new one anyway.
+        rawDir.listFiles { f -> f.name.endsWith(".part") }?.forEach { part ->
+            if (part.delete()) log("removed ${part.name}, left by a download that was cut off")
+        }
         val selected = Source.entries.filter { it in only }
         val before = snapshot()
         val failures = mutableListOf<Pair<Source, String>>()
