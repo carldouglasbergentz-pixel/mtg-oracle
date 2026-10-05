@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-05
+
+The first release: everything below, packaged for Windows (`MTG-Oracle-0.1.0-windows-x64.zip`).
+
 ### Added
 - **A release updates itself.** At start, and once a day after, a release asks the repository's GitHub releases for a newer version. The status line says "MTG Oracle 0.2.0 is out (this is 0.1.0) · `update` installs it".
   - `update` downloads the zip and checks it against the `.sha256` published beside it, then unpacks it, refusing a zip that names a path outside its folder. It closes the app for a script that moves the old program to `update\old\`, puts the new one in its place and starts it. `data\` is never touched. If the copy fails the old program goes back.
