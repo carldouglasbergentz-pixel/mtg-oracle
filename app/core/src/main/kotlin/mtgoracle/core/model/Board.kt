@@ -30,6 +30,8 @@ data class CardState(
     val imageKey: String? = null,
     /** "+1/+1 x2, loyalty x3" */
     val counters: String = "",
+    /** What was chosen for it, as the table heard it: Cavern of Souls' `Human`, Pithing Needle's named card, a colour. */
+    val chosen: String = "",
     /**
      * A card this seat may not see (an opponent's hand, a card exiled face
      * down): a back only. Name, cost, text and art are blank, and the id is a

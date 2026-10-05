@@ -428,6 +428,7 @@ class SeatGui(
         if (items.isEmpty()) return emptyList()
         val options = items.map { optionFor(it, label(it)) }
         if (min < 0) { // a reveal: show it, nothing to pick
+            rememberRevealed(items.filterIsInstance<CardView>())
             awaitDialog({ ChoicePrompt(it, message, options, -1, -1) }, SeatAction.Choose(emptyList()))
             return emptyList()
         }
@@ -439,6 +440,21 @@ class SeatGui(
             return items.take(min)
         }
         return picked.map { items[it] }
+    }
+
+    /**
+     * Cards shown to this seat in another player's hand stay known there
+     * ([KnownInHand]) and get a trail line, so a tutor's find outlives the
+     * dialog that showed it: Cloud's Lion Sash was gone with one click.
+     */
+    private fun rememberRevealed(cards: Collection<CardView>) {
+        cards.filter { it.zone == ZoneType.Hand && it.controller?.id?.let { owner -> owner !in seatPlayerIds } == true }
+            .groupBy { it.controller!!.id }
+            .forEach { (owner, inHand) ->
+                inHand.forEach { knownInHand.revealed(it.id, owner) }
+                val names = inHand.mapNotNull { it.currentState?.name }.joinToString(", ")
+                trail.note(owner, "shown in hand: $names", inHand.singleOrNull())
+            }
     }
 
     /** All of [items] in an order; the answer lists indices first-first, the rest keep their place after them. */
@@ -755,6 +771,7 @@ class SeatGui(
      * on offer. Forge passes a reveal only to the player who looks.
      */
     private fun withReveal(title: String, reveal: DelayedReveal?, options: List<GameEntityView>): String {
+        rememberRevealed(reveal?.cards.orEmpty())
         val offered = options.mapNotNull { (it as? CardView)?.id }.toSet()
         val others = reveal?.cards?.filter { it.id !in offered }.orEmpty()
         if (others.isEmpty()) return title

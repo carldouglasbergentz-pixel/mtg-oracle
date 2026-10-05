@@ -162,14 +162,14 @@ class Lanes(battlefield: List<CardState>, looks: Looks) {
             .groupBy { land ->
                 val attached = attachedTo(land)
                 if (attached.isNotEmpty()) listOf(land.name, "attached", land.id) // never stack a land with something on it
-                else listOf(land.name, land.tapped, land.counters, land.damage, land.faceDown, looks.emphasis(land), looks.mark(land))
+                else listOf(land.name, land.tapped, land.counters, land.chosen, land.damage, land.faceDown, looks.emphasis(land), looks.mark(land))
             }
             .values.map { group -> Slot(group, attachedTo(group.first())) }
             .sortedWith(compareBy({ firstSeen.getValue(it.card.name) }, { variantRank(it, looks) }, { it.cards.minOf { c -> c.id } }))
     }
 
     private fun variantRank(slot: Slot, looks: Looks): Int = when {
-        slot.attached.isEmpty() && slot.card.counters.isEmpty() && slot.card.damage == 0 && looks.mark(slot.card) == null && looks.emphasis(slot.card) == Emphasis.NONE ->
+        slot.attached.isEmpty() && slot.card.counters.isEmpty() && slot.card.chosen.isEmpty() && slot.card.damage == 0 && looks.mark(slot.card) == null && looks.emphasis(slot.card) == Emphasis.NONE ->
             if (slot.card.tapped) 1 else 0
         else -> 2
     }

@@ -44,7 +44,7 @@ class HiddenInfoTest {
     }
 
     @Test
-    fun `Thoughtseize shows the revealed hand while it is revealed, and hides it again after`() {
+    fun `Thoughtseize shows the revealed hand, and what stayed in it is known there after`() {
         var revealedText = ""
         Scenario("reveal", StagedBoards.reveal, mode = CardMode.ART) { prompt, board, _ ->
             when {
@@ -63,9 +63,10 @@ class HiddenInfoTest {
             assertContains(revealedText, "Black Lotus", message = "Thoughtseize reveals the whole hand")
             // Now answer it (discard Time Walk) and let Thoughtseize resolve.
             s.playUntil { s.board.ai().graveyard.any { it.name == "Time Walk" } && s.match.seat.prompt.value is InputPrompt }
+            // A player at the table remembers the hand they saw (KnownInHand), until it loses a card unseen.
             val ai = s.board.ai()
-            assertTrue(ai.hand.all { it.hidden }, "the reveal ended: the hand is backs again")
-            assertFalse("Black Lotus" in s.tableText(), "Black Lotus left the table with the reveal (only the log remembers it)")
+            assertEquals(listOf("Black Lotus"), ai.hand.map { it.name }, "the card left in the hand stays known: ${ai.hand}")
+            assertFalse(ai.hand.single().hidden)
             s.png("reveal-over")
         }
     }

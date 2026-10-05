@@ -9,7 +9,8 @@ import forge.game.zone.ZoneType
 /**
  * The cards this seat knows are in another player's hand, as a player at a
  * table keeps track: one that went there from a public zone (Overlord of the
- * Balemurk's return, a bounce), face up, was seen by everyone.
+ * Balemurk's return, a bounce), face up, was seen by everyone; one shown to
+ * this seat while it is there (a tutor's reveal, Thoughtseize), by this seat.
  *
  * It stays known only while nothing could have hidden it. A card leaving
  * that hand openly (cast, discarded, put onto the battlefield) shows which
@@ -36,6 +37,12 @@ internal class KnownInHand(private val isViewer: (playerId: Int) -> Boolean) {
 
     @Synchronized
     internal fun knowsId(id: Int): Boolean = known.values.any { id in it }
+
+    /** [cardId] was shown to this seat in [ownerId]'s hand (a reveal, a look): known there from now on. */
+    @Synchronized
+    fun revealed(cardId: Int, ownerId: Int) {
+        if (!isViewer(ownerId)) known.getOrPut(ownerId) { HashSet() } += cardId
+    }
 
     @Subscribe
     fun onZone(event: GameEventCardChangeZone) {

@@ -39,6 +39,18 @@ class KnownInHandTest {
     }
 
     @Test
+    fun `a card shown in the other hand (a tutor's reveal) is known there until the hand loses a card unseen`() {
+        val known = KnownInHand(isViewer = { it == 1 })
+        known.move(130, zone(ai, ZoneType.Library), zone(ai, ZoneType.Hand)) // Cloud fetches Lion Sash...
+        known.revealed(130, ownerId = 2) // ...and reveals it
+        known.revealed(7, ownerId = 1) // our own hand is seen anyway
+        assertTrue(known.knowsId(130))
+        assertFalse(known.knowsId(7))
+        known.move(131, zone(ai, ZoneType.Hand), zone(ai, ZoneType.Library))
+        assertFalse(known.knowsId(130), "a card put back unseen could have been it")
+    }
+
+    @Test
     fun `the seat's own hand is no news, and a card into another hand from a hidden zone is not known`() {
         val known = KnownInHand(isViewer = { it == 1 })
         known.move(5, zone(me, ZoneType.Graveyard), zone(me, ZoneType.Hand))

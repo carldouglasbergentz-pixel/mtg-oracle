@@ -49,11 +49,13 @@ fun CardState.face(): CardFace = if (hidden) (if (faceDown) FACE_DOWN_FACE else 
         if (blocking) add("BLK")
         if (isToken) add("token")
         if (castLocked) add("LOCKED")
+        // A choice first among the marks: Cavern of Souls is no use until you know what it named.
+        if (chosen.isNotBlank()) add("[$chosen]")
         // Loyalty is already "L3"; the rest of the counters as "+1/+1×2".
         val shown = counters.split(", ").filter { it.isNotBlank() && !(loyalty != null && it.startsWith("Loyalty", ignoreCase = true)) }
         if (shown.isNotEmpty()) add(shown.joinToString(" ") { it.replace(" x", "×") })
     }.joinToString(" "),
-    text = text,
+    text = if (chosen.isBlank()) text else "Chosen: $chosen\n\n$text",
     imageKey = imageKey,
     tapped = tapped,
     castLocked = castLocked,

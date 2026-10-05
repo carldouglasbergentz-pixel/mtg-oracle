@@ -187,9 +187,19 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             text = if (cv.isFaceDown) "" else state.oracleText?.takeIf { it.isNotBlank() } ?: state.abilityText.orEmpty(),
             imageKey = if (cv.isFaceDown) null else artOverrides[cv.owner?.name]?.get(state.name) ?: state.imageKey,
             counters = counters(cv),
+            chosen = if (cv.isFaceDown) "" else chosen(cv),
             faceDown = cv.isFaceDown,
         )
     }
+
+    /** Every choice Forge keeps on the card (a type, a colour, a named card, a player, a number), announced as it was made. */
+    private fun chosen(cv: CardView): String = listOfNotNull(
+        cv.chosenType, cv.chosenType2,
+        cv.chosenColors?.takeIf { it.isNotEmpty() }?.joinToString(" "),
+        cv.namedCard?.takeIf { it.isNotEmpty() }?.joinToString(", "),
+        cv.chosenPlayer?.name,
+        cv.chosenNumber?.takeIf { it != "null" },
+    ).filter { it.isNotBlank() }.joinToString(", ")
 
     /** An opponent's face-down permanent: only what the table sees — a 2/2 with no name. */
     private fun faceDown(cv: CardView): CardState {

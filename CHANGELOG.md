@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **The library**: a double-click on a deck opens it in the workspace, as Enter does, and a single click only selects it. The Edit button is gone. The click is timed by hand, so a single click doesn't wait out a double-click window.
   - `SetupScreen` is `LobbyScreen`. `LobbyTest` and `LobbyWidthTest` cover it.
 
+### Added
+- **A card shows what was chosen for it.** Cavern of Souls' creature type, a named card (Pithing Needle), a colour, a player or a number: `[Human]` in the frame's marks and `Chosen: Human` at the top of the zoom pane's text. Forge keeps each choice on the card (`CardView.getChosenType` and its kin), and the snapshot carries it as `CardState.chosen`. Lands that chose differently are separate piles. `ChosenTest`, `KnownChoicesTest`.
+
+### Fixed
+- **A card shown to you in the other hand stays known there.** Cloud, Midgar Mercenary's tutor revealed Lion Sash in a dialog, a click closed it, and nothing on the board remembered the card. Now every card the seat is shown in another player's hand, by a reveal (a tutor, Gitaxian Probe) or with a choice (Thoughtseize's whole hand), is known in that hand (`KnownInHand`) until the hand loses a card unseen, as a player at the table would remember it. The header says `shown in hand: Lion Sash`. This changes what `HiddenInfoTest` holds after Thoughtseize: the card left in the hand is shown face up, where it was a back before.
+
 ## [0.1.1] - 2026-10-05
 
 ### Fixed
