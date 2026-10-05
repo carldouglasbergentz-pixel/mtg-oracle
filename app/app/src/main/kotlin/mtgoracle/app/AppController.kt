@@ -349,6 +349,7 @@ class AppController(private val paths: AppPaths) {
             }
             library = Library(db)
             sessions = Sessions(GameStore(db), paths.gameLogs)
+            sessions.pruneLogs().takeIf { it > 0 }?.let { Log.info("game logs: $it old ones removed, the newest $KEEP_LOGS kept") }
             decks = library.decks()
             folders = library.folders()
             decks.firstOrNull()?.let { select(it.id) }

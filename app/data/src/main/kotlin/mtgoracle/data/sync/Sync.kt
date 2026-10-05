@@ -135,6 +135,9 @@ class Sync(
             SyncState.set(conn, "spellbook_variants", marker.ifEmpty { local.orEmpty() }, n)
             log("combos: $n")
         }
+        // 650 MB of JSON nothing reads again: the marker keeps it from being fetched until Spellbook changes, and
+        // then it is fetched anew. Left in place when the import fails, to be looked at.
+        file.delete()
         return emptyList()
     }
 

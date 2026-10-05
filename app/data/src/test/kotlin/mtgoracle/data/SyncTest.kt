@@ -12,6 +12,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -94,6 +95,7 @@ class SyncTest {
         val first = sync(up).run()
         assertEquals(emptyList(), first.failures)
         assertEquals(listOf("cards", "rulings", Upstream.SPELLBOOK, "tags"), up.downloads, "each export once, in source order")
+        assertFalse(File(dir, "raw/spellbook_variants.json").exists(), "Spellbook's export (650 MB in life) goes once it is imported")
         assertEquals(listOf(listOf("Fire // Ice", "Fire\nFire deals 2 damage divided as you choose among one or two targets.\n\n// \n\nIce\nTap target permanent.\nDraw a card.",
             "{1}{R} // {1}{U}", "R,U", "Instant // Instant")),
             rows("SELECT name, oracle_text, mana_cost, colors, type_line FROM cards WHERE name = 'Fire // Ice'"))

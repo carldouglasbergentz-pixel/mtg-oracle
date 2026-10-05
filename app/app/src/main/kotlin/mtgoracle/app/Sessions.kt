@@ -37,6 +37,16 @@ data class Prepared(
  */
 class Sessions(private val store: GameStore?, private val logDir: File) {
 
+    /**
+     * The newest [keep] game logs stay, the rest go: a game writes about a megabyte, and nothing pruned them.
+     * Named by when they began (`20261005-140054-705.log`), so the name's order is the time's. A games row
+     * keeps its `log_path` when its file has gone. Returns how many went.
+     */
+    fun pruneLogs(keep: Int = KEEP_LOGS): Int {
+        val logs = logDir.listFiles { f -> f.isFile && f.name.endsWith(".log") }?.sortedByDescending { it.name }.orEmpty()
+        return logs.drop(keep).count { it.delete() }
+    }
+
     /** [seatAiCopy]: seat A plays its AI copy too, as in a simulation; a human plays the deck as built. */
     fun prepare(me: Deck, opponent: Deck, useAiCopy: Boolean, seatAiCopy: Boolean = false): Prepared {
         val seat = (if (seatAiCopy) AiCopy.aiCopy(me) else null) ?: AiCopy.asBuilt(me)
@@ -150,3 +160,6 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         return id
     }
 }
+
+/** Game logs kept in `data/game_logs/`: a hundred games' worth, about 100 MB. */
+const val KEEP_LOGS = 100
