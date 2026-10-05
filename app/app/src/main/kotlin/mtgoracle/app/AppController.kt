@@ -193,7 +193,7 @@ class AppController(private val paths: AppPaths) {
         notice = if (auto) "sync (daily): starting" else "sync: starting"
         thread(name = "sync", isDaemon = true) {
             val report = try {
-                mtgoracle.data.sync.Sync(database, upstream, paths.data.resolve("raw"), paths.data.resolve("formats"), log = { notice = "sync: $it" }).run(force, only)
+                mtgoracle.data.sync.Sync(database, upstream, paths.data.resolve("raw"), paths.formats, log = { notice = "sync: $it" }).run(force, only)
             } catch (e: Exception) {
                 Log.error("sync failed", e)
                 null

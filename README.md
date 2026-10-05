@@ -144,6 +144,22 @@ gradlew :app:scriptedGame -Pdata=<dir with a DB copy>
 
 `-Pdata=<dir>` points any task at another data directory, relative to the repo root.
 
+### A release
+
+```bat
+gradlew :app:packageRelease -PreleaseVersion=0.1.0
+```
+
+This builds `app\app\build\release\MTG Oracle\` and its zip, `MTG-Oracle-0.1.0-windows-x64.zip` (about 150 MB), with a `.sha256` beside it. The folder holds:
+- `MTG Oracle.exe`, the window, with no console;
+- `mtg.exe`, the command line;
+- `runtime\`, a Java of its own, so the machine needs no JDK;
+- `app\`, the jars, Forge's assets and the points lists.
+
+Unpacked anywhere, it keeps its data in `data\` beside the exe: the database, settings, logs, Forge's image cache and exports. A first start makes an empty database, and the daily sync fills it within a minute. The first sync downloads about 800 MB, Spellbook's 675 MB among them.
+
+A release is built from a clean tree (`-PallowDirty` for a trial), and its version is `0.1.0+<commit>` in the window title and `app.log`.
+
 The tests never write `data/mtg.db`. Most of them run on a frozen fixture instead (`app/data/src/testFixtures/fixture/`):
 - a 3,000-card cut of the upstream exports;
 - the reference decklists;

@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A release package for Windows** (`gradlew :app:packageRelease -PreleaseVersion=0.1.0`): `MTG Oracle.exe` with no console, `mtg.exe` for the command line, and a Java runtime of its own (jlink, about 110 MB), so the machine needs no JDK.
+  - It is a folder and its zip (about 150 MB, with a `.sha256`) that runs from wherever it is unpacked. Its data (database, settings, logs, Forge's cache, exports) sits in `data\` beside the exe; Forge's assets and the points lists sit inside the package.
+  - A first start makes an empty database for the daily sync to fill.
+  - Built with JDK 25's own `jpackage`, so no new dependency. The jars keep `installLocal`'s classpath order, since Forge's fat jar and Compose share classes.
+  - The points lists are now read from where the app has them (`AppPaths.formats`: the package's copy in a release, the repo's `data/formats` otherwise), so a new version brings its lists.
+  - Tried on a fresh unpack outside the repo with no JDK on the path: `mtg.exe` made `data\mtg.db` beside it and read the package's lists; the window started, and Forge put its user data in `data\app\forge`.
 - **A daily sync, by the app itself.** Once an hour, from a minute after start, the window checks whether the last sync is more than 24 hours old. If it is, the same sync as [ Sync ] runs in the background, its report goes to the output without opening the output over the library, and the lookup is rebuilt as after any sync. Commander Spellbook's 675 MB export comes once a week; its marker moves nearly every day. A sync by hand still takes everything.
   - It waits while a game or a simulation runs, since their writes would wait on the sync's long transactions.
   - **A failure is said until it is mended.** The library's and the workspace's status line keep "sync: rules failed 10-05 · the output says why", across a restart too, until a later sync of that source succeeds. A sync more than three days old is said as well, with auto-sync off or the app unopened. The lesson of August 2026: a scheduler that failed in silence left the cards 3.5 months old.

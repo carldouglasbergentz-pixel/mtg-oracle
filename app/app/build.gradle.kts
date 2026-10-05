@@ -1,6 +1,9 @@
 // The entry point: wires data, forge and ui into the window, plus the
 // headless modes (Main.kt lists them: the CLI, sync, migrate, schema check,
 // image prefetch, the scripted evidence run, staged snapshots).
+import java.security.MessageDigest
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -124,6 +127,89 @@ tasks.register("installLocal") {
                 else logger.warn("kept ${old.name}: it is in use (a running game?); pruned on a later install")
             }
         distRoot.listFiles { f -> f.name.startsWith(".pruning-") }.orEmpty().forEach { it.deleteRecursively() }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// packageRelease: the app as a folder anyone can unpack and run, and its zip.
+// `MTG Oracle.exe` (no console) and `mtg.exe` (the command line) from jpackage,
+// with a Java runtime of its own, so the machine needs no JDK. Every path is
+// the package's own: the data sits beside the exe in data/, Forge's assets and
+// the points lists inside app/. -PreleaseVersion=0.1.0 (numbers only, as
+// jpackage wants) names it; the build stamps the commit beside it.
+// ---------------------------------------------------------------------------
+val releaseRoot: File = layout.buildDirectory.dir("release").get().asFile
+// What jdeps finds the jars need, and what they load only at run time (charsets, locale data, zip, TLS, accessibility).
+val releaseModules = listOf(
+    "java.base", "java.compiler", "java.desktop", "java.instrument", "java.management", "java.naming", "java.net.http",
+    "java.rmi", "java.scripting", "java.security.jgss", "java.sql", "jdk.httpserver", "jdk.sctp", "jdk.unsupported",
+    "jdk.charsets", "jdk.localedata", "jdk.zipfs", "jdk.accessibility", "jdk.crypto.ec", "jdk.crypto.cryptoki",
+    "java.logging", "java.prefs", "java.xml", "jdk.net",
+)
+
+/** [folder] and everything in it as [zip], under the folder's own name. */
+fun zipFolder(folder: File, zip: File) {
+    ZipOutputStream(zip.outputStream().buffered()).use { out ->
+        folder.walkTopDown().filter { it.isFile }.forEach { file ->
+            out.putNextEntry(ZipEntry(folder.name + "/" + file.relativeTo(folder).invariantSeparatorsPath))
+            file.inputStream().use { it.copyTo(out) }
+            out.closeEntry()
+        }
+    }
+}
+
+tasks.register("packageRelease") {
+    group = "distribution"
+    description = "Builds the release folder (MTG Oracle.exe, mtg.exe, its own Java) and its zip in app/app/build/release/: -PreleaseVersion=0.1.0."
+    dependsOn(tasks.named("jar"), rootProject.tasks.named("prepareForgeAssets"), configurations.named("runtimeClasspath"))
+    val appJar = tasks.named<Jar>("jar").flatMap { it.archiveFile }
+    val runtime = configurations.named("runtimeClasspath")
+    outputs.upToDateWhen { false }
+    doLast {
+        val release = findProperty("releaseVersion")?.toString()
+            ?: throw GradleException("name the release: -PreleaseVersion=0.1.0")
+        require(release.matches(Regex("""\d+\.\d+\.\d+"""))) { "a release version is numbers only, as jpackage wants: $release" }
+        val commit = git("rev-parse", "--short", "HEAD") ?: "no-git"
+        val dirty = git("status", "--porcelain")?.isNotEmpty() == true
+        // -PallowDirty for a trial build; a release goes out from a commit, which the version names.
+        if (dirty && findProperty("allowDirty") == null) throw GradleException("commit first: a release is built from a clean tree (-PallowDirty for a trial)")
+        // jpackage refuses a destination that exists; a folder still open (a running release) can't go.
+        if (releaseRoot.exists() && !releaseRoot.deleteRecursively()) throw GradleException("can't clear $releaseRoot: is the release running?")
+        val input = releaseRoot.resolve("input")
+        // The jars in classpath order, as installLocal copies them: Forge's fat jar and Compose share classes.
+        (listOf(appJar.get().asFile) + runtime.get().files).forEachIndexed { i, jar -> jar.copyTo(input.resolve("%03d-%s".format(i, jar.name))) }
+        forgeAssets.copyRecursively(input.resolve("forge-assets"))
+        repoRoot.resolve("data/formats").copyRecursively(input.resolve("formats"))
+        val cli = releaseRoot.resolve("mtg.properties").apply {
+            writeText("main-class=mtgoracle.app.CliMain\nwin-console=true\n")
+        }
+        val javaOptions = forgeJvmArgs.map { it.toString() } + listOf(
+            "-Xmx4g",
+            "-Dmtgoracle.data=\$APPDIR/../data",
+            "-Dmtgoracle.forgeAssets=\$APPDIR/forge-assets",
+            "-Dmtgoracle.formats=\$APPDIR/formats",
+            // No spaces: jpackage's launcher splits a java option on them, and "(abc1234)" became the main class.
+            "-Dmtgoracle.version=$release+$commit",
+            "-Dmtgoracle.release=$release",
+        )
+        val jpackage = snapshotJava.get().executablePath.asFile.resolveSibling("jpackage.exe")
+        val command = listOf(
+            jpackage.path, "--type", "app-image", "--name", "MTG Oracle", "--app-version", release,
+            "--input", input.path, "--main-jar", "000-${appJar.get().asFile.name}", "--main-class", "mtgoracle.app.MainKt",
+            "--add-modules", releaseModules.joinToString(","),
+            "--jlink-options", "--strip-debug --no-header-files --no-man-pages",
+            "--add-launcher", "mtg=${cli.path}", "--dest", releaseRoot.path,
+        ) + javaOptions.flatMap { listOf("--java-options", it) }
+        val process = ProcessBuilder(command).redirectErrorStream(true).start()
+        val said = process.inputStream.bufferedReader().readText()
+        if (process.waitFor() != 0) throw GradleException("jpackage failed:\n$said")
+        val image = releaseRoot.resolve("MTG Oracle")
+        val zip = releaseRoot.resolve("MTG-Oracle-$release-windows-x64.zip")
+        zipFolder(image, zip)
+        val sha = MessageDigest.getInstance("SHA-256").digest(zip.readBytes()).joinToString("") { "%02x".format(it) }
+        releaseRoot.resolve("${zip.name}.sha256").writeText("$sha  ${zip.name}\n")
+        input.deleteRecursively()
+        logger.lifecycle("MTG Oracle $release ($commit): $image\n  $zip\n  SHA-256 $sha")
     }
 }
 

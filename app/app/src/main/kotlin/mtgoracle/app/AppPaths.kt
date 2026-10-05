@@ -29,6 +29,11 @@ data class AppPaths(
     val forgeAssets: File,
     /** Forge's home, when not `app/forge/` under [data]: the tests share one Forge per JVM. */
     val forgeHome: File? = null,
+    /**
+     * The curated points lists the `formats` source reads: the repo's `data/formats/` when
+     * run from the repo, the package's own copy in a release, so a new version brings its lists.
+     */
+    val formats: File = data.resolve("formats"),
 ) {
     val db: File get() = data.resolve("mtg.db")
     val gameLogs: File get() = data.resolve("game_logs")
@@ -45,10 +50,14 @@ data class AppPaths(
     val tuiConfig: File get() = data.resolve("config.json")
 
     companion object {
-        fun fromSystemProperties() = AppPaths(
-            data = File(required("mtgoracle.data")).canonicalFile,
-            forgeAssets = File(required("mtgoracle.forgeAssets")).canonicalFile,
-        )
+        fun fromSystemProperties(): AppPaths {
+            val data = File(required("mtgoracle.data")).canonicalFile
+            return AppPaths(
+                data = data,
+                forgeAssets = File(required("mtgoracle.forgeAssets")).canonicalFile,
+                formats = System.getProperty("mtgoracle.formats")?.let { File(it).canonicalFile } ?: data.resolve("formats"),
+            )
+        }
 
         private fun required(key: String) = System.getProperty(key)
             ?: throw IllegalStateException("system property $key is not set; start the app through Gradle (app/app/build.gradle.kts)")

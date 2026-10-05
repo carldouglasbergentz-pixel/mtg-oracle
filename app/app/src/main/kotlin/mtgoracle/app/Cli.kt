@@ -252,7 +252,7 @@ object Cli {
 
     private fun sync(paths: AppPaths, db: MtgDb, rest: List<String>, asJson: Boolean): Int {
         val sources = rest.filter { it != "--force" && it != "--only" }.map { Source.of(it) ?: return fail("no source '$it' (have: ${Source.entries.joinToString { s -> s.key }})") }
-        val report = Sync(db, HttpUpstream(), paths.data.resolve("raw"), paths.data.resolve("formats"), log = { if (!asJson) out.println("-- $it") })
+        val report = Sync(db, HttpUpstream(), paths.data.resolve("raw"), paths.formats, log = { if (!asJson) out.println("-- $it") })
             .run("--force" in rest, sources.ifEmpty { Source.entries }.toSet())
         if (asJson) emit(syncReport(report)) else mtgoracle.ui.lookup.renderSyncReport(report).lines(width).forEach { out.println(it.text) }
         return if (report.failures.isEmpty()) 0 else 1
