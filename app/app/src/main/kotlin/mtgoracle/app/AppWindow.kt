@@ -98,7 +98,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 decks = app.decks, meId = app.lobbyMeId, opponents = app.opponents(), selectedId = app.opponentId, useAiCopy = app.useAiCopy, watch = app.watch,
                 notes = prepared?.notes.orEmpty(), forgeReady = app.forgeReady, canStart = prepared != null && !prepared.blocked,
                 onSelectMe = app::chooseMe, onSelect = { app.opponentId = it }, onToggleAiCopy = { app.useAiCopy = !app.useAiCopy }, onToggleWatch = { app.watch = !app.watch },
-                onStart = app::start, onBack = app::backToLibrary,
+                onStart = app::start, onLibrary = app::backToLibrary,
                 format = app.format.label, onCycleFormat = app::cycleFormat,
                 simGames = app.simGames, onCycleSimGames = app::cycleSimGames, simulation = app.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
                 onSimulate = app::simulate, onStopSimulation = app::stopSimulation,

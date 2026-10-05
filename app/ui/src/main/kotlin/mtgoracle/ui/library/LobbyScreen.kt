@@ -34,6 +34,7 @@ import mtgoracle.ui.kit.FitText
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.RuleLine
 import mtgoracle.ui.kit.StatusLine
+import mtgoracle.ui.kit.Toolbar
 import mtgoracle.ui.kit.WrapText
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.region
@@ -75,7 +76,7 @@ fun LobbyScreen(
     onToggleAiCopy: () -> Unit,
     onToggleWatch: () -> Unit,
     onStart: () -> Unit,
-    onBack: () -> Unit,
+    onLibrary: () -> Unit,
     /** "best of 3"; B cycles it (watching is always one game). */
     format: String = "best of 1",
     onCycleFormat: () -> Unit = {},
@@ -103,7 +104,7 @@ fun LobbyScreen(
             name == "start" -> if (canStart && !simRunning) onStart()
             name == "simulate" -> if (simRunning) onStopSimulation() else if (canStart) onSimulate()
             name == "sim-games" -> onCycleSimGames()
-            name == "back" -> onBack()
+            name == "library" -> onLibrary()
         }
     }
     fun move(by: Int) {
@@ -130,7 +131,7 @@ fun LobbyScreen(
                 Key.N -> onCycleSimGames()
                 Key.S -> if (simRunning) onStopSimulation() else if (canStart) onSimulate()
                 Key.Enter -> if (canStart && !simRunning) onStart()
-                Key.Escape -> onBack()
+                Key.Escape -> onLibrary()
                 else -> return@onPreviewKeyEvent false
             }
             true
@@ -139,6 +140,8 @@ fun LobbyScreen(
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
         val opponent = opponents.firstOrNull { it.deck.id == selectedId }
         Column(Modifier.fillMaxSize()) {
+            // The library's toolbar, as on every screen: Library is where Esc goes, and Theme comes with it.
+            Toolbar(listOf("library" to "Library"), onClick)
             // The decks on the left, the match on the right: the right pane is where options are added.
             Row(Modifier.weight(1f).fillMaxWidth()) {
                 BoxPane("decks", Modifier.weight(1f).fillMaxHeight(), right = "Tab switches the list") {
@@ -189,15 +192,13 @@ fun LobbyScreen(
                             BigButton("Start", ClickTarget.Control("start"), startable, onClick)
                             GridText(" ")
                             BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
-                            GridText(" ")
-                            BigButton("Back", ClickTarget.Control("back"), true, onClick)
                         }
                         if (!forgeReady) FitText("  Forge is loading…", color = Palette.dim)
                     }
                 }
             }
             StatusLine(listOf("Tab" to "your deck / opponent", "↑↓" to "choose", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
-                "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "back"), null, cols)
+                "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library"), null, cols)
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }

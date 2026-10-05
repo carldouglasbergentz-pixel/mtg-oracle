@@ -29,11 +29,11 @@ class LobbyWidthTest {
             LobbyScreen(listOf(me, opponent.deck), 1, listOf(opponent), 2, useAiCopy = true, watch = false,
                 notes = listOf("Forge lacks 1 card of this deck (Sol Ring, printing C18), so the game will use another printing of it."),
                 forgeReady = true, canStart = true, onSelectMe = { chosen += "me $it" }, onSelect = { chosen += "opponent $it" },
-                onToggleAiCopy = {}, onToggleWatch = {}, onStart = {}, onBack = {}, format = "best of 3")
+                onToggleAiCopy = {}, onToggleWatch = {}, onStart = {}, onLibrary = { chosen += "library" }, format = "best of 3")
         }.use { d -> d.settle(5); check(d) }
 
     @Test
-    fun `both decks are chosen in the left pane, the match is set in the right`() = render(1600) { d ->
+    fun `both decks are chosen in the left pane, the match is set in the right, and Library leads back`() = render(1600) { d ->
         val mine = assertNotNull(d.registry[ClickTarget.Control("region:lobby-me")], "your deck's list")
         val theirs = assertNotNull(d.registry[ClickTarget.Control("region:lobby-opponent")], "the opponent's")
         val watch = assertNotNull(d.registry[ClickTarget.Control("watch")])
@@ -41,7 +41,8 @@ class LobbyWidthTest {
         assertTrue(watch.left >= mine.right, "the options are right of the lists: $watch")
         assertTrue(d.click(ClickTarget.Control("me:2")))
         assertTrue(d.click(ClickTarget.Control("opponent:2")))
-        assertEquals(listOf("me 2", "opponent 2"), chosen)
+        assertTrue(d.click(ClickTarget.Control("library")), "the toolbar's Library, as on the other screens")
+        assertEquals(listOf("me 2", "opponent 2", "library"), chosen)
         d.savePng(File(pngDir, "lobby-1600.png"))
     }
 
