@@ -2,6 +2,7 @@ package mtgoracle.forge
 
 import com.google.common.eventbus.Subscribe
 import forge.game.Game
+import mtgoracle.core.model.LogKind
 import forge.game.event.GameEvent
 
 /**
@@ -32,16 +33,16 @@ internal class DrawLog(private val recorder: GameRecorder) {
         for (player in players) {
             val now = player.numDrawnThisTurn
             val before = synchronized(this) { seen.put(player.id, now) } ?: 0
-            if (now > before) recorder.play(line(player.name, now - before), ::merged)
+            if (now > before) recorder.play("Draw", LogKind.DRAW, line(player.name, now - before), merge = ::merged)
         }
     }
 
     private companion object {
-        val LINE = Regex("Draw: (.+) draws? (a card|(\\d+) cards)\\.")
+        val LINE = Regex("(.+) draws? (a card|(\\d+) cards)\\.")
 
         /** Forge calls the human seat "You" (ForgeMatch): "You draw", "AI (Rakdos) draws". */
         fun line(name: String, n: Int) =
-            "Draw: $name ${if (name == "You") "draw" else "draws"} ${if (n == 1) "a card" else "$n cards"}."
+            "$name ${if (name == "You") "draw" else "draws"} ${if (n == 1) "a card" else "$n cards"}."
 
         /** The previous line was this player's draw too (Brainstorm's three): one line counting them all. */
         fun merged(last: String, next: String): String? {

@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.StateFlow
 import mtgoracle.core.model.BoardRef
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.CardState
+import mtgoracle.core.model.LogKind
 import mtgoracle.core.model.ChoiceOption
 import mtgoracle.core.model.ChoicePrompt
 import mtgoracle.core.model.ConfirmPrompt
@@ -316,7 +317,7 @@ class SeatGui(
         val view = gameView ?: return
         dirty = false
         try {
-            val board = snapshots.build(view, seatPlayerIds, ::visible, ::peek, recorder.recentLog(60), finished, trail.snapshot(), decisionSeq)
+            val board = snapshots.build(view, seatPlayerIds, ::visible, ::peek, recorder.log(), finished, trail.snapshot(), decisionSeq)
             val empties = floatingMana.floating()
             boardFlow.value = board.copy(players = board.players.map { if (it.isSeat && it.manaPool.isNotEmpty()) it.copy(manaEmpties = empties) else it })
         } catch (e: RuntimeException) {
@@ -495,7 +496,7 @@ class SeatGui(
      */
     private fun reportCountered(report: Countered.Report) {
         trail.note(report.actorId, report.text, report.card)
-        recorder.play("${report.kind}: ${report.text}.")
+        recorder.play(report.kind, LogKind.COUNTERED, "${report.text}.", names = listOfNotNull(report.by, report.what))
         if (report.controllerId in seatPlayerIds) warningFlow.value = "${report.text}."
     }
 
@@ -668,7 +669,7 @@ class SeatGui(
         val text = listOfNotNull(title?.takeIf { it.isNotBlank() }, message?.takeIf { it.isNotBlank() }).joinToString(": ").replace(Regex("""\s*\n\s*"""), " ").trim()
         if (text.isEmpty() || !isHumanSeat) return
         warningFlow.value = text
-        recorder.play(text)
+        recorder.play(null, LogKind.OTHER, text)
     }
 
     override fun showConfirmDialog(message: String, title: String?, yesButtonText: String, noButtonText: String, defaultYes: Boolean): Boolean {

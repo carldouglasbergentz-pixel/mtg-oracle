@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **A match over, or left, goes back to the lobby**, on the same pairing, so another game is one Start away (`backToLobby`). It went to the library. A crash still goes to the library.
 
 ### Added
+- **The game log is the whole match, scrolls, and reads at a glance.** It showed the last screenful, dim, with Forge's ids in it (`Swamp (159)`).
+  - Every line of the match is kept (5000 at most), with a scrollbar. The pane follows the newest line while it is at the bottom; scrolled up, it stays where you read.
+  - Lines are coloured by what they tell: steps, mana and draws dim; casts, lands and combat plain; reveals, discards, counters and cards changing zones in the accent; damage and life lost in the tapped red. A turn is a rule with its number.
+  - The cards a line names are bold, and a hover shows the card in the zoom pane: as it is on the table when you can see it there, else as printed. Only a name the log has already named openly is marked, so `Exile` in "put into Exile" is not a card, and nothing marks a name in a hidden library.
+  - Forge's ids are gone, and its doubled `Life: Life:` with them. Lines Forge writes as several (a block per attacker) are rows of their own; one was cut after its first.
+  - `BoardState.log` (`LogLine`: kind, text, cards) replaces `recentLog`; the game's file is written as before. `LogLinesTest`, `LogPaneTest`.
 - **A card shows what was chosen for it.** Cavern of Souls' creature type, a named card (Pithing Needle), a colour, a player or a number: `[Human]` in the frame's marks and `Chosen: Human` at the top of the zoom pane's text. Forge keeps each choice on the card (`CardView.getChosenType` and its kin), and the snapshot carries it as `CardState.chosen`. Lands that chose differently are separate piles. `ChosenTest`, `KnownChoicesTest`.
 
 ### Fixed

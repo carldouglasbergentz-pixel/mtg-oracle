@@ -128,7 +128,8 @@ data class BoardState(
     val players: List<PlayerState>,
     val stack: List<StackEntry>,
     val combat: List<CombatLine>,
-    val recentLog: List<String>,
+    /** The match's play-by-play so far, oldest first. */
+    val log: List<LogLine>,
     val gameOver: Boolean,
     val result: String?,
     /** The last few things that happened, oldest first. */

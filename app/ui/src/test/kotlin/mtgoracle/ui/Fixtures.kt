@@ -6,6 +6,9 @@ import mtgoracle.core.art.CardArt
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.CardState
 import mtgoracle.core.model.CombatLine
+import mtgoracle.core.model.LogCard
+import mtgoracle.core.model.LogKind
+import mtgoracle.core.model.LogLine
 import mtgoracle.core.model.GameSeat
 import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.model.PlayerState
@@ -97,7 +100,7 @@ fun sampleBoard(): BoardState {
             StackEntry(90, "Lightning Bolt deals 3 damage to any target.", "Lightning Bolt", "AI (Rakdos)", imageKey = "c:Lightning Bolt", controllerId = 2,
                 targetNames = listOf("Grizzly Bears"), targets = listOf(BoardRef.Card(12))),
         ),
-        combat = listOf(CombatLine(41, "You", listOf(12))), recentLog = listOf("Turn 7 (You)", "You played Mountain"),
+        combat = listOf(CombatLine(41, "You", listOf(12))), log = listOf(LogLine(0, LogKind.TURN, "Turn 7 (You)"), LogLine(1, LogKind.LAND, "You played Mountain", listOf(LogCard(11, 19, "Mountain")))),
         gameOver = false, result = null,
         trail = listOf(
             TrailEntry(1, 2, "played Swamp", setOf(42)), TrailEntry(2, 2, "life 15→14"), TrailEntry(3, 2, "cast Lightning Bolt"),

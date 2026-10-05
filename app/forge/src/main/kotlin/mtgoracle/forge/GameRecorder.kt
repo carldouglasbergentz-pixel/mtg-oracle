@@ -4,10 +4,11 @@ import com.google.common.eventbus.Subscribe
 import forge.game.Game
 import forge.game.event.GameEvent
 import forge.game.event.GameEventSpellAbilityCast
+import mtgoracle.core.model.LogKind
+import mtgoracle.core.model.LogLine
 import java.io.BufferedWriter
 import java.io.Closeable
 import java.io.File
-import java.util.ArrayDeque
 import java.util.Observer
 
 /**
@@ -23,7 +24,15 @@ import java.util.Observer
 class GameRecorder(val file: File) : Closeable {
     private val out: BufferedWriter
     private val started = System.nanoTime()
-    private val recent = ArrayDeque<String>()
+    /** The log pane's lines, the whole match, oldest first; [shown] is the copy last handed out, until a line is added. */
+    private val lines = ArrayList<LogLine>()
+    private var shown: List<LogLine>? = null
+    private val parse = LogLines(
+        nameOf = { id -> game?.let { g -> runCatching { g.findById(id)?.takeUnless { it.isFaceDown }?.name }.getOrNull() } },
+        oracle = { name -> if (name in oracles) oracles[name] else runCatching { oracleCard(name) }.getOrNull().also { oracles[name] = it } },
+    )
+    /** Cards as printed by name, null kept for a name Forge lacks; read under the recorder's lock. */
+    private val oracles = HashMap<String, mtgoracle.core.model.CardState?>()
     private val attached = mutableSetOf<Int>()
     private var logLinesSeen = 0
     private var closed = false
@@ -77,31 +86,49 @@ class GameRecorder(val file: File) : Closeable {
     fun note(line: String) = write("NOTE", line)
 
     /**
-     * A play-by-play line of ours, beside Forge's. [merge] may fold it into
-     * the line before it (two draws in a row): it gets the last line and this
-     * one, and returns the line to stand for both, or null to keep them apart.
+     * A play-by-play line of ours, beside Forge's: [caption] is its word in
+     * the file (Forge's own are `Draw`, `Zone Change`), [names] the cards it
+     * names. [merge] may fold it into the line before it of the same kind
+     * (two draws in a row): it gets that line's text and this one, and
+     * returns the text to stand for both, or null to keep them apart.
      */
     @Synchronized
-    fun play(line: String, merge: ((last: String, next: String) -> String?)? = null) {
-        write("LOG", line)
-        val folded = recent.peekLast()?.let { last -> merge?.invoke(last, line) }
-        if (folded != null) recent.removeLast()
-        recent.addLast(folded ?: line)
-        while (recent.size > 200) recent.removeFirst()
+    fun play(caption: String?, kind: LogKind, text: String, names: List<String> = emptyList(), merge: ((last: String, next: String) -> String?)? = null) {
+        write("LOG", caption?.let { "$it: $text" } ?: text)
+        val last = lines.lastOrNull()?.takeIf { it.kind == kind }
+        val folded = last?.let { merge?.invoke(it.text, text) }
+        if (folded != null) lines.removeAt(lines.lastIndex)
+        add(kind, folded ?: text) { parse.ours(kind, folded ?: text, players(), names) }
     }
 
-    /** The last few play-by-play lines, newest last, for the board's log pane. */
+    /** The match's play-by-play so far, oldest first, for the board's log pane: the same list until a line is added. */
     @Synchronized
-    fun recentLog(max: Int): List<String> = recent.toList().takeLast(max)
+    fun log(): List<LogLine> = shown ?: lines.toList().also { shown = it }
+
+    /**
+     * The line [parsed] makes, or, should reading it fail, the text as it
+     * stands, with a warning: this runs inside Forge's own game-log and event
+     * handlers, and an exception thrown there broke the game it was logging.
+     */
+    private fun add(kind: LogKind, text: String, parsed: () -> LogLine) {
+        val line = runCatching(parsed).getOrElse { e ->
+            Log.warn("log line not read ($kind '$text'): $e")
+            write("NOTE", "WARNING log line not read: $e")
+            LogLine(lines.lastOrNull()?.seq?.plus(1) ?: 0, kind, text)
+        }
+        lines += line
+        if (lines.size > MAX_LINES) lines.subList(0, lines.size - MAX_LINES).clear()
+        shown = null
+    }
+
+    private fun players(): List<String> = game?.players?.map { it.name }.orEmpty()
 
     @Synchronized
     private fun drainGameLog(game: Game) {
         val entries = game.gameLog.allEntries
         for (entry in entries.drop(logLinesSeen)) {
-            val line = "${entry.type().caption}: ${entry.message()}"
-            write("LOG", line)
-            recent.addLast(line)
-            while (recent.size > 200) recent.removeFirst()
+            write("LOG", "${entry.type().caption}: ${entry.message()}")
+            add(LogLines.kindOf(entry.type(), entry.message()), entry.message()) { parse.forge(entry.type(), entry.message(), players()) }
         }
         logLinesSeen = entries.size
     }
@@ -113,6 +140,11 @@ class GameRecorder(val file: File) : Closeable {
         out.write("%8d %-5s %s".format(ms, kind, line.replace("\n", " | ")))
         out.newLine()
         out.flush()
+    }
+
+    private companion object {
+        /** A long match's worth (a game is a few hundred lines, most of them steps); Forge's file keeps everything. */
+        const val MAX_LINES = 5000
     }
 
     @Synchronized

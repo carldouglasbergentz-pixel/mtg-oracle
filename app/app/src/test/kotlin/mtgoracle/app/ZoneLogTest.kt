@@ -1,5 +1,6 @@
 package mtgoracle.app
 
+import mtgoracle.core.model.LogKind
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.ChoicePrompt
 import mtgoracle.core.model.ConfirmPrompt
@@ -8,6 +9,7 @@ import mtgoracle.core.model.InputPrompt
 import mtgoracle.core.model.Prompt
 import mtgoracle.core.model.SeatAction
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -44,10 +46,13 @@ class ZoneLogTest {
             }
         }.use { s ->
             s.playUntil { s.board.me().hand.any { it.name == "Grizzly Bears" } }
-            s.board.recentLog.takeLast(20).let { log ->
+            s.board.log.map { it.text }.takeLast(20).let { log ->
                 assertTrue(log.any { "milled" in it && "Grizzly Bears" in it }, "Forge's mill line: $log")
-                assertTrue("Zone Change: Grizzly Bears: graveyard → your hand." in log, "and ours for the card returned: $log")
+                assertTrue("Grizzly Bears: graveyard → your hand." in log, "and ours for the card returned: $log")
             }
+            val returned = s.board.log.last { it.text == "Grizzly Bears: graveyard → your hand." }
+            assertEquals(LogKind.ZONE, returned.kind)
+            assertEquals(listOf("Grizzly Bears"), returned.cards.map { it.name }, "the card it names is marked")
         }
     }
 
@@ -64,7 +69,7 @@ class ZoneLogTest {
             }
         }.use { s ->
             s.playUntil { s.board.me().graveyard.any { it.name == "Unsummon" } }
-            assertTrue(s.board.recentLog.any { it.startsWith("Zone Change: Hill Giant: battlefield → AI") && it.endsWith("'s hand.") }, "${s.board.recentLog.takeLast(10)}")
+            assertTrue(s.board.log.any { it.text.startsWith("Hill Giant: battlefield → AI") && it.text.endsWith("'s hand.") }, "${s.board.log.takeLast(10)}")
             // Known in their hand, seen going there (KnownInHand); the rest of that hand stays backs.
             val hand = s.board.ai().hand
             assertTrue(hand.single { !it.hidden }.name == "Hill Giant", "the Giant is known in the AI's hand: $hand")

@@ -4,10 +4,11 @@ import com.google.common.eventbus.Subscribe
 import forge.game.Game
 import forge.game.event.GameEventCardChangeZone
 import forge.game.zone.ZoneType
+import mtgoracle.core.model.LogKind
 
 /**
  * A line in the log pane when a card leaves a public zone for a hidden one:
- * "Zone Change: Deep-Cavern Bat: graveyard → AI (Rakdos)'s hand." Forge logs
+ * "Deep-Cavern Bat: graveyard → AI (Rakdos)'s hand." Forge logs
  * a mill but not what it returns (Overlord of the Balemurk), nor a bounce or a tuck,
  * and the trail's line in the header was gone at the next decision. The card
  * was in plain sight where it was, so every viewer may read its name: the
@@ -31,7 +32,8 @@ internal class ZoneLog(private val recorder: GameRecorder) {
         val what = if (card.isFaceDown) "a face-down card" else card.currentState?.name ?: return
         // Forge calls the human seat "You" (ForgeMatch).
         val owner = to.player()?.name?.let { if (it == "You") "your " else "$it's " }.orEmpty()
-        recorder.play("Zone Change: $what: ${from.zoneType().name.lowercase()} → $owner${to.zoneType().name.lowercase()}.")
+        recorder.play("Zone Change", LogKind.ZONE, "$what: ${from.zoneType().name.lowercase()} → $owner${to.zoneType().name.lowercase()}.",
+            names = if (card.isFaceDown) emptyList() else listOf(what))
     }
 
     private companion object {

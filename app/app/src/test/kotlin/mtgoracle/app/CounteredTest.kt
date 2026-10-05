@@ -1,5 +1,6 @@
 package mtgoracle.app
 
+import mtgoracle.core.model.LogKind
 import mtgoracle.core.model.ChoicePrompt
 import mtgoracle.core.model.InputKind
 import mtgoracle.core.model.InputPrompt
@@ -40,7 +41,7 @@ class CounteredTest {
         }.use { s ->
             s.playUntil { s.board.trail.any { "countered" in it.text } && s.board.stack.isEmpty() }
             assertTrue(s.board.trail.any { it.text == "Counterspell countered Opt" }, "${s.board.trail}")
-            assertTrue("Countered: Counterspell countered Opt." in s.board.recentLog, "${s.board.recentLog}")
+            assertTrue(s.board.log.any { it.kind == LogKind.COUNTERED && it.text == "Counterspell countered Opt." }, "${s.board.log}")
             assertEquals("Counterspell countered Opt.", s.match.seat.warning.value)
         }
     }
@@ -61,7 +62,7 @@ class CounteredTest {
             s.playUntil { s.board.stack.isEmpty() && s.board.seat!!.graveyard.any { it.name == "Unsubstantiate" } }
             assertTrue(s.board.trail.any { it.text == "Unsubstantiate returned Opt to its owner's hand" }, "${s.board.trail}")
             assertTrue(s.board.trail.none { "countered" in it.text }, "${s.board.trail}")
-            assertTrue("Removed: Unsubstantiate returned Opt to its owner's hand." in s.board.recentLog, "${s.board.recentLog}")
+            assertTrue(s.board.log.any { it.kind == LogKind.COUNTERED && it.text == "Unsubstantiate returned Opt to its owner's hand." }, "${s.board.log}")
         }
     }
 
@@ -81,7 +82,7 @@ class CounteredTest {
         }.use { s ->
             s.playUntil { s.board.trail.any { "fizzled" in it.text } && s.board.stack.isEmpty() }
             assertTrue(s.board.trail.any { it.text == "Lightning Bolt fizzled: its targets were gone" }, "${s.board.trail}")
-            assertTrue("Fizzled: Lightning Bolt fizzled: its targets were gone." in s.board.recentLog, "${s.board.recentLog}")
+            assertTrue(s.board.log.any { it.kind == LogKind.COUNTERED && it.text == "Lightning Bolt fizzled: its targets were gone." }, "${s.board.log}")
             assertTrue(s.board.trail.none { "Unsummon" in it.text && "countered" in it.text }, "Unsummon resolved: ${s.board.trail}")
         }
     }

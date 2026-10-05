@@ -71,7 +71,6 @@ import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.kit.region
-import mtgoracle.ui.kit.wrap
 import mtgoracle.ui.theme.Cells
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
@@ -284,7 +283,7 @@ fun BoardScreen(
                     Box(Modifier.cellWidth(sideCols).fillMaxHeight()) {
                         Column(Modifier.fillMaxSize()) {
                             ZoomPane(zoom, sideCols, imageRows = 20, textMode = mode == CardMode.TEXT, modifier = Modifier.fillMaxWidth().region("zoom"))
-                            LogPane(board, sideCols, Modifier.weight(1f).region("log"))
+                            LogPane(board?.log.orEmpty(), sideCols, onHover, Modifier.fillMaxWidth().weight(1f).region("log"))
                         }
                         // Its left border is the handle.
                         PaneEdge(sideDrag, "side-edge", Modifier.align(Alignment.CenterStart))
@@ -392,6 +391,10 @@ private fun highlightedRefs(prompt: Prompt?): Set<BoardRef> = when (prompt) {
 private fun faceFor(target: ClickTarget?, board: BoardState?, prompt: Prompt?): CardFace? = when (target) {
     is ClickTarget.Card -> (board?.card(target.id) ?: (prompt as? InputPrompt)?.selectableElsewhere?.firstOrNull { it.id == target.id })?.face()
         ?: HIDDEN_FACE.takeIf { target.id < 0 } // a back: hovering it shows only that it is hidden
+    // A card the log names: as it is on the table when this seat sees it there, else as printed.
+    is ClickTarget.LogCard -> board?.log?.firstOrNull { it.seq == target.seq }?.cards?.getOrNull(target.index)?.let { c ->
+        c.id?.let(board::card)?.face() ?: c.card?.face()
+    }
     // The item itself, in full: what the box's lines may cut short, the zoom pane shows.
     is ClickTarget.StackItem -> board?.stack?.firstOrNull { it.id == target.id }?.let { item ->
         item.face().copy(text = "${item.controllerName}: ${item.text}" + if (item.targetNames.isEmpty()) "" else "\n→ ${item.targetNames.joinToString(", ")}")
@@ -399,13 +402,3 @@ private fun faceFor(target: ClickTarget?, board: BoardState?, prompt: Prompt?): 
     else -> null
 }
 
-@Composable
-private fun LogPane(board: BoardState?, cols: Int, modifier: Modifier) {
-    val inner = cols - 2
-    BoxPane("log", modifier.fillMaxWidth()) {
-        BoxWithConstraints {
-            val rows = LocalCells.current.rows(constraints.maxHeight.toFloat()).coerceAtLeast(1)
-            Column { board?.recentLog.orEmpty().flatMap { wrap(it, inner) }.takeLast(rows).forEach { GridText(fit(it, inner), color = Palette.dim) } }
-        }
-    }
-}

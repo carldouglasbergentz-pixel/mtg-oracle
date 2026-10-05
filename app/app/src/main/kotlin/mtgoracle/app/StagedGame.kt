@@ -104,8 +104,9 @@ open class StagedGame(
     /** Everything drawn as text on the board right now, and the same without the log pane's lines. */
     fun screenText(): String { driver.settle(3); return driver.text.all() }
     fun tableText(): String {
-        val log = board.recentLog.flatMap { mtgoracle.ui.kit.wrap(it, 44) }.toSet()
-        return screenText().lines().filter { it.trim() !in log.map(String::trim) }.joinToString(separator = "\n")
+        // A log row is a piece of its line's text, however the pane wrapped it.
+        val log = board.log.map { it.text }
+        return screenText().lines().filter { row -> row.isBlank() || log.none { row.trim() in it } }.joinToString(separator = "\n")
     }
     fun hover(target: ClickTarget) = driver.hover(target)
     fun registered(target: ClickTarget) = driver.registry[target] != null

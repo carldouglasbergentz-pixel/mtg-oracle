@@ -3,6 +3,7 @@ package mtgoracle.app
 import mtgoracle.core.model.ChoicePrompt
 import mtgoracle.core.model.InputKind
 import mtgoracle.core.model.InputPrompt
+import mtgoracle.core.model.LogKind
 import mtgoracle.core.model.SeatAction
 import mtgoracle.forge.Log
 import kotlin.test.AfterTest
@@ -37,10 +38,10 @@ class DrawLogTest {
                 else -> null
             }
         }.use { s ->
-            s.playUntil { s.board.recentLog.any { it.startsWith("Draw: AI (Swamp deck)") } }
-            val pane = s.board.recentLog
-            assertEquals(listOf("Draw: You draw 3 cards.", "Draw: AI (Swamp deck) draws a card."), pane.filter { it.startsWith("Draw:") }, "$pane")
-            assertTrue(pane.indexOf("Phase: AI (Swamp deck)'s Draw step") < pane.indexOf("Draw: AI (Swamp deck) draws a card."), "the draw follows the step: $pane")
+            s.playUntil { s.board.log.any { it.kind == LogKind.DRAW && it.text.startsWith("AI (Swamp deck)") } }
+            val pane = s.board.log.map { it.text }
+            assertEquals(listOf("You draw 3 cards.", "AI (Swamp deck) draws a card."), s.board.log.filter { it.kind == LogKind.DRAW }.map { it.text }, "$pane")
+            assertTrue(pane.indexOf("AI (Swamp deck)'s Draw step") < pane.indexOf("AI (Swamp deck) draws a card."), "the draw follows the step: $pane")
             assertTrue("Resolve Stack: Demonic Tutor" in s.logText(), "the tutor resolved, and drew nothing")
         }
     }

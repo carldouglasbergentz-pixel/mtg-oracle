@@ -38,6 +38,8 @@ sealed interface ClickTarget {
     data class Mana(val colour: Char) : ClickTarget
     /** A named control on a screen (library, setup): "deck:12", "start", "toggle-ai". */
     data class Control(val name: String) : ClickTarget
+    /** A card named in the log pane: line [seq]'s [index]th card, [part] telling apart the pieces of a name the wrap split. */
+    data class LogCard(val seq: Long, val index: Int, val part: Int = 0) : ClickTarget
     /** A link in the output pane; [at] tells apart the same link drawn twice (a card named in two blocks). */
     data class Link(val link: mtgoracle.ui.lookup.OutputLink, val at: Long) : ClickTarget
 }

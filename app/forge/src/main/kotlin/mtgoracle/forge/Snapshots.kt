@@ -8,6 +8,7 @@ import forge.game.zone.ZoneType
 import forge.util.Localizer
 import mtgoracle.core.model.BoardRef
 import mtgoracle.core.model.BoardState
+import mtgoracle.core.model.LogLine
 import mtgoracle.core.model.StackKind
 import mtgoracle.core.model.TrailEntry
 import mtgoracle.core.model.CardState
@@ -43,7 +44,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
         mayView: (CardView) -> Boolean,
         /** For a face-down card: may this seat see what it really is (Forge's canFaceDownBeShownToAny)? */
         mayPeek: (CardView) -> Boolean,
-        recentLog: List<String>,
+        log: List<LogLine>,
         gameOver: Boolean,
         trail: List<TrailEntry> = emptyList(),
         decisionSeq: Long = 0,
@@ -108,7 +109,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             players = players,
             stack = stack,
             combat = combat,
-            recentLog = recentLog,
+            log = log,
             gameOver = over,
             result = if (over) resultLine(game) else null,
             trail = trail,
