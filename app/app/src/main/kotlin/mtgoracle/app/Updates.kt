@@ -86,8 +86,8 @@ class Updates(
         updateDir.mkdirs()
         val zip = updateDir.resolve(release.zip.name)
         progress("downloading ${release.zip.name} (${release.zip.size / 1_000_000} MB)")
-        fetch(release.zip, auth, zip)
-        val expected = String(fetchBytes(release.sha256, auth)).trim().substringBefore(' ').lowercase()
+        fetch(release.zip, auth, Duration.ofMinutes(10), HttpResponse.BodyHandlers.ofFile(zip.toPath()))
+        val expected = String(fetch(release.sha256, auth, Duration.ofMinutes(1), HttpResponse.BodyHandlers.ofByteArray())).trim().substringBefore(' ').lowercase()
         val actual = sha256(zip)
         if (expected.length != 64 || expected != actual) throw UpdateRefused("the download's SHA-256 is $actual, the release says $expected: not installed")
         progress("unpacking ${release.version}")
@@ -146,25 +146,21 @@ class Updates(
         .header("X-GitHub-Api-Version", "2022-11-28")
         .timeout(Duration.ofSeconds(30))
 
-    /** Where [asset] is: the API redirects to storage, which is then asked without the token. */
-    private fun located(asset: ReleaseAsset, auth: String): URI {
-        val first = http.send(apiRequest(asset.apiUrl, auth).header("Accept", "application/octet-stream").build(), HttpResponse.BodyHandlers.discarding())
+    /**
+     * [asset]'s content: the API answers with it, or redirects to storage, which is then
+     * asked without the token. Only `application/octet-stream` may be asked for: with
+     * the API's own JSON type beside it, GitHub answers 200 with the asset's description.
+     */
+    private fun <T> fetch(asset: ReleaseAsset, auth: String, timeout: Duration, body: HttpResponse.BodyHandler<T>): T {
+        val first = http.send(apiRequest(asset.apiUrl, auth).setHeader("Accept", "application/octet-stream").timeout(timeout).build(), body)
+        if (first.statusCode() == 200) return first.body()
         if (first.statusCode() !in 300..399) throw UpdateRefused("GitHub answered ${first.statusCode()} for ${asset.name}")
         val location = URI(first.headers().firstValue("Location").orElseThrow { UpdateRefused("GitHub gave ${asset.name} no location") })
         // Never weaker than the API: against GitHub that is https; only a test's local server is plain http.
         if (location.scheme != "https" && location.scheme != URI(api).scheme) throw UpdateRefused("${asset.name} is offered over ${location.scheme}, not https: not downloaded")
-        return location
-    }
-
-    private fun fetch(asset: ReleaseAsset, auth: String, target: File) {
-        val response = http.send(HttpRequest.newBuilder(located(asset, auth)).timeout(Duration.ofMinutes(10)).build(), HttpResponse.BodyHandlers.ofFile(target.toPath()))
-        if (response.statusCode() != 200) throw UpdateRefused("the download of ${asset.name} answered ${response.statusCode()}")
-    }
-
-    private fun fetchBytes(asset: ReleaseAsset, auth: String): ByteArray {
-        val response = http.send(HttpRequest.newBuilder(located(asset, auth)).timeout(Duration.ofMinutes(1)).build(), HttpResponse.BodyHandlers.ofByteArray())
-        if (response.statusCode() != 200) throw UpdateRefused("the download of ${asset.name} answered ${response.statusCode()}")
-        return response.body()
+        val second = http.send(HttpRequest.newBuilder(location).timeout(timeout).build(), body)
+        if (second.statusCode() != 200) throw UpdateRefused("the download of ${asset.name} answered ${second.statusCode()}")
+        return second.body()
     }
 
     companion object {

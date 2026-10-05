@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-05
+
+### Fixed
+- **The update can fetch a release.** 0.1.0 asked for a release's files with two Accept headers, the API's JSON type and `application/octet-stream`, and GitHub answered with the file's JSON description rather than the file. The check found newer releases, but `update` would refuse every download. Only `application/octet-stream` is asked for now, and an answer with the content directly (no redirect) is taken too. Tried against the real 0.1.0 release: found, downloaded, checksum matched, unpacked. `UpdatesTest`'s server now answers as GitHub does. 0.1.0 can't update itself, so install 0.1.1 by hand once.
+
 ## [0.1.0] - 2026-10-05
 
 The first release: everything below, packaged for Windows (`MTG-Oracle-0.1.0-windows-x64.zip`).

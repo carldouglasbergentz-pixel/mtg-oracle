@@ -59,7 +59,11 @@ class UpdatesTest {
         }
         http.createContext("/assets/") { ex ->
             val id = ex.requestURI.path.substringAfterLast('/')
-            ex.responseHeaders.add("Location", "$base/storage/$id"); ex.sendResponseHeaders(302, -1); ex.close()
+            // As GitHub does: asked for anything but the bytes alone, it describes the asset in JSON.
+            if (ex.requestHeaders["Accept"] != listOf("application/octet-stream")) {
+                val json = """{"name":"asset $id","state":"uploaded"}"""
+                ex.sendResponseHeaders(200, json.length.toLong()); ex.responseBody.use { it.write(json.toByteArray()) }
+            } else { ex.responseHeaders.add("Location", "$base/storage/$id"); ex.sendResponseHeaders(302, -1); ex.close() }
         }
         http.createContext("/storage/") { ex ->
             check(ex.requestHeaders.getFirst("Authorization") == null) { "the token went to storage" }
