@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **A match over, or left, goes back to the lobby**, on the same pairing, so another game is one Start away (`backToLobby`). It went to the library. A crash still goes to the library.
 
 ### Added
+- **Ctrl+= and Ctrl+- size the whole window; Ctrl+0 goes back.** The grid was fixed at 13 px, small on a laptop or a 4K screen. The size scales the window's density, so every cell, frame and image follows it and no layout changes; it steps 80 %–180 % and is kept (`ui.textScale`). The status line says it as `Ctrl+=/- size`. `TextScaleTest`.
 - **L hides the steps in the log pane.** Most of a game's lines are steps (upkeep, draw, combat …): with L the log is only what happened, and its title says `events only`; L again brings them back. Kept with the board's layout (`board.logSteps`). `LogPaneTest`.
 - **Forge's achievements are shown.** Forge announces one as a pop-up the app had nowhere to put ("Overkill: Win a game with opponent at -5 life"), so they went to the app log and no further. Now each is a line in the log pane and is listed in the result panel when the game ends (`SeatGui.achievement`, `RunningMatch.achievements`, `MatchStatus.achievements`). `AchievementLineTest`, `AchievementsTest`.
 - **The game log is the whole match, scrolls, and reads at a glance.** It showed the last screenful, dim, with Forge's ids in it (`Swamp (159)`).

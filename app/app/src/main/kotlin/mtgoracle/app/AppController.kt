@@ -1,5 +1,6 @@
 package mtgoracle.app
 
+import kotlin.math.roundToInt
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -779,6 +780,18 @@ class AppController(private val paths: AppPaths) {
         private set
 
     fun openThemePicker() { if (themePickerFrom == null) themePickerFrom = Palette.theme }
+
+    /** How large the whole window is drawn ([TEXT_SCALES]); every cell, frame and image follows it. */
+    var textScale by mutableStateOf(settings.textScale)
+        private set
+
+    /** One size up ([by] 1) or down (-1) from the nearest step; 0 is the designed size. */
+    fun stepTextScale(by: Int) {
+        val at = TEXT_SCALES.indexOfFirst { it >= textScale - 0.001f }.takeIf { it >= 0 } ?: TEXT_SCALES.lastIndex
+        textScale = if (by == 0) 1f else TEXT_SCALES[(at + by).coerceIn(0, TEXT_SCALES.lastIndex)]
+        settings.textScale = textScale
+        notice = "text size ${(textScale * 100).roundToInt()} % (Ctrl+= / Ctrl+-, Ctrl+0 back)"
+    }
 
     /** Shown on everything at once while the picker is open, kept only by [keepTheme]. */
     fun previewTheme(theme: Theme) { Palette.theme = theme }

@@ -147,6 +147,11 @@ class Settings(private val file: File) {
         get() = props.getProperty("theme")
         set(value) { if (value == null) props.remove("theme") else props.setProperty("theme", value); save() }
 
+    /** How large everything is drawn, 1.0 as the app is designed (Ctrl+= / Ctrl+-, Ctrl+0 back). */
+    var textScale: Float
+        get() = props.getProperty("ui.textScale")?.toFloatOrNull()?.takeIf { it in TEXT_SCALES.first()..TEXT_SCALES.last() } ?: 1f
+        set(value) { props.setProperty("ui.textScale", value.toString()); save() }
+
     /** The lobby's last pairing, chosen again when it opens: your deck and the AI's. */
     var lobbyMe: Int?
         get() = props.getProperty("lobby.me")?.toIntOrNull()
@@ -198,3 +203,6 @@ class Settings(private val file: File) {
         file.writer(Charsets.UTF_8).use { props.store(it, "MTG Oracle app settings") }
     }
 }
+
+/** The sizes Ctrl+= and Ctrl+- step through: the house grid at 13 px reads small on a laptop or a 4K screen. */
+val TEXT_SCALES = listOf(0.8f, 0.9f, 1f, 1.1f, 1.25f, 1.4f, 1.6f, 1.8f)

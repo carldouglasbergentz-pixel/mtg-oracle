@@ -1,5 +1,8 @@
 package mtgoracle.app
 
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.focusRequester
@@ -42,26 +45,38 @@ import androidx.compose.ui.input.key.type
 fun AppContent(app: AppController, onQuit: () -> Unit) {
     // Anew when Forge comes up: what was asked for before it could be fetched is asked again.
     val art = remember(app.forgeReady) { ArtImages(app.shownArt) }
-    HouseTheme {
-        CompositionLocalProvider(
-            LocalArt provides art, LocalGlobalHints provides listOf("F7" to "text/art", "F8" to "theme: ${Palette.theme.label}"),
-            LocalThemeMenu provides app::openThemePicker,
-        ) {
-            // F8 opens the theme picker and F7 switches text/art on every screen, typing or not: seen here before any screen's keys.
-            Box(Modifier.fillMaxSize().onPreviewKeyEvent { e ->
-                when {
-                    e.type != KeyEventType.KeyDown -> false
-                    e.key == Key.F8 -> { app.openThemePicker(); true }
-                    e.key == Key.F7 -> { app.toggleMode(); true }
-                    else -> false
+    // The text size scales the density, so the grid's cell is measured at it and everything sized in cells follows.
+    val base = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(base.density * app.textScale, base.fontScale)) {
+        HouseTheme {
+            CompositionLocalProvider(
+                LocalArt provides art, LocalGlobalHints provides listOf("F7" to "text/art", "F8" to "theme: ${Palette.theme.label}", "Ctrl+=/-" to "size"),
+                LocalThemeMenu provides app::openThemePicker,
+            ) {
+                // F8 opens the theme picker, F7 switches text/art and Ctrl+= / Ctrl+- / Ctrl+0 size the window on every
+                // screen, typing or not: seen here before any screen's keys.
+                Box(Modifier.fillMaxSize().onPreviewKeyEvent { e ->
+                    when {
+                        e.type != KeyEventType.KeyDown -> false
+                        e.key == Key.F8 -> { app.openThemePicker(); true }
+                        e.key == Key.F7 -> { app.toggleMode(); true }
+                        e.isCtrlPressed && e.key in TEXT_UP -> { app.stepTextScale(1); true }
+                        e.isCtrlPressed && e.key in TEXT_DOWN -> { app.stepTextScale(-1); true }
+                        e.isCtrlPressed && e.key in TEXT_RESET -> { app.stepTextScale(0); true }
+                        else -> false
+                    }
+                }) {
+                    Screens(app, onQuit)
+                    app.themePickerFrom?.let { from -> ThemePicker(from, app::previewTheme, app::keepTheme, app::cancelThemePicker) }
                 }
-            }) {
-                Screens(app, onQuit)
-                app.themePickerFrom?.let { from -> ThemePicker(from, app::previewTheme, app::keepTheme, app::cancelThemePicker) }
             }
         }
     }
 }
+
+private val TEXT_UP = setOf(Key.Equals, Key.Plus, Key.NumPadAdd)
+private val TEXT_DOWN = setOf(Key.Minus, Key.NumPadSubtract)
+private val TEXT_RESET = setOf(Key.Zero, Key.NumPad0)
 
 @Composable
 private fun Screens(app: AppController, onQuit: () -> Unit) {
