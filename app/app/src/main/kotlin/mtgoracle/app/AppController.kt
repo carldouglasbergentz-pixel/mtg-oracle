@@ -9,7 +9,6 @@ import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckCard
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.core.model.PhaseStops
-import mtgoracle.core.play.GameMode
 import mtgoracle.data.Analysis
 import mtgoracle.data.Substitutions
 import mtgoracle.data.GameStore
@@ -28,7 +27,6 @@ import mtgoracle.forge.ForgeRuntime
 import mtgoracle.forge.Log
 import mtgoracle.forge.RunningMatch
 import mtgoracle.ui.kit.CardMode
-import mtgoracle.ui.library.OpponentChoice
 import mtgoracle.ui.theme.Palette
 import mtgoracle.ui.theme.Theme
 import mtgoracle.ui.theme.Themes
@@ -52,9 +50,11 @@ sealed interface Screen {
 }
 
 /**
- * The window's state and its transitions: library -> setup -> playing ->
- * library. Compose state, so the screens recompose as it changes; the slow
- * parts (Forge's start, a game's recording) run on their own threads.
+ * The window's state and its transitions: library -> lobby -> playing ->
+ * lobby. Compose state, so the screens recompose as it changes; the slow
+ * parts (Forge's start, a game's recording, a sync) run on their own
+ * threads. Play is [play], the sync [sync], a release's updates [updates];
+ * this holds the library, the workspace, the screens and the crash screen.
  */
 class AppController(private val paths: AppPaths) {
     val settings = Settings(paths.settings)
@@ -76,6 +76,8 @@ class AppController(private val paths: AppPaths) {
         )
     }
     private var currentLookup: Lookup? = null
+    /** The games played, read with the lookup: the lobby's records. */
+    private var lookupGames: mtgoracle.data.GameStore? = null
 
     /** The selected deck's points list (lower-cased name -> points) and its title's badges: what the library shows. */
     var deckPoints by mutableStateOf<Map<String, Int>>(emptyMap())
@@ -94,16 +96,6 @@ class AppController(private val paths: AppPaths) {
     /** When Forge began to start (System.nanoTime), for the lobby's "starting: 4 s of about 11 s". */
     var forgeStartedAt: Long? = null
         private set
-    var opponentId by mutableStateOf<Int?>(null)
-    /** Your deck in the lobby: its own choice, not what the library has selected. */
-    var lobbyMeId by mutableStateOf<Int?>(null)
-        private set
-    /** The deck you play, as the lobby has it. */
-    val lobbyMe: Deck? get() = lobbyMeId?.let(::deckById)
-    var useAiCopy by mutableStateOf(true)
-    /** Watch AI vs AI instead of playing (recorded as ai_vs_ai). */
-    var watch by mutableStateOf(false)
-    var match by mutableStateOf<RunningMatch?>(null)
     /** The command line and its output (step 3); null until the database is open. */
     var lookupUi by mutableStateOf<LookupUi?>(null)
     var commands: LookupCommands? = null
@@ -179,8 +171,12 @@ class AppController(private val paths: AppPaths) {
         carry?.scope?.let { lookupCommands.enterDeck(it.deckId, carried = true) }
     }
 
+    /** The lobby, the match on, the simulation running, and each game written as it ends. */
+    val play = PlayControl(settings, sessions = { sessions }, decks = { decks }, deckById = ::deckById, games = { lookupGames },
+        forgeReady = { forgeReady }, show = { screen = it }, say = { notice = it })
+
     /** The sync, by hand and daily; its report builds the lookup again and goes to the output. */
-    val sync = SyncControl(paths, settings, db = { db }, busy = { match != null || simulation != null }, say = { notice = it },
+    val sync = SyncControl(paths, settings, db = { db }, busy = { play.match != null || play.simulation != null }, say = { notice = it },
         onDone = { report, auto ->
             commands?.let { current ->
                 // Always: a points change (4 to 3) keeps the row count, so the report can't tell; a rebuild is ~130 ms.
@@ -208,7 +204,7 @@ class AppController(private val paths: AppPaths) {
     }
 
     /** A release's updates from GitHub, checked daily and installed by `update`. */
-    val updates = UpdateControl(settings, clock = { sync.clock() }, busy = { match != null || simulation != null }, say = { notice = it }, shutdown = ::shutdown)
+    val updates = UpdateControl(settings, clock = { sync.clock() }, busy = { play.match != null || play.simulation != null }, say = { notice = it }, shutdown = ::shutdown)
 
     /** Opens the database (migrating it to this build's schema first), then brings Forge up in the background. */
     fun boot() {
@@ -400,206 +396,6 @@ class AppController(private val paths: AppPaths) {
         }
     }
 
-    /**
-     * The lobby, where your deck and the AI's are chosen side by side. [me] (the deck you are on, in the
-     * library or the workspace) is yours to start with, else the last you played; the AI's is the last
-     * it played, when it can face yours.
-     */
-    fun openLobby(me: Int? = selectedId) {
-        val ids = decks.map { it.id }.toSet()
-        lobbyMeId = listOf(me, settings.lobbyMe).firstOrNull { it != null && it in ids } ?: decks.firstOrNull()?.id
-        screen = Screen.Lobby
-        chooseOpponent(settings.lobbyOpponent)
-    }
-
-    /** Your deck in the lobby; the opponent stays when it can still face it. */
-    fun chooseMe(id: Int) {
-        lobbyMeId = id
-        chooseOpponent(opponentId)
-    }
-
-    private fun chooseOpponent(preferred: Int?) {
-        val choices = opponents()
-        opponentId = choices.firstOrNull { it.deck.id == preferred }?.deck?.id
-            ?: choices.firstOrNull { it.deck.id != lobbyMeId }?.deck?.id ?: choices.firstOrNull()?.deck?.id
-    }
-
-    /** The pairing just started, chosen again the next time the lobby opens. */
-    private fun keepPairing() {
-        settings.lobbyMe = lobbyMeId
-        settings.lobbyOpponent = opponentId
-    }
-
-    fun opponents(): List<OpponentChoice> {
-        val me = lobbyMe ?: return emptyList()
-        val records = records(me)
-        return decks.mapNotNull { d ->
-            deckById(d.id)?.takeIf { it.gameType == me.gameType }?.let { OpponentChoice(d, it.substitutions.size, records[d.id]) }
-        }
-    }
-
-    /**
-     * [me]'s record against each deck, by deck id, as the setup screen shows
-     * it. Read once per simulated game and per game recorded, not per frame.
-     */
-    private fun records(me: Deck): Map<Int, String> {
-        val stamp = gamesRecorded to decks
-        recordCache?.takeIf { it.first == me.id && it.second == stamp }?.let { return it.third }
-        val games = try { lookupGames?.played() } catch (e: Exception) { Log.error("could not read the games", e); null } ?: return emptyMap()
-        val out = mtgoracle.core.play.Records.of(mtgoracle.core.play.DeckKey(me.id, me.name), games).mapNotNull { m ->
-            val id = m.opponent.id ?: return@mapNotNull null
-            val parts = listOfNotNull(
-                m.played.takeIf { it.games > 0 }?.let { "you ${it.score()}" },
-                m.simulated.takeIf { it.games > 0 }?.let { "AI ${it.score()}" },
-            )
-            id to parts.joinToString(" · ")
-        }.toMap()
-        recordCache = Triple(me.id, stamp, out)
-        return out
-    }
-    private var recordCache: Triple<Int, Pair<Int, List<DeckSummary>>, Map<Int, String>>? = null
-    /** Games written this session, played or simulated: the records are read again when it moves. */
-    @Volatile private var gamesRecorded = 0
-    private var lookupGames: mtgoracle.data.GameStore? = null
-
-    fun prepared(): Prepared? {
-        if (!forgeReady) return null
-        val me = lobbyMe ?: return null
-        val opp = opponentId?.let(::deckById) ?: return null
-        return sessions.prepare(me, opp, useAiCopy)
-    }
-
-    /** Best of 1, 3 or 5, remembered for the next match. */
-    var format by mutableStateOf(settings.matchFormat)
-
-    fun cycleFormat() {
-        format = format.next()
-        settings.matchFormat = format
-    }
-
-    /** Games of each match written so far: each game is recorded once, by whoever gets there first. */
-    private val recorded = java.util.IdentityHashMap<RunningMatch, Int>()
-
-    /** The simulation running, or the last one, until the next starts: the setup screen and status line show it. */
-    var simulation by mutableStateOf<SimProgress?>(null)
-        private set
-    private var sim: Simulation? = null
-    /** How many games [simulate] plays; N cycles it. */
-    var simGames by mutableStateOf(Simulation.COUNTS[2])
-
-    fun cycleSimGames() {
-        simGames = Simulation.COUNTS[(Simulation.COUNTS.indexOf(simGames) + 1) % Simulation.COUNTS.size]
-    }
-
-    val simulating: Boolean get() = simulation?.running == true
-
-    /**
-     * [simGames] AI-vs-AI games of the chosen pairing, without a board, each
-     * recorded as it ends. Both AIs play their AI copies unless that is off.
-     * One match at a time in Forge, so a simulation and a game exclude each other.
-     */
-    fun simulate() {
-        if (simulating) return
-        if (match != null) { notice = "a game is on: finish it before simulating"; return }
-        val me = lobbyMe ?: return
-        val opp = opponentId?.let(::deckById) ?: return
-        if (!forgeReady) { notice = "Forge is still loading"; return }
-        val ready = sessions.prepare(me, opp, useAiCopy, seatAiCopy = useAiCopy)
-        if (ready.blocked) { notice = ready.notes.firstOrNull() ?: "these decks can't play each other"; return }
-        keepPairing()
-        val run = Simulation(sessions, ready, simGames, onProgress = { p -> gamesRecorded++; simulation = p; notice = p.line() })
-        sim = run
-        simulation = run.progress
-        notice = run.progress.line()
-        run.start()
-    }
-
-    fun stopSimulation() {
-        sim?.takeIf { simulating }?.stop()
-    }
-
-    /** Starts the chosen match; [startState] (a Forge GameState, every game) is for the tests' exact situations. */
-    fun start(startState: List<String>? = null) {
-        if (simulating) { notice = "a simulation is running (${simulation?.line()}): stop it first"; return }
-        val ready = prepared()?.takeIf { !it.blocked } ?: return
-        keepPairing()
-        val running = sessions.start(ready, mode = if (watch) GameMode.AI_VS_AI else GameMode.HUMAN_VS_AI, stops = settings.stops, format = format, startState = startState)
-        begin(running)
-    }
-
-    /** Shows [running] and records each of its games as it ends. */
-    private fun begin(running: RunningMatch) {
-        synchronized(this) { recorded[running] = 0 }
-        match = running
-        notice = null
-        screen = Screen.Playing
-        thread(name = "game-results", isDaemon = true) {
-            while (true) {
-                recordFinished(running)
-                // Done when the match is over and written, or when shutdown took the match over.
-                val written = synchronized(this) { recorded[running] } ?: break
-                if (running.over && written >= running.games.value.size) break
-                Thread.sleep(100)
-            }
-            running.recorder.close()
-            synchronized(this) { recorded.remove(running) }
-            if (leaving === running) { leaving = null; if (match === running) backToLobby() }
-        }
-    }
-
-    @Synchronized
-    private fun recordFinished(running: RunningMatch) {
-        val games = running.games.value
-        while ((recorded[running] ?: return) < games.size) {
-            val result = games[recorded.getValue(running)]
-            val id = try {
-                sessions.record(running, result)
-            } catch (e: Exception) {
-                Log.error("could not record game ${result.gameNo}", e)
-                notice = "game ${result.gameNo} was NOT recorded: ${e.message}"
-                null
-            }
-            recorded[running] = recorded.getValue(running) + 1
-            if (id != null) { gamesRecorded++; notice = "game ${result.gameNo}: ${result.summary} · recorded as games #$id" }
-        }
-    }
-
-    /** Set while the player leaves the match: once its last game is recorded, back to the lobby. */
-    @Volatile private var leaving: RunningMatch? = null
-
-    /** Concede the match: the game on is conceded and recorded, no other follows, and the library returns. */
-    fun leaveMatch() {
-        val running = match ?: return
-        leaving = running
-        running.leave()
-    }
-
-    /**
-     * The window is closing. A game still on is recorded as conceded — leaving
-     * is what the player chose — unless the app broke it off, which makes it
-     * unfinished. Nothing waits on Forge, so nothing can hang.
-     */
-    fun shutdown() {
-        val running = match ?: return
-        recordFinished(running)
-        stopRecording(running, unfinished = crashed === running)
-        running.recorder.close()
-    }
-
-    /** Writes the game still on (conceded, or [unfinished]), and nothing more for [running]. */
-    private fun stopRecording(running: RunningMatch, unfinished: Boolean) = synchronized(this) {
-        if (recorded[running] != null && running.result.value == null && !running.over) {
-            try {
-                val turns = running.seat.board.value?.turn
-                if (unfinished) sessions.recordUnfinished(running, turns) else sessions.recordAbandoned(running, turns)
-            } catch (e: Exception) {
-                Log.error("could not record the game on", e)
-            }
-        }
-        // The game Forge may still end is recorded above: no second row.
-        recorded.remove(running)
-    }
-
     /** What went wrong, for the crash screen; null when nothing did. */
     var crash by mutableStateOf<String?>(null)
     /** A new window after a crash in the old one's composition (Main keys the window on it). */
@@ -615,11 +411,11 @@ class AppController(private val paths: AppPaths) {
      */
     fun onCrash(where: String, error: Throwable) {
         Log.error("CRASH in $where", error)
-        match?.recorder?.note("APP CRASH in $where: ${Log.trace(error).replace("\n", " | ")}")
+        play.match?.recorder?.note("APP CRASH in $where: ${Log.trace(error).replace("\n", " | ")}")
         val line = "${error::class.simpleName}: ${error.message ?: "no message"}"
         if (where == "window") {
             // Only a broken window breaks the game off; after an error elsewhere it plays on, and leaving it is the player's choice.
-            crashed = match
+            crashed = play.match
             crash = line
             screen = Screen.Crashed
             windowEpoch++
@@ -631,9 +427,9 @@ class AppController(private val paths: AppPaths) {
     /** From the crash screen: the game on is recorded as unfinished, the match left, the library back. */
     fun leaveAfterCrash() {
         crash = null
-        val running = match
+        val running = play.match
         if (running != null) {
-            stopRecording(running, unfinished = true)
+            play.stopRecording(running, unfinished = true)
             if (!running.over) running.leave()
             running.recorder.close()
         }
@@ -647,7 +443,7 @@ class AppController(private val paths: AppPaths) {
     fun retryBoard() {
         crash = null
         crashed = null
-        screen = if (match != null) Screen.Playing else Screen.Library
+        screen = if (play.match != null) Screen.Playing else Screen.Library
     }
 
     /** The theme to start in: the one picked here, else the TUI's (the user runs rose-pine there), else the house one. */
@@ -689,16 +485,16 @@ class AppController(private val paths: AppPaths) {
         if (stops != settings.stops) settings.stops = stops
     }
 
+    /**
+     * The window is closing. A game still on is recorded as conceded — leaving
+     * is what the player chose — unless the app broke it off, which makes it
+     * unfinished.
+     */
+    fun shutdown() = play.shutdown(unfinished = crashed != null && crashed === play.match)
+
     fun backToLibrary() {
-        match = null
+        play.match = null
         notice = null
         screen = Screen.Library
-    }
-
-    /** A match over or left: the lobby again, on the same pairing, so another game is one Start away. */
-    fun backToLobby() {
-        match = null
-        notice = null
-        openLobby(lobbyMeId)
     }
 }

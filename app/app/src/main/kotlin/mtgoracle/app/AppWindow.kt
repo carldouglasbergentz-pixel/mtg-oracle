@@ -91,14 +91,14 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 deckMode = app.deckPaneMode, lookup = app.lookupUi!!, notice = app.notice ?: app.sync.warning ?: app.updates.notice,
                 insight = app.insight?.takeIf { it.deckId == open.deckId },
                 onLeave = app::leaveEdit, onToggleResults = app::toggleMode, onToggleDeckMode = app::toggleDeckPaneMode,
-                onPlay = { app.openLobby(open.deckId) }, onQuit = onQuit,
+                onPlay = { app.play.openLobby(open.deckId) }, onQuit = onQuit,
                 columns = app.settings.workspaceColumns(app.deckPaneMode),
                 onColumnsChange = { app.settings.keepWorkspaceColumns(app.deckPaneMode, it) },
             )
         } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
             notice = app.notice ?: if (!app.forgeReady) "Forge is loading…" else app.sync.warning ?: app.updates.notice,
-            onSelect = app::select, onPlay = { app.openLobby() }, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit,
+            onSelect = app::select, onPlay = { app.play.openLobby(app.selectedId) }, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit,
             lookup = app.lookupUi,
             onEdit = app::edit,
             folders = app.folders,
@@ -109,20 +109,20 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             onColumnsChange = { app.settings.libraryColumns = it },
         )
         Screen.Lobby -> {
-            val prepared = app.prepared()
+            val prepared = app.play.prepared()
             LobbyScreen(
-                decks = app.decks, meId = app.lobbyMeId, opponents = app.opponents(), selectedId = app.opponentId, useAiCopy = app.useAiCopy, watch = app.watch,
+                decks = app.decks, meId = app.play.lobbyMeId, opponents = app.play.opponents(), selectedId = app.play.opponentId, useAiCopy = app.play.useAiCopy, watch = app.play.watch,
                 notes = prepared?.notes.orEmpty(), forgeReady = app.forgeReady, canStart = prepared != null && !prepared.blocked,
-                onSelectMe = app::chooseMe, onSelect = { app.opponentId = it },
-                forgeStartedAt = app.forgeStartedAt, forgeExpectedMillis = app.settings.forgeStartMillis, onToggleAiCopy = { app.useAiCopy = !app.useAiCopy }, onToggleWatch = { app.watch = !app.watch },
-                onStart = app::start, onLibrary = app::backToLibrary,
-                format = app.format.label, onCycleFormat = app::cycleFormat,
-                simGames = app.simGames, onCycleSimGames = app::cycleSimGames, simulation = app.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
-                onSimulate = app::simulate, onStopSimulation = app::stopSimulation,
+                onSelectMe = app.play::chooseMe, onSelect = { app.play.opponentId = it },
+                forgeStartedAt = app.forgeStartedAt, forgeExpectedMillis = app.settings.forgeStartMillis, onToggleAiCopy = { app.play.useAiCopy = !app.play.useAiCopy }, onToggleWatch = { app.play.watch = !app.play.watch },
+                onStart = app.play::start, onLibrary = app::backToLibrary,
+                format = app.play.format.label, onCycleFormat = app.play::cycleFormat,
+                simGames = app.play.simGames, onCycleSimGames = app.play::cycleSimGames, simulation = app.play.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
+                onSimulate = app.play::simulate, onStopSimulation = app.play::stopSimulation,
             )
         }
         Screen.Playing -> {
-            val match = app.match ?: return
+            val match = app.play.match ?: return
             LaunchedEffect(match) { match.seat.stops.collect(app::saveStops) }
             val games by match.games.collectAsState()
             val latest by match.result.collectAsState()
@@ -143,8 +143,8 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 matchControls = MatchControls(
                     onContinue = { match.continueMatch() },
                     onConcedeGame = { match.concede() },
-                    onLeaveMatch = app::leaveMatch,
-                    onBackToLobby = app::backToLobby,
+                    onLeaveMatch = app.play::leaveMatch,
+                    onBackToLobby = app.play::backToLobby,
                 ),
             )
         }
@@ -170,7 +170,7 @@ private fun CrashScreen(app: AppController) {
                 else -> false
             }
         }) {
-        val inGame = app.match != null
+        val inGame = app.play.match != null
         BoxPane(if (inGame) "the board hit an error" else "the app hit an error", Modifier.fillMaxSize(), borderColor = Palette.tapped) {
             Column(Modifier.fillMaxWidth()) {
                 WrapText("Something went wrong ${if (inGame) "drawing the game" else "in the window"}: ${app.crash ?: "?"}", bold = true)

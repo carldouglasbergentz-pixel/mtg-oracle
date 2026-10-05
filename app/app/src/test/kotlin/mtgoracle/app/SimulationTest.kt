@@ -63,16 +63,16 @@ class SimulationTest {
         waitFor(120_000, "Forge") { app.forgeReady }
         val library = Library(MtgDb(db))
         app.select(deckId(library, "Rakdos Midrange"))
-        app.openLobby()
-        app.opponentId = deckId(library, "Boros Death and Taxes")
-        app.simGames = 2
+        app.play.openLobby(app.selectedId)
+        app.play.opponentId = deckId(library, "Boros Death and Taxes")
+        app.play.simGames = 2
         val started = System.currentTimeMillis()
-        app.simulate()
-        assertTrue(app.simulating)
-        app.start()
-        assertNull(app.match, "no game while a simulation runs")
-        waitFor(2 * (Simulation.LIMIT_MILLIS + 30_000), "the simulation") { !app.simulating }
-        println("2 simulated games in ${(System.currentTimeMillis() - started) / 1000} s: ${app.simulation?.line()}")
+        app.play.simulate()
+        assertTrue(app.play.simulating)
+        app.play.start()
+        assertNull(app.play.match, "no game while a simulation runs")
+        waitFor(2 * (Simulation.LIMIT_MILLIS + 30_000), "the simulation") { !app.play.simulating }
+        println("2 simulated games in ${(System.currentTimeMillis() - started) / 1000} s: ${app.play.simulation?.line()}")
 
         val games = rows(db)
         assertEquals(2, games.size, games.toString())
@@ -81,9 +81,9 @@ class SimulationTest {
         assertEquals(listOf(1, 2), games.map { it["game_no"] })
         assertTrue(games.all { it["deck_ai_variant"] == 1 && it["opponent_ai_variant"] == 1 }, "both decks have substitutions, so both AIs play their copies")
         assertTrue(games.all { it["winner"] in setOf("me", "opponent", "draw") })
-        assertEquals(2, app.simulation!!.played)
+        assertEquals(2, app.play.simulation!!.played)
         // The record, on the setup screen and from `results`.
-        val boros = app.opponents().first { it.deck.name == "Boros Death and Taxes" }
+        val boros = app.play.opponents().first { it.deck.name == "Boros Death and Taxes" }
         assertTrue(boros.record!!.startsWith("AI "), boros.toString())
         val ui = app.lookupUi!!
         ui.submit("results Rakdos Midrange")

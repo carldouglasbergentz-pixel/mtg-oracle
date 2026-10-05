@@ -84,7 +84,7 @@ A Gradle build (wrapper in `app/`, JDK 25 toolchain, Kotlin + Compose Desktop) w
 | `data` | `data/mtg.db` over JDBC: the schema, `Lookup` (cards, search SQL, combos, rules, analysis input), `DeckWriter` / `LibraryWriter`, `GameStore`, the sync | core |
 | `forge` | **every Forge import**: runtime, the seat (`SeatGui`, an `IGuiGame`), printings (`ForgeCards`), images (`ForgeImages`), matches | core |
 | `ui` | the house-style kit and screens in Compose, the renderers, plus `OffscreenDriver` | core |
-| `app` | the entry point: wiring (`AppController`, `LookupCommands`, `Sessions`), the window, the CLI, headless modes | all |
+| `app` | the entry point: wiring (`AppController`, with `PlayControl`, `SyncControl` and `UpdateControl` beside it; `LookupCommands`, `Sessions`), the window, the CLI, headless modes | all |
 
 `ui` imports only `core`, so a report the screens show is plain data in `core` (`core/sync/SyncReport.kt`, `core/play/Records.kt`, `core/analysis/*`), filled in by `data`. Anything two surfaces need (the window and the CLI) is one function they both call; the CLI runs the same commands and renderings as the output pane.
 

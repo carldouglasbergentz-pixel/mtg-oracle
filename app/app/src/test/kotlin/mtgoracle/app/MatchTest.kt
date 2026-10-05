@@ -57,8 +57,8 @@ class MatchTest {
         driver = OffscreenDriver(1800, 2400) { AppContent(app) {} }
         waitFor { app.forgeReady }
         app.select(deckId)
-        app.openLobby()
-        app.opponentId = deckId
+        app.play.openLobby(app.selectedId)
+        app.play.opponentId = deckId
         return deckId
     }
 
@@ -70,19 +70,19 @@ class MatchTest {
     private fun waitFor(millis: Long = 60_000, what: String = "", until: () -> Boolean) {
         val deadline = System.currentTimeMillis() + millis
         while (!until()) {
-            if (System.currentTimeMillis() > deadline) fail("timed out waiting $what; screen: ${app.screen}, games ${app.match?.games?.value}")
+            if (System.currentTimeMillis() > deadline) fail("timed out waiting $what; screen: ${app.screen}, games ${app.play.match?.games?.value}")
             driver.frame(); Thread.sleep(20)
         }
     }
 
     /** Plays [policy] (the scripted seat's default otherwise) by clicking the offscreen app, until [until]. */
     private fun play(policy: Policy = { _, _, _ -> null }, until: () -> Boolean) {
-        val seat = app.match!!.seat
+        val seat = app.play.match!!.seat
         val scripted = ScriptedSeat(seat, policy, retryAfterMillis = 1500, submit = { p, a -> if (driver.perform(p, a) == null) seat.answer(p.id, a) })
-        check(scripted.play(timeoutMillis = 90_000, until = { driver.frame(); until() })) { "timed out; games ${app.match?.games?.value}" }
+        check(scripted.play(timeoutMillis = 90_000, until = { driver.frame(); until() })) { "timed out; games ${app.play.match?.games?.value}" }
     }
 
-    private fun ourPriority() = app.match?.seat?.let { s -> (s.prompt.value as? InputPrompt)?.kind == InputKind.PRIORITY && s.board.value?.activePlayerId == s.board.value?.seat?.id } == true
+    private fun ourPriority() = app.play.match?.seat?.let { s -> (s.prompt.value as? InputPrompt)?.kind == InputKind.PRIORITY && s.board.value?.activePlayerId == s.board.value?.seat?.id } == true
 
     private fun rows(): List<List<Any?>> = DriverManager.getConnection("jdbc:sqlite:${File(data, "mtg.db").path}").use { c ->
         c.prepareStatement("SELECT match_id, game_no, match_format, conceded, winner FROM games ORDER BY id").use { st ->
@@ -100,9 +100,9 @@ class MatchTest {
     @Test
     fun `best of three - concede game 1, sideboard, win game 2 on the draw we chose, concede game 3 - three rows, one match`() {
         open()
-        while (app.format != MatchFormat.BO3) app.cycleFormat()
-        app.start(state)
-        val match = app.match!!
+        while (app.play.format != MatchFormat.BO3) app.play.cycleFormat()
+        app.play.start(state)
+        val match = app.play.match!!
 
         play { ourPriority() }
         concede(Key.One) // this game
@@ -155,10 +155,10 @@ class MatchTest {
     @Test
     fun `leaving mid-game goes back to the lobby, a new game starts at once, and nothing is left running`() {
         open()
-        while (app.format != MatchFormat.BO1) app.cycleFormat()
+        while (app.play.format != MatchFormat.BO1) app.play.cycleFormat()
         fun gameThreads() = Thread.getAllStackTraces().filter { (t, s) -> t.isAlive && s.any { "awaitDialog" in it.methodName || "InputSyncronizedBase" in it.className } }.keys
 
-        app.start(state)
+        app.play.start(state)
         play { ourPriority() }
         driver.savePng(File(Scenario.pngDir, "match-concede-menu-before.png"))
         concede(Key.One) // best of one: 1 is "concede the match"
@@ -167,7 +167,7 @@ class MatchTest {
         assertEquals(1, (rows()[0][3] as Number).toInt(), "recorded as conceded")
         val after1 = Thread.activeCount()
 
-        app.start(state) // from the lobby, on the same pairing
+        app.play.start(state) // from the lobby, on the same pairing
         assertIs<Screen.Playing>(app.screen)
         play { ourPriority() }
         concede(Key.One)
@@ -178,8 +178,8 @@ class MatchTest {
         assertTrue(Thread.activeCount() <= after1 + 2, "threads don't pile up per game: ${after1} -> ${Thread.activeCount()}")
 
         // Closing the window mid-game records a conceded game, and returns at once.
-        app.openLobby()
-        app.start(state)
+        app.play.openLobby(app.selectedId)
+        app.play.start(state)
         play { ourPriority() }
         val started = System.currentTimeMillis()
         app.shutdown()
@@ -187,7 +187,7 @@ class MatchTest {
         assertEquals(3, rows().size)
         assertEquals(listOf(1, "opponent"), rows()[2].let { listOf((it[3] as Number).toInt(), it[4]) })
         // (The test's JVM lives on: end that game, and check it is not written twice.)
-        val last = app.match!!
+        val last = app.play.match!!
         last.leave()
         waitFor(what = "the abandoned game to end") { last.over }
         Thread.sleep(300)

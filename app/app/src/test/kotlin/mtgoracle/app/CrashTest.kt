@@ -89,9 +89,9 @@ class CrashTest {
                 while (!until()) { if (System.currentTimeMillis() > deadline) fail("timed out: $what"); d.frame(); Thread.sleep(20) }
             }
             waitFor("Forge") { app.forgeReady }
-            app.select(deckId!!); app.openLobby(); app.opponentId = deckId
-            app.start(wrath)
-            val seat = app.match!!.seat
+            app.select(deckId!!); app.play.openLobby(app.selectedId); app.play.opponentId = deckId
+            app.play.start(wrath)
+            val seat = app.play.match!!.seat
             ScriptedSeat(seat, submit = { p, a -> if (d.perform(p, a) == null) seat.answer(p.id, a) })
                 .play(timeoutMillis = 60_000, until = { d.frame(); (seat.prompt.value as? InputPrompt)?.kind == InputKind.PRIORITY })
             inject = true
@@ -100,7 +100,7 @@ class CrashTest {
             assertTrue("the board hit an error" in d.text.all() && "injected" in d.text.all(), "shown: ${d.text.all().take(300)}")
             assertContains(paths.appLog.readText(), "CRASH in window")
             assertContains(paths.appLog.readText(), "injected: a prompt renderer failed", message = "the full trace in the app log")
-            assertContains(app.match!!.recorder.file.readText(), "APP CRASH in window", message = "and in the game's")
+            assertContains(app.play.match!!.recorder.file.readText(), "APP CRASH in window", message = "and in the game's")
             d.key(Key.Enter)
             waitFor("the library") { app.screen == Screen.Library }
             val row = DriverManager.getConnection("jdbc:sqlite:${copy.path}").use { c ->

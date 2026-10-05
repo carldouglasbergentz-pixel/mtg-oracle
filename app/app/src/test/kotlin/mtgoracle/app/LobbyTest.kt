@@ -35,21 +35,21 @@ class LobbyTest {
     fun `your deck is chosen in the lobby, the opponents are those that can face it, and the last pairing is kept`() {
         val app = app()
         val first = app.decks.first()
-        app.openLobby(first.id)
+        app.play.openLobby(first.id)
         assertEquals(Screen.Lobby, app.screen)
-        assertEquals(first.id, app.lobbyMeId, "the deck you were on")
+        assertEquals(first.id, app.play.lobbyMeId, "the deck you were on")
         fun gameType(id: Int) = app.deckById(id)!!.gameType
         val other = app.decks.first { gameType(it.id) != gameType(first.id) }
-        app.chooseMe(other.id)
-        assertEquals(other.id, app.lobbyMeId)
-        assertTrue(app.opponents().isNotEmpty() && app.opponents().all { gameType(it.deck.id) == gameType(other.id) }, "only decks that can face it")
-        assertTrue(app.opponentId in app.opponents().map { it.deck.id }, "and the opponent follows: ${app.opponentId}")
+        app.play.chooseMe(other.id)
+        assertEquals(other.id, app.play.lobbyMeId)
+        assertTrue(app.play.opponents().isNotEmpty() && app.play.opponents().all { gameType(it.deck.id) == gameType(other.id) }, "only decks that can face it")
+        assertTrue(app.play.opponentId in app.play.opponents().map { it.deck.id }, "and the opponent follows: ${app.play.opponentId}")
 
         // With no deck to start from, the last pairing played (kept by start and simulate).
         app.settings.lobbyMe = other.id
         app.backToLibrary()
-        app.openLobby(me = null)
-        assertEquals(other.id, app.lobbyMeId)
+        app.play.openLobby(me = null)
+        assertEquals(other.id, app.play.lobbyMeId)
     }
 
     @Test
