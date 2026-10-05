@@ -44,7 +44,7 @@ sealed interface Screen {
     /** The app can't run: the message says what to do (an old or a newer database). */
     data class Blocked(val message: String) : Screen
     data object Library : Screen
-    data object Setup : Screen
+    data object Lobby : Screen
     data object Playing : Screen
     /** The board broke (see AppController.onCrash): what happened, and the way out. */
     data object Crashed : Screen
@@ -91,6 +91,11 @@ class AppController(private val paths: AppPaths) {
     var notice by mutableStateOf<String?>(null)
     var forgeReady by mutableStateOf(false)
     var opponentId by mutableStateOf<Int?>(null)
+    /** Your deck in the lobby: its own choice, not what the library has selected. */
+    var lobbyMeId by mutableStateOf<Int?>(null)
+        private set
+    /** The deck you play, as the lobby has it. */
+    val lobbyMe: Deck? get() = lobbyMeId?.let(::deckById)
     var useAiCopy by mutableStateOf(true)
     /** Watch AI vs AI instead of playing (recorded as ai_vs_ai). */
     var watch by mutableStateOf(false)
@@ -515,14 +520,38 @@ class AppController(private val paths: AppPaths) {
         }
     }
 
-    fun openSetup() {
-        val me = deck ?: return
-        screen = Screen.Setup
-        opponentId = opponents().firstOrNull { it.deck.id != me.id }?.deck?.id ?: opponents().firstOrNull()?.deck?.id
+    /**
+     * The lobby, where your deck and the AI's are chosen side by side. [me] (the deck you are on, in the
+     * library or the workspace) is yours to start with, else the last you played; the AI's is the last
+     * it played, when it can face yours.
+     */
+    fun openLobby(me: Int? = selectedId) {
+        val ids = decks.map { it.id }.toSet()
+        lobbyMeId = listOf(me, settings.lobbyMe).firstOrNull { it != null && it in ids } ?: decks.firstOrNull()?.id
+        screen = Screen.Lobby
+        chooseOpponent(settings.lobbyOpponent)
+    }
+
+    /** Your deck in the lobby; the opponent stays when it can still face it. */
+    fun chooseMe(id: Int) {
+        lobbyMeId = id
+        chooseOpponent(opponentId)
+    }
+
+    private fun chooseOpponent(preferred: Int?) {
+        val choices = opponents()
+        opponentId = choices.firstOrNull { it.deck.id == preferred }?.deck?.id
+            ?: choices.firstOrNull { it.deck.id != lobbyMeId }?.deck?.id ?: choices.firstOrNull()?.deck?.id
+    }
+
+    /** The pairing just started, chosen again the next time the lobby opens. */
+    private fun keepPairing() {
+        settings.lobbyMe = lobbyMeId
+        settings.lobbyOpponent = opponentId
     }
 
     fun opponents(): List<OpponentChoice> {
-        val me = deck ?: return emptyList()
+        val me = lobbyMe ?: return emptyList()
         val records = records(me)
         return decks.mapNotNull { d ->
             deckById(d.id)?.takeIf { it.gameType == me.gameType }?.let { OpponentChoice(d, it.substitutions.size, records[d.id]) }
@@ -555,7 +584,7 @@ class AppController(private val paths: AppPaths) {
 
     fun prepared(): Prepared? {
         if (!forgeReady) return null
-        val me = deck ?: return null
+        val me = lobbyMe ?: return null
         val opp = opponentId?.let(::deckById) ?: return null
         return sessions.prepare(me, opp, useAiCopy)
     }
@@ -592,11 +621,12 @@ class AppController(private val paths: AppPaths) {
     fun simulate() {
         if (simulating) return
         if (match != null) { notice = "a game is on: finish it before simulating"; return }
-        val me = deck ?: return
+        val me = lobbyMe ?: return
         val opp = opponentId?.let(::deckById) ?: return
         if (!forgeReady) { notice = "Forge is still loading"; return }
         val ready = sessions.prepare(me, opp, useAiCopy, seatAiCopy = useAiCopy)
         if (ready.blocked) { notice = ready.notes.firstOrNull() ?: "these decks can't play each other"; return }
+        keepPairing()
         val run = Simulation(sessions, ready, simGames, onProgress = { p -> gamesRecorded++; simulation = p; notice = p.line() })
         sim = run
         simulation = run.progress
@@ -612,6 +642,7 @@ class AppController(private val paths: AppPaths) {
     fun start(startState: List<String>? = null) {
         if (simulating) { notice = "a simulation is running (${simulation?.line()}): stop it first"; return }
         val ready = prepared()?.takeIf { !it.blocked } ?: return
+        keepPairing()
         val running = sessions.start(ready, mode = if (watch) GameMode.AI_VS_AI else GameMode.HUMAN_VS_AI, stops = settings.stops, format = format, startState = startState)
         begin(running)
     }

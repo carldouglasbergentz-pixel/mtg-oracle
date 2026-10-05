@@ -89,7 +89,7 @@ class CrashTest {
                 while (!until()) { if (System.currentTimeMillis() > deadline) fail("timed out: $what"); d.frame(); Thread.sleep(20) }
             }
             waitFor("Forge") { app.forgeReady }
-            app.select(deckId!!); app.openSetup(); app.opponentId = deckId
+            app.select(deckId!!); app.openLobby(); app.opponentId = deckId
             app.start(wrath)
             val seat = app.match!!.seat
             ScriptedSeat(seat, submit = { p, a -> if (d.perform(p, a) == null) seat.answer(p.id, a) })

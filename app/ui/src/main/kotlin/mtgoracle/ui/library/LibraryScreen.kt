@@ -68,6 +68,9 @@ import mtgoracle.ui.theme.Palette
 
 const val DECK_LIST_COLS = 40
 
+/** How soon a second click on the same deck counts as a double-click, as Windows' default is. */
+private const val DOUBLE_CLICK_MILLIS = 500L
+
 /**
  * Folders and decks on the left, the selected deck in the middle (art frames
  * or text lines, T toggles), the zoom pane on the right, and the command line
@@ -124,11 +127,20 @@ fun LibraryScreen(
         if (lookup?.showOutput != true) return
         scope.launch { outputScroll.scrollBy(by * outputScroll.layoutInfo.viewportSize.height * 0.9f) }
     }
+    // A second click on the same deck soon after the first opens it. Timed by hand: a double-tap detector
+    // makes every single click wait out the double-click window, and the selection lags behind the mouse.
+    val lastDeckClick = remember { longArrayOf(-1, 0) }
     val onClick: (ClickTarget) -> Unit = { t ->
         val name = (t as? ClickTarget.Control)?.name.orEmpty()
         when {
-            name.startsWith("deck:") -> showDeck(name.removePrefix("deck:").toInt())
-            name == "edit" -> onEdit()
+            name.startsWith("deck:") -> {
+                val id = name.removePrefix("deck:").toInt()
+                val now = System.currentTimeMillis()
+                val again = lastDeckClick[0] == id.toLong() && now - lastDeckClick[1] < DOUBLE_CLICK_MILLIS
+                lastDeckClick[0] = id.toLong(); lastDeckClick[1] = now
+                showDeck(id)
+                if (again) { lastDeckClick[0] = -1; onEdit() }
+            }
             name == "play" -> onPlay()
             name == "mode" -> onToggleMode()
             name == "prefetch" -> onPrefetch()
@@ -175,7 +187,7 @@ fun LibraryScreen(
         val side = drag.live.right
         Column(Modifier.fillMaxSize()) {
             Toolbar(listOf(
-                "edit" to "Edit", "play" to "Play", "new-deck" to "New deck", "new-folder" to "New folder", "import" to "Import",
+                "play" to "Play", "new-deck" to "New deck", "new-folder" to "New folder", "import" to "Import",
                 "mode" to if (mode == CardMode.ART) "Text" else "Art", "prefetch" to "Fetch images", "sync" to "Sync",
             ), onClick)
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
@@ -250,7 +262,7 @@ fun LibraryScreen(
                 )
             }
             val hints = if (lookup?.command?.focused == true) TYPING_HINTS
-            else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter" to "edit", "P" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
+            else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter / double-click" to "open", "P" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
             StatusLine(hints, notice, cols)
         }
     }

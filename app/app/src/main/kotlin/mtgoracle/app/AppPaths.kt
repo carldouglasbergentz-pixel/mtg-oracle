@@ -145,6 +145,14 @@ class Settings(private val file: File) {
         get() = props.getProperty("theme")
         set(value) { if (value == null) props.remove("theme") else props.setProperty("theme", value); save() }
 
+    /** The lobby's last pairing, chosen again when it opens: your deck and the AI's. */
+    var lobbyMe: Int?
+        get() = props.getProperty("lobby.me")?.toIntOrNull()
+        set(value) { if (value == null) props.remove("lobby.me") else props.setProperty("lobby.me", value.toString()); save() }
+    var lobbyOpponent: Int?
+        get() = props.getProperty("lobby.opponent")?.toIntOrNull()
+        set(value) { if (value == null) props.remove("lobby.opponent") else props.setProperty("lobby.opponent", value.toString()); save() }
+
     /** When a release last asked GitHub for a newer one (Updates): once a day, and at each start. */
     var updateLastCheck: java.time.Instant?
         get() = instant("update.lastCheck")

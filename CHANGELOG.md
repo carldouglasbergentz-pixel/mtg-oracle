@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Play is a lobby where both decks are chosen, and a double-click opens a deck to edit.** Play used to take your deck from whatever the library had selected, and editing needed a step of its own (Edit).
+  - **The lobby** (Play in the library or the workspace) lists your decks by folder beside the opponents, which are only decks of your deck's game type, each with its AI copy and your record against it. Tab or ←/→ moves between the lists and ↑↓ within one. The match's options sit below as before: AI copy, watch, best of, simulate.
+  - It opens on the deck you are on, and with none, on the last you played. The AI's deck is the one it last played, when it can face yours (`lobby.me`, `lobby.opponent` in `settings.properties`).
+  - **The library**: a double-click on a deck opens it in the workspace, as Enter does, and a single click only selects it. The Edit button is gone. The click is timed by hand, so a single click doesn't wait out a double-click window.
+  - `SetupScreen` is `LobbyScreen`. `LobbyTest` and `LobbyWidthTest` cover it.
+
 ## [0.1.1] - 2026-10-05
 
 ### Fixed

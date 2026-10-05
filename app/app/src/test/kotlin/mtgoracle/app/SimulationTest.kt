@@ -63,7 +63,7 @@ class SimulationTest {
         waitFor(120_000, "Forge") { app.forgeReady }
         val library = Library(MtgDb(db))
         app.select(deckId(library, "Rakdos Midrange"))
-        app.openSetup()
+        app.openLobby()
         app.opponentId = deckId(library, "Boros Death and Taxes")
         app.simGames = 2
         val started = System.currentTimeMillis()

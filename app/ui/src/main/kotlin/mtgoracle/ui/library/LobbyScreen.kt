@@ -5,13 +5,17 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -23,21 +27,24 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import mtgoracle.core.deck.DeckSummary
-import mtgoracle.ui.kit.BoxPane
 import mtgoracle.ui.kit.BigButton
+import mtgoracle.ui.kit.BoxPane
+import mtgoracle.ui.kit.Border
 import mtgoracle.ui.kit.ClickTarget
-import mtgoracle.ui.kit.GridText
-import mtgoracle.ui.kit.StatusLine
-import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.FitText
+import mtgoracle.ui.kit.GridText
+import mtgoracle.ui.kit.RuleLine
+import mtgoracle.ui.kit.StatusLine
 import mtgoracle.ui.kit.WrapText
+import mtgoracle.ui.kit.clickTarget
+import mtgoracle.ui.kit.region
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 
-/** A simulation as the setup screen shows it: its status line, and whether it is still going. */
+/** A simulation as the lobby shows it: its status line, and whether it is still going. */
 data class SimLine(val line: String, val running: Boolean)
 
-/** An opponent the setup screen offers, with what its AI copy changes. */
+/** An opponent the lobby offers, with what its AI copy changes. */
 data class OpponentChoice(
     val deck: DeckSummary,
     val substitutions: Int,
@@ -46,13 +53,16 @@ data class OpponentChoice(
 )
 
 /**
- * Pick the opponent for [me]. The AI plays its AI copy (the deck's
- * `forge_substitutions` applied) when there is one, unless switched off.
- * [notes] are the deck checks: cards Forge lacks, cards its AI won't play.
+ * The lobby: your deck and the AI's, side by side, and how the match goes.
+ * Your deck is chosen here, not by what the library has selected; the
+ * opponents are the decks of its game type. The AI plays its AI copy (the
+ * deck's `forge_substitutions` applied) when there is one, unless switched
+ * off. [notes] are the deck checks: cards Forge lacks, cards its AI won't play.
  */
 @Composable
-fun SetupScreen(
-    me: DeckSummary,
+fun LobbyScreen(
+    decks: List<DeckSummary>,
+    meId: Int?,
     opponents: List<OpponentChoice>,
     selectedId: Int?,
     useAiCopy: Boolean,
@@ -60,6 +70,7 @@ fun SetupScreen(
     notes: List<String>,
     forgeReady: Boolean,
     canStart: Boolean,
+    onSelectMe: (Int) -> Unit,
     onSelect: (Int) -> Unit,
     onToggleAiCopy: () -> Unit,
     onToggleWatch: () -> Unit,
@@ -78,10 +89,14 @@ fun SetupScreen(
 ) {
     val simRunning = simulation?.running == true
     val focus = remember { FocusRequester() }
+    // Which list ↑↓ moves in: yours (0) or the opponent's (1).
+    var column by remember { mutableStateOf(1) }
+    val me = decks.firstOrNull { it.id == meId }
     val onClick: (ClickTarget) -> Unit = { t ->
         val name = (t as? ClickTarget.Control)?.name.orEmpty()
         when {
-            name.startsWith("opponent:") -> onSelect(name.removePrefix("opponent:").toInt())
+            name.startsWith("me:") -> { column = 0; onSelectMe(name.removePrefix("me:").toInt()) }
+            name.startsWith("opponent:") -> { column = 1; onSelect(name.removePrefix("opponent:").toInt()) }
             name == "ai-copy" -> onToggleAiCopy()
             name == "watch" -> onToggleWatch()
             name == "format" -> onCycleFormat()
@@ -92,9 +107,15 @@ fun SetupScreen(
         }
     }
     fun move(by: Int) {
-        if (opponents.isEmpty()) return
-        val at = opponents.indexOfFirst { it.deck.id == selectedId }.coerceAtLeast(0)
-        onSelect(opponents[(at + by).coerceIn(0, opponents.lastIndex)].deck.id)
+        if (column == 0) {
+            if (decks.isEmpty()) return
+            val at = decks.indexOfFirst { it.id == meId }.coerceAtLeast(0)
+            onSelectMe(decks[(at + by).coerceIn(0, decks.lastIndex)].id)
+        } else {
+            if (opponents.isEmpty()) return
+            val at = opponents.indexOfFirst { it.deck.id == selectedId }.coerceAtLeast(0)
+            onSelect(opponents[(at + by).coerceIn(0, opponents.lastIndex)].deck.id)
+        }
     }
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Palette.surface).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
@@ -102,6 +123,7 @@ fun SetupScreen(
             when (e.key) {
                 Key.DirectionUp -> move(-1)
                 Key.DirectionDown -> move(+1)
+                Key.Tab, Key.DirectionLeft, Key.DirectionRight -> column = if (e.key == Key.DirectionLeft) 0 else if (e.key == Key.DirectionRight) 1 else 1 - column
                 Key.A -> onToggleAiCopy()
                 Key.W -> onToggleWatch()
                 Key.B -> onCycleFormat()
@@ -116,25 +138,36 @@ fun SetupScreen(
     ) {
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
         Column(Modifier.fillMaxSize()) {
-            BoxPane("new game", Modifier.weight(1f).fillMaxWidth(), right = "you play ${me.name}") {
-                // Every line takes the pane's measured width: facts are cut where the pane ends, instructions wrap.
-                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                    FitText("You: ${me.name}  (${me.format ?: "no format"}, ${me.cardCount} cards)", bold = true)
-                    GridText("")
-                    FitText("Opponent (the AI):", color = Palette.dim)
-                    if (opponents.isEmpty()) FitText("  no deck of the same game type", color = Palette.accent)
-                    opponents.forEach { o ->
-                        val selected = o.deck.id == selectedId
-                        val copy = if (o.substitutions > 0) "  [AI copy: ${o.substitutions} substitutions]" else ""
-                        val record = o.record?.let { "  $it" }.orEmpty()
-                        FitText(
-                            "  ${o.deck.name}  (${o.deck.format ?: "-"}, ${o.deck.cardCount})$copy$record",
-                            Modifier.clickTarget(ClickTarget.Control("opponent:${o.deck.id}"), onClick),
-                            color = if (selected) Palette.background else Palette.foreground,
-                            background = if (selected) Palette.foreground else Color.Unspecified,
-                        )
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                BoxPane("your deck", Modifier.weight(1f).fillMaxHeight().region("lobby-me"),
+                    border = if (column == 0) Border.DOUBLE else Border.SINGLE, borderColor = if (column == 0) Palette.accent else Palette.dim) {
+                    BoxWithConstraints(Modifier.fillMaxSize()) {
+                        val inner = LocalCells.current.cols(constraints.maxWidth.toFloat())
+                        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                            if (decks.isEmpty()) FitText("no decks yet: make or import one in the library", color = Palette.dim)
+                            decks.groupBy { it.folderName ?: "(no folder)" }.forEach { (folder, inFolder) ->
+                                RuleLine(inner, label = folder)
+                                inFolder.forEach { d -> DeckLine("me:${d.id}", "  ${d.name}  (${d.format ?: "-"}, ${d.cardCount})", d.id == meId, onClick) }
+                            }
+                        }
                     }
-                    GridText("")
+                }
+                BoxPane("opponent (the AI)", Modifier.weight(1f).fillMaxHeight().region("lobby-opponent"),
+                    border = if (column == 1) Border.DOUBLE else Border.SINGLE, borderColor = if (column == 1) Palette.accent else Palette.dim) {
+                    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                        if (me == null) FitText("choose your deck first", color = Palette.dim)
+                        else if (opponents.isEmpty()) FitText("no deck of the same game type as ${me.name}", color = Palette.accent)
+                        opponents.forEach { o ->
+                            val copy = if (o.substitutions > 0) "  [AI copy: ${o.substitutions}]" else ""
+                            val record = o.record?.let { "  $it" }.orEmpty()
+                            DeckLine("opponent:${o.deck.id}", "  ${o.deck.name}  (${o.deck.format ?: "-"}, ${o.deck.cardCount})$copy$record", o.deck.id == selectedId, onClick)
+                        }
+                    }
+                }
+            }
+            BoxPane("the match", Modifier.fillMaxWidth(), right = me?.let { "you play ${it.name}" }) {
+                // Every line takes the pane's measured width: facts are cut where the pane ends, instructions wrap.
+                Column(Modifier.fillMaxWidth()) {
                     val subs = opponents.firstOrNull { it.deck.id == selectedId }?.substitutions ?: 0
                     WrapText(
                         if (subs == 0) "  The AI plays the deck as built (it has no substitutions)."
@@ -143,7 +176,7 @@ fun SetupScreen(
                         color = if (subs > 0) Palette.accent else Palette.dim, hang = 4,
                     )
                     WrapText(
-                        "  [${if (watch) "x" else " "}] watch: an AI plays ${me.name} too, and you watch (W toggles; hands stay hidden unless you press H)",
+                        "  [${if (watch) "x" else " "}] watch: an AI plays ${me?.name ?: "your deck"} too, and you watch (W toggles; hands stay hidden unless you press H)",
                         Modifier.clickTarget(ClickTarget.Control("watch"), onClick), color = Palette.accent, hang = 4,
                     )
                     WrapText(
@@ -156,7 +189,6 @@ fun SetupScreen(
                         Modifier.clickTarget(ClickTarget.Control("sim-games"), onClick), color = Palette.accent, hang = 4,
                     )
                     simulation?.let { WrapText("  ${it.line}", color = if (it.running) Palette.foreground else Palette.dim, hang = 4) }
-                    GridText("")
                     notes.forEach { WrapText(it, color = Palette.accent) }
                     GridText("")
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -170,9 +202,20 @@ fun SetupScreen(
                     }
                 }
             }
-            StatusLine(listOf("↑↓" to "opponent", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
+            StatusLine(listOf("Tab ←→" to "your deck / opponent", "↑↓" to "choose", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
                 "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "back"), null, cols)
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }
+}
+
+/** One deck in a lobby list, inverted when chosen. */
+@Composable
+private fun DeckLine(target: String, text: String, chosen: Boolean, onClick: (ClickTarget) -> Unit) {
+    FitText(
+        text,
+        Modifier.clickTarget(ClickTarget.Control(target), onClick),
+        color = if (chosen) Palette.background else Palette.foreground,
+        background = if (chosen) Palette.foreground else Color.Unspecified,
+    )
 }

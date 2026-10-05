@@ -53,7 +53,7 @@ class ThemePickerTest {
             assertEquals(Themes.HOUSE, Palette.theme, "and goes back to the theme kept")
 
             // Away from where the picker opens: a row under the mouse is shown as soon as it appears.
-            d.hover(ClickTarget.Control("edit"))
+            d.hover(ClickTarget.Control("play"))
             d.key(Key.F8)
             d.settle(3)
             assertNotNull(d.registry[picker], "F8 opens it too")

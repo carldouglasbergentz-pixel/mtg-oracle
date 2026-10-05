@@ -57,7 +57,7 @@ class MatchTest {
         driver = OffscreenDriver(1800, 2400) { AppContent(app) {} }
         waitFor { app.forgeReady }
         app.select(deckId)
-        app.openSetup()
+        app.openLobby()
         app.opponentId = deckId
         return deckId
     }
@@ -167,7 +167,7 @@ class MatchTest {
         assertEquals(1, (rows()[0][3] as Number).toInt(), "recorded as conceded")
         val after1 = Thread.activeCount()
 
-        app.openSetup()
+        app.openLobby()
         app.start(state)
         assertIs<Screen.Playing>(app.screen)
         play { ourPriority() }
@@ -179,7 +179,7 @@ class MatchTest {
         assertTrue(Thread.activeCount() <= after1 + 2, "threads don't pile up per game: ${after1} -> ${Thread.activeCount()}")
 
         // Closing the window mid-game records a conceded game, and returns at once.
-        app.openSetup()
+        app.openLobby()
         app.start(state)
         play { ourPriority() }
         val started = System.currentTimeMillis()

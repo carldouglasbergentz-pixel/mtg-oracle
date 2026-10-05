@@ -26,7 +26,7 @@ import mtgoracle.ui.kit.WrapText
 import androidx.compose.foundation.layout.fillMaxWidth
 import mtgoracle.ui.library.DeckWorkspace
 import mtgoracle.ui.library.LibraryScreen
-import mtgoracle.ui.library.SetupScreen
+import mtgoracle.ui.library.LobbyScreen
 import mtgoracle.ui.theme.HouseTheme
 import mtgoracle.ui.theme.Palette
 import mtgoracle.ui.theme.LocalGlobalHints
@@ -75,14 +75,14 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 deckMode = app.deckPaneMode, lookup = app.lookupUi!!, notice = app.notice ?: app.syncWarning ?: app.updateNotice,
                 insight = app.insight?.takeIf { it.deckId == open.deckId },
                 onLeave = app::leaveEdit, onToggleResults = app::toggleMode, onToggleDeckMode = app::toggleDeckPaneMode,
-                onPlay = app::openSetup, onQuit = onQuit,
+                onPlay = { app.openLobby(open.deckId) }, onQuit = onQuit,
                 columns = app.settings.workspaceColumns(app.deckPaneMode),
                 onColumnsChange = { app.settings.keepWorkspaceColumns(app.deckPaneMode, it) },
             )
         } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
             notice = app.notice ?: if (!app.forgeReady) "Forge is loading…" else app.syncWarning ?: app.updateNotice,
-            onSelect = app::select, onPlay = app::openSetup, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit,
+            onSelect = app::select, onPlay = { app.openLobby() }, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit,
             lookup = app.lookupUi,
             onEdit = app::edit,
             folders = app.folders,
@@ -92,13 +92,12 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             columns = remember { app.settings.libraryColumns },
             onColumnsChange = { app.settings.libraryColumns = it },
         )
-        Screen.Setup -> {
-            val me = app.decks.first { it.id == app.selectedId }
+        Screen.Lobby -> {
             val prepared = app.prepared()
-            SetupScreen(
-                me = me, opponents = app.opponents(), selectedId = app.opponentId, useAiCopy = app.useAiCopy, watch = app.watch,
+            LobbyScreen(
+                decks = app.decks, meId = app.lobbyMeId, opponents = app.opponents(), selectedId = app.opponentId, useAiCopy = app.useAiCopy, watch = app.watch,
                 notes = prepared?.notes.orEmpty(), forgeReady = app.forgeReady, canStart = prepared != null && !prepared.blocked,
-                onSelect = { app.opponentId = it }, onToggleAiCopy = { app.useAiCopy = !app.useAiCopy }, onToggleWatch = { app.watch = !app.watch },
+                onSelectMe = app::chooseMe, onSelect = { app.opponentId = it }, onToggleAiCopy = { app.useAiCopy = !app.useAiCopy }, onToggleWatch = { app.watch = !app.watch },
                 onStart = app::start, onBack = app::backToLibrary,
                 format = app.format.label, onCycleFormat = app::cycleFormat,
                 simGames = app.simGames, onCycleSimGames = app::cycleSimGames, simulation = app.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
