@@ -99,6 +99,16 @@ class SeatGui(
     private val showHandsFlow = MutableStateFlow(false)
     private val warningFlow = MutableStateFlow<String?>(null)
     override val warning: StateFlow<String?> get() = warningFlow
+    private val achievementsFlow = MutableStateFlow<List<String>>(emptyList())
+    /** Forge's achievements earned in this match, oldest first: `Overkill: Win a game with opponent at -5 life`. */
+    val achievements: StateFlow<List<String>> get() = achievementsFlow
+
+    /** One of Forge's achievement pop-ups: in the match's list and the log pane. */
+    fun achievement(message: String) {
+        val text = achievementLine(message) ?: return
+        achievementsFlow.value += text
+        recorder.play("Achievement", LogKind.OUTCOME, "Achievement earned: $text")
+    }
     override val board: StateFlow<BoardState?> get() = boardFlow
     override val prompt: StateFlow<Prompt?> get() = promptFlow
     override val stops: StateFlow<PhaseStops> get() = stopsFlow
@@ -982,4 +992,11 @@ class SeatGui(
         ).mapValues { it.value.toByte() }
         val INTERRUPTS = listOf(FPref.YIELD_INTERRUPT_ON_OPPONENT_SPELL, FPref.YIELD_INTERRUPT_ON_ATTACKERS, FPref.YIELD_INTERRUPT_ON_TARGETING)
     }
+}
+
+/** An achievement pop-up as one line: `Overkill (Common)` over `Win a game with opponent at -5 life` reads `Overkill: Win a game …`. */
+internal fun achievementLine(message: String): String? {
+    val lines = message.lines().map { it.trim() }.filter { it.isNotEmpty() }
+    val name = lines.firstOrNull()?.substringBefore(" (") ?: return null
+    return listOf(name, lines.drop(1).joinToString(" ")).filter { it.isNotEmpty() }.joinToString(": ")
 }

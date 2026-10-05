@@ -69,6 +69,8 @@ class RunningMatch internal constructor(
     val games: StateFlow<List<MatchResult>> get() = gamesFlow
     /** No game follows: the match was won, or left. */
     val over: Boolean get() = gamesFlow.value.lastOrNull()?.matchOver == true
+    /** Forge's achievements earned in this match, oldest first. */
+    val achievements: StateFlow<List<String>> get() = gui.achievements
 
     /** When the current (or last) game began: its `played_at`. */
     @Volatile var gameStartedAt: Instant = startedAt

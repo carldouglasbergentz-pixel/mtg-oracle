@@ -110,7 +110,9 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             LaunchedEffect(match) { match.seat.stops.collect(app::saveStops) }
             val games by match.games.collectAsState()
             val latest by match.result.collectAsState()
-            val status = MatchStatus(match.spec.format.label, match.spec.format.games, games, betweenGames = latest != null, over = games.lastOrNull()?.matchOver == true)
+            val achievements by match.achievements.collectAsState()
+            val status = MatchStatus(match.spec.format.label, match.spec.format.games, games, betweenGames = latest != null, over = games.lastOrNull()?.matchOver == true,
+                achievements = achievements)
             BoardScreen(
                 seat = match.seat,
                 inputGuardMillis = System.getProperty("mtgoracle.inputGuardMillis")?.toLongOrNull() ?: INPUT_GUARD_MILLIS,

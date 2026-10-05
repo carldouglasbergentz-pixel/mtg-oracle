@@ -44,6 +44,8 @@ data class MatchStatus(
     /** A game has just ended and the next has not begun (or the match is over). */
     val betweenGames: Boolean,
     val over: Boolean,
+    /** Forge's achievements earned in this match: `Overkill: Win a game with opponent at -5 life`. */
+    val achievements: List<String> = emptyList(),
 )
 
 /** What the match panels do. */
@@ -88,13 +90,17 @@ fun ResultPanel(status: MatchStatus, onClick: (ClickTarget) -> Unit, modifier: M
             last.losses > last.wins -> "you lost the match"
             else -> "the match is drawn"
         })
+        status.achievements.forEach { add("achievement: $it") }
     }
     Box(modifier.cells(cols, lines.size + 4 + BUTTON_ROWS).chromeShape().background(Palette.background)
         .boxBorder(if (status.over) "match over" else "game over", border = Border.DOUBLE, color = Palette.accent)
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
         .region("match-result")) {
         Column(Modifier.padding(start = with(LocalDensity.current) { LocalCells.current.width.toDp() * 2 }, top = with(LocalDensity.current) { LocalCells.current.height.toDp() })) {
-            lines.forEachIndexed { i, line -> GridText(fit(line, cols - 4), color = if (i == 0) Palette.foreground else Palette.dim, bold = i == 0) }
+            lines.forEachIndexed { i, line ->
+                val achievement = line.startsWith("achievement: ")
+                GridText(fit(line, cols - 4), color = if (i == 0) Palette.foreground else if (achievement) Palette.accent else Palette.dim, bold = i == 0)
+            }
             GridText("")
             Row {
                 if (status.over) GridButton("Back to the lobby", MatchTargets.LOBBY, true, onClick)

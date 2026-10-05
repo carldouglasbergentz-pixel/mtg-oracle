@@ -84,8 +84,12 @@ class AppGuiBase(
 
     /** Set by the app: a Forge error report reaches the board's error line (the trace is in the app log). */
     @Volatile var onBugReport: ((title: String, text: String) -> Unit)? = null
-    // Forge's achievement pop-up ("Win 1 Commander game"): information with nothing to answer, so not UNHANDLED.
-    override fun showImageDialog(image: ISkinImage?, message: String?, title: String?) = Log.info("Forge shows: ${listOfNotNull(title, message).joinToString(": ")}")
+    // Forge's achievement pop-up (its name over what it is for): nothing to answer; said in the game's log and the
+    // result panel (SeatGui.achievement).
+    override fun showImageDialog(image: ISkinImage?, message: String?, title: String?) {
+        Log.info("Forge shows: ${listOfNotNull(title, message).joinToString(": ")}")
+        message?.let { activeSeat?.achievement(it) }
+    }
     // Forge's static dialogs (GuiChoose, SOptionPane) land here, outside any game's GUI. During a game a
     // person is playing they go to that seat's prompts; otherwise they answer with Forge's default, loudly.
     override fun showOptionDialog(message: String?, title: String?, icon: FSkinProp?, options: MutableList<String>?, defaultOption: Int): Int {
