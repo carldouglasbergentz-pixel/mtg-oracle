@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import mtgoracle.ui.board.BoardScreen
+import mtgoracle.ui.board.INPUT_GUARD_MILLIS
 import mtgoracle.ui.board.MatchControls
 import mtgoracle.ui.board.MatchStatus
 import androidx.compose.runtime.collectAsState
@@ -112,6 +113,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             val status = MatchStatus(match.spec.format.label, match.spec.format.games, games, betweenGames = latest != null, over = games.lastOrNull()?.matchOver == true)
             BoardScreen(
                 seat = match.seat,
+                inputGuardMillis = System.getProperty("mtgoracle.inputGuardMillis")?.toLongOrNull() ?: INPUT_GUARD_MILLIS,
                 title = "${match.spec.seat.name} vs ${match.spec.opponent.name}" + if (match.spec.format.games > 1) " · ${match.spec.format.label}" else "",
                 mode = app.boardMode,
                 extraHints = listOf("T" to "text/art: ${app.boardMode.name.lowercase()}"),

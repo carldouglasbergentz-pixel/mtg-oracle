@@ -65,6 +65,8 @@ subprojects {
         systemProperty("mtgoracle.forgeAssets", forgeAssets.path)
         systemProperty("mtgoracle.testHome", layout.buildDirectory.dir("test-home").get().asFile.path)
         systemProperty("mtgoracle.pngDir", layout.buildDirectory.dir("test-png").get().asFile.path)
+        // Scripted seats answer the moment a prompt shows; the guard against a stray click is tested on its own (InputGuardTest).
+        systemProperty("mtgoracle.inputGuardMillis", "0")
         // SoakTest plays whole matches only when asked: -PsoakSeeds=1,2,3 [-PsoakDecks="Jori En:Phelia Doggo;A:B"].
         findProperty("soakSeeds")?.let { systemProperty("mtgoracle.soakSeeds", it.toString()) }
         findProperty("soakDecks")?.let { systemProperty("mtgoracle.soakDecks", it.toString()) }

@@ -80,6 +80,9 @@ const val SIDE_COLS = 46
 /** Cells a pane edge moves per Ctrl+←/→. */
 const val PANE_STEP = 2
 
+/** How long a new prompt ignores clicks and keys: long enough for a click meant for the last one, short of a deliberate answer. */
+const val INPUT_GUARD_MILLIS = 250L
+
 /**
  * The game board for one seat (docs/app-design.md "The game board").
  *
@@ -105,6 +108,8 @@ fun BoardScreen(
     /** The match this game belongs to, and what its panels do; null for a board with no match around it. */
     match: MatchStatus? = null,
     matchControls: MatchControls? = null,
+    /** A prompt takes no click or key this soon after it shows ([INPUT_GUARD_MILLIS] in the window). */
+    inputGuardMillis: Long = 0,
 ) {
     val none = remember { MutableStateFlow<BoardState?>(null) }
     val noPrompt = remember { MutableStateFlow<Prompt?>(null) }
@@ -127,8 +132,12 @@ fun BoardScreen(
     val registry = LocalClickRegistry.current ?: remember { ClickRegistry() }
 
     fun arrange(next: BoardLayout) { arrangement = next; onLayoutChange(next) }
+    // When the prompt on screen first showed. A click meant for the one before (a second OK, a double-click)
+    // landed on the reveal that followed it: Cloud's Lion Sash was shown and closed in the same half second.
+    val shownAt = remember(prompt?.id) { System.nanoTime() }
     fun send(event: UiEvent) {
         val current = prompt
+        if (current != null && System.nanoTime() - shownAt < inputGuardMillis * 1_000_000) return
         val out = reduce(interaction, current, event, manaAtRisk(current, board))
         interaction = out.state
         if (current != null) out.action?.let { seat?.answer(current.id, it) }
