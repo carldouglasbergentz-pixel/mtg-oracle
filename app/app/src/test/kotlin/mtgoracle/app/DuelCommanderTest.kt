@@ -33,7 +33,9 @@ class DuelCommanderTest {
         assertEquals(GameType.DUEL_COMMANDER, mine.gameType)
         // Not staged: a staged board sets every life it isn't given to -1 (Forge's puzzles need that).
         Scenario("duel-commander-start", null, seatDeck = mine, opponentDeck = theirs) { _, _, _ -> null }.use { s ->
-            s.playUntil { "GameEventGameStarted" in s.logText() && s.match.seat.board.value?.players?.size == 2 }
+            // The first priority, not just the start event: conceding while Forge's startGame still ran (mulligans,
+            // the first turn) now and then broke its loop over the players, and the game never ended.
+            s.playUntil { "GameEventPlayerPriority" in s.logText() && s.match.seat.board.value?.players?.size == 2 }
             assertEquals(listOf(20, 20), s.board.players.map { it.life }, "Duel Commander starts at 20, not Commander's 40")
             assertEquals(2, s.board.seat!!.command.count { it.name in setOf("Krark, the Thumbless", "Kediss, Emberclaw Familiar") }, "both partners start in the command zone")
             assertTrue("Duel Commander game between" in s.logText(), "Forge runs a Duel Commander game")

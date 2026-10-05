@@ -238,6 +238,28 @@ class TriggersTest {
     }
 
     @Test
+    fun `prowess on a Flurry Monk - an artifact spell is a noncreature spell, Ghost Vacuum pumps it`() {
+        // In a real game three Monks' prowess missed Ghost Vacuum (2026-10-05); staged, it triggers (see TriggerWatch).
+        val order = listOf("Opt", "Preordain", "Ghost Vacuum")
+        Scenario("trigger-prowess-artifact", ours(hand = order.joinToString(";"), battlefield = "Cori-Steel Cutter;" + List(4) { "Volcanic Island" }.joinToString(";"))) { p, b, _ ->
+            val next = order.firstNotNullOfOrNull { n -> b.inHand(n) }
+            when {
+                ourMain(p, b) && next != null -> SeatAction.ClickCard(next.id)
+                p is ConfirmPrompt -> SeatAction.Confirm(false)
+                p is InputPrompt && p.kind == InputKind.CONFIRM -> SeatAction.Ok
+                p is ChoicePrompt -> SeatAction.Choose(emptyList())
+                p is OrderPrompt -> SeatAction.Order(p.items.indices.toList())
+                priority(p) -> SeatAction.Ok
+                else -> null
+            }
+        }.use { s ->
+            s.playUntil { s.board.me().battlefield.any { it.name == "Ghost Vacuum" } && s.board.stack.isEmpty() }
+            assertTrue(s.logText().lines().any { "Resolve Stack: Prowess" in it && "Ghost Vacuum" in it }, "the Monk's prowess resolved for Ghost Vacuum")
+            assertTrue(s.logText().lines().none { "NOTE  TRIGGERS" in it }, "and TriggerWatch saw nothing off")
+        }
+    }
+
+    @Test
     fun `a delayed trigger with a choice - Teferi's +1 untaps the two lands we pick at the next end step`() {
         val lands = "Plains|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Plains|Tapped"
         val picked = mutableSetOf<Int>()

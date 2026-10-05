@@ -141,6 +141,7 @@ class SeatGui(
     private val floatingMana = FloatingMana(recorder)
     private val drawLog = DrawLog(recorder)
     private val zoneLog = ZoneLog(recorder)
+    private val triggerWatch = TriggerWatch(recorder)
     private val knownInHand = KnownInHand(isViewer = { it in seatPlayerIds })
     private val countered = Countered(named = seesCard, onCountered = ::reportCountered)
     /** The trail's seq when the seat last decided something: what came after is "just happened". */
@@ -497,7 +498,7 @@ class SeatGui(
         selectableIds = emptySet(); actionableIds = emptySet(); highlightedIds = emptySet()
         cardViews.clear(); playerViews.clear()
         skippingTurn = null
-        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); zoneLog.attach(it); knownInHand.attach(it); countered.attach(it) }
+        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); zoneLog.attach(it); triggerWatch.attach(it); knownInHand.attach(it); countered.attach(it) }
         dirty = true
     }
 
