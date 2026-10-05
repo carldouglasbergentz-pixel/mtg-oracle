@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A release updates itself.** At start, and once a day after, a release asks the repository's GitHub releases for a newer version. The status line says "MTG Oracle 0.2.0 is out (this is 0.1.0) · `update` installs it".
+  - `update` downloads the zip and checks it against the `.sha256` published beside it, then unpacks it, refusing a zip that names a path outside its folder. It closes the app for a script that moves the old program to `update\old\`, puts the new one in its place and starts it. `data\` is never touched. If the copy fails the old program goes back.
+  - Not during a game, and nothing is fetched or run unless asked.
+  - The repository is private, so the GitHub CLI's login is borrowed (`gh auth token`). The app keeps nothing secret. The token goes to api.github.com only, never to the storage a download is redirected to, and is never logged. A machine without a logged-in `gh` checks nothing.
+  - Only a release package checks (`mtgoracle.release`), never the repo's snapshot or a test.
+  - `UpdatesTest` runs it against a GitHub-shaped local server: newer or not, a wrong checksum refused, a zip-slip refused, and the swap script run for real, the program replaced and the data kept.
 - **A release package for Windows** (`gradlew :app:packageRelease -PreleaseVersion=0.1.0`): `MTG Oracle.exe` with no console, `mtg.exe` for the command line, and a Java runtime of its own (jlink, about 110 MB), so the machine needs no JDK.
   - It is a folder and its zip (about 150 MB, with a `.sha256`) that runs from wherever it is unpacked. Its data (database, settings, logs, Forge's cache, exports) sits in `data\` beside the exe; Forge's assets and the points lists sit inside the package.
   - A first start makes an empty database for the daily sync to fill.

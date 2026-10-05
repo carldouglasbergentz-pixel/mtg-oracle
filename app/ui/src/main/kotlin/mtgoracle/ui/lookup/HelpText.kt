@@ -51,6 +51,8 @@ DATA
                                       fetches it all again
   autosync [on|off]                   the daily sync in the background, on by default:
                                       once a day, Spellbook's 675 MB once a week
+  update                              install the newest release, if it is newer: the
+                                      app restarts, and data\ is kept
   prune [--yes]                       card rows no export writes any more; a dry run
                                       without --yes, and a deck's cards are always kept
 

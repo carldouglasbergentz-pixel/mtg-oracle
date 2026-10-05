@@ -129,7 +129,7 @@ class AppController(private val paths: AppPaths) {
             lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
             copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
             writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
-            selectedDeck = { selectedId }, sync = { force, only -> sync(force, only) }, autoSync = ::autoSyncSetting,
+            selectedDeck = { selectedId }, sync = { force, only -> sync(force, only) }, autoSync = ::autoSyncSetting, update = ::update,
             onCardsChanged = { commands?.let { current -> buildLookup(db, carry = current) } },
             output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
         )
@@ -242,10 +242,83 @@ class AppController(private val paths: AppPaths) {
         return true
     }
 
-    /** Looks every hour whether the daily sync is due, the first time a minute after start. Only the window starts it, never a test. */
+    /**
+     * Looks every hour whether the daily sync is due, the first time a minute after start, and
+     * whether a release has a newer version (at start, then daily). Only the window starts it, never a test.
+     */
     fun startAutoSync() {
         val timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "auto-sync").apply { isDaemon = true } }
-        timer.scheduleAtFixedRate({ java.awt.EventQueue.invokeLater { autoSyncIfDue() } }, 1, 60, java.util.concurrent.TimeUnit.MINUTES)
+        var first = true
+        timer.scheduleAtFixedRate({
+            java.awt.EventQueue.invokeLater {
+                autoSyncIfDue()
+                val last = settings.updateLastCheck
+                if (first || last == null || java.time.Duration.between(last, clock()) >= java.time.Duration.ofHours(24)) checkUpdates()
+                first = false
+            }
+        }, 1, 60, java.util.concurrent.TimeUnit.MINUTES)
+    }
+
+    /** This release's updates; null when the app doesn't run from a release package (the repo's snapshot, a test). */
+    private val updates: Updates? = run {
+        val release = ReleaseVersion.parse(System.getProperty("mtgoracle.release"))
+        val install = System.getProperty("mtgoracle.install")?.let { java.io.File(it).canonicalFile }
+        if (release != null && install != null) Updates(install, release) else null
+    }
+    /** The newer release found, if one is. */
+    @Volatile private var newerRelease: Release? = null
+    @Volatile private var updating = false
+    /** What the status line says of a newer release while nothing else is said. */
+    var updateNotice by mutableStateOf<String?>(null)
+        private set
+
+    /** Asks GitHub, in the background, whether a newer release is out; quiet when it can't tell (no login, no network). */
+    fun checkUpdates() {
+        val u = updates ?: return
+        thread(name = "update-check", isDaemon = true) {
+            val newer = runCatching { u.newer() }.onFailure { Log.info("update check: ${it.message}") }.getOrNull()
+            settings.updateLastCheck = clock()
+            java.awt.EventQueue.invokeLater {
+                newerRelease = newer
+                updateNotice = newer?.let { "MTG Oracle ${it.version} is out (this is ${u.running}) · `update` installs it" }
+            }
+        }
+    }
+
+    /**
+     * `update`: the newer release downloaded, its SHA-256 checked, and unpacked; then the app
+     * closes for the swap script, which keeps data\ and starts the new version. Not during a game.
+     */
+    fun update(): String {
+        val u = updates ?: return "updates come with a release package; this one runs from the repo (gradlew :app:installLocal)"
+        if (match != null || simulation != null) return "finish or leave the game first: an update closes the app"
+        if (updating) return "an update is under way"
+        updating = true
+        notice = "update: asking GitHub for the newest release"
+        thread(name = "update", isDaemon = true) {
+            try {
+                val release = newerRelease ?: u.newer()
+                if (release == null) {
+                    java.awt.EventQueue.invokeLater { notice = "update: ${u.running} is the newest release" }
+                    return@thread
+                }
+                val program = u.download(release) { line -> notice = "update: $line" }
+                val script = u.applyScript(program, ProcessHandle.current().pid())
+                Log.info("update: ${u.running} -> ${release.version}, swapping with $script")
+                java.awt.EventQueue.invokeLater {
+                    notice = "update: restarting into ${release.version}"
+                    u.launch(script)
+                    shutdown()
+                    kotlin.system.exitProcess(0)
+                }
+            } catch (e: Exception) {
+                Log.warn("update failed: ${e.message}")
+                java.awt.EventQueue.invokeLater { notice = "update failed: ${e.message}" }
+            } finally {
+                updating = false
+            }
+        }
+        return "update: looking for a newer release (the status line follows it)"
     }
 
     /** `autosync on|off`, or with null what it is: the answer for the output. */

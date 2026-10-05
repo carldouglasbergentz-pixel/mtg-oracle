@@ -191,6 +191,8 @@ tasks.register("packageRelease") {
             // No spaces: jpackage's launcher splits a java option on them, and "(abc1234)" became the main class.
             "-Dmtgoracle.version=$release+$commit",
             "-Dmtgoracle.release=$release",
+            // Where the package is, for the update to swap (Updates); data\ beside it is kept.
+            "-Dmtgoracle.install=\$APPDIR/..",
         )
         val jpackage = snapshotJava.get().executablePath.asFile.resolveSibling("jpackage.exe")
         val command = listOf(

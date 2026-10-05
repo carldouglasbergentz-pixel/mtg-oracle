@@ -79,6 +79,8 @@ class LookupCommands(
     private val sync: ((force: Boolean, only: Set<Source>) -> Unit)? = null,
     /** `autosync on|off` (null: just say): the answer for the output; null where there is none (tests of lookup alone). */
     private val autoSync: ((Boolean?) -> String)? = null,
+    /** `update`: installs a newer release, if there is one; the answer for the output. Null where there is none (tests of lookup alone). */
+    private val update: (() -> String)? = null,
     /** The cards changed under the lookup (a prune): rebuild it, as after a sync. */
     private val onCardsChanged: () -> Unit = {},
     /** The scrollback and the command line, carried over when the lookup is rebuilt after a sync. */
@@ -213,6 +215,7 @@ class LookupCommands(
             "results" -> results(arg)
             "sync" -> sync(arg)
             "autosync" -> autoSync(arg)
+            "update" -> say(update?.invoke() ?: "(updates are not available here)", Tone.DIM)
             "combo-info" -> comboInfo(arg)
             "rule" -> if (arg.isEmpty()) say("usage: rule <rule_number>") else rule(arg)
             "search-rules" -> if (arg.isEmpty()) say("usage: search-rules <text>") else say(renderRulesSearch(arg, lookup.rules.search(arg, limit = 25)))

@@ -145,6 +145,11 @@ class Settings(private val file: File) {
         get() = props.getProperty("theme")
         set(value) { if (value == null) props.remove("theme") else props.setProperty("theme", value); save() }
 
+    /** When a release last asked GitHub for a newer one (Updates): once a day, and at each start. */
+    var updateLastCheck: java.time.Instant?
+        get() = instant("update.lastCheck")
+        set(value) { setInstant("update.lastCheck", value) }
+
     /** Whether the app syncs by itself once a day (AutoSync); on unless turned off with `autosync off`. */
     var autoSync: Boolean
         get() = props.getProperty("sync.auto") != "false"

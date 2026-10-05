@@ -14,7 +14,7 @@ val COMMANDS = listOf(
     // Games.
     "results",
     // The data.
-    "sync", "autosync", "prune",
+    "sync", "autosync", "prune", "update",
 )
 
 /** What a line's first word must be to run as a command; anything else is a search. */
@@ -49,6 +49,7 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "prune" to "prune [--yes]: the card rows no export writes any more (a dry run without --yes; decks keep theirs)",
     "sync" to "sync [--force] [cards|rules|combos|tags|oracletags|formats|printings ...]: fetch what moved upstream (decks are never touched)",
     "autosync" to "autosync [on|off]: the daily sync in the background (Spellbook weekly); on by default",
+    "update" to "update: install the newest release, if it is newer (the app restarts; data\\ is kept)",
 )
 
 /**
