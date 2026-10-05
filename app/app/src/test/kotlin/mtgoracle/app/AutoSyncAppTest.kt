@@ -29,7 +29,7 @@ class AutoSyncAppTest {
     @AfterTest fun close() { data.deleteRecursively() }
 
     private fun app(upstream: Upstream = FixtureDb.Exports(FixtureDb.raw)) =
-        AppController(AppPaths(data, assets, forgeHome = Scenario.home)).also { it.upstream = upstream; it.clock = { now }; it.boot() }
+        AppController(AppPaths(data, assets, forgeHome = Scenario.home)).also { it.sync.upstream = upstream; it.sync.clock = { now }; it.boot() }
 
     private fun AppController.awaitSync() {
         val deadline = System.currentTimeMillis() + 180_000
@@ -43,41 +43,41 @@ class AutoSyncAppTest {
     @Test
     fun `once a day, Spellbook once a week, a failure said until it syncs, and off when turned off`() {
         val app = app()
-        assertTrue(app.autoSyncIfDue(), "never synced: due at once")
+        assertTrue(app.sync.autoIfDue(), "never synced: due at once")
         app.awaitSync()
         assertEquals(now, app.settings.syncLast)
         assertEquals(now, app.settings.syncLastCombos, "the first run takes Spellbook too")
-        assertNull(app.syncWarning)
+        assertNull(app.sync.warning)
         assertFalse(app.lookupUi!!.showOutput, "a daily run doesn't open the output over the library")
 
         now += Duration.ofHours(23)
-        assertFalse(app.autoSyncIfDue(), "23 hours on: not yet")
+        assertFalse(app.sync.autoIfDue(), "23 hours on: not yet")
 
         // A day on, Wizards' rules page is down: the rest syncs, Spellbook waits for its week, and the failure is said.
         now += Duration.ofHours(2)
         val down = object : Upstream by FixtureDb.Exports(FixtureDb.raw) { override fun rulesPage(): String = error("Wizards is down") }
-        app.upstream = down
+        app.sync.upstream = down
         app.notice = null
-        assertTrue(app.autoSyncIfDue())
+        assertTrue(app.sync.autoIfDue())
         app.awaitSync()
         assertEquals(Instant.parse("2026-10-05T08:00:00Z"), app.settings.syncLastCombos, "Spellbook stays weekly")
         assertEquals(setOf(Source.RULES), app.settings.syncFailed.keys)
-        assertTrue(app.syncWarning.orEmpty().startsWith("sync: rules failed"), "${app.syncWarning}")
+        assertTrue(app.sync.warning.orEmpty().startsWith("sync: rules failed"), "${app.sync.warning}")
 
         // A restart still says it; a sync that gets the rules clears it.
         val again = app(down)
-        assertTrue(again.syncWarning.orEmpty().startsWith("sync: rules failed"), "${again.syncWarning}")
-        again.upstream = FixtureDb.Exports(FixtureDb.raw)
+        assertTrue(again.sync.warning.orEmpty().startsWith("sync: rules failed"), "${again.sync.warning}")
+        again.sync.upstream = FixtureDb.Exports(FixtureDb.raw)
         again.notice = null
-        again.sync(only = setOf(Source.RULES))
+        again.sync.run(only = setOf(Source.RULES))
         again.awaitSync()
-        assertNull(again.syncWarning, "the rules synced: nothing to say")
+        assertNull(again.sync.warning, "the rules synced: nothing to say")
 
-        assertEquals("daily sync: off · `sync` fetches by hand", again.autoSyncSetting(false).substringBefore(" · last"))
+        assertEquals("daily sync: off · `sync` fetches by hand", again.sync.setting(false).substringBefore(" · last"))
         now += Duration.ofDays(2)
-        assertFalse(again.autoSyncIfDue(), "off: never by itself")
-        assertNotNull(again.autoSyncSetting(true))
-        assertTrue(again.autoSyncIfDue(), "on again, and a day has gone: due")
+        assertFalse(again.sync.autoIfDue(), "off: never by itself")
+        assertNotNull(again.sync.setting(true))
+        assertTrue(again.sync.autoIfDue(), "on again, and a day has gone: due")
         again.awaitSync()
     }
 }

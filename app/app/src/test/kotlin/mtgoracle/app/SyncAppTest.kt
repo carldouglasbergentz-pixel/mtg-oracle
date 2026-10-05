@@ -48,7 +48,7 @@ class SyncAppTest {
         val decksBefore = count(copy, "SELECT COUNT(*) FROM deck_cards")
 
         val app = AppController(AppPaths(data, assets, forgeHome = Scenario.home))
-        app.upstream = object : Upstream {
+        app.sync.upstream = object : Upstream {
             override fun scryfallBulk() = mapOf("oracle_cards" to Bulk("t1", "cards"), "rulings" to Bulk("t1", "rulings"), "oracle_tags" to Bulk("t1", "tags"))
             override fun rulesPage() = """MagicCompRules%2020990101.txt https://media.wizards.com/2099/downloads/MagicCompRules%2020990101.txt"""
             override fun bytes(url: String) = "1. Game Concepts\n100. General\n100.1. A rule.".toByteArray()
@@ -85,7 +85,7 @@ class SyncAppTest {
     fun `a first start creates an empty database, and the first sync fills it`() {
         data = kotlin.io.path.createTempDirectory("mtg-oracle-first-start-").toFile()
         val app = AppController(AppPaths(data, assets, forgeHome = Scenario.home))
-        app.upstream = FixtureDb.Exports(FixtureDb.raw)
+        app.sync.upstream = FixtureDb.Exports(FixtureDb.raw)
         app.boot()
         assertEquals(Screen.Library, app.screen)
         assertTrue(app.notice!!.contains("[ Sync ]"), app.notice)

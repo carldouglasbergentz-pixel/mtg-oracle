@@ -138,7 +138,7 @@ class AppController(private val paths: AppPaths) {
             lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
             copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
             writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
-            selectedDeck = { selectedId }, sync = { force, only -> sync(force, only) }, autoSync = ::autoSyncSetting, update = ::update,
+            selectedDeck = { selectedId }, sync = { force, only -> sync.run(force, only) }, autoSync = sync::setting, update = updates::install,
             onCardsChanged = { commands?.let { current -> buildLookup(db, carry = current) } },
             output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
         )
@@ -179,77 +179,17 @@ class AppController(private val paths: AppPaths) {
         carry?.scope?.let { lookupCommands.enterDeck(it.deckId, carried = true) }
     }
 
-    /** The sync running, if one is; its log line is the notice. */
-    @Volatile private var syncing = false
-    /** The time, for the sync's record; the tests move it. */
-    var clock: () -> java.time.Instant = java.time.Instant::now
-    /** What the status line says about the sync while nothing else is said: a failure, or a stale sync (AutoSync.status). */
-    var syncWarning by mutableStateOf<String?>(null)
-        private set
-    /** Where the network is for a sync; the tests serve files instead. */
-    var upstream: mtgoracle.data.sync.Upstream = mtgoracle.data.sync.HttpUpstream()
-
-    /**
-     * The data pipeline in the background: [only]'s sources, skipping those
-     * whose upstream hasn't moved unless [force]. Its report goes to the
-     * output; when it changed the cards, the lookup is built again so search
-     * and names see them. Decks are never touched.
-     */
-    fun sync(force: Boolean = false, only: Set<mtgoracle.core.sync.Source> = mtgoracle.core.sync.Source.entries.toSet(), auto: Boolean = false) {
-        val database = db ?: return
-        if (syncing) { notice = "a sync is running already"; return }
-        syncing = true
-        notice = if (auto) "sync (daily): starting" else "sync: starting"
-        thread(name = "sync", isDaemon = true) {
-            val report = try {
-                mtgoracle.data.sync.Sync(database, upstream, paths.data.resolve("raw"), paths.formats, log = { notice = "sync: $it" }).run(force, only)
-            } catch (e: Exception) {
-                Log.error("sync failed", e)
-                null
-            } finally {
-                syncing = false
-            }
-            java.awt.EventQueue.invokeLater {
-                recordSync(only, failed = report?.failures?.map { it.first }?.toSet() ?: only)
-                val current = commands ?: return@invokeLater
-                if (report == null) { notice = "sync failed: see ${paths.appLog}"; return@invokeLater }
+    /** The sync, by hand and daily; its report builds the lookup again and goes to the output. */
+    val sync = SyncControl(paths, settings, db = { db }, busy = { match != null || simulation != null }, say = { notice = it },
+        onDone = { report, auto ->
+            commands?.let { current ->
                 // Always: a points change (4 to 3) keeps the row count, so the report can't tell; a rebuild is ~130 ms.
-                buildLookup(database, carry = current)
+                db?.let { buildLookup(it, carry = current) }
                 commands?.output?.add(mtgoracle.ui.lookup.renderSyncReport(report))
                 // A daily run reports to the output without opening it over what you are looking at.
                 if (!auto) lookupUi?.showOutput = true
-                notice = if (report.failures.isEmpty()) "sync done" + if (report.touched) "" else ": everything was up to date"
-                else "sync done, ${report.failures.size} source(s) failed: ${report.failures.joinToString { it.first.key }}"
             }
-        }
-    }
-
-    /** A sync of [ran] finished, [failed] among them: kept in the settings, so the warning outlives a restart. */
-    private fun recordSync(ran: Set<mtgoracle.core.sync.Source>, failed: Set<mtgoracle.core.sync.Source>) {
-        val now = clock()
-        settings.syncLast = now
-        if (mtgoracle.core.sync.Source.COMBOS in ran && mtgoracle.core.sync.Source.COMBOS !in failed) settings.syncLastCombos = now
-        settings.syncFailed = settings.syncFailed.filterKeys { it !in ran } + failed.associateWith { settings.syncFailed[it] ?: now }
-        refreshSyncWarning()
-    }
-
-    private fun refreshSyncWarning() {
-        syncWarning = mtgoracle.core.sync.AutoSync.status(clock(), settings.syncLast, settings.syncFailed)
-    }
-
-    /**
-     * The daily sync, if it is due (AutoSync.due) and nothing would be in its
-     * way: auto-sync on, no sync running, and no game or simulation, whose
-     * writes would wait on the sync's long transactions. True when it started.
-     */
-    fun autoSyncIfDue(): Boolean {
-        if (!settings.autoSync || db == null || syncing || match != null || simulation != null) return false
-        val sources = mtgoracle.core.sync.AutoSync.due(clock(), settings.syncLast, settings.syncLastCombos)
-        if (sources.isEmpty()) return false
-        Log.info("daily sync: ${sources.joinToString { it.key }}")
-        sync(only = sources, auto = true)
-        return true
-    }
+        })
 
     /**
      * Looks every hour whether the daily sync is due, the first time a minute after start, and
@@ -260,82 +200,15 @@ class AppController(private val paths: AppPaths) {
         var first = true
         timer.scheduleAtFixedRate({
             java.awt.EventQueue.invokeLater {
-                autoSyncIfDue()
-                val last = settings.updateLastCheck
-                if (first || last == null || java.time.Duration.between(last, clock()) >= java.time.Duration.ofHours(24)) checkUpdates()
+                sync.autoIfDue()
+                if (first || updates.due()) updates.check()
                 first = false
             }
         }, 1, 60, java.util.concurrent.TimeUnit.MINUTES)
     }
 
-    /** This release's updates; null when the app doesn't run from a release package (the repo's snapshot, a test). */
-    private val updates: Updates? = run {
-        val release = ReleaseVersion.parse(System.getProperty("mtgoracle.release"))
-        val install = System.getProperty("mtgoracle.install")?.let { java.io.File(it).canonicalFile }
-        if (release != null && install != null) Updates(install, release) else null
-    }
-    /** The newer release found, if one is. */
-    @Volatile private var newerRelease: Release? = null
-    @Volatile private var updating = false
-    /** What the status line says of a newer release while nothing else is said. */
-    var updateNotice by mutableStateOf<String?>(null)
-        private set
-
-    /** Asks GitHub, in the background, whether a newer release is out; quiet when it can't tell (no login, no network). */
-    fun checkUpdates() {
-        val u = updates ?: return
-        thread(name = "update-check", isDaemon = true) {
-            val newer = runCatching { u.newer() }.onFailure { Log.info("update check: ${it.message}") }.getOrNull()
-            settings.updateLastCheck = clock()
-            java.awt.EventQueue.invokeLater {
-                newerRelease = newer
-                updateNotice = newer?.let { "MTG Oracle ${it.version} is out (this is ${u.running}) · `update` installs it" }
-            }
-        }
-    }
-
-    /**
-     * `update`: the newer release downloaded, its SHA-256 checked, and unpacked; then the app
-     * closes for the swap script, which keeps data\ and starts the new version. Not during a game.
-     */
-    fun update(): String {
-        val u = updates ?: return "updates come with a release package; this one runs from the repo (gradlew :app:installLocal)"
-        if (match != null || simulation != null) return "finish or leave the game first: an update closes the app"
-        if (updating) return "an update is under way"
-        updating = true
-        notice = "update: asking GitHub for the newest release"
-        thread(name = "update", isDaemon = true) {
-            try {
-                val release = newerRelease ?: u.newer()
-                if (release == null) {
-                    java.awt.EventQueue.invokeLater { notice = "update: ${u.running} is the newest release" }
-                    return@thread
-                }
-                val program = u.download(release) { line -> notice = "update: $line" }
-                val script = u.applyScript(program, ProcessHandle.current().pid())
-                Log.info("update: ${u.running} -> ${release.version}, swapping with $script")
-                java.awt.EventQueue.invokeLater {
-                    notice = "update: restarting into ${release.version}"
-                    u.launch(script)
-                    shutdown()
-                    kotlin.system.exitProcess(0)
-                }
-            } catch (e: Exception) {
-                Log.warn("update failed: ${e.message}")
-                java.awt.EventQueue.invokeLater { notice = "update failed: ${e.message}" }
-            } finally {
-                updating = false
-            }
-        }
-        return "update: looking for a newer release (the status line follows it)"
-    }
-
-    /** `autosync on|off`, or with null what it is: the answer for the output. */
-    fun autoSyncSetting(on: Boolean?): String {
-        if (on != null) settings.autoSync = on
-        val last = settings.syncLast?.let { " · last sync ${java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(java.time.ZoneId.systemDefault()).format(it)}" }.orEmpty()
-        return if (settings.autoSync) "daily sync: on (Spellbook weekly)$last" else "daily sync: off · `sync` fetches by hand$last"
-    }
+    /** A release's updates from GitHub, checked daily and installed by `update`. */
+    val updates = UpdateControl(settings, clock = { sync.clock() }, busy = { match != null || simulation != null }, say = { notice = it }, shutdown = ::shutdown)
 
     /** Opens the database (migrating it to this build's schema first), then brings Forge up in the background. */
     fun boot() {
@@ -359,7 +232,7 @@ class AppController(private val paths: AppPaths) {
             decks.firstOrNull()?.let { select(it.id) }
             this.db = db
             buildLookup(db, carry = null)
-            refreshSyncWarning()
+            sync.refreshWarning()
             screen = Screen.Library
         } catch (e: SchemaTooOldException) {
             screen = Screen.Blocked(e.message!!)
