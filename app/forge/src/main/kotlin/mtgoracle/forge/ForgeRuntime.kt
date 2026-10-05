@@ -62,6 +62,7 @@ object ForgeRuntime {
         writeProfile(setup)
 
         val started = System.nanoTime()
+        HandlerFailures.install()
         images = ForgeImages(edt)
         guiBase = AppGuiBase(setup.assets.path + File.separator, edt, images.fetcher)
         GuiBase.setInterface(guiBase)

@@ -69,6 +69,8 @@ open class StagedGame(
     private val driver: OffscreenDriver
     val answered = mutableListOf<Pair<Prompt, SeatAction>>()
     private var fallbacks = 0
+    /** Handlers of ours that had failed inside Forge before this game: one more by its end fails it. */
+    private val failuresBefore = mtgoracle.forge.HandlerFailures.count
 
     init {
         log.delete()
@@ -154,5 +156,7 @@ open class StagedGame(
         check(match.result.value != null) { "the staged game did not end after conceding" }
         driver.close()
         match.recorder.close()
+        val failed = mtgoracle.forge.HandlerFailures.count - failuresBefore
+        check(failed == 0) { "$failed handler(s) of ours failed inside Forge during '${log.nameWithoutExtension}': the trace is in the app log, the line in ${log.name}" }
     }
 }

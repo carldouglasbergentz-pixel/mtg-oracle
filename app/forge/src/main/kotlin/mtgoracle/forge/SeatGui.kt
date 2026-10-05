@@ -149,6 +149,11 @@ class SeatGui(
     private val promptIds = AtomicLong()
     private val failedCasts = FailedCasts(promptCount = { promptIds.get() }, isSeats = { cv -> cv.controller?.id in seatPlayerIds }, onFailed = ::castFailed)
     private val refreshHook: AutoCloseable = edt.afterEachTask { refresh() }
+    // A handler of ours that failed inside Forge (HandlerFailures): said in the game's log and on the board.
+    private val failureHook: AutoCloseable = HandlerFailures.listen { summary ->
+        recorder.note("ERROR a handler failed: $summary")
+        warningFlow.value = "Something in the app's handling of this game failed ($summary). The game may be off from here; the trace is in app.log."
+    }
 
     @Volatile private var seatController: PlayerControllerHuman? = null
     @Volatile private var seatPlayerIds: Set<Int> = emptySet()
@@ -549,7 +554,7 @@ class SeatGui(
     }
 
     /** When the match is over or left: this seat takes no more games. */
-    fun dispose() = refreshHook.close()
+    fun dispose() { refreshHook.close(); failureHook.close() }
 
     // --- Input feedback (EDT) ------------------------------------------------
 
