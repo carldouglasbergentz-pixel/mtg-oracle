@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A card Forge's AI won't play is flagged in the deck, with a `[!]` that fixes it.** Beside the card, in the workspace and the library's view of a deck: red, with `[!]` before its name, which asks for its AI substitute at once (as the menu's *AI substitute...* does). Once the AI copy has one, the button is `[→]` (change it) and the flag says what the AI plays. A card Forge lacks is flagged the same way. In art mode the frame is red with `AI!` in its top edge. The zoom pane says why and what to do; the words beside the card show where they fit whole. Forge's answer is `RemoveDeck` on the card (`ForgeCards.support`), asked once per name. `AiFlag` (core), `AiFlagTest`, `AiFlagsTest`.
+
 ### Fixed
 - **`data\import\` and `data\exports\` are there from the first start**, the import folder with a `README.txt` saying what to put there and what happens to it. Made only when first used, neither was there to be found.
 - **A release asks GitHub for a newer one seconds after it starts.** The first look came with the daily sync's, a minute in, so a window closed sooner never heard of 0.2.0 (`update` by hand found it at once). The answer is logged either way (`update check: 0.2.0 is the newest`), and a newer release goes before the sync's standing warning in the status line, being rare and something to act on.

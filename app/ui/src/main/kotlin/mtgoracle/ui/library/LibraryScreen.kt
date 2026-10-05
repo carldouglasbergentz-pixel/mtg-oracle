@@ -109,6 +109,8 @@ fun LibraryScreen(
     /** The deck list's and the zoom pane's widths as last kept (drag their edges, Ctrl+(Shift+)←/→). */
     columns: SideColumns = SideColumns(DECK_LIST_COLS, SIDE_COLS),
     onColumnsChange: (SideColumns) -> Unit = {},
+    /** Cards Forge's AI won't play or Forge lacks: flagged red beside them. */
+    aiFlags: Map<String, mtgoracle.core.deck.AiFlag> = emptyMap(),
 ) {
     var kept by remember { mutableStateOf(columns) }
     // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
@@ -242,7 +244,8 @@ fun LibraryScreen(
                         BoxPane(deck?.name ?: "no deck selected", Modifier.fillMaxWidth().weight(1f), right = right) {
                             Column(Modifier.verticalScroll(rememberScrollState())) {
                                 if (deck == null) GridText("Pick a deck on the left.", color = Palette.dim)
-                                else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it }, points = pointsOf)
+                                else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it }, points = pointsOf, aiFlags = aiFlags,
+                                    onAiFlag = { card -> lookup?.intent?.invoke(LibraryIntent.AiSubstitute(deck.id, card)) })
                             }
                         }
                     }

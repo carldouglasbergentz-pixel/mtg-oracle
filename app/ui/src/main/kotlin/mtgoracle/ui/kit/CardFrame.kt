@@ -122,6 +122,8 @@ fun CardFrame(
     tier: FrameTier = FrameSize.tierOf(mode),
     /** The mouse is on this card through something laid over it (an overlapped card's strip): drawn as if on the frame. */
     hovered: Boolean = false,
+    /** Something is wrong with the card for its deck (Forge's AI won't play it): the frame in the tapped tone, over every other. */
+    alert: Boolean = false,
 ) {
     if (turnable) {
         val cells = LocalCells.current
@@ -151,6 +153,7 @@ fun CardFrame(
     }
     // Tapped has a tone of its own (Theme.tapped); a pick or a mark outranks it.
     val borderColor = when {
+        alert -> Palette.tapped
         emphasis != Emphasis.NONE || mark != null -> Palette.accent
         face.tapped -> Palette.tapped
         else -> Palette.dim

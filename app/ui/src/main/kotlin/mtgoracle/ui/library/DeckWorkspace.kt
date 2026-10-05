@@ -103,6 +103,8 @@ fun DeckWorkspace(
     /** The deck pane's (in this [deckMode]) and the zoom pane's widths as last kept (drag their edges, Ctrl+(Shift+)←/→). */
     columns: SideColumns = defaultWorkspaceColumns(deckMode),
     onColumnsChange: (SideColumns) -> Unit = {},
+    /** Cards Forge's AI won't play or Forge lacks: flagged red beside them. */
+    aiFlags: Map<String, mtgoracle.core.deck.AiFlag> = emptyMap(),
 ) {
     var kept by remember(deckMode) { mutableStateOf(columns) }
     // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
@@ -215,7 +217,7 @@ fun DeckWorkspace(
                             if (deck == null) GridText("This deck is gone.", color = Palette.dim)
                             else EditableDeck(
                                 deck, lookup.deckTab, deckMode, left - 2, selected = deckRow.takeIf { inDeck }, keyFor = keyFor,
-                                points = lookup::pointsOf, flags = lookup.flags, history = lookup.history,
+                                points = lookup::pointsOf, flags = lookup.flags, aiFlags = aiFlags, history = lookup.history,
                                 extraMenu = { row ->
                                     if (row.section == DeckSection.CONSIDERING) emptyList()
                                     else {
@@ -228,6 +230,7 @@ fun DeckWorkspace(
                                     }
                                 },
                                 onUnsubstitute = { card -> lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, card)) },
+                                onAiFlag = { card -> lookup.intent(LibraryIntent.AiSubstitute(deck.id, card)) },
                                 onTab = { lookup.deckTab = it; deckRow = null }, onEdit = lookup.edit,
                                 onOpen = { lookup.open(OutputLink.Card(it)) }, onHover = { zoom = it },
                             )

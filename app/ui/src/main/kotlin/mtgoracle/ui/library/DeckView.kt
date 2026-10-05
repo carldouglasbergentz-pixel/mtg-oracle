@@ -19,6 +19,7 @@ import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.theme.LocalCells
+import mtgoracle.ui.theme.Palette
 
 /** The order the deck view groups by, front face's type deciding. */
 internal val TYPE_ORDER = listOf("Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land")
@@ -35,7 +36,13 @@ fun primaryType(card: DeckCard): String {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun DeckView(deck: Deck, keyFor: (DeckCard) -> String?, mode: CardMode, cols: Int, onHover: (CardFace) -> Unit, points: (String) -> Int? = { null }) {
+internal fun DeckView(
+    deck: Deck, keyFor: (DeckCard) -> String?, mode: CardMode, cols: Int, onHover: (CardFace) -> Unit, points: (String) -> Int? = { null },
+    /** Cards Forge's AI won't play or Forge lacks: red beside them until the AI copy has a substitute. */
+    aiFlags: Map<String, mtgoracle.core.deck.AiFlag> = emptyMap(),
+    /** A flag's `[!]` / `[→]`: that card's AI substitute, asked for at once. */
+    onAiFlag: (String) -> Unit = {},
+) {
     val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
     for (section in Section.entries) {
         val cards = deck.cards.filter { it.section == section }
@@ -46,17 +53,28 @@ internal fun DeckView(deck: Deck, keyFor: (DeckCard) -> String?, mode: CardMode,
             RuleLine(cols, label = "$group (${groupCards.sumOf { it.quantity }})", bold = true)
             if (mode == CardMode.TEXT) {
                 groupCards.forEachIndexed { i, card ->
-                    val face = card.face(keyFor(card))
+                    val flag = aiFlags[card.name]
+                    val face = card.face(keyFor(card)).flagged(flag)
                     val printing = card.setCode?.let { " (${it.uppercase()}) ${card.collectorNumber.orEmpty()}" }.orEmpty()
                     val name = card.name + (points(card.name)?.let { " ($it)" } ?: "")
-                    GridText(fit("%2d %-32s %-10s %s".format(card.quantity, name, face.manaCost, face.typeLine) + printing, cols),
-                        Modifier.clickTarget(ClickTarget.Control("card:${section}:$group:$i"), {}) { onHover(face) })
+                    androidx.compose.foundation.layout.Row {
+                        flag?.let { f -> AiFlagButton(f, card.name, onAiFlag); GridText(" ") }
+                        val width = cols - if (flag != null) 4 else 0
+                        GridText(fit(withLabel("%2d %-${if (flag != null) 28 else 32}s %-10s %s".format(card.quantity, name, face.manaCost, face.typeLine) + printing, flag, width), width),
+                            Modifier.clickTarget(ClickTarget.Control("card:${section}:$group:$i"), {}) { onHover(face) },
+                            color = if (flag?.open == true) Palette.tapped else Palette.foreground)
+                    }
                 }
             } else {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
                     groupCards.forEachIndexed { i, card ->
-                        val face = card.face(keyFor(card))
-                        CardFrame(face, mode, target = ClickTarget.Control("card:${section}:$group:$i"), onHover = { onHover(face) }, mark = points(card.name)?.let { "($it)" })
+                        val flag = aiFlags[card.name]
+                        val face = card.face(keyFor(card)).flagged(flag)
+                        androidx.compose.foundation.layout.Column {
+                            CardFrame(face, mode, target = ClickTarget.Control("card:${section}:$group:$i"), onHover = { onHover(face) },
+                                mark = frameMark(points(card.name), flag), alert = flag?.open == true)
+                            flag?.let { f -> AiFlagButton(f, card.name, onAiFlag) }
+                        }
                     }
                 }
             }

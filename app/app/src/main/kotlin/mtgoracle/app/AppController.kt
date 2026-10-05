@@ -287,6 +287,26 @@ class AppController(private val paths: AppPaths) {
         )
     }.onFailure { Log.warn("could not make the package folders: ${it.message}") }
 
+    /** Forge's word on each card name asked so far: it never changes while the app runs. */
+    private val forgeAnswers = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<mtgoracle.core.deck.AiFlag.Kind>>()
+
+    /**
+     * [deck]'s cards Forge's AI won't play, or Forge lacks, and the substitute each has: the red flag
+     * beside them in the library and the workspace. Nothing before Forge is up, rather than everything.
+     */
+    fun aiFlags(deck: Deck): Map<String, mtgoracle.core.deck.AiFlag> {
+        if (!forgeReady) return emptyMap()
+        return mtgoracle.core.deck.AiFlag.of(deck) { name ->
+            forgeAnswers.getOrPut(name) {
+                java.util.Optional.ofNullable(when (ForgeCards.support(name)) {
+                    mtgoracle.forge.ForgeSupport.AI_CANT_PLAY -> mtgoracle.core.deck.AiFlag.Kind.AI_WONT_PLAY
+                    mtgoracle.forge.ForgeSupport.UNKNOWN -> mtgoracle.core.deck.AiFlag.Kind.FORGE_LACKS
+                    mtgoracle.forge.ForgeSupport.PLAYABLE -> null
+                })
+            }.orElse(null)
+        }
+    }
+
     fun deckById(id: Int): Deck? = deckCache.getOrPut(id) { library.deck(id) ?: return null }
 
     /** Deck [id] was changed (in the workspace): read it again, and the library's counts. */

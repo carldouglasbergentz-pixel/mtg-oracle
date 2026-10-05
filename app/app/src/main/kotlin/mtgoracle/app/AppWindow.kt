@@ -90,6 +90,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
         Screen.Library -> app.editing?.let { open ->
             DeckWorkspace(
                 deck = app.deckById(open.deckId), filters = open.filters.map { it.second }, keyFor = app::keyFor,
+                aiFlags = app.deckById(open.deckId)?.let { d -> remember(d, app.forgeReady) { app.aiFlags(d) } }.orEmpty(),
                 deckMode = app.deckPaneMode, lookup = app.lookupUi!!, notice = app.notice ?: app.updates.notice ?: app.sync.warning,
                 insight = app.insight?.takeIf { it.deckId == open.deckId },
                 onLeave = app::leaveEdit, onToggleResults = app::toggleMode, onToggleDeckMode = app::toggleDeckPaneMode,
@@ -99,6 +100,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             )
         } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
+            aiFlags = app.deck?.let { d -> remember(d, app.forgeReady) { app.aiFlags(d) } }.orEmpty(),
             notice = app.notice ?: if (!app.forgeReady) "Forge is loading…" else app.updates.notice ?: app.sync.warning,
             onSelect = app::select, onPlay = { app.play.openLobby(app.selectedId) }, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit, onAchievements = app::openAchievements,
             lookup = app.lookupUi,

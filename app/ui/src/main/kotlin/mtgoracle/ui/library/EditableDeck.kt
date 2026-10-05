@@ -1,5 +1,6 @@
 package mtgoracle.ui.library
 
+import mtgoracle.core.deck.AiFlag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -103,6 +104,10 @@ internal fun EditableDeck(
     points: (String) -> Int?,
     flags: Map<String, String>,
     history: List<DeckRevision>,
+    /** Deck cards Forge's AI won't play or Forge lacks: red beside them until the AI copy has a substitute. */
+    aiFlags: Map<String, AiFlag> = emptyMap(),
+    /** A flag's `[!]` / `[→]`: that card's AI substitute, asked for at once. */
+    onAiFlag: (String) -> Unit = {},
     /** More of a row's menu, from the owner: choose a printing. */
     extraMenu: (DeckRow) -> List<Pair<String, () -> Unit>> = { emptyList() },
     onTab: (DeckTab) -> Unit,
@@ -128,12 +133,16 @@ internal fun EditableDeck(
                         RuleLine(cols, label = "$g (${inGroup.sumOf { it.card.quantity }})", bold = true)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
                             inGroup.forEach { row ->
-                                val face = row.card.face(keyFor(row.card))
+                                val flag = aiFlags[row.card.name].takeIf { row.section != DeckSection.CONSIDERING }
+                                val face = row.card.face(keyFor(row.card)).flagged(flag)
                                 Column(Modifier.onRightClick { menu = row to it }) {
                                     CardFrame(face, mode, target = ClickTarget.Link(OutputLink.Card(row.card.name), linkAt(row, 0)), onClick = { onOpen(row.card.name) },
-                                        onHover = { onHover(face) }, mark = points(row.card.name)?.let { "($it)" },
+                                        onHover = { onHover(face) }, mark = frameMark(points(row.card.name), flag), alert = flag?.open == true,
                                         emphasis = if (rows.indexOf(row) == selected) mtgoracle.ui.kit.Emphasis.SELECTABLE else mtgoracle.ui.kit.Emphasis.NONE)
-                                    Row { Controls(row, onEdit) }
+                                    Row {
+                                        Controls(row, onEdit)
+                                        flag?.let { f -> AiFlagButton(f, row.card.name, onAiFlag) }
+                                    }
                                 }
                             }
                         }
@@ -143,7 +152,8 @@ internal fun EditableDeck(
                         group = row.group
                         RuleLine(cols, label = "${row.group} (${rows.filter { it.group == row.group }.sumOf { it.card.quantity }})", bold = true)
                     }
-                    Line(row, i == selected, cols, keyFor, points, flags[row.card.name], onEdit, onOpen, onHover) { at -> menu = row to at }
+                    Line(row, i == selected, cols, keyFor, points, flags[row.card.name], aiFlags[row.card.name].takeIf { row.section != DeckSection.CONSIDERING },
+                        onEdit, onOpen, onHover, onAiFlag) { at -> menu = row to at }
                 }
             }
         }
@@ -199,20 +209,23 @@ private fun Controls(row: DeckRow, onEdit: (EditAction) -> Unit) {
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun Line(
-    row: DeckRow, chosen: Boolean, cols: Int, keyFor: (DeckCard) -> String?, points: (String) -> Int?, flag: String?,
-    onEdit: (EditAction) -> Unit, onOpen: (String) -> Unit, onHover: (CardFace) -> Unit, onMenu: (Offset) -> Unit,
+    row: DeckRow, chosen: Boolean, cols: Int, keyFor: (DeckCard) -> String?, points: (String) -> Int?, flag: String?, aiFlag: AiFlag?,
+    onEdit: (EditAction) -> Unit, onOpen: (String) -> Unit, onHover: (CardFace) -> Unit, onAiFlag: (String) -> Unit, onMenu: (Offset) -> Unit,
 ) {
-    val face = row.card.face(keyFor(row.card))
+    val face = row.card.face(keyFor(row.card)).flagged(aiFlag)
     val controls = if (row.section == DeckSection.CONSIDERING) 16 else if (row.section == DeckSection.COMMANDER) 3 else 6
     val name = row.card.name + (points(row.card.name)?.let { " ($it)" } ?: "")
-    val rest = maxOf(8, cols - controls - 4)
+    val rest = maxOf(8, cols - controls - 4 - if (aiFlag != null) 4 else 0)
     // The whole row is marked under the mouse, controls and all: it is the card an edit or a right-click acts on.
     Row(Modifier.onRightClick(onMenu).hoverBackground()) {
         Controls(row, onEdit)
         GridText(" %2d ".format(row.card.quantity), color = if (chosen) Palette.accent else Palette.foreground, bold = chosen)
-        val text = fit("%-30s %s".format(name, face.manaCost) + (flag?.let { "  ! $it" } ?: ""), rest)
+        aiFlag?.let { f -> AiFlagButton(f, row.card.name, onAiFlag); GridText(" ") }
+        // The [!] before the name takes four of its columns, so the costs stay in one column.
+        val text = fit(withLabel("%-${if (aiFlag != null) 26 else 30}s %s".format(name, face.manaCost) + (flag?.let { "  ! $it" } ?: ""), aiFlag, rest), rest)
+        val red = flag != null || aiFlag?.open == true
         GridText(text, Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(row.card.name), linkAt(row, 0)), { onOpen(row.card.name) }, { onHover(face) }, mark = false)
-            .pointerHoverIcon(PointerIcon.Hand), color = if (flag != null) Palette.tapped else if (chosen) Palette.accent else Palette.foreground, bold = chosen)
+            .pointerHoverIcon(PointerIcon.Hand), color = if (red) Palette.tapped else if (chosen) Palette.accent else Palette.foreground, bold = chosen)
     }
 }
 
@@ -262,3 +275,23 @@ private fun History(history: List<DeckRevision>, cols: Int) {
         }
     }
 }
+
+/** A flagged card's zoom text: what Forge makes of it, and where to fix it, above its rules text. */
+internal fun CardFace.flagged(flag: AiFlag?): CardFace = if (flag == null) this else copy(text = flag.explanation + "\n\n" + text)
+
+/** A frame's top-edge mark: its points, and `AI!` (or `AI→` once substituted). */
+internal fun frameMark(points: Int?, flag: AiFlag?): String? =
+    listOfNotNull(points?.let { "($it)" }, flag?.let { if (it.open) "AI!" else "AI→" }).joinToString(" ").ifEmpty { null }
+
+/** `[!]` (or `[→]` once the AI copy has one) beside a flagged card: its AI substitute, asked for at once. */
+@Composable
+internal fun AiFlagButton(flag: AiFlag, card: String, onAiFlag: (String) -> Unit) {
+    LinkButton(flag.button, ClickTarget.Control("ai-flag:$card")) { onAiFlag(card) }
+}
+
+/**
+ * [line] with [flag]'s words after it when they fit whole in [width]: half a label ("AI …") reads as
+ * broken, and the [!], the red and the zoom pane say it all the same.
+ */
+internal fun withLabel(line: String, flag: AiFlag?, width: Int): String =
+    flag?.let { "$line  ${it.label}" }?.takeIf { it.length <= width } ?: line
