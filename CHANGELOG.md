@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-05
+
+A flag on the cards Forge's AI won't play, with a `[!]` that gives it a substitute; a release that asks for a newer one as it starts; the import and export folders there from the first start. A 0.2.0 install takes it with `update`; the database is the same (schema v3).
+
 ### Added
 - **A card Forge's AI won't play is flagged in the deck, with a `[!]` that fixes it.** Beside the card, in the workspace and the library's view of a deck: red, with `[!]` before its name, which asks for its AI substitute at once (as the menu's *AI substitute...* does). Once the AI copy has one, the button is `[→]` (change it) and the flag says what the AI plays. A card Forge lacks is flagged the same way. In art mode the frame is red with `AI!` in its top edge. The zoom pane says why and what to do; the words beside the card show where they fit whole. Forge's answer is `RemoveDeck` on the card (`ForgeCards.support`), asked once per name. `AiFlag` (core), `AiFlagTest`, `AiFlagsTest`.
 
