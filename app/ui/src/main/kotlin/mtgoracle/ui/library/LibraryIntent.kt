@@ -22,6 +22,8 @@ sealed interface LibraryIntent {
     /** The list on the clipboard into deck [deckId]: added to it, or replacing it (after a preview). */
     data class ImportInto(val deckId: Int) : LibraryIntent
     data class Export(val deckId: Int) : LibraryIntent
+    /** A `.mtgoracle` package of the deck, the folder or the whole library, saved to data/exports. */
+    data class ExportPackage(val scope: mtgoracle.core.library.PackageScope) : LibraryIntent
     data class ChoosePrinting(val deckId: Int, val card: String, val section: DeckSection) : LibraryIntent
     /** What the AI copy of deck [deckId] plays instead of [card]: asked, checked against the deck's rules, stored. */
     data class AiSubstitute(val deckId: Int, val card: String) : LibraryIntent

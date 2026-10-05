@@ -51,6 +51,7 @@ import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.lookup.AskBar
 import mtgoracle.ui.lookup.CommandLine
+import mtgoracle.core.library.PackageScope
 import mtgoracle.ui.kit.ContextMenu
 import mtgoracle.ui.kit.onRightClick
 import mtgoracle.core.deck.Folder
@@ -278,11 +279,15 @@ fun LibraryScreen(
             "move to folder..." to { intent(LibraryIntent.MoveDeck(id)) },
             "format..." to { intent(LibraryIntent.DeckFormat(id)) },
             "export to the clipboard" to { intent(LibraryIntent.Export(id)) },
+            "export as a package (.mtgoracle)" to { intent(LibraryIntent.ExportPackage(PackageScope.Deck(id))) },
+            "export the whole library as a package" to { intent(LibraryIntent.ExportPackage(PackageScope.Library)) },
             "delete..." to { intent(LibraryIntent.DeleteDeck(id)) },
         ) else listOf(
             "new deck here..." to { intent(LibraryIntent.NewDeck(id)) },
             "import a deck here..." to { intent(LibraryIntent.Import(id)) },
             "default format..." to { intent(LibraryIntent.FolderFormat(id)) },
+            "export the folder as a package (.mtgoracle)" to { intent(LibraryIntent.ExportPackage(PackageScope.Folder(id))) },
+            "export the whole library as a package" to { intent(LibraryIntent.ExportPackage(PackageScope.Library)) },
             "delete folder..." to { intent(LibraryIntent.DeleteFolder(id)) },
         )
         val title = if (what.startsWith("deck:")) decks.firstOrNull { it.id == id }?.name.orEmpty() else folders.firstOrNull { it.id == id }?.name.orEmpty()

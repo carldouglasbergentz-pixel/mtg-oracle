@@ -131,18 +131,22 @@ internal fun Connection.count(sql: String): Int = createStatement().use { st -> 
 internal fun Connection.userVersion(): Int = count("PRAGMA user_version")
 
 internal object Backups {
-    private val NAME = Regex("""mtg-.*-pre-v\d+\.db""")
     private const val KEEP = 3
 
     /** A copy of the database behind [conn] in [dir], by SQLite's backup, named for the version it precedes; older ones beyond [KEEP] go. */
-    fun take(conn: Connection, dir: File, beforeVersion: Int): File {
+    fun take(conn: Connection, dir: File, beforeVersion: Int): File = take(conn, dir, "v$beforeVersion", Regex("""mtg-.*-pre-v\d+\.db"""))
+
+    /** The same before [what] (`import`): `mtg-<time>-pre-import.db`, the newest [KEEP] of that kind kept. */
+    fun take(conn: Connection, dir: File, what: String): File = take(conn, dir, what, Regex("""mtg-.*-pre-${Regex.escape(what)}\.db"""))
+
+    private fun take(conn: Connection, dir: File, label: String, kind: Regex): File {
         dir.mkdirs()
         val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss"))
-        val file = File(dir, "mtg-$stamp-pre-v$beforeVersion.db")
+        val file = File(dir, "mtg-$stamp-pre-$label.db")
         conn.createStatement().use { it.executeUpdate("backup to '${file.absolutePath.replace("'", "''")}'") }
         check(file.isFile && file.length() > 0) { "the backup $file was not written" }
-        // Only the app's own backups are pruned: a copy someone made by hand stays.
-        dir.listFiles { f -> f.isFile && NAME.matches(f.name) }.orEmpty().sortedByDescending { it.name }.drop(KEEP).forEach { it.delete() }
+        // Only the app's own backups are pruned, each kind by itself: a copy someone made by hand stays.
+        dir.listFiles { f -> f.isFile && kind.matches(f.name) }.orEmpty().sortedByDescending { it.name }.drop(KEEP).forEach { it.delete() }
         return file
     }
 }

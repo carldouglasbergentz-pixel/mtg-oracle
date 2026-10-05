@@ -72,6 +72,8 @@ class LibraryActions(
     private val exports: java.io.File? = null,
     /** Whether Forge has a card and its AI plays it; null before Forge is up. */
     private val forgeSupport: (String) -> ForgeSupport? = { null },
+    /** `.mtgoracle` packages: exports, and an Import whose clipboard names one. */
+    private val packages: PackageActions? = null,
 ) {
     fun handle(intent: LibraryIntent) {
         try {
@@ -125,7 +127,9 @@ class LibraryActions(
                         "Delete, keep the decks" to { act { libraryWriter.deleteFolder(intent.folderId, force = true); refresh(); "folder $name deleted; $decks deck(s) now in no folder" } },
                     ))
                 }
-                is LibraryIntent.Import -> inFolder(intent.folderId, intent.askFolder, "Import a deck into") { importNew(it) }
+                // A package on the clipboard (its path, or the file copied in Explorer) is a package import; anything else a deck list.
+                is LibraryIntent.Import -> packages?.packageNamedBy(readClipboard())?.let { packages.offer(it) }
+                    ?: inFolder(intent.folderId, intent.askFolder, "Import a deck into") { importNew(it) }
                 is LibraryIntent.ImportInto -> importInto(intent.deckId)
                 is LibraryIntent.Export -> ui.ask = Ask.Buttons("Export ${deckName(intent.deckId)} to the clipboard", listOf(
                     "Full names" to { export(intent.deckId, frontFace = false) },
@@ -134,6 +138,7 @@ class LibraryActions(
                     "Arena" to { exportFor(intent.deckId, ARENA) },
                     "MTGO" to { exportFor(intent.deckId, MTGO) },
                 ))
+                is LibraryIntent.ExportPackage -> packages?.export(intent.scope) ?: say("packages are not available here")
                 is LibraryIntent.ChoosePrinting -> choosePrinting(intent)
                 is LibraryIntent.AiSubstitute -> {
                     val current = library.deck(intent.deckId)?.substitutions?.firstOrNull { it.cardName.equals(intent.card, ignoreCase = true) }?.substitute

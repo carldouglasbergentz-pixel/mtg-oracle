@@ -588,6 +588,9 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
     private fun differs(before: Held, after: Held): Boolean =
         before.quantity != after.quantity || (before.quantity > 0 && before.printing != after.printing)
 
+    /** A deck written row by row (a package's, without its history): its contents as one `import` revision, from nothing. */
+    internal fun recordImported(conn: Connection, deckId: Int, note: String?): Long? = recordRevision(conn, deckId, "import", emptyMap(), note)
+
     /** Diffs the deck against [before] and stores it as one revision; nothing changed is nothing recorded (null). */
     private fun recordRevision(conn: Connection, deckId: Int, action: String, before: Map<Pair<String, DeckSection>, Held>, note: String?): Long? {
         val after = snapshot(conn, deckId)

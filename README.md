@@ -64,7 +64,7 @@ The first `mtg.cmd sync` of a new install creates the database too.
 
 ### Schema and backups
 
-The schema version is `PRAGMA user_version` ([`Schema.kt`](app/data/src/main/kotlin/mtgoracle/data/Schema.kt)). The app migrates the database at start, after a backup in `data/backups/` (the three newest are kept).
+The schema version is `PRAGMA user_version` ([`Schema.kt`](app/data/src/main/kotlin/mtgoracle/data/Schema.kt)). The app migrates the database at start, after a backup in `data/backups/` (the three newest are kept). A package import takes one of its own first (`…-pre-import.db`, three kept).
 
 Two Gradle tasks work on the schema alone:
 - `gradlew :app:migrate` migrates and does nothing else;
@@ -87,6 +87,15 @@ The library lists your folders and decks, with the selected deck's analysis abov
 | Games | `results [<deck>]` |
 
 A card name in any output opens its profile when clicked, and shows the card in the zoom pane on hover.
+
+### Moving a library: `.mtgoracle` packages
+
+A package carries decks with all they hold (cards and printings, the considering list, the AI copy's substitutes, the history), the games played with them, and your own combos.
+
+- **Export:** right-click a deck or a folder in the library: *export as a package*, or *export the whole library as a package*. The file goes to `data\exports\`.
+- **Import:** copy the file (in Explorer, or its path as text) and press the library's **Import**, or drop it in `data\import\`, where it is taken at the next start (and moved to `done\` once in).
+
+The import asks first. It says what the package holds and what of it is already here, and the history, the games and the combos can each be left out; the decks always come. Nothing is overwritten: a deck that is already here with the same contents is left alone, and one of the same name with other contents comes in as `Name (2)`. Games and combos already here are not taken twice. Cards this database doesn't know yet are named, and a dropped package can wait for the next sync. A copy of the database is taken first (`data/backups/mtg-…-pre-import.db`, the newest three kept).
 
 ### Search
 

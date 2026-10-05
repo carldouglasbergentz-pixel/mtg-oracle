@@ -40,8 +40,10 @@ data/config.json
 data/forge_logs/
 data/forge_card_index.*
 
-# Generated spreadsheets / dumps (the retired export scripts)
+# Exports: deck lists, MTGO files, .mtgoracle packages
 data/exports/
+# A .mtgoracle package dropped in to be imported: a whole library, the user's own
+data/import/
 
 # Python
 __pycache__/

@@ -39,6 +39,8 @@ data class AppPaths(
     val gameLogs: File get() = data.resolve("game_logs")
     /** Decks exported for Magic Online, which imports a `.txt` file rather than the clipboard. */
     val exports: File get() = data.resolve("exports")
+    /** Where a `.mtgoracle` package dropped in is taken from, at start (done ones go to `done/`). */
+    val imports: File get() = data.resolve("import")
     /** Where a migration's backup goes (the three newest are kept). */
     val backups: File get() = data.resolve("backups")
     val home: File get() = data.resolve("app")

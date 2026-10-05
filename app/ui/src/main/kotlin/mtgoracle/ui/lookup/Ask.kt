@@ -34,6 +34,7 @@ import mtgoracle.ui.kit.BoxPane
 import mtgoracle.ui.kit.BigButton
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.FitText
+import mtgoracle.ui.kit.WrapText
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.clickTarget
@@ -119,7 +120,8 @@ private fun ButtonsAsk(ask: Ask.Buttons, onClose: () -> Unit) {
                 else -> false
             }
         }.focusable(), verticalAlignment = Alignment.CenterVertically) {
-            FitText(ask.title, Modifier.weight(1f), bold = true)
+            // A question wraps beside its buttons, as instructions do: a package's says what it holds, and cut it said nothing.
+            WrapText(ask.title, Modifier.weight(1f), bold = true)
             ask.buttons.forEachIndexed { i, (label, act) -> Button(label, "ask:$i") { onClose(); act() } }
             Button("Cancel", "ask:cancel", onClose)
         }

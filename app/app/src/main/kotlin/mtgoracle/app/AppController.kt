@@ -78,6 +78,8 @@ class AppController(private val paths: AppPaths) {
         )
     }
     private var currentLookup: Lookup? = null
+    /** The library's packages (export, import), with the lookup they read the card names from. */
+    private var packages: PackageActions? = null
     /** The games played, read with the lookup: the lobby's records. */
     private var lookupGames: mtgoracle.data.GameStore? = null
 
@@ -163,6 +165,10 @@ class AppController(private val paths: AppPaths) {
             substitutions = Substitutions(db),
             exports = paths.exports,
             forgeSupport = { name -> if (forgeReady) ForgeCards.support(name) else null },
+            packages = PackageActions(
+                mtgoracle.data.PackageStore(db, lookup.names, writer), lookupCommands.ui, say = { notice = it }, refresh = ::refreshLibrary,
+                app = System.getProperty("mtgoracle.version") ?: "dev build", exports = paths.exports, imports = paths.imports, backups = paths.backups,
+            ).also { packages = it },
         )
         lookupUi = lookupCommands.ui.apply {
             grid = carry?.ui?.grid ?: settings.resultsGrid
@@ -187,6 +193,8 @@ class AppController(private val paths: AppPaths) {
                 // A daily run reports to the output without opening it over what you are looking at.
                 if (!auto) lookupUi?.showOutput = true
             }
+            // A dropped package that waited for cards a sync might bring is asked about again.
+            packages?.lookForDropped(afterSync = true)
         })
 
     /**
@@ -232,6 +240,7 @@ class AppController(private val paths: AppPaths) {
             buildLookup(db, carry = null)
             sync.refreshWarning()
             screen = Screen.Library
+            packages?.lookForDropped()
         } catch (e: SchemaTooOldException) {
             screen = Screen.Blocked(e.message!!)
             return
@@ -286,7 +295,10 @@ class AppController(private val paths: AppPaths) {
 
     /** Where the app reads a pasted list from; the tests put their own list there. */
     var readClipboard: () -> String? = {
-        runCatching { java.awt.Toolkit.getDefaultToolkit().systemClipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as String }.getOrNull()
+        val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+        // A file copied in Explorer is a list of files, not text: its path stands for it (a package to import).
+        runCatching { (clipboard.getData(java.awt.datatransfer.DataFlavor.javaFileListFlavor) as List<*>).filterIsInstance<java.io.File>().firstOrNull()?.path }.getOrNull()
+            ?: runCatching { clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as String }.getOrNull()
     }
 
     /** A card in one printing, for the zoom pane while the art chooser is open. */
