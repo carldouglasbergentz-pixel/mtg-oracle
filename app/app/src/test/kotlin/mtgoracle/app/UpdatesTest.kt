@@ -105,6 +105,10 @@ class UpdatesTest {
         assertEquals("new", install.resolve("runtime/marker.txt").readText())
         assertEquals("the user's decks", install.resolve("data/mtg.db").readText(), "data\\ untouched, even by a zip that holds one")
         assertEquals("old", install.resolve("update/old/app/marker.txt").readText(), "the old one kept aside")
+
+        // The next update clears update/ again, the old launchers in it read-only as jpackage makes them.
+        install.resolve("update/old/MTG Oracle.exe").setReadOnly()
+        assertTrue(Updates.clear(install.resolve("update")), "read-only files cleared too")
     }
 
     @Test

@@ -82,7 +82,7 @@ class Updates(
      */
     fun download(release: Release, progress: (String) -> Unit = {}): File {
         val auth = token() ?: throw UpdateRefused(NO_LOGIN)
-        if (updateDir.exists() && !updateDir.deleteRecursively()) throw UpdateRefused("can't clear $updateDir")
+        if (updateDir.exists() && !clear(updateDir)) throw UpdateRefused("can't clear $updateDir")
         updateDir.mkdirs()
         val zip = updateDir.resolve(release.zip.name)
         progress("downloading ${release.zip.name} (${release.zip.size / 1_000_000} MB)")
@@ -194,6 +194,15 @@ class Updates(
                     if (entry.isDirectory) target.mkdirs() else { target.parentFile.mkdirs(); target.outputStream().use { input.copyTo(it) } }
                 }
             }
+        }
+
+        /**
+         * [dir] deleted, read-only files too: jpackage's launchers are read-only, and the last
+         * update's `update\old\` holds them, so a plain delete left the next update stuck.
+         */
+        fun clear(dir: File): Boolean {
+            dir.walkBottomUp().forEach { it.setWritable(true) }
+            return dir.deleteRecursively()
         }
 
         fun sha256(file: File): String = file.inputStream().use { input ->

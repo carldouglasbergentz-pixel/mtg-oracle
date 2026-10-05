@@ -174,6 +174,8 @@ tasks.register("packageRelease") {
         // -PallowDirty for a trial build; a release goes out from a commit, which the version names.
         if (dirty && findProperty("allowDirty") == null) throw GradleException("commit first: a release is built from a clean tree (-PallowDirty for a trial)")
         // jpackage refuses a destination that exists; a folder still open (a running release) can't go.
+        // jpackage's launchers are read-only, which a plain delete can't remove.
+        releaseRoot.walkBottomUp().forEach { it.setWritable(true) }
         if (releaseRoot.exists() && !releaseRoot.deleteRecursively()) throw GradleException("can't clear $releaseRoot: is the release running?")
         val input = releaseRoot.resolve("input")
         // The jars in classpath order, as installLocal copies them: Forge's fat jar and Compose share classes.

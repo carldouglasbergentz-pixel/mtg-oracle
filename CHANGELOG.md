@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **The update can fetch a release.** 0.1.0 asked for a release's files with two Accept headers, the API's JSON type and `application/octet-stream`, and GitHub answered with the file's JSON description rather than the file. The check found newer releases, but `update` would refuse every download. Only `application/octet-stream` is asked for now, and an answer with the content directly (no redirect) is taken too. Tried against the real 0.1.0 release: found, downloaded, checksum matched, unpacked. `UpdatesTest`'s server now answers as GitHub does. 0.1.0 can't update itself, so install 0.1.1 by hand once.
+- **The second update can clear the first one's leftovers.** jpackage's launchers are read-only, and a plain delete leaves them. The old program a first update kept in `update\old\` would have stopped the next update ("can't clear"), so read-only files are cleared now. The same applies to `packageRelease`'s own folder (`Updates.clear`, `UpdatesTest`).
 
 ## [0.1.0] - 2026-10-05
 
