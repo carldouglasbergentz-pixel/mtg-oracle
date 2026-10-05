@@ -147,6 +147,11 @@ class Settings(private val file: File) {
         get() = props.getProperty("theme")
         set(value) { if (value == null) props.remove("theme") else props.setProperty("theme", value); save() }
 
+    /** How long Forge took to start last time, for the lobby to say how long it may take. */
+    var forgeStartMillis: Long?
+        get() = props.getProperty("forge.startMillis")?.toLongOrNull()
+        set(value) { if (value == null) props.remove("forge.startMillis") else props.setProperty("forge.startMillis", value.toString()); save() }
+
     /** How large everything is drawn, 1.0 as the app is designed (Ctrl+= / Ctrl+-, Ctrl+0 back). */
     var textScale: Float
         get() = props.getProperty("ui.textScale")?.toFloatOrNull()?.takeIf { it in TEXT_SCALES.first()..TEXT_SCALES.last() } ?: 1f

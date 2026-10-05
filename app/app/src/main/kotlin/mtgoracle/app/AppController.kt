@@ -91,6 +91,9 @@ class AppController(private val paths: AppPaths) {
     var boardMode by mutableStateOf(settings.boardCardMode)
     var notice by mutableStateOf<String?>(null)
     var forgeReady by mutableStateOf(false)
+    /** When Forge began to start (System.nanoTime), for the lobby's "starting: 4 s of about 11 s". */
+    var forgeStartedAt: Long? = null
+        private set
     var opponentId by mutableStateOf<Int?>(null)
     /** Your deck in the lobby: its own choice, not what the library has selected. */
     var lobbyMeId by mutableStateOf<Int?>(null)
@@ -370,10 +373,12 @@ class AppController(private val paths: AppPaths) {
             screen = Screen.Blocked("Couldn't open ${paths.db}: ${e.message ?: e::class.simpleName}. The full trace is in ${paths.appLog}.")
             return
         }
+        forgeStartedAt = System.nanoTime()
         thread(name = "forge-start", isDaemon = true) {
             try {
                 ForgeRuntime.initialise(paths.forge)
                 ForgeRuntime.onForgeError { title, text -> onCrash("Forge", RuntimeException("$title: ${text.lineSequence().firstOrNull().orEmpty()}")) }
+                forgeStartedAt?.let { settings.forgeStartMillis = (System.nanoTime() - it) / 1_000_000 }
                 forgeReady = true
             } catch (e: Exception) {
                 Log.error("Forge did not start", e)

@@ -26,6 +26,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import kotlinx.coroutines.delay
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.ui.kit.BigButton
 import mtgoracle.ui.kit.BoxPane
@@ -87,6 +88,9 @@ fun LobbyScreen(
     simulation: SimLine? = null,
     onSimulate: () -> Unit = {},
     onStopSimulation: () -> Unit = {},
+    /** While Forge starts: when it began (System.nanoTime), and how long it took last time. */
+    forgeStartedAt: Long? = null,
+    forgeExpectedMillis: Long? = null,
 ) {
     val simRunning = simulation?.running == true
     val focus = remember { FocusRequester() }
@@ -193,7 +197,7 @@ fun LobbyScreen(
                             GridText(" ")
                             BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
                         }
-                        if (!forgeReady) FitText("  Forge is loading…", color = Palette.dim)
+                        if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis)
                     }
                 }
             }
@@ -202,6 +206,16 @@ fun LobbyScreen(
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }
+}
+
+/** Forge's start, counted while it runs: it takes ten seconds or so, and Start waits on it. */
+@Composable
+private fun ForgeStarting(startedAt: Long?, expectedMillis: Long?) {
+    var now by remember { mutableStateOf(System.nanoTime()) }
+    LaunchedEffect(Unit) { while (true) { delay(500); now = System.nanoTime() } }
+    val seconds = startedAt?.let { (now - it) / 1_000_000_000 }
+    val of = expectedMillis?.let { " of about ${(it + 999) / 1000} s" }.orEmpty()
+    FitText("  Forge is starting" + (seconds?.let { ": $it s$of" } ?: "…") + "; Start waits for it", color = Palette.dim)
 }
 
 /** One of the lobby's two lists, under a rule that is bright while ↑↓ moves in it; it scrolls by itself. */

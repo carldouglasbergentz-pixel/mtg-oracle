@@ -46,6 +46,17 @@ class LobbyWidthTest {
         d.savePng(File(pngDir, "lobby-1600.png"))
     }
 
+    @Test
+    fun `while Forge starts the lobby counts it, against how long it took last time`() =
+        OffscreenDriver(1600, 900) {
+            LobbyScreen(listOf(me, opponent.deck), 1, listOf(opponent), 2, useAiCopy = true, watch = false, notes = emptyList(),
+                forgeReady = false, canStart = false, onSelectMe = {}, onSelect = {}, onToggleAiCopy = {}, onToggleWatch = {}, onStart = {}, onLibrary = {},
+                forgeStartedAt = System.nanoTime() - 4_200_000_000, forgeExpectedMillis = 10_600)
+        }.use { d ->
+            d.settle(5)
+            assertTrue("Forge is starting: 4 s of about 11 s; Start waits for it" in d.text.all(), d.text.all())
+        }
+
     /** Everything on screen, with each line's trailing padding dropped. */
     private fun lines(d: OffscreenDriver) = d.text.all().lines().map { it.trimEnd() }
 
