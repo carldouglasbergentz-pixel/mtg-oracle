@@ -22,12 +22,10 @@ import kotlin.test.assertTrue
 class DataLayerTest {
     private lateinit var copy: File
     private lateinit var db: MtgDb
-    private var realStamp = 0L
 
     @BeforeAll
     fun setUp() {
         assumeTrue(DbFixture.available, "needs data/mtg.db")
-        realStamp = DbFixture.realDb.lastModified()
         copy = DbFixture.copy()
         db = MtgDb(copy)
     }
@@ -35,7 +33,7 @@ class DataLayerTest {
     @AfterAll
     fun tearDown() {
         if (!::copy.isInitialized) return
-        assertEquals(realStamp, DbFixture.realDb.lastModified(), "the real database must not be touched")
+        DbFixture.assertUntouched()
         copy.parentFile.deleteRecursively()
     }
 

@@ -39,7 +39,6 @@ class AppTest {
     @Test
     fun `a finished game is recorded as one games row, on a copy of the database`() {
         assumeTrue(DbFixture.available, "needs data/mtg.db")
-        val realStamp = DbFixture.realDb.lastModified()
         val copy = DbFixture.copy()
         val db = MtgDb(copy)
         val library = Library(db)
@@ -67,7 +66,7 @@ class AppTest {
         }
         assertEquals(listOf<Any?>("human_vs_ai", "Rakdos Midrange", "Rakdos Midrange (AI)", 1, 5, "opponent"), row.take(6))
         assertTrue(File(row[7] as String).isFile, "the log is where the row says")
-        assertEquals(realStamp, DbFixture.realDb.lastModified(), "the real database is untouched")
+        DbFixture.assertUntouched()
         copy.parentFile.deleteRecursively()
     }
 }

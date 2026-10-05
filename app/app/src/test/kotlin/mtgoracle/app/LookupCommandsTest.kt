@@ -27,19 +27,17 @@ class LookupCommandsTest {
     private val copied = mutableListOf<String>()
     private val entered = mutableListOf<Int>()
     private var quits = 0
-    private var realStamp = 0L
 
     @BeforeAll
     fun open() {
         assumeTrue(DbFixture.available, "needs data/mtg.db")
-        realStamp = DbFixture.realDb.lastModified()
         lookup = Lookup(DbFixture.readOnly())
         library = Library(DbFixture.readOnly())
     }
 
     @AfterAll
     fun untouched() {
-        if (::lookup.isInitialized) assertEquals(realStamp, DbFixture.realDb.lastModified(), "the real database must not be touched")
+        if (::lookup.isInitialized) DbFixture.assertUntouched()
     }
 
     @BeforeTest

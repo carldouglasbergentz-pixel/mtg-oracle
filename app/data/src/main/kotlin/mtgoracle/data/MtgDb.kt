@@ -20,6 +20,14 @@ class MtgDb(val file: File, private val writable: Boolean = true) {
     }
 
     companion object {
+        private val openedForWriting = java.util.concurrent.ConcurrentHashMap.newKeySet<File>()
+
+        /**
+         * Whether this process has opened [file] for writing. What the tests ask of the real database: its
+         * file's time can move while they run, because the app the user is playing writes it.
+         */
+        fun openedForWriting(file: File): Boolean = file.canonicalFile in openedForWriting
+
         /** An empty database at [file], schema and all, for a first start: [migrate] creates the schema, a sync the rows. */
         fun create(file: File): MtgDb {
             check(!file.exists()) { "$file already exists" }
@@ -63,6 +71,7 @@ class MtgDb(val file: File, private val writable: Boolean = true) {
             enforceForeignKeys(foreignKeys)
             busyTimeout = 5_000 // the TUI may be writing at the same moment
         }
+        if (!readOnly && writable) openedForWriting += file.canonicalFile
         return config.createConnection("jdbc:sqlite:${file.path}").also(::addFold)
     }
 

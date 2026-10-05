@@ -27,6 +27,9 @@ object DbFixture {
      */
     fun readOnly(): MtgDb = MtgDb(realDb, writable = false)
 
+    /** The real database was never opened for writing by these tests (its file time is no proof: the user's app writes it). */
+    fun assertUntouched() = check(!MtgDb.openedForWriting(realDb)) { "a test opened the real database $realDb for writing" }
+
     /** A fresh copy in a new temp dir, migrated to this build's schema as the app would (without a backup). */
     fun copy(): File {
         check(available) { "no $realDb to copy" }

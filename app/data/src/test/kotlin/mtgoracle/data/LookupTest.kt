@@ -21,18 +21,16 @@ import kotlin.test.assertTrue
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LookupTest {
     private lateinit var lookup: Lookup
-    private var realStamp = 0L
 
     @BeforeAll
     fun setUp() {
         assumeTrue(DbFixture.available, "needs data/mtg.db")
-        realStamp = DbFixture.realDb.lastModified()
         lookup = Lookup(DbFixture.readOnly())
     }
 
     @AfterAll
     fun tearDown() {
-        if (::lookup.isInitialized) assertEquals(realStamp, DbFixture.realDb.lastModified(), "the real database must not be touched")
+        if (::lookup.isInitialized) DbFixture.assertUntouched()
     }
 
     private fun count(q: String) = lookup.search.page(SearchLanguage.parse(q), pageSize = 1).total
