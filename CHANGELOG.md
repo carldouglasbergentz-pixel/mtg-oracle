@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-05
+
+A lobby for play, the whole game log, Forge's achievements, `.mtgoracle` packages to move a library, and the health items of an inventory. A 0.1.1 install takes it with `update`; the database is the same (schema v3), so nothing in `data\` is migrated.
+
 ### Changed
 - **The lobby counts Forge's start.** Forge takes ten seconds or so to start, and Start waits on it; the lobby said only "Forge is loading…". Now it says `Forge is starting: 4 s of about 11 s; Start waits for it`, against how long the last start took (`forge.startMillis`). `LobbyWidthTest`.
 - **Play is a lobby where both decks are chosen, and a double-click opens a deck to edit.** Play used to take your deck from whatever the library had selected, and editing needed a step of its own (Edit).
