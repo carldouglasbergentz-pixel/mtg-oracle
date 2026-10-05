@@ -30,6 +30,8 @@ import mtgoracle.ui.kit.WrapText
 import androidx.compose.foundation.layout.fillMaxWidth
 import mtgoracle.ui.library.DeckWorkspace
 import mtgoracle.ui.library.LibraryScreen
+import mtgoracle.ui.kit.CardMode
+import mtgoracle.ui.library.AchievementsScreen
 import mtgoracle.ui.library.LobbyScreen
 import mtgoracle.ui.theme.HouseTheme
 import mtgoracle.ui.theme.Palette
@@ -98,7 +100,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
         } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
             notice = app.notice ?: if (!app.forgeReady) "Forge is loading…" else app.sync.warning ?: app.updates.notice,
-            onSelect = app::select, onPlay = { app.play.openLobby(app.selectedId) }, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit,
+            onSelect = app::select, onPlay = { app.play.openLobby(app.selectedId) }, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit, onAchievements = app::openAchievements,
             lookup = app.lookupUi,
             onEdit = app::edit,
             folders = app.folders,
@@ -108,6 +110,11 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             columns = remember { app.settings.libraryColumns },
             onColumnsChange = { app.settings.libraryColumns = it },
         )
+        Screen.Achievements -> {
+            // Read again when Forge comes up, if the view opened before it did.
+            LaunchedEffect(app.forgeReady) { app.loadAchievements() }
+            AchievementsScreen(app.achievements, faceOf = app::cardFace, onLibrary = app::backToLibrary, textMode = app.mode == CardMode.TEXT)
+        }
         Screen.Lobby -> {
             val prepared = app.play.prepared()
             LobbyScreen(

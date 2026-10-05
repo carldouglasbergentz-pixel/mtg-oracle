@@ -94,6 +94,7 @@ fun LibraryScreen(
     onToggleMode: () -> Unit,
     onPrefetch: () -> Unit,
     onQuit: () -> Unit,
+    onAchievements: () -> Unit = {},
     lookup: LookupUi? = null,
     onEdit: () -> Unit = {},
     /** Every folder, the empty ones too: a folder just made has no deck yet. */
@@ -144,6 +145,7 @@ fun LibraryScreen(
             name == "play" -> onPlay()
             name == "mode" -> onToggleMode()
             name == "prefetch" -> onPrefetch()
+            name == "achievements" -> onAchievements()
             name == "new-deck" -> lookup?.intent?.invoke(LibraryIntent.NewDeck(selectedFolder, askFolder = true))
             name == "new-folder" -> lookup?.intent?.invoke(LibraryIntent.NewFolder)
             name == "import" -> lookup?.intent?.invoke(LibraryIntent.Import(selectedFolder, askFolder = true))
@@ -188,7 +190,7 @@ fun LibraryScreen(
         Column(Modifier.fillMaxSize()) {
             Toolbar(listOf(
                 "play" to "Play", "new-deck" to "New deck", "new-folder" to "New folder", "import" to "Import",
-                "mode" to if (mode == CardMode.ART) "Text" else "Art", "prefetch" to "Fetch images", "sync" to "Sync",
+                "mode" to if (mode == CardMode.ART) "Text" else "Art", "prefetch" to "Fetch images", "sync" to "Sync", "achievements" to "Achievements",
             ), onClick)
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
                 Box(Modifier.cellWidth(left).fillMaxHeight()) {

@@ -45,6 +45,8 @@ sealed interface Screen {
     data object Library : Screen
     data object Lobby : Screen
     data object Playing : Screen
+    /** Forge's achievements, from the library's toolbar. */
+    data object Achievements : Screen
     /** The board broke (see AppController.onCrash): what happened, and the way out. */
     data object Crashed : Screen
 }
@@ -491,6 +493,29 @@ class AppController(private val paths: AppPaths) {
      * unfinished.
      */
     fun shutdown() = play.shutdown(unfinished = crashed != null && crashed === play.match)
+
+    /** Forge's achievements, for the achievements view; null until Forge is up and they are read. */
+    var achievements by mutableStateOf<List<mtgoracle.core.play.AchievementGroup>?>(null)
+        private set
+
+    /** The achievements view, read fresh: a game since the last look may have earned one. */
+    fun openAchievements() {
+        screen = Screen.Achievements
+        loadAchievements()
+    }
+
+    /** Reads them once Forge is up (the view asks again when it comes up). */
+    fun loadAchievements() {
+        if (!forgeReady) return
+        achievements = try { mtgoracle.forge.ForgeAchievements.groups() } catch (e: Exception) {
+            Log.error("could not read Forge's achievements", e)
+            notice = "Forge's achievements could not be read: ${e.message}"
+            emptyList()
+        }
+    }
+
+    /** A card by name for the zoom pane, from the database: the achievements view's card. */
+    fun cardFace(name: String): CardFace? = currentLookup?.let { zoomFace(it, name) }
 
     fun backToLibrary() {
         play.match = null
