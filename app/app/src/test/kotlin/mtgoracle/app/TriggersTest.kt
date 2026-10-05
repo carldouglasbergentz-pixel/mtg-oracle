@@ -239,7 +239,7 @@ class TriggersTest {
 
     @Test
     fun `prowess on a Flurry Monk - an artifact spell is a noncreature spell, Ghost Vacuum pumps it`() {
-        // In a real game three Monks' prowess missed Ghost Vacuum (2026-10-05); staged, it triggers (see TriggerWatch).
+        // In a real game three Monks' prowess missed Ghost Vacuum (2026-10-05): see the test below for why.
         val order = listOf("Opt", "Preordain", "Ghost Vacuum")
         Scenario("trigger-prowess-artifact", ours(hand = order.joinToString(";"), battlefield = "Cori-Steel Cutter;" + List(4) { "Volcanic Island" }.joinToString(";"))) { p, b, _ ->
             val next = order.firstNotNullOfOrNull { n -> b.inHand(n) }
@@ -255,7 +255,39 @@ class TriggersTest {
         }.use { s ->
             s.playUntil { s.board.me().battlefield.any { it.name == "Ghost Vacuum" } && s.board.stack.isEmpty() }
             assertTrue(s.logText().lines().any { "Resolve Stack: Prowess" in it && "Ghost Vacuum" in it }, "the Monk's prowess resolved for Ghost Vacuum")
-            assertTrue(s.logText().lines().none { "NOTE  TRIGGERS" in it }, "and TriggerWatch saw nothing off")
+        }
+    }
+
+    @Test
+    fun `simultaneous triggers ordered once are played every time after - Arcanist and Bilbo on three attacks`() {
+        // The second time the same triggers come, Forge asks again with all of them already in the destination (the
+        // order it saved), and our seat ordered only the empty source: Forge played none. Every other attack missed both.
+        val graveyard = "Ponder;Sleight of Hand;Opt;Preordain;Brainstorm;Consider;Gitaxian Probe;Mental Note"
+        Scenario("trigger-order-saved", ours(battlefield = "Dreadhorde Arcanist;Bilbo, Thief in the Night;Island;Island", graveyard = graveyard)) { p, _, _ ->
+            when {
+                p is InputPrompt && p.kind == InputKind.ATTACK && p.cancelLabel == "Alpha Strike" -> SeatAction.Cancel
+                p is InputPrompt && p.kind == InputKind.ATTACK -> SeatAction.Ok
+                p is OrderPrompt -> SeatAction.Order(emptyList())
+                p is InputPrompt && p.kind == InputKind.TARGET -> p.selectableCardIds.firstOrNull()?.let { SeatAction.ClickCard(it) } ?: SeatAction.Cancel
+                p is ConfirmPrompt -> SeatAction.Confirm(false)
+                p is InputPrompt && p.kind == InputKind.CONFIRM -> SeatAction.Cancel
+                p is ChoicePrompt -> SeatAction.Choose(emptyList())
+                priority(p) -> SeatAction.Ok
+                else -> null
+            }
+        }.use { s ->
+            s.playUntil(timeoutMillis = 180_000, anyFallbacks = true) { s.board.turn >= 10 }
+            var turn = 0
+            val perAttack = linkedMapOf<Int, MutableList<String>>()
+            for (line in s.logText().lines()) {
+                Regex("""LOG   Turn: Turn (\d+) \(You\)""").find(line)?.let { turn = it.groupValues[1].toInt() }
+                if ("LOG   Combat: You assigned" in line) perAttack[turn] = mutableListOf()
+                if ("LOG   Add To Stack: You triggered" in line) perAttack[turn]?.add(line.substringAfter("You triggered ").substringBefore(" targeting"))
+            }
+            assertTrue(perAttack.size >= 3, "three attacks at least: $perAttack")
+            perAttack.forEach { (t, triggered) ->
+                assertEquals(setOf("Dreadhorde Arcanist", "Bilbo, Thief in the Night"), triggered.toSet(), "turn $t: both triggered ($perAttack)")
+            }
         }
     }
 

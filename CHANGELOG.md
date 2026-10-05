@@ -59,6 +59,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The two halves of the table are always the same size; only the cards shrink.** Sizing each half by its own cards had also given a crowded half rows taken from the other, so the halves' edges moved as cards came and went. Now the halves are even. Each takes the largest frames that show its own cards in its own half, so your cards can be larger than the opponent's when they have more. The hand is sized by the window alone: the largest frames in a quarter of the table. At 1280×720 a crowded side's last cards now scroll behind `+N ▸`, where its half used to borrow the other's rows. From 1600×900 up every card shows (`HalfPlanTest`, `ZonesTest`).
 
 ### Fixed
+- **Simultaneous triggers are played every time, not every other time.** Triggers that went missing in real games:
+  - Dreadhorde Arcanist's and Bilbo's attack triggers on every other attack;
+  - three Monks' prowess on Ghost Vacuum;
+  - Jori En's and Cori-Steel Cutter's second-spell triggers on Sleight of Hand.
+
+  All of these came from one cause, ours. Forge saves the order you give simultaneous triggers. The next time the same ones come, it asks again with every one already in the answer's list (`destChoices`) and nothing left to place. Our seat ordered only what was left to place, answered with nothing, and Forge played none of them. The empty answer was saved too, so the time after Forge asked afresh and they triggered, hence every other time.
+  - The seat now orders what Forge has placed as well (`SeatGui.order`). `TriggersTest` attacks with Arcanist and Bilbo on three turns and holds both triggers each time; it failed on the second attack before.
+  - Found by reproducing the pattern in a staged game, which no single staged turn could show. `TriggerWatch`, the diagnostic added for this, is removed: the triggers were active all along, and it couldn't have seen where they were dropped.
 - **A test conceded while Forge was still starting the game**, and now and then broke Forge's loop over the players: `DuelCommanderTest` waits for the first priority.
 - **A library search asks once, with only what may be taken.** Ash Barrens' landcycling first showed a prompt of the whole library, every card a choice, and then, a click later, the basics on offer. That came from the reveal added in the Forge-boundary batch above. The cards looked at but not on offer are now said in the choice's own question ("also looked at: …", named up to ten, else counted), and are no prompt of their own (`LibrarySearchTest`).
 - **Creatures stand in front of the lands again.** Since each half is sized by its own cards, a sparse half got the rows of one band, and its creatures, artifacts and lands shared that band at the player's edge. A half with lands and other cards now asks for at least two bands, the lands on their own. They share one only when there truly is no room (`HalfPlanTest`).

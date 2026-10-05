@@ -141,7 +141,6 @@ class SeatGui(
     private val floatingMana = FloatingMana(recorder)
     private val drawLog = DrawLog(recorder)
     private val zoneLog = ZoneLog(recorder)
-    private val triggerWatch = TriggerWatch(recorder)
     private val knownInHand = KnownInHand(isViewer = { it in seatPlayerIds })
     private val countered = Countered(named = seesCard, onCountered = ::reportCountered)
     /** The trail's seq when the seat last decided something: what came after is "just happened". */
@@ -498,7 +497,7 @@ class SeatGui(
         selectableIds = emptySet(); actionableIds = emptySet(); highlightedIds = emptySet()
         cardViews.clear(); playerViews.clear()
         skippingTurn = null
-        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); zoneLog.attach(it); triggerWatch.attach(it); knownInHand.attach(it); countered.attach(it) }
+        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); zoneLog.attach(it); knownInHand.attach(it); countered.attach(it) }
         dirty = true
     }
 
@@ -699,13 +698,18 @@ class SeatGui(
      */
     override fun <T : Any?> order(title: String?, top: String?, remainingObjectsMin: Int, remainingObjectsMax: Int, sourceChoices: MutableList<T>, destChoices: MutableList<T>?, referenceCard: CardView?, sideboardingMode: Boolean, showRememberCheckbox: Boolean): IGuiGame.OrderResult<T> {
         val message = listOfNotNull(title, top).joinToString(" — ")
+        // The answer is what ends in the destination, and Forge may have put some there already: the second time the
+        // same simultaneous triggers come, every one sits in [destChoices], in the order saved last time, and the
+        // source is empty. Ordering only the source answered nothing, and Forge played none of them: prowess, Jori En,
+        // Dreadhorde Arcanist and Bilbo each missed every other time (PlayerControllerHuman.orderSimultaneousSa).
+        val placed = destChoices.orEmpty()
         if (remainingObjectsMin == 0 && remainingObjectsMax == 0) {
-            return IGuiGame.OrderResult(ordered(message, top ?: "first", sourceChoices) { it.toString() }.toMutableList(), false)
+            return IGuiGame.OrderResult(ordered(message, top ?: "first", placed + sourceChoices) { it.toString() }.toMutableList(), false)
         }
         val size = sourceChoices.size
         val minPick = if (remainingObjectsMax < 0) 0 else (size - remainingObjectsMax).coerceIn(0, size)
         val maxPick = if (remainingObjectsMin < 0) size else (size - remainingObjectsMin).coerceIn(minPick, size)
-        return IGuiGame.OrderResult(choose(message, minPick, maxPick, sourceChoices) { it.toString() }.toMutableList(), false)
+        return IGuiGame.OrderResult((placed + choose(message, minPick, maxPick, sourceChoices) { it.toString() }).toMutableList(), false)
     }
 
     /**
