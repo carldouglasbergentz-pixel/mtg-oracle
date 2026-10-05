@@ -17,6 +17,9 @@ object DbFixture {
     val repoRoot: File = File(System.getProperty("mtgoracle.repoRoot") ?: "..").canonicalFile
     val realDb: File = File(repoRoot, "data/mtg.db").canonicalFile
 
+    // Earlier runs' folders that Windows kept from being deleted (StaleTestDirs).
+    init { StaleTestDirs.sweepOnce() }
+
     val available: Boolean get() = realDb.isFile
 
     /**
