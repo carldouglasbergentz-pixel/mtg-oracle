@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - It opens on the deck you are on, and with none, on the last you played. The AI's deck is the one it last played, when it can face yours (`lobby.me`, `lobby.opponent` in `settings.properties`).
   - **The library**: a double-click on a deck opens it in the workspace, as Enter does, and a single click only selects it. The Edit button is gone. The click is timed by hand, so a single click doesn't wait out a double-click window.
   - `SetupScreen` is `LobbyScreen`. `LobbyTest` and `LobbyWidthTest` cover it.
+  - **A match over, or left, goes back to the lobby**, on the same pairing, so another game is one Start away (`backToLobby`). It went to the library. A crash still goes to the library.
 
 ### Added
 - **A card shows what was chosen for it.** Cavern of Souls' creature type, a named card (Pithing Needle), a colour, a player or a number: `[Human]` in the frame's marks and `Chosen: Human` at the top of the zoom pane's text. Forge keeps each choice on the card (`CardView.getChosenType` and its kin), and the snapshot carries it as `CardState.chosen`. Lands that chose differently are separate piles. `ChosenTest`, `KnownChoicesTest`.

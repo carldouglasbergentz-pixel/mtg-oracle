@@ -663,7 +663,7 @@ class AppController(private val paths: AppPaths) {
             }
             running.recorder.close()
             synchronized(this) { recorded.remove(running) }
-            if (leaving === running) { leaving = null; if (match === running) backToLibrary() }
+            if (leaving === running) { leaving = null; if (match === running) backToLobby() }
         }
     }
 
@@ -684,7 +684,7 @@ class AppController(private val paths: AppPaths) {
         }
     }
 
-    /** Set while the player leaves the match: once its last game is recorded, back to the library. */
+    /** Set while the player leaves the match: once its last game is recorded, back to the lobby. */
     @Volatile private var leaving: RunningMatch? = null
 
     /** Concede the match: the game on is conceded and recorded, no other follows, and the library returns. */
@@ -801,5 +801,12 @@ class AppController(private val paths: AppPaths) {
         match = null
         notice = null
         screen = Screen.Library
+    }
+
+    /** A match over or left: the lobby again, on the same pairing, so another game is one Start away. */
+    fun backToLobby() {
+        match = null
+        notice = null
+        openLobby(lobbyMeId)
     }
 }

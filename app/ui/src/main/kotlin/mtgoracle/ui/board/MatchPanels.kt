@@ -51,13 +51,13 @@ class MatchControls(
     val onContinue: () -> Unit,
     val onConcedeGame: () -> Unit,
     val onLeaveMatch: () -> Unit,
-    val onBackToLibrary: () -> Unit,
+    val onBackToLobby: () -> Unit,
 )
 
 /** Named controls of the match panels (the driver clicks them like any other). */
 object MatchTargets {
     val CONTINUE = ClickTarget.Control("match:continue")
-    val LIBRARY = ClickTarget.Control("match:library")
+    val LOBBY = ClickTarget.Control("match:lobby")
     val CONCEDE_GAME = ClickTarget.Control("match:concede-game")
     val LEAVE = ClickTarget.Control("match:leave")
     val CANCEL = ClickTarget.Control("match:cancel")
@@ -72,7 +72,8 @@ private fun outcome(r: MatchResult) = when (r.winner) {
 
 /**
  * Between games: game N's result, the score, Continue. When the match is
- * over: its result and the way back to the library. A solid panel over the
+ * over: its result and the way back to the lobby, where the same pairing
+ * is one Start away. A solid panel over the
  * table, like the stack box; the table under it is the last game's.
  */
 @Composable
@@ -96,10 +97,10 @@ fun ResultPanel(status: MatchStatus, onClick: (ClickTarget) -> Unit, modifier: M
             lines.forEachIndexed { i, line -> GridText(fit(line, cols - 4), color = if (i == 0) Palette.foreground else Palette.dim, bold = i == 0) }
             GridText("")
             Row {
-                if (status.over) GridButton("Back to the library", MatchTargets.LIBRARY, true, onClick)
+                if (status.over) GridButton("Back to the lobby", MatchTargets.LOBBY, true, onClick)
                 else GridButton("Continue to game ${last.gameNo + 1}", MatchTargets.CONTINUE, true, onClick)
             }
-            GridText(fit(if (status.over) "Enter or Esc: the library" else "Enter: continue · sideboarding and play/draw come next", cols - 4), color = Palette.dim)
+            GridText(fit(if (status.over) "Enter or Esc: the lobby" else "Enter: continue · sideboarding and play/draw come next", cols - 4), color = Palette.dim)
         }
     }
 }
@@ -117,7 +118,7 @@ fun ConcedeMenu(status: MatchStatus?, onClick: (ClickTarget) -> Unit, modifier: 
         Column(Modifier.padding(start = with(LocalDensity.current) { LocalCells.current.width.toDp() * 2 }, top = with(LocalDensity.current) { LocalCells.current.height.toDp() })) {
             // A row between the buttons: two of them touching read as one.
             if (gamesLeft) { Row(verticalAlignment = Alignment.CenterVertically) { GridButton("1  concede this game", MatchTargets.CONCEDE_GAME, true, onClick); GridText("then sideboarding, next game", color = Palette.dim) }; GridText("") }
-            Row(verticalAlignment = Alignment.CenterVertically) { GridButton("${if (gamesLeft) 2 else 1}  concede the match", MatchTargets.LEAVE, true, onClick); GridText("back to the library", color = Palette.dim) }
+            Row(verticalAlignment = Alignment.CenterVertically) { GridButton("${if (gamesLeft) 2 else 1}  concede the match", MatchTargets.LEAVE, true, onClick); GridText("back to the lobby", color = Palette.dim) }
             GridText("")
             Row { GridButton("Esc  cancel", MatchTargets.CANCEL, true, onClick) }
             GridText("")

@@ -140,8 +140,8 @@ class MatchTest {
         concede(Key.One)
         waitFor(what = "the match to end") { match.over }
         waitFor(what = "the rows") { rows().size == 3 }
-        assertTrue(driver.click(MatchTargets.LIBRARY), "match over: back to the library")
-        waitFor { app.screen == Screen.Library }
+        assertTrue(driver.click(MatchTargets.LOBBY), "match over: back to the lobby")
+        waitFor { app.screen == Screen.Lobby }
 
         val rows = rows()
         assertEquals(1, rows.map { it[0] }.distinct().size, "one match_id: $rows")
@@ -149,11 +149,11 @@ class MatchTest {
         assertEquals(listOf("bo3", "bo3", "bo3"), rows.map { it[2] })
         assertEquals(listOf(1, 0, 1), rows.map { (it[3] as Number).toInt() })
         assertEquals(listOf("opponent", "me", "opponent"), rows.map { it[4] })
-        driver.savePng(File(Scenario.pngDir, "match-library-after.png"))
+        driver.savePng(File(Scenario.pngDir, "match-lobby-after.png"))
     }
 
     @Test
-    fun `leaving mid-game goes back to the library, a new game starts at once, and nothing is left running`() {
+    fun `leaving mid-game goes back to the lobby, a new game starts at once, and nothing is left running`() {
         open()
         while (app.format != MatchFormat.BO1) app.cycleFormat()
         fun gameThreads() = Thread.getAllStackTraces().filter { (t, s) -> t.isAlive && s.any { "awaitDialog" in it.methodName || "InputSyncronizedBase" in it.className } }.keys
@@ -162,17 +162,16 @@ class MatchTest {
         play { ourPriority() }
         driver.savePng(File(Scenario.pngDir, "match-concede-menu-before.png"))
         concede(Key.One) // best of one: 1 is "concede the match"
-        waitFor(what = "the library") { app.screen == Screen.Library }
+        waitFor(what = "the lobby") { app.screen == Screen.Lobby }
         waitFor { rows().size == 1 }
         assertEquals(1, (rows()[0][3] as Number).toInt(), "recorded as conceded")
         val after1 = Thread.activeCount()
 
-        app.openLobby()
-        app.start(state)
+        app.start(state) // from the lobby, on the same pairing
         assertIs<Screen.Playing>(app.screen)
         play { ourPriority() }
         concede(Key.One)
-        waitFor(what = "the library again") { app.screen == Screen.Library }
+        waitFor(what = "the lobby again") { app.screen == Screen.Lobby }
         waitFor { rows().size == 2 }
         Thread.sleep(500)
         assertTrue(gameThreads().isEmpty(), "no Forge game thread is still waiting on us: ${gameThreads().map { it.name }}")

@@ -146,7 +146,7 @@ fun BoardScreen(
             target == MatchTargets.CONCEDE_GAME -> { menuOpen = false; matchControls?.onConcedeGame?.invoke() }
             target == MatchTargets.LEAVE -> { menuOpen = false; matchControls?.onLeaveMatch?.invoke() }
             target == MatchTargets.CONTINUE -> matchControls?.onContinue?.invoke()
-            target == MatchTargets.LIBRARY -> matchControls?.onBackToLibrary?.invoke()
+            target == MatchTargets.LOBBY -> matchControls?.onBackToLobby?.invoke()
             else -> send(UiEvent.Click(target))
         }
     }
@@ -164,8 +164,8 @@ fun BoardScreen(
                 true // the menu has the keyboard while it is open
             }
             ctrl && key == Key.Q -> { menuOpen = !showResult; true }
-            showResult && (key == Key.Enter || key == Key.NumPadEnter) -> { onClick(if (match!!.over) MatchTargets.LIBRARY else MatchTargets.CONTINUE); true }
-            showResult && key == Key.Escape && match!!.over -> { onClick(MatchTargets.LIBRARY); true }
+            showResult && (key == Key.Enter || key == Key.NumPadEnter) -> { onClick(if (match!!.over) MatchTargets.LOBBY else MatchTargets.CONTINUE); true }
+            showResult && key == Key.Escape && match!!.over -> { onClick(MatchTargets.LOBBY); true }
             // Esc with nothing to cancel opens the menu; with a prompt that cancels, it cancels.
             key == Key.Escape && !showResult && interaction.pendingPass == null && prompt.let { it == null || (it is InputPrompt && !it.cancelEnabled) } -> { menuOpen = true; true }
             else -> false

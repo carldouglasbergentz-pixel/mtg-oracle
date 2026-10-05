@@ -124,7 +124,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                     onContinue = { match.continueMatch() },
                     onConcedeGame = { match.concede() },
                     onLeaveMatch = app::leaveMatch,
-                    onBackToLibrary = app::backToLibrary,
+                    onBackToLobby = app::backToLobby,
                 ),
             )
         }
