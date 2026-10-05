@@ -41,6 +41,8 @@ class PackageActionsTest {
         assumeTrue(DbFixture.available, "needs data/mtg.db")
         val data = dataDir()
         val app = app(data)
+        // Both folders are there from the start, the import one saying what it is for.
+        assertTrue(File(data, "exports").isDirectory && "Put a .mtgoracle package here" in File(data, "import/README.txt").readText())
         app.lookupUi!!.intent(LibraryIntent.ExportPackage(PackageScope.Library))
         val file = File(data, "exports").listFiles()!!.single { it.name.endsWith(".mtgoracle") }
         assertTrue("exported the library" in app.notice.orEmpty(), "${app.notice}")
