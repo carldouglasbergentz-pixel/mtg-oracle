@@ -39,7 +39,9 @@ class UpdateControl(
     fun check() {
         val u = updates ?: return
         thread(name = "update-check", isDaemon = true) {
-            val newer = runCatching { u.newer() }.onFailure { Log.info("update check: ${it.message}") }.getOrNull()
+            val looked = runCatching { u.newer() }.onFailure { Log.info("update check: ${it.message}") }
+            val newer = looked.getOrNull()
+            if (looked.isSuccess) Log.info("update check: " + (newer?.let { "${it.version} is out (this is ${u.running})" } ?: "${u.running} is the newest"))
             settings.updateLastCheck = clock()
             java.awt.EventQueue.invokeLater {
                 newerRelease = newer

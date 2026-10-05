@@ -198,17 +198,18 @@ class AppController(private val paths: AppPaths) {
         })
 
     /**
-     * Looks every hour whether the daily sync is due, the first time a minute after start, and
-     * whether a release has a newer version (at start, then daily). Only the window starts it, never a test.
+     * Whether a release has a newer version, seconds after start and then daily, and every hour
+     * whether the daily sync is due, the first time a minute after start. Only the window starts it,
+     * never a test. The first look came with the sync's, a minute in, and a window closed sooner
+     * never heard of 0.2.0.
      */
     fun startAutoSync() {
         val timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "auto-sync").apply { isDaemon = true } }
-        var first = true
+        timer.schedule({ java.awt.EventQueue.invokeLater { updates.check() } }, 5, java.util.concurrent.TimeUnit.SECONDS)
         timer.scheduleAtFixedRate({
             java.awt.EventQueue.invokeLater {
                 sync.autoIfDue()
-                if (first || updates.due()) updates.check()
-                first = false
+                if (updates.due()) updates.check()
             }
         }, 1, 60, java.util.concurrent.TimeUnit.MINUTES)
     }
@@ -240,6 +241,7 @@ class AppController(private val paths: AppPaths) {
             buildLookup(db, carry = null)
             sync.refreshWarning()
             screen = Screen.Library
+            showPackageFolders()
             packages?.lookForDropped()
         } catch (e: SchemaTooOldException) {
             screen = Screen.Blocked(e.message!!)
@@ -266,6 +268,24 @@ class AppController(private val paths: AppPaths) {
             }
         }
     }
+
+    /**
+     * data\import\ and data\exports\ from the first start, each saying what it is for: made only
+     * when first used, neither was there to be found (the user, 2026-10-05).
+     */
+    private fun showPackageFolders() = runCatching {
+        paths.exports.mkdirs()
+        paths.imports.mkdirs()
+        val readme = paths.imports.resolve("README.txt")
+        if (!readme.exists()) readme.writeText(
+            "Put a .mtgoracle package here (an export from MTG Oracle: decks, games, your own combos)\r\n" +
+                "and it is imported at the next start. The app asks first, and nothing in your library\r\n" +
+                "is overwritten. An imported package moves to done\\, a skipped one to skipped\\.\r\n" +
+                "\r\n" +
+                "Or copy the file in Explorer and press Import in the library.\r\n" +
+                "Exports are saved in ..\\exports\\.\r\n",
+        )
+    }.onFailure { Log.warn("could not make the package folders: ${it.message}") }
 
     fun deckById(id: Int): Deck? = deckCache.getOrPut(id) { library.deck(id) ?: return null }
 

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A release asks GitHub for a newer one seconds after it starts.** The first look came with the daily sync's, a minute in, so a window closed sooner never heard of 0.2.0 (`update` by hand found it at once). The answer is logged either way (`update check: 0.2.0 is the newest`), and a newer release goes before the sync's standing warning in the status line, being rare and something to act on.
+
+
 ## [0.2.0] - 2026-10-05
 
 A lobby for play, the whole game log, Forge's achievements, `.mtgoracle` packages to move a library, and the health items of an inventory. A 0.1.1 install takes it with `update`; the database is the same (schema v3), so nothing in `data\` is migrated.
