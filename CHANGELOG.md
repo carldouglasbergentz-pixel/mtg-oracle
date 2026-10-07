@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
+Getting started for a first start (a checklist, a tour, a first game's tips), playmats under each half of the table, and a card Forge shows you drawn over the table and kept in the log. A 0.2.x install takes it with `update`; the database is the same (schema v3).
+
 ### Added
 - **Playmats.** A picture under your half of the table, and one under the AI's.
   - **In the lobby**, under the match: each side's mat chosen with `[<]` / `[>]` (none, then each picture), its dim (`0` and nine steps to 90 %), which part of it shows (top, middle, bottom), and a preview of the two with a zone's rule over it. **Add a playmat from the clipboard** takes a picture copied as a file in Explorer, its path, or the picture itself (saved as PNG); pictures put in `data\playmats\` (made at start) are offered too. Each mat keeps its own dim and part; each side's choice is kept for the next start.
