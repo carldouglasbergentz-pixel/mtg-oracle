@@ -332,7 +332,9 @@ class SeatGui(
         val view = gameView ?: return
         dirty = false
         try {
-            val board = snapshots.build(view, seatPlayerIds, ::visible, ::peek, recorder.log(), finished, trail.snapshot(), decisionSeq)
+            // The log as this seat may read it: a line shown to another player only (a look at a hand) is not its.
+            val log = recorder.log().let { all -> if (all.any { it.seenBy != null }) all.filter { it.readableBy(seatPlayerIds) } else all }
+            val board = snapshots.build(view, seatPlayerIds, ::visible, ::peek, log, finished, trail.snapshot(), decisionSeq)
             val empties = floatingMana.floating()
             boardFlow.value = board.copy(players = board.players.map { if (it.isSeat && it.manaPool.isNotEmpty()) it.copy(manaEmpties = empties) else it })
         } catch (e: RuntimeException) {
@@ -430,7 +432,8 @@ class SeatGui(
         }
     }
 
-    private fun optionFor(item: Any?, label: String): ChoiceOption = ChoiceOption(
+    /** An option of a dialog; [shown]: Forge is showing this seat the card (a reveal), so the option carries it to be drawn. */
+    private fun optionFor(item: Any?, label: String, shown: Boolean = false): ChoiceOption = ChoiceOption(
         label,
         when (item) {
             is CardView -> BoardRef.Card(item.id).also { cardViews[item.id] = item }
@@ -438,13 +441,15 @@ class SeatGui(
             is StackItemView -> BoardRef.StackItem(item.id)
             else -> null
         },
+        card = (item as? CardView)?.takeIf { shown && (!it.isFaceDown || peek(it)) }?.let { snapshots.card(it) },
     )
 
     private fun <T> choose(message: String, min: Int, max: Int, items: List<T>, label: (T) -> String): List<T> {
         if (items.isEmpty()) return emptyList()
-        val options = items.map { optionFor(it, label(it)) }
+        val options = items.map { optionFor(it, label(it), shown = min < 0) }
         if (min < 0) { // a reveal: show it, nothing to pick
             rememberRevealed(items.filterIsInstance<CardView>())
+            logShown(items.filterIsInstance<CardView>())
             awaitDialog({ ChoicePrompt(it, message, options, -1, -1) }, SeatAction.Choose(emptyList()))
             return emptyList()
         }
@@ -471,6 +476,21 @@ class SeatGui(
                 val names = inHand.mapNotNull { it.currentState?.name }.joinToString(", ")
                 trail.note(owner, "shown in hand: $names", inHand.singleOrNull())
             }
+    }
+
+    /**
+     * Cards Forge shows this seat (a tutor's find, a hand looked at) as a line in its log, for it alone:
+     * `Shown to you: Sylvan Library (in AI's library)`. The dialog that showed them closes; the line
+     * stays. Forge can't tell a reveal (everyone sees) from a look (one player), so it is never public.
+     */
+    private fun logShown(cards: List<CardView>) {
+        val seen = cards.filter { !it.isFaceDown || peek(it) }
+        if (seen.isEmpty() || seatPlayerIds.isEmpty()) return
+        fun whose(c: CardView) = c.controller?.name?.let { if (it == "You") "your" else "$it's" } ?: "a"
+        val parts = seen.groupBy { whose(it) to (it.zone?.name?.lowercase() ?: "zone") }.map { (where, inZone) ->
+            "${inZone.joinToString(", ") { it.currentState?.name ?: it.name }} (in ${where.first} ${where.second})"
+        }
+        recorder.play("Shown", LogKind.REVEAL, "Shown to you: ${parts.joinToString("; ")}", names = seen.mapNotNull { it.currentState?.name }, seenBy = seatPlayerIds)
     }
 
     /** All of [items] in an order; the answer lists indices first-first, the rest keep their place after them. */
@@ -788,6 +808,7 @@ class SeatGui(
      */
     private fun withReveal(title: String, reveal: DelayedReveal?, options: List<GameEntityView>): String {
         rememberRevealed(reveal?.cards.orEmpty())
+        logShown(reveal?.cards.orEmpty().toList())
         val offered = options.mapNotNull { (it as? CardView)?.id }.toSet()
         val others = reveal?.cards?.filter { it.id !in offered }.orEmpty()
         if (others.isEmpty()) return title

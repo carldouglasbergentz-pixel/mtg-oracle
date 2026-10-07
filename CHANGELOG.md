@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A card Forge shows you is drawn, and kept in the log.** A tutor's find (Enlightened Tutor), a hand looked at: Forge's reveal was one line of names in the prompt pane, and one click closed it for good; a card revealed on top of a library was then out of sight altogether.
+  - **A panel over the table** ("shown to you"): the cards in large frames with what Forge said of them, a hovered one in the zoom pane, and OK (Enter), which answers the reveal (`RevealPanel`). The reveal's options now carry the cards themselves (`ChoiceOption.card`), since a library is no zone the board shows.
+  - **A line in the log**, `Shown to you: Sylvan Library (in AI's library)`, its cards marked. Forge can't tell a reveal (everyone sees) from a look (one player), so the line is for this seat alone (`LogLine.seenBy`, filtered per seat in `SeatGui`), and its names don't mark the public lines after it.
+  - `RevealPanelTest`, `KnownChoicesTest`, `LogLinesTest`.
+
+
 ## [0.2.1] - 2026-10-05
 
 A flag on the cards Forge's AI won't play, with a `[!]` that gives it a substitute; a release that asks for a newer one as it starts; the import and export folders there from the first start. A 0.2.0 install takes it with `update`; the database is the same (schema v3).

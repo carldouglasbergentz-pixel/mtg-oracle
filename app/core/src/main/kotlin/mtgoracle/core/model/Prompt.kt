@@ -26,7 +26,12 @@ sealed interface BoardRef {
     data class StackItem(val id: Int) : BoardRef
 }
 
-data class ChoiceOption(val label: String, val ref: BoardRef? = null)
+data class ChoiceOption(
+    val label: String,
+    val ref: BoardRef? = null,
+    /** The card itself, for a reveal: it may be in a zone the board doesn't show (a library), and the popup draws it. */
+    val card: CardState? = null,
+)
 
 sealed interface Prompt {
     /** Unique per published prompt; an answer names the prompt it answers. */

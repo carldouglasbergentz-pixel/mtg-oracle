@@ -309,6 +309,10 @@ fun BoardScreen(
             if (b != null && sides != null && b.stack.isNotEmpty() && midline != Rect.Zero && prompt !is SideboardPrompt) {
                 StackLayer(b, sides.first.id, prompt, mode, cells, registry, arrangement, ::arrange, midline, header, table, leftCols, totalCols, totalRows, onClick, onHover)
             }
+            // Cards shown to you, drawn over the table until you have seen them.
+            (prompt as? ChoicePrompt)?.takeIf { it.isReveal && it.options.any { o -> o.card != null } && !showResult && !menuOpen }?.let { p ->
+                RevealPanel(p, onClick, onHover = { face -> zoom = face }, modifier = Modifier.align(Alignment.Center))
+            }
             // Over everything: the result between games, and the way out of the game.
             if (showResult) ResultPanel(match!!, onClick, Modifier.align(Alignment.Center))
             if (menuOpen && matchControls != null) ConcedeMenu(match, onClick, Modifier.align(Alignment.Center))

@@ -93,12 +93,17 @@ class GameRecorder(val file: File) : Closeable {
      * returns the text to stand for both, or null to keep them apart.
      */
     @Synchronized
-    fun play(caption: String?, kind: LogKind, text: String, names: List<String> = emptyList(), merge: ((last: String, next: String) -> String?)? = null) {
-        write("LOG", caption?.let { "$it: $text" } ?: text)
-        val last = lines.lastOrNull()?.takeIf { it.kind == kind }
+    fun play(
+        caption: String?, kind: LogKind, text: String, names: List<String> = emptyList(),
+        merge: ((last: String, next: String) -> String?)? = null,
+        /** The players it was shown to; null for a line everyone reads (LogLine.seenBy). */
+        seenBy: Set<Int>? = null,
+    ) {
+        write("LOG", (caption?.let { "$it: $text" } ?: text) + (seenBy?.let { " [seen by $it]" }.orEmpty()))
+        val last = lines.lastOrNull()?.takeIf { it.kind == kind && it.seenBy == seenBy }
         val folded = last?.let { merge?.invoke(it.text, text) }
         if (folded != null) lines.removeAt(lines.lastIndex)
-        add(kind, folded ?: text) { parse.ours(kind, folded ?: text, players(), names) }
+        add(kind, folded ?: text, seenBy) { parse.ours(kind, folded ?: text, players(), names, private = seenBy != null).copy(seenBy = seenBy) }
     }
 
     /** The match's play-by-play so far, oldest first, for the board's log pane: the same list until a line is added. */
@@ -110,11 +115,12 @@ class GameRecorder(val file: File) : Closeable {
      * stands, with a warning: this runs inside Forge's own game-log and event
      * handlers, and an exception thrown there broke the game it was logging.
      */
-    private fun add(kind: LogKind, text: String, parsed: () -> LogLine) {
+    private fun add(kind: LogKind, text: String, seenBy: Set<Int>? = null, parsed: () -> LogLine) {
         val line = runCatching(parsed).getOrElse { e ->
             Log.warn("log line not read ($kind '$text'): $e")
             write("NOTE", "WARNING log line not read: $e")
-            LogLine(lines.lastOrNull()?.seq?.plus(1) ?: 0, kind, text)
+            // Kept for whom it was, a line shown to one player too: the fallback must not make it public.
+            LogLine(lines.lastOrNull()?.seq?.plus(1) ?: 0, kind, text, seenBy = seenBy)
         }
         lines += line
         if (lines.size > MAX_LINES) lines.subList(0, lines.size - MAX_LINES).clear()

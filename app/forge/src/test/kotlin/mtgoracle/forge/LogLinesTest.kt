@@ -76,6 +76,15 @@ class LogLinesTest {
     }
 
     @Test
+    fun `a line shown to one player marks its cards in itself only`() {
+        val log = lines()
+        val private = log.ours(LogKind.REVEAL, "Shown to you: Farewell (in AI (Jori En)'s hand)", players, names = listOf("Farewell"), private = true)
+        assertEquals(listOf("Farewell"), mark(private.text, private.cards))
+        val public = log.ours(LogKind.OTHER, "Farewell to the old ways.", players)
+        assertEquals(emptyList(), public.cards, "a public line does not learn the name: it would tell everyone what was shown")
+    }
+
+    @Test
     fun `lines count up`() {
         val log = lines()
         val a = log.forge(GameLogEntryType.TURN, "Turn 1 (You)", players)

@@ -35,20 +35,25 @@ internal class LogLines(
         return line(kind, body, players)
     }
 
-    /** One of ours, which knows the cards it names: [names] are marked as Forge's ids would be. */
+    /**
+     * One of ours, which knows the cards it names: [names] are marked as Forge's ids would be. A
+     * [private] line (shown to one player) marks them in itself only: remembered, they would be
+     * marked in public lines after it, and say to everyone which card that player was shown.
+     */
     @Synchronized
-    fun ours(kind: LogKind, text: String, players: List<String>, names: List<String> = emptyList()): LogLine {
-        seen += names.filter { oracle(it) != null }
-        return line(kind, text, players)
+    fun ours(kind: LogKind, text: String, players: List<String>, names: List<String> = emptyList(), private: Boolean = false): LogLine {
+        val known = names.filter { oracle(it) != null }
+        if (!private) seen += known
+        return line(kind, text, players, extra = if (private) known.toSet() else emptySet())
     }
 
-    private fun line(kind: LogKind, raw: String, players: List<String>): LogLine {
+    private fun line(kind: LogKind, raw: String, players: List<String>, extra: Set<String> = emptySet()): LogLine {
         val masked = players.flatMap { name -> occurrences(raw, name) }
         val (text, byId) = withoutIds(raw, masked, nameOf)
         byId.forEach { seen += it.name }
         castName(kind, text)?.takeIf { oracle(it) != null }?.let { seen += it }
         val taken = players.flatMap { occurrences(text, it) } + byId.map { it.start until it.end }
-        val free = scan(text, seen, taken).map { (start, end) -> LogCard(start, end, text.substring(start, end)) }
+        val free = scan(text, seen + extra, taken).map { (start, end) -> LogCard(start, end, text.substring(start, end)) }
         val cards = (byId + free).sortedBy { it.start }.map { it.copy(card = oracle(it.name)) }
         return LogLine(seq++, kind, text, cards)
     }

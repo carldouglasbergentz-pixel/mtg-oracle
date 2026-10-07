@@ -12,8 +12,13 @@ enum class LogKind { TURN, PHASE, MANA, CAST, RESOLVE, LAND, DRAW, COMBAT, DAMAG
 data class LogCard(val start: Int, val end: Int, val name: String, val id: Int? = null, val card: CardState? = null)
 
 /**
- * One line of the play-by-play, Forge's game log or one of ours. The log is
- * public: every viewer reads the same lines. [seq] counts from the match's
- * first line, so a line keeps its place while the log grows.
+ * One line of the play-by-play, Forge's game log or one of ours. [seq]
+ * counts from the match's first line, so a line keeps its place while the log
+ * grows. [seenBy] is null for a public line, which every viewer reads; else
+ * the players it was shown to (a card revealed to you, which Forge can't tell
+ * from one you only looked at), and only their seats get it.
  */
-data class LogLine(val seq: Long, val kind: LogKind, val text: String, val cards: List<LogCard> = emptyList())
+data class LogLine(val seq: Long, val kind: LogKind, val text: String, val cards: List<LogCard> = emptyList(), val seenBy: Set<Int>? = null) {
+    /** Whether a seat of [players] may read it. */
+    fun readableBy(players: Set<Int>): Boolean = seenBy == null || seenBy.any { it in players }
+}
