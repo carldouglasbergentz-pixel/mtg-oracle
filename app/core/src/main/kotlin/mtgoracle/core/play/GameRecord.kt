@@ -2,7 +2,8 @@ package mtgoracle.core.play
 
 import java.time.Instant
 
-enum class GameMode(val column: String) { HUMAN_VS_AI("human_vs_ai"), AI_VS_AI("ai_vs_ai") }
+/** HUMAN_VS_HUMAN has no `games.mode` yet: two people's games are not recorded (the column's CHECK would refuse them). */
+enum class GameMode(val column: String) { HUMAN_VS_AI("human_vs_ai"), AI_VS_AI("ai_vs_ai"), HUMAN_VS_HUMAN("human_vs_human") }
 
 /** `games.winner`: seat A (the human, or the first AI) is "me". */
 enum class Winner(val column: String) { ME("me"), OPPONENT("opponent"), DRAW("draw") }

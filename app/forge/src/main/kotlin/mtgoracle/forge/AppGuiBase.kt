@@ -26,8 +26,9 @@ private val NO_SPECTATOR: () -> IGuiGame = { error("no spectator GUI registered"
  *
  * The app-level dialogs here are *not* the per-game prompts (those are
  * [SeatGui]), but Forge's static helpers do route game decisions through
- * them. While a person plays, they become that seat's prompts; otherwise
- * they take Forge's default and say so (`UNHANDLED`, and the board's warning line).
+ * them. While people play, they become the prompts of the seat Forge asked
+ * last; otherwise they take Forge's default and say so (`UNHANDLED`, and the
+ * board's warning line).
  */
 class AppGuiBase(
     private val assetsDir: String,
@@ -88,7 +89,7 @@ class AppGuiBase(
     // result panel (SeatGui.achievement).
     override fun showImageDialog(image: ISkinImage?, message: String?, title: String?) {
         Log.info("Forge shows: ${listOfNotNull(title, message).joinToString(": ")}")
-        message?.let { activeSeat?.achievement(it) }
+        message?.let { seats.firstOrNull()?.achievement(it) }
     }
     // Forge's static dialogs (GuiChoose, SOptionPane) land here, outside any game's GUI. During a game a
     // person is playing they go to that seat's prompts; otherwise they answer with Forge's default, loudly.
@@ -119,9 +120,18 @@ class AppGuiBase(
         unhandled("chooseCard", "$title -> ${list.firstOrNull()}"); return list.firstOrNull()
     }
 
-    /** The seat of the game in progress, when a person plays it. Set by ForgeMatch. */
-    @Volatile var activeSeat: SeatGui? = null
-    private fun human(): SeatGui? = activeSeat?.takeIf { it.isHumanSeat }
+    /**
+     * The seats of the game in progress, the host's first (its achievements are
+     * Forge's, kept in the host's profile); two when two people play. Set by ForgeMatch.
+     */
+    @Volatile var seats: List<SeatGui> = emptyList()
+
+    /**
+     * The person a static dialog is for: of the people at the table, the one
+     * Forge asked last. The only static dialog a game reaches (a cost's "from
+     * whose zone", HumanCostDecision) comes in the middle of the payer's own decision.
+     */
+    private fun human(): SeatGui? = seats.filter { it.isHumanSeat }.maxByOrNull { it.lastAskedAt }
 
     override fun isSupportedAudioFormat(file: File?) = false
     override fun createAudioClip(filename: String?): IAudioClip? = null
@@ -139,6 +149,6 @@ class AppGuiBase(
 
     /** Loud: in the game's log and on its board when there is one, the app log always. */
     private fun unhandled(method: String, detail: String?) {
-        activeSeat?.autoAnswered("IGuiBase.$method", detail.orEmpty()) ?: Log.warn("UNHANDLED IGuiBase.$method: $detail")
+        (human() ?: seats.firstOrNull())?.autoAnswered("IGuiBase.$method", detail.orEmpty()) ?: Log.warn("UNHANDLED IGuiBase.$method: $detail")
     }
 }

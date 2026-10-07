@@ -23,7 +23,8 @@ import java.util.EnumSet
 import mtgoracle.core.deck.GameType as DeckGameType
 
 /**
- * One game to start. [seat] is the human (or AI seat A); [opponent] is the AI.
+ * One game to start. [seat] is the human (or AI seat A); [opponent] is the AI,
+ * or with HUMAN_VS_HUMAN the second person's deck.
  * [startState] is a Forge GameState (the dev-mode / puzzle format) applied as
  * turn one begins — how the tests set up exact situations.
  */
@@ -42,6 +43,10 @@ data class MatchSpec(
      * person can follow it. A simulation has nobody watching and turns it off.
      */
     val paced: Boolean = true,
+    /** The name the seat's person plays under; against the AI, "You", as the log has always said. */
+    val seatName: String = "You",
+    /** HUMAN_VS_HUMAN: the second person's name; made " (2)" when it is the seat's own. */
+    val guestName: String = "Guest",
 )
 
 /**
@@ -56,8 +61,11 @@ class RunningMatch internal constructor(
     val recorder: GameRecorder,
     val startedAt: Instant,
     internal val hosted: HostedMatch,
+    private val guestGui: SeatGui? = null,
 ) {
     val seat: GameSeat get() = gui
+    /** HUMAN_VS_HUMAN: the second person's seat, filtered for that person as [seat] is for the first. */
+    val guest: GameSeat? get() = guestGui
     /** The same for every game of this match: `games.match_id`. */
     val matchId: String = java.util.UUID.randomUUID().toString()
 
@@ -88,6 +96,9 @@ class RunningMatch internal constructor(
     /** Concedes the game being played; in a match, the next one can still follow. */
     fun concede() = gui.concedeNow()
 
+    /** The second person concedes the game being played. */
+    fun concedeGuest() { guestGui?.concedeNow() }
+
     /**
      * Leaves the match: the game on is conceded (and recorded so), and no
      * other game follows. Between games, the match simply ends here.
@@ -112,7 +123,8 @@ class RunningMatch internal constructor(
         gamesFlow.value = (if (replaceLast) gamesFlow.value.dropLast(1) else gamesFlow.value) + result
         if (result.matchOver) {
             gui.dispose()
-            if (ForgeRuntime.guiBase.activeSeat === gui) ForgeRuntime.guiBase.activeSeat = null
+            guestGui?.dispose()
+            if (ForgeRuntime.guiBase.seats.firstOrNull() === gui) ForgeRuntime.guiBase.seats = emptyList()
             // A watched match's seat was the spectator GUI Forge asks for: let it go with the match.
             ForgeRuntime.guiBase.releaseSpectator(gui)
         }
@@ -133,22 +145,27 @@ object ForgeMatch {
         spec.seed?.let(ForgeRuntime::seedRandom)
         val recorder = GameRecorder(spec.logFile)
         val gui = SeatGui(recorder, ForgeRuntime.edt, spec.stops)
-        ForgeRuntime.guiBase.activeSeat = gui // one game at a time: Forge's static dialogs reach this seat
+        val guestGui = if (spec.mode == GameMode.HUMAN_VS_HUMAN) SeatGui(recorder, ForgeRuntime.edt) else null
+        ForgeRuntime.guiBase.seats = listOfNotNull(gui, guestGui) // one game at a time: Forge's static dialogs reach these seats
         val type = forgeType(spec.seat.gameType)
 
         val seatPlayer: LobbyPlayer = when (spec.mode) {
-            GameMode.HUMAN_VS_AI -> LobbyPlayerHuman("You")
+            GameMode.HUMAN_VS_AI, GameMode.HUMAN_VS_HUMAN -> LobbyPlayerHuman(spec.seatName)
             GameMode.AI_VS_AI -> GamePlayerUtil.createAiPlayer("AI 1 (${spec.seat.name})", 0)
         }
-        val aiPlayer = GamePlayerUtil.createAiPlayer("AI (${spec.opponent.name})", 1)
+        val opponentPlayer: LobbyPlayer = if (guestGui != null) LobbyPlayerHuman(guestName(spec))
+            else GamePlayerUtil.createAiPlayer("AI (${spec.opponent.name})", 1)
+        if (guestGui != null) { gui.logName = seatPlayer.name; guestGui.logName = opponentPlayer.name }
         val a = registered(spec.seat, type).apply { player = seatPlayer }
-        val b = registered(spec.opponent, type).apply { player = aiPlayer }
-        gui.setArtOverrides(mapOf(seatPlayer.name to missingPrintings(spec.seat), aiPlayer.name to missingPrintings(spec.opponent)))
+        val b = registered(spec.opponent, type).apply { player = opponentPlayer }
+        val art = mapOf(seatPlayer.name to missingPrintings(spec.seat), opponentPlayer.name to missingPrintings(spec.opponent))
+        gui.setArtOverrides(art)
+        guestGui?.setArtOverrides(art)
         recorder.note("${spec.mode}: ${spec.seat.name} vs ${spec.opponent.name}; seed ${spec.seed ?: "none"}; Forge ${ForgeRuntime.version}")
         spec.seat.notes.plus(spec.opponent.notes).forEach(recorder::note)
 
         val hosted = HostedMatch()
-        val running = RunningMatch(spec, gui, recorder, Instant.now(), hosted)
+        val running = RunningMatch(spec, gui, recorder, Instant.now(), hosted, guestGui)
         val unpaced = spec.mode == GameMode.AI_VS_AI && !spec.paced
         if (spec.startState != null || unpaced) {
             hosted.setStartGameHook {
@@ -166,6 +183,7 @@ object ForgeMatch {
         val rules = GameRules(type).apply { gamesPerMatch = games }
         when (spec.mode) {
             GameMode.HUMAN_VS_AI -> hosted.startMatch(rules, EnumSet.of(type), listOf(a, b), a, gui)
+            GameMode.HUMAN_VS_HUMAN -> hosted.startMatch(rules, EnumSet.of(type), listOf(a, b), mapOf(a to gui, b to guestGui!!), null)
             GameMode.AI_VS_AI -> {
                 // No human: HostedMatch asks GuiBase for a spectator GUI, which is our seat.
                 ForgeRuntime.guiBase.spectatorFactory = { gui }
@@ -194,6 +212,10 @@ object ForgeMatch {
             recorder.note("WARNING Forge's spectator pacing is still on: ${e.message}")
         }
     }
+
+    /** Two people may not share a name: Forge's log and the board tell them apart by it. */
+    private fun guestName(spec: MatchSpec): String =
+        if (spec.guestName.equals(spec.seatName, ignoreCase = true)) "${spec.guestName} (2)" else spec.guestName
 
     /** The cards whose chosen printing Forge lacks: the board shows Scryfall's art for them (ForgeCards.printingKey). */
     private fun missingPrintings(deck: PlayDeck): Map<String, String> = deck.cards.mapNotNull { card ->

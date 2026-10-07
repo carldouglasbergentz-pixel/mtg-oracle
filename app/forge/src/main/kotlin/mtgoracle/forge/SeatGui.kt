@@ -120,7 +120,7 @@ class SeatGui(
     override fun setShowAllHands(show: Boolean) {
         if (!canShowAllHands) return
         showHandsFlow.value = show
-        recorder.seat("SHOW ALL HANDS $show")
+        seatLog("SHOW ALL HANDS $show")
         dirty = true
         edt.later { }
     }
@@ -202,13 +202,13 @@ class SeatGui(
             Log.warn("stale answer $action for prompt #$promptId (current ${current?.id})")
             return
         }
-        recorder.seat("ANSWER #$promptId $action${describe(action, current)}")
+        seatLog("ANSWER #$promptId $action${describe(action, current)}")
         decisionSeq = trail.lastSeq()
         when (current) {
             // Only to the Input the prompt was about: a second answer queued behind the first would land on whatever Forge holds by then.
             is InputPrompt -> edt.later {
                 val top = seatController?.inputQueue?.input
-                if (top != null && System.identityHashCode(top) != current.inputSerial) recorder.seat("  (the input moved on before #$promptId's $action: ignored)")
+                if (top != null && System.identityHashCode(top) != current.inputSerial) seatLog("  (the input moved on before #$promptId's $action: ignored)")
                 else applyGesture(action)
             }
             else -> synchronized(dialogs) { dialogs.firstOrNull { it.prompt.id == promptId }?.reply?.complete(action) }
@@ -216,7 +216,7 @@ class SeatGui(
     }
 
     override fun command(command: SeatCommand) {
-        recorder.seat("COMMAND $command")
+        seatLog("COMMAND $command")
         decisionSeq = trail.lastSeq()
         edt.later {
             val controller = seatController ?: return@later
@@ -271,7 +271,7 @@ class SeatGui(
 
     override fun setStops(stops: PhaseStops) {
         stopsFlow.value = stops
-        recorder.seat("STOPS ${stops.serialise()}")
+        seatLog("STOPS ${stops.serialise()}")
     }
 
     private fun endSkip(controller: PlayerControllerHuman) {
@@ -297,14 +297,14 @@ class SeatGui(
                 val view = cardViews[action.cardId]
                 if (view == null) Log.warn("click on unknown card ${action.cardId}")
                 else if (!controller.selectCard(view, null, null)) {
-                    recorder.seat("  (the ${(promptFlow.value as? InputPrompt)?.inputName} ignored the click)")
+                    seatLog("  (the ${(promptFlow.value as? InputPrompt)?.inputName} ignored the click)")
                 }
             }
             is SeatAction.ClickPlayer -> playerViews[action.playerId]?.let { controller.selectPlayer(it, null) }
             is SeatAction.UseMana -> MANA_BYTES[action.colour]?.let { controller.useMana(it) } ?: Log.warn("no mana colour ${action.colour}")
             // Only a button that is on: Forge's Inputs don't check (an OK with too few picks, an Auto with no plan to pay).
-            SeatAction.Ok -> if (okEnabled) controller.selectButtonOk() else recorder.seat("  (OK is off: ignored)")
-            SeatAction.Cancel -> if (cancelEnabled) controller.selectButtonCancel() else recorder.seat("  (Cancel is off: ignored)")
+            SeatAction.Ok -> if (okEnabled) controller.selectButtonOk() else seatLog("  (OK is off: ignored)")
+            SeatAction.Cancel -> if (cancelEnabled) controller.selectButtonCancel() else seatLog("  (Cancel is off: ignored)")
             else -> Log.warn("$action is not a gesture")
         }
     }
@@ -388,6 +388,7 @@ class SeatGui(
     }
 
     private fun publish(prompt: Prompt) {
+        lastAskedAt = System.nanoTime()
         promptFlow.value = prompt
         val detail = when (prompt) {
             is InputPrompt -> "${prompt.kind}/${prompt.inputName} [ok=${prompt.okLabel.ifBlank { "-" }}${if (prompt.okEnabled) "" else "(off)"}" +
@@ -401,7 +402,7 @@ class SeatGui(
             is NumberPrompt -> "NUMBER ${prompt.min}..${prompt.max}"
             is SideboardPrompt -> "SIDEBOARD main ${prompt.main.sumOf { it.count }} side ${prompt.side.sumOf { it.count }}"
         }
-        recorder.seat("PROMPT #${prompt.id} $detail '${prompt.message.trim()}'")
+        seatLog("PROMPT #${prompt.id} $detail '${prompt.message.trim()}'")
     }
 
     private fun kindOf(input: Input): InputKind = when (input) {
@@ -509,7 +510,7 @@ class SeatGui(
      * line ([warning]) until the next one.
      */
     fun autoAnswered(where: String, detail: String) {
-        recorder.seat("UNHANDLED $where: $detail")
+        seatLog("UNHANDLED $where: $detail")
         Log.warn("UNHANDLED $where: $detail")
         warningFlow.value = "auto-answered $where: $detail (see the game log)"
     }
@@ -537,6 +538,15 @@ class SeatGui(
 
     /** Whether a person answers this seat's prompts (false when watching AI vs AI). */
     val isHumanSeat: Boolean get() = seatController != null
+
+    /** When this seat was last asked something ([System.nanoTime]): who a static dialog is for (AppGuiBase). */
+    @Volatile internal var lastAskedAt = 0L
+        private set
+
+    /** With two people at the table, the name this seat's lines carry, so the match's one log says whose they are. */
+    @Volatile internal var logName: String? = null
+
+    private fun seatLog(line: String) = recorder.seat(logName?.let { "[$it] $line" } ?: line)
 
     // --- lifecycle -----------------------------------------------------------
 
@@ -646,7 +656,7 @@ class SeatGui(
     override fun isUiSetToSkipPhase(playerTurn: PlayerView?, phase: PhaseType?): Boolean {
         val step = Step.entries.firstOrNull { it.name == phase?.name } ?: return false
         if (floatingMana.floating()) {
-            recorder.seat("FLOATING MANA: priority in $step, whatever the stops say")
+            seatLog("FLOATING MANA: priority in $step, whatever the stops say")
             return false
         }
         val seatsTurn = playerTurn != null && playerTurn.id in seatPlayerIds
@@ -659,7 +669,7 @@ class SeatGui(
         if ((gameView?.turn ?: skipping) != skipping) seatController?.let { endSkip(it) }
     }
 
-    override fun flashIncorrectAction() = recorder.seat("  (Forge flagged the last action as incorrect)")
+    override fun flashIncorrectAction() = seatLog("  (Forge flagged the last action as incorrect)")
     override fun alertUser() {}
     override fun showCombat() { dirty = true }
     override fun updatePhase(saveState: Boolean) { dirty = true }
@@ -812,7 +822,7 @@ class SeatGui(
         val offered = options.mapNotNull { (it as? CardView)?.id }.toSet()
         val others = reveal?.cards?.filter { it.id !in offered }.orEmpty()
         if (others.isEmpty()) return title
-        recorder.seat("  (${others.size} more card(s) looked at for this choice)")
+        seatLog("  (${others.size} more card(s) looked at for this choice)")
         val seen = if (others.size <= 10) others.joinToString(", ") { it.name } else "${others.size} other cards"
         return "$title · also looked at: $seen"
     }
@@ -995,7 +1005,7 @@ class SeatGui(
         // The same card objects Forge gave us, re-dealt: every copy of a name is interchangeable.
         val pool = (mainCards + sideCards).groupBy { it.name }.mapValues { it.value.toMutableList() }
         val chosen = wanted.flatMap { (name, n) -> List(n) { pool[name]?.removeFirstOrNull() }.filterNotNull() }
-        recorder.seat("SIDEBOARD main ${chosen.size}, sideboard ${mainCards.size + sideCards.size - chosen.size}")
+        seatLog("SIDEBOARD main ${chosen.size}, sideboard ${mainCards.size + sideCards.size - chosen.size}")
         return chosen.toMutableList()
     }
 

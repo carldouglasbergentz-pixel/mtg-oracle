@@ -84,6 +84,12 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         return ForgeMatch.start(MatchSpec(mode, prepared.seat, prepared.opponent, logDir.resolve("$stamp.log"), seed, stops, startState, watched, paced))
     }
 
+    /** [row] into `games`, unless it is two people's: those are not kept yet (`games.mode` has no value for them). */
+    private fun insert(match: RunningMatch, row: GameRecord): Long? {
+        if (row.mode == GameMode.HUMAN_VS_HUMAN) { match.recorder.note("not recorded: two people's games are not kept yet"); return null }
+        return store?.insert(row)
+    }
+
     /**
      * The game on when the window closed, which Forge never finished: recorded
      * as conceded (a loss), since leaving is what the player chose.
@@ -109,7 +115,7 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
             forgeVersion = ForgeRuntime.version, logPath = spec.logFile.absolutePath,
             matchId = match.matchId, gameNo = match.games.value.size + 1, matchFormat = spec.format, conceded = false,
         )
-        val id = store?.insert(row) ?: return null
+        val id = insert(match, row) ?: return null
         match.recorder.note("recorded as games #$id (unfinished: the app broke off)")
         return id
     }
@@ -128,7 +134,7 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
             durationMs = result.durationMs, forgeVersion = ForgeRuntime.version, logPath = spec.logFile.absolutePath,
             matchId = simId, gameNo = gameNo, matchFormat = null, conceded = false, deckAiVariant = spec.seat.isAiCopy,
         )
-        val id = store?.insert(row) ?: return null
+        val id = insert(match, row) ?: return null
         match.recorder.note("recorded as games #$id (simulation $simId, game $gameNo)")
         return id
     }
@@ -155,7 +161,7 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
             matchFormat = spec.format,
             conceded = result.conceded,
         )
-        val id = store?.insert(row) ?: return null
+        val id = insert(match, row) ?: return null
         match.recorder.note("recorded as games #$id")
         return id
     }

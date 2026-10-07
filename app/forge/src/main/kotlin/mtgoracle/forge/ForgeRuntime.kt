@@ -49,7 +49,7 @@ object ForgeRuntime {
     val isInitialised: Boolean get() = this::guiBase.isInitialized
 
     /** A match holds Forge's one seat: a game or a simulated game is on. */
-    val busy: Boolean get() = isInitialised && guiBase.activeSeat != null
+    val busy: Boolean get() = isInitialised && guiBase.seats.isNotEmpty()
 
     @Synchronized
     fun initialise(setup: ForgeSetup) {
