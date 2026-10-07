@@ -139,8 +139,12 @@ class ScriptedSeat(
     }
 
     private fun target(prompt: InputPrompt, me: PlayerState, opponent: PlayerState, attempt: Int): SeatAction {
-        val theirs = prompt.selectableCardIds.filter { id -> opponent.battlefield.any { it.id == id } }
-        val mine = prompt.selectableCardIds.filter { it !in theirs }
+        // A chosen target is highlighted, and a click on it un-picks it. Each click is a new prompt, so clicking it
+        // again looped for good on "any number of targets" (Pyrokinesis): with one chosen and OK on, that is enough.
+        val chosen = prompt.highlightedCardIds
+        if (prompt.okEnabled && chosen.isNotEmpty()) return SeatAction.Ok
+        val theirs = prompt.selectableCardIds.filter { id -> id !in chosen && opponent.battlefield.any { it.id == id } }
+        val mine = prompt.selectableCardIds.filter { it !in theirs && it !in chosen }
         val candidates: List<SeatAction> = theirs.map { SeatAction.ClickCard(it) } +
             SeatAction.ClickPlayer(opponent.id) + mine.map { SeatAction.ClickCard(it) } + SeatAction.ClickPlayer(me.id)
         return candidates.getOrNull(attempt) ?: if (prompt.okEnabled) SeatAction.Ok else SeatAction.Cancel
