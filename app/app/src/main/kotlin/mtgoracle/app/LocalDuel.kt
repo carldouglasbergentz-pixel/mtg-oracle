@@ -24,7 +24,7 @@ import mtgoracle.net.PROTOCOL_VERSION
 import mtgoracle.net.RemoteSeat
 import mtgoracle.net.SeatHost
 import mtgoracle.net.Seating
-import mtgoracle.net.TcpLink
+import mtgoracle.net.Room
 import mtgoracle.ui.board.BoardScreen
 import mtgoracle.ui.board.MatchControls
 import mtgoracle.ui.kit.ArtImages
@@ -67,16 +67,17 @@ object LocalDuel {
     class Table(val match: RunningMatch, val guest: RemoteSeat, val host: SeatHost)
 
     /**
-     * A host playing [hostDeck] and a guest bringing [guestDeck], joined over the loopback address, the match
-     * started and the guest seated; the guest is told when the match is over. [wrap] sees the host's end of the link.
+     * A host playing [hostDeck] and a guest bringing [guestDeck], joined by a room on the loopback address and its
+     * invite (the link encrypted, as over the network), the match started and the guest seated; the guest is told
+     * when the match is over. [wrap] sees the host's end of the link once the guest is in.
      */
     fun table(sessions: Sessions, hostDeck: PlayDeck, guestDeck: PlayDeck, version: String, seed: Long = Random.nextLong(), wrap: (Link) -> Link = { it }): Table {
-        val listener = TcpLink.listenLocal()
-        val guest = RemoteSeat(TcpLink.connectLocal(listener.port), "Guest", guestDeck, version).start()
-        val link = wrap(listener.accept())
-        listener.close()
-        val hello = Door.admit(link, HostMessage.Hello(PROTOCOL_VERSION, version, HOST)) { sessions.judgeGuest(hostDeck, it.deck) }
-            ?: error("the guest was turned away: ${guest.seating.value}")
+        val room = Room.local()
+        val guest = RemoteSeat(room.invite.join(), "Guest", guestDeck, version).start()
+        val admitted = room.awaitGuest(HostMessage.Hello(PROTOCOL_VERSION, version, HOST), judge = { sessions.judgeGuest(hostDeck, it.deck) },
+            onKnock = { error("the guest was turned away: $it") }) ?: error("the room closed: ${room.closedBecause}")
+        val link = wrap(admitted.link)
+        val hello = admitted.hello
         val guestName = ForgeMatch.tableName(HOST, hello.name)
         val match = sessions.start(Prepared(hostDeck, hello.deck, emptyList(), blocked = false), GameMode.HUMAN_VS_HUMAN, seed = seed, names = HOST to guestName)
         Door.seat(link, guestName)

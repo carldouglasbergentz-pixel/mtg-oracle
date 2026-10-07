@@ -51,21 +51,22 @@ class RemoteSeatTest {
     private fun line(seq: Long) = LogLine(seq, LogKind.OTHER, "line $seq")
 
     /** A host at [HostSideSeat] and a guest knocking: the guest's hello, as the host's door read it, or null. */
-    private fun knock(judge: (GuestMessage.Hello) -> String? = { null }, guestStops: PhaseStops = PhaseStops.DEFAULT): Triple<HostSideSeat, RemoteSeat, Pair<Link, GuestMessage.Hello?>> {
+    private fun knock(judge: (GuestMessage.Hello) -> String? = { null }, guestStops: PhaseStops = PhaseStops.DEFAULT): Triple<HostSideSeat, RemoteSeat, Pair<Link, Door.Outcome>> {
         val listener = TcpLink.listenLocal().also { closing += it }
         assertTrue(listener.isLoopbackOnly, "nothing on the network reaches it")
         val guest = RemoteSeat(TcpLink.connectLocal(listener.port), "  Bob\n", deck, "test", guestStops).also { closing += it }.start()
         val link = listener.accept(5_000).also { closing += it }
-        val hello = Door.admit(link, HostMessage.Hello(PROTOCOL_VERSION, "test", "Alice"), judge)
-        return Triple(HostSideSeat(), guest, link to hello)
+        val outcome = Door.admit(link, HostMessage.Hello(PROTOCOL_VERSION, "test", "Alice"), judge)
+        return Triple(HostSideSeat(), guest, link to outcome)
     }
 
     @Test
     fun `seated, the guest gets the seat as it changes and the host gets the guest's answers`() {
         val events = ConcurrentLinkedQueue<GuestEvent>()
         val (seat, guest, door) = knock(guestStops = PhaseStops(setOf(Step.MAIN1), emptySet()))
-        val (link, hello) = door
-        assertEquals("Bob", hello!!.name, "the name as the table shows it")
+        val (link, outcome) = door
+        val hello = assertIs<Door.Outcome.Admitted>(outcome).hello
+        assertEquals("Bob", hello.name, "the name as the table shows it")
         assertEquals(deck, hello.deck, "the deck the guest brought")
         Door.seat(link, "Bob")
         val host = SeatHost(seat, link) { events += it }.also { closing += it }.start()
@@ -118,7 +119,7 @@ class RemoteSeatTest {
     @Test
     fun `turned away at the door, the guest is told why`() {
         val (_, guest, door) = knock(judge = { "This table plays Duel Commander, and Green is constructed." })
-        assertEquals(null, door.second)
+        assertEquals(Door.Outcome.Refused("This table plays Duel Commander, and Green is constructed."), door.second)
         waitFor("refused") { guest.seating.value is Seating.Refused }
         assertEquals("This table plays Duel Commander, and Green is constructed.", (guest.seating.value as Seating.Refused).reason)
     }
@@ -137,13 +138,13 @@ class RemoteSeatTest {
         // A guest that speaks protocol 0: the door tells it.
         val listener2 = TcpLink.listenLocal().also { closing += it }
         val oldGuest = TcpLink.connectLocal(listener2.port).also { closing += it }
-        var admitted: GuestMessage.Hello? = GuestMessage.Hello(0, "", "", deck)
+        var admitted: Door.Outcome? = null
         val door = thread { admitted = Door.admit(listener2.accept(5_000).also { closing += it }, HostMessage.Hello(PROTOCOL_VERSION, "test", "Alice")) { null } }
         assertIs<HostMessage.Hello>(Wire.host(oldGuest.receive()!!))
         oldGuest.send(Wire.encode(GuestMessage.Hello(PROTOCOL_VERSION - 1, "old", "Bob", deck)))
         val answer = Wire.host(oldGuest.receive()!!)
         door.join()
-        assertEquals(null, admitted)
+        assertIs<Door.Outcome.Refused>(admitted)
         assertTrue("your app is older" in (answer as HostMessage.Refused).reason)
     }
 

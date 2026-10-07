@@ -15,8 +15,11 @@ interface Link : AutoCloseable {
     /** Sends one line; false once the link is closed. */
     fun send(line: String): Boolean
 
-    /** The next line, waiting for it; null once the link is closed, from either end. */
+    /** The next line, waiting for it; null once the link is closed, from either end, or a read waited past its bound. */
     fun receive(): String?
+
+    /** From now on, a line may be at most [maxLine] characters and a read wait at most [readTimeoutMillis] (0: for ever). */
+    fun bound(maxLine: Int, readTimeoutMillis: Int) {}
 
     override fun close()
 }
@@ -26,6 +29,7 @@ interface Link : AutoCloseable {
  * address ([listenLocal]): nothing on the network reaches it.
  */
 class TcpLink(private val socket: Socket) : Link {
+    @Volatile private var maxLine = MAX_LINE
     private val reader: BufferedReader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
     private val writer: Writer = OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8)
 
@@ -46,19 +50,24 @@ class TcpLink(private val socket: Socket) : Link {
         null
     }
 
-    /** One line, refused past [MAX_LINE]: a peer can't make this side hold more than that. */
+    /** One line, refused past [maxLine]: a peer can't make this side hold more than that. */
     private fun readLine(): String? {
         val line = StringBuilder()
         while (true) {
             val c = reader.read()
             if (c == -1) return null
             if (c == '\n'.code) return line.toString()
-            if (line.length >= MAX_LINE) {
+            if (line.length >= maxLine) {
                 close()
-                throw IOException("a line over ${MAX_LINE / 1024} KB: the link is closed")
+                throw IOException("a line over ${maxLine / 1024} KB: the link is closed")
             }
             line.append(c.toChar())
         }
+    }
+
+    override fun bound(maxLine: Int, readTimeoutMillis: Int) {
+        this.maxLine = maxLine
+        runCatching { socket.soTimeout = readTimeoutMillis }
     }
 
     override fun close() {
@@ -69,18 +78,20 @@ class TcpLink(private val socket: Socket) : Link {
         /** The largest message a side takes: a board is at most tens of KB, a whole log a few hundred. */
         const val MAX_LINE = 4 * 1024 * 1024
 
-        /** A listener on this machine's loopback address, on a free port. */
-        fun listenLocal(): Listener = Listener(ServerSocket(0, 1, InetAddress.getLoopbackAddress()))
+        /** A listener on this machine's loopback address, on a free port; a few can queue while a stranger is turned away. */
+        fun listenLocal(): Listener = Listener(ServerSocket(0, 4, InetAddress.getLoopbackAddress()))
 
-        fun connectLocal(port: Int, timeoutMillis: Int = 5_000): TcpLink =
-            TcpLink(Socket().apply { connect(InetSocketAddress(InetAddress.getLoopbackAddress(), port), timeoutMillis) })
+        fun connect(address: InetAddress, port: Int, timeoutMillis: Int = 10_000): TcpLink =
+            TcpLink(Socket().apply { connect(InetSocketAddress(address, port), timeoutMillis) })
+
+        fun connectLocal(port: Int, timeoutMillis: Int = 5_000): TcpLink = connect(InetAddress.getLoopbackAddress(), port, timeoutMillis)
     }
 
     class Listener internal constructor(private val server: ServerSocket) : AutoCloseable {
         val port: Int get() = server.localPort
         val isLoopbackOnly: Boolean get() = server.inetAddress.isLoopbackAddress
 
-        /** The next guest, waiting up to [timeoutMillis]. */
+        /** The next guest, waiting up to [timeoutMillis] (0: until the listener closes). */
         fun accept(timeoutMillis: Int = 60_000): TcpLink {
             server.soTimeout = timeoutMillis
             return TcpLink(server.accept())
