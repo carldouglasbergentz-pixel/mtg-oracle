@@ -67,6 +67,8 @@ class LookupCommands(
     private val onEnterDeck: (Int) -> Unit = {},
     private val copyToClipboard: (String) -> Unit = {},
     private val onQuit: () -> Unit = {},
+    /** `guide`: the getting-started checklist, opened in the library. */
+    private val onGuide: () -> Unit = {},
     /** The deck engine; null leaves the workspace read-only (tests of lookup alone). */
     writer: DeckWriter? = null,
     /** Deck [id] changed: re-read it for the screen. */
@@ -235,6 +237,7 @@ class LookupCommands(
             "copy" -> copy(arg)
             "clear" -> output.clear()
             "quit", "exit" -> onQuit()
+            "guide" -> { onGuide(); say("(the getting-started checklist, in the library's middle column)", Tone.DIM) }
             "add" -> deckCommand(arg, "add [--sb] [--force] <card> [N]") { card, n, flags ->
                 EditAction.Add(card, if ("--sb" in flags || "--sideboard" in flags) DeckSection.SIDEBOARD else DeckSection.MAIN, n ?: 1)
             }

@@ -149,6 +149,17 @@ class Settings(private val file: File) {
         get() = props.getProperty("theme")
         set(value) { if (value == null) props.remove("theme") else props.setProperty("theme", value); save() }
 
+    /** The getting-started checklist was put away (Hide); the library's tour was seen; a first game's tips were read. */
+    var guideDone: Boolean
+        get() = props.getProperty("guide.done") == "true"
+        set(value) { props.setProperty("guide.done", value.toString()); save() }
+    var tourDone: Boolean
+        get() = props.getProperty("guide.tour") == "true"
+        set(value) { props.setProperty("guide.tour", value.toString()); save() }
+    var tipsDone: Boolean
+        get() = props.getProperty("guide.tips") == "true"
+        set(value) { props.setProperty("guide.tips", value.toString()); save() }
+
     /** How long Forge took to start last time, for the lobby to say how long it may take. */
     var forgeStartMillis: Long?
         get() = props.getProperty("forge.startMillis")?.toLongOrNull()

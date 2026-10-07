@@ -135,6 +135,7 @@ class AppController(private val paths: AppPaths) {
             copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
             writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
             selectedDeck = { selectedId }, sync = { force, only -> sync.run(force, only) }, autoSync = sync::setting, update = updates::install,
+            onGuide = ::openGuide,
             onCardsChanged = { commands?.let { current -> buildLookup(db, carry = current) } },
             output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
         )
@@ -181,7 +182,7 @@ class AppController(private val paths: AppPaths) {
 
     /** The lobby, the match on, the simulation running, and each game written as it ends. */
     val play = PlayControl(settings, sessions = { sessions }, decks = { decks }, deckById = ::deckById, games = { lookupGames },
-        forgeReady = { forgeReady }, show = { screen = it }, say = { notice = it })
+        forgeReady = { forgeReady }, show = { screen = it; if (it == Screen.Playing) anyGames = true }, say = { notice = it })
 
     /** The sync, by hand and daily; its report builds the lookup again and goes to the output. */
     val sync = SyncControl(paths, settings, db = { db }, busy = { play.match != null || play.simulation != null }, say = { notice = it },
@@ -241,6 +242,11 @@ class AppController(private val paths: AppPaths) {
             buildLookup(db, carry = null)
             sync.refreshWarning()
             screen = Screen.Library
+            // The guide opens by itself on an empty library it was never put away from; the tour with it, once.
+            anyGames = runCatching { lookupGames?.played()?.isNotEmpty() == true }.getOrDefault(true)
+            newPlayer = !anyGames
+            guideOpen = !settings.guideDone && decks.isEmpty()
+            touring = guideOpen && !settings.tourDone
             showPackageFolders()
             packages?.lookForDropped()
         } catch (e: SchemaTooOldException) {
@@ -305,6 +311,80 @@ class AppController(private val paths: AppPaths) {
                 })
             }.orElse(null)
         }
+    }
+
+    /** The getting-started checklist is in the library's middle column; the tour is over the library. */
+    var guideOpen by mutableStateOf(false)
+        private set
+    var touring by mutableStateOf(false)
+        private set
+    /** Whether a game has been played, ever: the guide's last step, and the first game's tips. */
+    var anyGames by mutableStateOf(false)
+        private set
+    /** No game was played before this start: the first one gets the tips. */
+    private var newPlayer = false
+
+    /** Guide in the toolbar, `guide`: the checklist in the library. */
+    fun openGuide() {
+        commands?.leaveDeck()
+        play.match ?: run { screen = Screen.Library }
+        guideOpen = true
+    }
+
+    /** Hide: put away until Guide brings it back; it opens by itself no more. */
+    fun hideGuide() { guideOpen = false; settings.guideDone = true }
+
+    /** A deck clicked: the deck is shown, the checklist steps aside (still not done). */
+    fun guideAway() { guideOpen = false }
+
+    fun startTour() { touring = true }
+
+    fun tourDone() { touring = false; settings.tourDone = true }
+
+    /** A first game's tips, while they are unread and this player had played none before this start. */
+    val tips: List<String> get() = if (newPlayer && !settings.tipsDone && !play.watch && System.getProperty("mtgoracle.firstGameTips") != "off")
+        mtgoracle.ui.board.FIRST_GAME_TIPS else emptyList()
+
+    fun tipsDone() { settings.tipsDone = true; newPlayer = false }
+
+    /** The checklist's steps as the app is now: each ticks itself. */
+    fun guideSteps(): List<mtgoracle.ui.library.GuideStep> {
+        val cards = currentLookup?.names?.sorted?.size ?: 0
+        val c = mtgoracle.ui.library.GuideControls
+        return listOf(
+            mtgoracle.ui.library.GuideStep(
+                "Card data",
+                when {
+                    cards > 0 -> String.format(java.util.Locale.US, "%,d cards, with their rulings, the rules and Commander Spellbook's combos.", cards)
+                    sync.running -> "Fetching: ${notice ?: "starting"}. The first sync takes a few minutes (about 800 MB)."
+                    else -> "None yet. The daily sync fetches it a minute after start, or now:"
+                },
+                done = cards > 0, actions = if (sync.running) emptyList() else listOf("Sync now" to c.SYNC),
+            ),
+            mtgoracle.ui.library.GuideStep(
+                "Forge, the game engine",
+                if (forgeReady) "Ready: games against its AI, and simulations." else "Starting (ten seconds or so); Play waits for it.",
+                done = forgeReady,
+            ),
+            mtgoracle.ui.library.GuideStep(
+                "Your first deck",
+                if (decks.isNotEmpty()) "${decks.size} deck(s) in the library."
+                else "Copy a list (Moxfield, Archidekt, MTGO, Arena; or a .mtgoracle package) and Import it, or start an empty one and add cards from a search.",
+                done = decks.isNotEmpty(), actions = listOf("Import from the clipboard" to c.IMPORT, "New deck" to c.NEW_DECK),
+            ),
+            mtgoracle.ui.library.GuideStep(
+                "A game against the AI",
+                if (anyGames) "Played. The lobby keeps your record against each deck."
+                else "Play opens the lobby: your deck, the AI's, best of 1, 3 or 5. Watch an AI play yours, or simulate ten games.",
+                done = anyGames, actions = if (decks.isEmpty()) emptyList() else listOf("Open the lobby" to c.LOBBY),
+            ),
+            mtgoracle.ui.library.GuideStep(
+                "And then",
+                "Search on the command line (: or Ctrl+K): a name, or t:instant c:u mv<=2. Every deck has its analysis above it. " +
+                    "A card the AI won't play is flagged red, its [!] gives it a substitute. Right-click decks and folders for the rest.",
+                done = false, actions = listOf("All commands" to c.HELP), info = true,
+            ),
+        )
     }
 
     fun deckById(id: Int): Deck? = deckCache.getOrPut(id) { library.deck(id) ?: return null }

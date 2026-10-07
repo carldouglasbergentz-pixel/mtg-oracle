@@ -53,6 +53,7 @@ import mtgoracle.ui.lookup.AskBar
 import mtgoracle.ui.lookup.CommandLine
 import mtgoracle.core.library.PackageScope
 import mtgoracle.ui.kit.ContextMenu
+import mtgoracle.ui.kit.LocalClickRegistry
 import mtgoracle.ui.kit.onRightClick
 import mtgoracle.core.deck.Folder
 import mtgoracle.core.lookup.Formats
@@ -111,6 +112,18 @@ fun LibraryScreen(
     onColumnsChange: (SideColumns) -> Unit = {},
     /** Cards Forge's AI won't play or Forge lacks: flagged red beside them. */
     aiFlags: Map<String, mtgoracle.core.deck.AiFlag> = emptyMap(),
+    /** The getting-started checklist, in the middle column while open (null: closed). */
+    guide: List<GuideStep>? = null,
+    /** Guide in the toolbar (and `guide`): the checklist again. */
+    onGuide: () -> Unit = {},
+    /** The checklist's Hide: put away for good. */
+    onGuideHide: () -> Unit = {},
+    /** A deck clicked while the checklist is open: it steps aside, not done. */
+    onGuideAway: () -> Unit = {},
+    /** The tour over the library is on (first time, or "Show me around"); [onTourDone] when it is over. */
+    tour: Boolean = false,
+    onTour: () -> Unit = {},
+    onTourDone: () -> Unit = {},
 ) {
     var kept by remember { mutableStateOf(columns) }
     // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
@@ -125,6 +138,8 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     fun showDeck(id: Int) {
         lookup?.showOutput = false
+        // A deck clicked shows the deck: the guide steps aside (Guide brings it back), unticked.
+        if (guide != null) onGuideAway()
         onSelect(id)
     }
     fun page(by: Int) {
@@ -152,7 +167,14 @@ fun LibraryScreen(
             name == "new-deck" -> lookup?.intent?.invoke(LibraryIntent.NewDeck(selectedFolder, askFolder = true))
             name == "new-folder" -> lookup?.intent?.invoke(LibraryIntent.NewFolder)
             name == "import" -> lookup?.intent?.invoke(LibraryIntent.Import(selectedFolder, askFolder = true))
-            name == "sync" -> lookup?.submit?.invoke("sync")
+            name == "sync" || name == GuideControls.SYNC -> lookup?.submit?.invoke("sync")
+            name == "guide" -> onGuide()
+            name == GuideControls.NEW_DECK -> lookup?.intent?.invoke(LibraryIntent.NewDeck(selectedFolder, askFolder = true))
+            name == GuideControls.IMPORT -> lookup?.intent?.invoke(LibraryIntent.Import(selectedFolder, askFolder = true))
+            name == GuideControls.LOBBY -> onPlay()
+            name == GuideControls.HELP -> lookup?.submit?.invoke("help")
+            name == GuideControls.TOUR -> onTour()
+            name == GuideControls.HIDE -> onGuideHide()
         }
     }
     fun move(by: Int) {
@@ -193,7 +215,7 @@ fun LibraryScreen(
         Column(Modifier.fillMaxSize()) {
             Toolbar(listOf(
                 "play" to "Play", "new-deck" to "New deck", "new-folder" to "New folder", "import" to "Import",
-                "mode" to if (mode == CardMode.ART) "Text" else "Art", "prefetch" to "Fetch images", "sync" to "Sync", "achievements" to "Achievements",
+                "mode" to if (mode == CardMode.ART) "Text" else "Art", "prefetch" to "Fetch images", "sync" to "Sync", "achievements" to "Achievements", "guide" to "Guide",
             ), onClick)
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
                 Box(Modifier.cellWidth(left).fillMaxHeight()) {
@@ -240,10 +262,13 @@ fun LibraryScreen(
                 } else {
                     // The analysis stays put above the deck, which scrolls under it.
                     Column(Modifier.weight(1f).fillMaxHeight()) {
-                        if (deck != null) AnalysisPane(insight, middle, onOpen = { lookup?.open?.invoke(it) }, Modifier.fillMaxWidth())
-                        BoxPane(deck?.name ?: "no deck selected", Modifier.fillMaxWidth().weight(1f), right = right) {
+                        if (deck != null && guide == null) AnalysisPane(insight, middle, onOpen = { lookup?.open?.invoke(it) }, Modifier.fillMaxWidth())
+                        if (guide != null) BoxPane("getting started", Modifier.fillMaxWidth().weight(1f).region("guide")) {
+                            Column(Modifier.verticalScroll(rememberScrollState())) { GuidePanel(guide, middle - 2, onClick) }
+                        }
+                        else BoxPane(deck?.name ?: "no deck selected", Modifier.fillMaxWidth().weight(1f), right = right) {
                             Column(Modifier.verticalScroll(rememberScrollState())) {
-                                if (deck == null) GridText("Pick a deck on the left.", color = Palette.dim)
+                                if (deck == null) GridText(if (decks.isEmpty()) "No decks yet: New deck or Import above, or Guide for the way through." else "Pick a deck on the left.", color = Palette.dim)
                                 else DeckView(deck, keyFor, mode, middle - 2, onHover = { zoom = it }, points = pointsOf, aiFlags = aiFlags,
                                     onAiFlag = { card -> lookup?.intent?.invoke(LibraryIntent.AiSubstitute(deck.id, card)) })
                             }
@@ -271,6 +296,8 @@ fun LibraryScreen(
             else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter / double-click" to "open", "P" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
             StatusLine(hints, notice, cols)
         }
+        // The tour over everything, pointing at the regions as they were drawn.
+        LocalClickRegistry.current?.takeIf { tour }?.let { TourOverlay(LIBRARY_TOUR, it, onTourDone) }
     }
     menu?.let { (what, at) ->
         val intent = lookup?.intent ?: return@let

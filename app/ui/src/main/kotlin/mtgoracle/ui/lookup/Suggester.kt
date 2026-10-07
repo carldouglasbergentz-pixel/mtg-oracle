@@ -6,7 +6,7 @@ import mtgoracle.core.lookup.SearchVocabulary
 /** Every command the app's command line knows, in the order a prefix completes to (`c` is `card`). */
 val COMMANDS = listOf(
     "card", "ruling", "combo", "combos", "combo-info", "rule", "search-rules", "search",
-    "next", "prev", "page", "correction", "cd", "copy", "help", "clear", "quit",
+    "next", "prev", "page", "correction", "cd", "copy", "help", "guide", "clear", "quit",
     // In the deck workspace.
     "add", "remove", "consider", "commander", "undo", "history",
     // Analysis.
@@ -35,7 +35,7 @@ val COMMAND_HINTS: Map<String, String> = mapOf(
     "correction" to "correction [text]: corrections from the feedback loop", "corrections" to "corrections [text]",
     "cd" to "cd <deck>: open it to edit · cd ..: back to the library",
     "copy" to "copy [last|all]: output to the clipboard",
-    "help" to "help [search]", "?" to "? [search]: help", "clear" to "clear: empty the output (Ctrl+L)",
+    "help" to "help [search]", "guide" to "guide: getting started, the checklist from no data to a first game", "?" to "? [search]: help", "clear" to "clear: empty the output (Ctrl+L)",
     "quit" to "quit: close the app", "exit" to "exit: close the app",
     "add" to "add [--sb] [--force] <card> [N]: into the open deck (or its sideboard)",
     "remove" to "remove [--sb|--considering] <card> [N]: out of the open deck; no N takes every copy",

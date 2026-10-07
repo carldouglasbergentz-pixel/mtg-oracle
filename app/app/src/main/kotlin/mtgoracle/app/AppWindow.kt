@@ -1,5 +1,7 @@
 package mtgoracle.app
 
+import mtgoracle.ui.kit.ClickRegistry
+import mtgoracle.ui.kit.LocalClickRegistry
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalDensity
@@ -49,11 +51,13 @@ fun AppContent(app: AppController, onQuit: () -> Unit) {
     val art = remember(app.forgeReady) { ArtImages(app.shownArt) }
     // The text size scales the density, so the grid's cell is measured at it and everything sized in cells follows.
     val base = LocalDensity.current
+    // Where each click target was drawn, in the window as under the tests' driver: the library's tour points by it.
+    val registry = LocalClickRegistry.current ?: remember { ClickRegistry() }
     CompositionLocalProvider(LocalDensity provides Density(base.density * app.textScale, base.fontScale)) {
         HouseTheme {
             CompositionLocalProvider(
                 LocalArt provides art, LocalGlobalHints provides listOf("F7" to "text/art", "F8" to "theme: ${Palette.theme.label}", "Ctrl+=/-" to "size"),
-                LocalThemeMenu provides app::openThemePicker,
+                LocalThemeMenu provides app::openThemePicker, LocalClickRegistry provides registry,
             ) {
                 // F8 opens the theme picker, F7 switches text/art and Ctrl+= / Ctrl+- / Ctrl+0 size the window on every
                 // screen, typing or not: seen here before any screen's keys.
@@ -101,6 +105,8 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
         } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
             aiFlags = app.deck?.let { d -> remember(d, app.forgeReady) { app.aiFlags(d) } }.orEmpty(),
+            guide = if (app.guideOpen) app.guideSteps() else null, onGuide = app::openGuide, onGuideHide = app::hideGuide, onGuideAway = app::guideAway,
+            tour = app.touring, onTour = app::startTour, onTourDone = app::tourDone,
             notice = app.notice ?: if (!app.forgeReady) "Forge is loading…" else app.updates.notice ?: app.sync.warning,
             onSelect = app::select, onPlay = { app.play.openLobby(app.selectedId) }, onToggleMode = app::toggleMode, onPrefetch = app::prefetch, onQuit = onQuit, onAchievements = app::openAchievements,
             lookup = app.lookupUi,
@@ -140,6 +146,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 achievements = achievements)
             BoardScreen(
                 seat = match.seat,
+                tips = app.tips, onTipsDone = app::tipsDone,
                 inputGuardMillis = System.getProperty("mtgoracle.inputGuardMillis")?.toLongOrNull() ?: INPUT_GUARD_MILLIS,
                 title = "${match.spec.seat.name} vs ${match.spec.opponent.name}" + if (match.spec.format.games > 1) " · ${match.spec.format.label}" else "",
                 mode = app.boardMode,

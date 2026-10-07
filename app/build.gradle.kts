@@ -67,6 +67,8 @@ subprojects {
         systemProperty("mtgoracle.pngDir", layout.buildDirectory.dir("test-png").get().asFile.path)
         // Scripted seats answer the moment a prompt shows; the guard against a stray click is tested on its own (InputGuardTest).
         systemProperty("mtgoracle.inputGuardMillis", "0")
+        // The copies of the user's database have no games, so every game test would be a first game; the tips are tested on their own (GuideTest).
+        systemProperty("mtgoracle.firstGameTips", "off")
         // SoakTest plays whole matches only when asked: -PsoakSeeds=1,2,3 [-PsoakDecks="Jori En:Phelia Doggo;A:B"].
         findProperty("soakSeeds")?.let { systemProperty("mtgoracle.soakSeeds", it.toString()) }
         findProperty("soakDecks")?.let { systemProperty("mtgoracle.soakDecks", it.toString()) }

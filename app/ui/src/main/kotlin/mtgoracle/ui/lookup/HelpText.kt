@@ -64,6 +64,7 @@ MORE
   copy [last|all]                     the last command's output, or all of it, to the clipboard
   clear                               clear the output (Ctrl+L)
   help search                         the search syntax
+  guide                               getting started: the checklist, and a tour of the library
   quit                                close the app
 
 Mouse: a card name opens its profile and shows the card in the zoom pane on hover;

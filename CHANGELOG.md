@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Getting started.** A first start met an empty database, a notice line and "Pick a deck on the left." with no deck to pick.
+  - **A checklist** in the library's middle column: card data, Forge, your first deck, a game against the AI, each ticking itself from the app's own state (cards synced, Forge up, a deck, a game played), with the button that does it (Sync now, Import from the clipboard, New deck, Open the lobby). Hide puts it away for good; a deck clicked shows the deck and the checklist steps aside.
+  - **A tour of the library**, the first time and from the checklist's *Show me around*: five stops, each outlining what it points at (the decks, the toolbar, the command line, the zoom pane).
+  - **A first game's tips** over the table, one at a time: playing a card and the prompt pane, F2 / F4 / F6 and the stops, the zoom and the log, conceding. Only for a player with no game played.
+  - It opens by itself only on an empty library it was never put away from; **Guide** in the toolbar and the **`guide`** command bring the checklist back (`guide.done`, `guide.tour`, `guide.tips` in the settings). The window now provides a click registry, which the tour reads where regions were drawn.
+  - `GuidePanel`, `TourOverlay`, `BoardTips`. `GuideTest`, `BoardTipsTest`.
 - **A card Forge shows you is drawn, and kept in the log.** A tutor's find (Enlightened Tutor), a hand looked at: Forge's reveal was one line of names in the prompt pane, and one click closed it for good; a card revealed on top of a library was then out of sight altogether.
   - **A panel over the table** ("shown to you"): the cards in large frames with what Forge said of them, a hovered one in the zoom pane, and OK (Enter), which answers the reveal (`RevealPanel`). The reveal's options now carry the cards themselves (`ChoiceOption.card`), since a library is no zone the board shows.
   - **A line in the log**, `Shown to you: Sylvan Library (in AI's library)`, its cards marked. Forge can't tell a reveal (everyone sees) from a look (one player), so the line is for this seat alone (`LogLine.seenBy`, filtered per seat in `SeatGui`), and its names don't mark the public lines after it.

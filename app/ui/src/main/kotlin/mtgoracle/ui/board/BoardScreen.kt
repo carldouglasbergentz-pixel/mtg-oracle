@@ -110,6 +110,9 @@ fun BoardScreen(
     matchControls: MatchControls? = null,
     /** A prompt takes no click or key this soon after it shows ([INPUT_GUARD_MILLIS] in the window). */
     inputGuardMillis: Long = 0,
+    /** A first game's tips ([FIRST_GAME_TIPS]), one at a time over the table; [onTipsDone] when they are read or put away. */
+    tips: List<String> = emptyList(),
+    onTipsDone: () -> Unit = {},
 ) {
     val none = remember { MutableStateFlow<BoardState?>(null) }
     val noPrompt = remember { MutableStateFlow<Prompt?>(null) }
@@ -308,6 +311,10 @@ fun BoardScreen(
             val sides = b?.sides
             if (b != null && sides != null && b.stack.isNotEmpty() && midline != Rect.Zero && prompt !is SideboardPrompt) {
                 StackLayer(b, sides.first.id, prompt, mode, cells, registry, arrangement, ::arrange, midline, header, table, leftCols, totalCols, totalRows, onClick, onHover)
+            }
+            // A first game's tips, at the top of the table, out of the cards' way as far as it can be.
+            if (tips.isNotEmpty() && !showResult && !menuOpen) {
+                BoardTips(tips, onTipsDone, Modifier.align(Alignment.TopCenter).offset { IntOffset(0, (3 * cells.height).roundToInt()) })
             }
             // Cards shown to you, drawn over the table until you have seen them.
             (prompt as? ChoicePrompt)?.takeIf { it.isReveal && it.options.any { o -> o.card != null } && !showResult && !menuOpen }?.let { p ->

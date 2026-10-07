@@ -74,6 +74,8 @@ A database the old Python migrations made (version 0) is checked against version
 
 ## In the app
 
+On a first start the library shows **getting started**: a checklist from no card data to a first game, each step ticking itself as the app gets there, and a short tour of the library; a first game gets a few tips over the table. **Guide** in the toolbar (or `guide`) brings the checklist back.
+
 The library lists your folders and decks, with the selected deck's analysis above it. Enter (or `cd <deck>`) opens a deck in the workspace: the deck beside a search, its considering list, its history and the AI's copy. The command line (`:` or Ctrl+K) does the rest. `help` lists every command, and `help search` gives the search syntax. In outline:
 
 | | |

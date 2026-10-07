@@ -31,6 +31,8 @@ class SyncControl(
 ) {
     /** The sync running, if one is; its log line is the notice. */
     @Volatile private var syncing = false
+    /** Whether a sync is under way (the guide's first step says so). */
+    val running: Boolean get() = syncing
     /** The time, for the sync's record; the tests move it. */
     var clock: () -> java.time.Instant = java.time.Instant::now
     /** What the status line says about the sync while nothing else is said: a failure, or a stale sync (AutoSync.status). */
