@@ -101,6 +101,47 @@ object Schema {
             }
             "printings and printing_sets created (empty until a sync fetches them)"
         },
+        Migration(4, "games.mode takes human_vs_human: two people's games are recorded") { conn ->
+            // SQLite can't change a CHECK: the table is built again with the same columns, rows and indexes.
+            val columns = "id, played_at, mode, deck_id, deck_name, opponent_deck_id, opponent_name, opponent_ai_variant, seed, winner, turns, " +
+                "duration_ms, forge_version, log_path, match_id, game_no, match_format, conceded, deck_ai_variant"
+            val kept = conn.count("SELECT COUNT(*) FROM games")
+            conn.createStatement().use { st ->
+                st.executeUpdate(
+                    """
+                    CREATE TABLE games_v4 (
+                        id INTEGER PRIMARY KEY,
+                        played_at TEXT NOT NULL,
+                        mode TEXT NOT NULL CHECK (mode IN ('human_vs_ai', 'ai_vs_ai', 'human_vs_human')),
+                        deck_id INTEGER REFERENCES decks(id) ON DELETE SET NULL,
+                        deck_name TEXT NOT NULL,
+                        opponent_deck_id INTEGER REFERENCES decks(id) ON DELETE SET NULL,
+                        opponent_name TEXT NOT NULL,
+                        opponent_ai_variant INTEGER NOT NULL DEFAULT 0,
+                        seed INTEGER,
+                        winner TEXT CHECK (winner IN ('me', 'opponent', 'draw')),
+                        turns INTEGER,
+                        duration_ms INTEGER,
+                        forge_version TEXT,
+                        log_path TEXT,
+                        match_id TEXT,
+                        game_no INTEGER,
+                        match_format TEXT CHECK (match_format IN ('bo1', 'bo3', 'bo5')),
+                        conceded INTEGER NOT NULL DEFAULT 0,
+                        deck_ai_variant INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent(),
+                )
+                st.executeUpdate("INSERT INTO games_v4 ($columns) SELECT $columns FROM games")
+                st.executeUpdate("DROP TABLE games")
+                st.executeUpdate("ALTER TABLE games_v4 RENAME TO games")
+                st.executeUpdate("CREATE INDEX idx_games_deck ON games(deck_id)")
+                st.executeUpdate("CREATE INDEX idx_games_opponent_deck ON games(opponent_deck_id)")
+                st.executeUpdate("CREATE INDEX idx_games_match ON games(match_id)")
+            }
+            check(conn.count("SELECT COUNT(*) FROM games") == kept) { "games lost rows in the rebuild: nothing was changed" }
+            "games rebuilt to take two people's games ($kept kept)"
+        },
     )
 
     /** The shape a database at [version] must have: version 1 built in memory, and the migrations up to it applied. */

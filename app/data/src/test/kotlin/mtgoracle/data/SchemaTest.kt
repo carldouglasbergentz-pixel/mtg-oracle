@@ -87,6 +87,30 @@ class SchemaTest {
     }
 
     @Test
+    fun `version 4 takes two people's games, every game before it kept as it was`() {
+        val file = python()
+        sql(file, "INSERT INTO games (played_at, mode, deck_name, opponent_name, winner, turns, match_id, game_no, match_format, conceded) " +
+            "VALUES ('2026-10-01T12:00:00Z', 'human_vs_ai', 'Jori En', 'Phelia Doggo (AI)', 'me', 9, 'm1', 1, 'bo3', 0)")
+        sql(file, "INSERT INTO games (played_at, mode, deck_name, opponent_name, winner) VALUES ('2026-10-02T12:00:00Z', 'ai_vs_ai', 'A', 'B', 'draw')")
+        fun rows() = DriverManager.getConnection("jdbc:sqlite:${file.path}").use { c ->
+            c.createStatement().use { st -> st.executeQuery("SELECT * FROM games ORDER BY id").use { rs -> buildList { while (rs.next()) add((1..rs.metaData.columnCount).map { rs.getString(it) }) } } }
+        }
+        val before = rows()
+        assertFailsWith<java.sql.SQLException>("the old CHECK refuses it") {
+            sql(file, "INSERT INTO games (played_at, mode, deck_name, opponent_name) VALUES ('x', 'human_vs_human', 'A', 'Bob')")
+        }
+        val report = MtgDb(file).migrate(File(dir, "backups"))
+        assertContains(report.lines, "v4: games rebuilt to take two people's games (2 kept)")
+        assertEquals(before, rows(), "every row as it was")
+        sql(file, "INSERT INTO games (played_at, mode, deck_name, opponent_name) VALUES ('x', 'human_vs_human', 'A', 'Bob')")
+        val indexes = DriverManager.getConnection("jdbc:sqlite:${file.path}").use { c ->
+            c.createStatement().use { st -> st.executeQuery("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'games' ORDER BY name").use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } } }
+        }
+        assertEquals(listOf("idx_games_deck", "idx_games_match", "idx_games_opponent_deck"), indexes)
+        MtgDb(file).checkSchema()
+    }
+
+    @Test
     fun `forge_matches with games in it is kept`() {
         val file = python()
         sql(file, "INSERT INTO forge_matches (match_id, played_at, deck_a, deck_b, game_type, game_no, winner) VALUES ('m', 'x', 'A', 'B', 'constructed', 1, 'a')")

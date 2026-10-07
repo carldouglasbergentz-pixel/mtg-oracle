@@ -31,7 +31,7 @@ data class Tally(val wins: Int = 0, val losses: Int = 0, val draws: Int = 0, val
     fun score(): String = "$wins–$losses" + if (draws > 0) "–$draws" else ""
 }
 
-/** A deck against one opponent: games you played, and games the AI played for you. */
+/** A deck against one opponent: games you played (against the AI or a person), and games the AI played for you. */
 data class Matchup(val opponent: DeckKey, val played: Tally, val simulated: Tally) {
     val total: Tally get() = Tally(played.wins + simulated.wins, played.losses + simulated.losses, played.draws + simulated.draws,
         played.turnsTotal + simulated.turnsTotal, played.decided + simulated.decided)
@@ -56,7 +56,7 @@ object Records {
             }
             val k = key(opponent)
             val (played, simulated) = byOpponent[k] ?: (Tally() to Tally())
-            byOpponent[k] = if (g.mode == GameMode.HUMAN_VS_AI) played.add(won, g.turns) to simulated else played to simulated.add(won, g.turns)
+            byOpponent[k] = if (g.mode != GameMode.AI_VS_AI) played.add(won, g.turns) to simulated else played to simulated.add(won, g.turns)
         }
         return byOpponent.map { (k, t) -> Matchup(k, t.first, t.second) }.sortedByDescending { it.total.games }
     }

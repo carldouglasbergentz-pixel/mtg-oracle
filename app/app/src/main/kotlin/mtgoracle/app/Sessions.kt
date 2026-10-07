@@ -97,10 +97,17 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         return if (unknown.isEmpty()) null else "The host's Forge lacks ${unknown.joinToString()}, so ${deck.name} can't be played there."
     }
 
-    /** [row] into `games`, unless it is two people's: those are not kept yet (`games.mode` has no value for them). */
+    /**
+     * [row] into `games`. Two people's game: the opponent is the other person's deck, named `deck (person)`, with no
+     * deck id, since the guest's id is a row in the guest's database, not this one.
+     */
     private fun insert(match: RunningMatch, row: GameRecord): Long? {
-        if (row.mode == GameMode.HUMAN_VS_HUMAN) { match.recorder.note("not recorded: two people's games are not kept yet"); return null }
-        return store?.insert(row)
+        val spec = match.spec
+        val stored = if (row.mode != GameMode.HUMAN_VS_HUMAN) row else row.copy(
+            opponentDeckId = null, opponentAiVariant = false,
+            opponentName = "${spec.opponent.name} (${ForgeMatch.tableName(spec.seatName, spec.guestName)})",
+        )
+        return store?.insert(stored)
     }
 
     /**
