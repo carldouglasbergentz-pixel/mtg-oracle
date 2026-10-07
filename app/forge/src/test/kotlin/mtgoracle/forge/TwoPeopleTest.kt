@@ -90,6 +90,48 @@ class TwoPeopleTest {
     }
 
     @Test
+    fun `one person concedes while Forge waits on the other, and the game ends for both`() {
+        for ((name, concede) in listOf("host" to { m: RunningMatch -> m.concede() }, "guest" to { m: RunningMatch -> m.concedeGuest() })) {
+            val match = start("concede-$name", seed = 5)
+            val alice = match.seat
+            val bob = match.guest!!
+            val waiter = if (name == "host") bob else alice
+            // Both play to turn 3, then stop with the one who doesn't concede holding a prompt.
+            val players = listOf(alice, bob).map { seat ->
+                thread { ScriptedSeat(seat, retryAfterMillis = 1500).play(timeoutMillis = 60_000) { (seat.board.value?.turn ?: 0) >= 3 && waiter.prompt.value != null } }
+            }
+            players.forEach { it.join() }
+            waitFor("$name: the other holding a prompt") { waiter.prompt.value != null }
+            concede(match)
+            waitFor("$name: the game over for both", 20_000) { alice.board.value?.gameOver == true && bob.board.value?.gameOver == true }
+            waitFor("$name: the result", 20_000) { match.games.value.isNotEmpty() }
+            assertTrue(match.over)
+        }
+    }
+
+    @Test
+    fun `a concession answers the other person's open question, with a real choice, not a heading`() {
+        val match = start("dialog", seed = 3)
+        val alice = match.seat
+        val bob = match.guest!! as SeatGui
+        try {
+            waitFor("the game under way") { alice.prompt.value != null || bob.prompt.value != null }
+            // A mandatory question of Bob's, as "Choose a source" asks one (a heading first), held open as a dialog holds Forge.
+            var picked: List<String>? = null
+            val asking = thread { picked = bob.getChoices("Choose a source", 1, 1, mutableListOf("--PERMANENTS:--", "Island (47)", "Forest (12)"), null, null) }
+            waitFor("Bob's question") { (bob.prompt.value as? ChoicePrompt)?.message == "Choose a source" }
+            match.concede()
+            asking.join(5_000)
+            assertEquals(listOf("Island (47)"), picked, "answered for him with the first real choice")
+            assertTrue("STOOD DOWN" in match.recorder.file.readText())
+            assertFalse("UNHANDLED" in match.recorder.file.readText(), "an expected answer, not a surprise")
+        } finally {
+            match.leave()
+            listOf(alice, bob).forEach { seat -> repeat(30) { seat.prompt.value?.let { seat.answer(it.id, plainAnswer(it)) }; Thread.sleep(20) } }
+        }
+    }
+
+    @Test
     fun `a static dialog goes to the person Forge asked last`() {
         val match = start("static-dialog", seed = 3)
         val people = listOf(match.seat, match.guest!!)

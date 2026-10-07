@@ -154,6 +154,7 @@ class SeatGui(
     private val zoneLog = ZoneLog(recorder)
     private val knownInHand = KnownInHand(isViewer = { it in seatPlayerIds })
     private val countered = Countered(named = seesCard, onCountered = ::reportCountered)
+    private val finishWatch = GameFinishWatch(onFinished = { edt.later { finishGame() } })
     /** The trail's seq when the seat last decided something: what came after is "just happened". */
     @Volatile private var decisionSeq = 0L
     private val promptIds = AtomicLong()
@@ -169,6 +170,13 @@ class SeatGui(
     @Volatile private var seatPlayerIds: Set<Int> = emptySet()
     @Volatile private var dirty = true
     @Volatile private var finished = false
+    /** The game ends for something at the table ([standDown]): every question is answered for this seat, Cancel or a valid default. */
+    @Volatile private var stoodDown = false
+    /**
+     * This game's end was reported ([finishGame]). Not [finished]: Forge's afterGameEnd sets that too,
+     * and on a concession it can come first, which skipped the report and left the match without its result.
+     */
+    @Volatile private var reported = false
     /** F6: the turn being skipped; opponent actions don't interrupt it. */
     @Volatile private var skippingTurn: Int? = null
 
@@ -266,6 +274,17 @@ class SeatGui(
         conceded = true
         val controller = seatController
         if (controller != null) edt.later { controller.concede() } else endAsDraw()
+    }
+
+    /**
+     * The game is ending for something at the table, not for an answer here (the other person
+     * conceded, or their connection went): what this seat was asked is answered Cancel and nothing
+     * more is asked. A dialog holds Forge's game thread, and the concession waits behind it.
+     */
+    internal fun standDown() {
+        stoodDown = true
+        val open = synchronized(dialogs) { dialogs.toList().onEach { it.reply.complete(SeatAction.Cancel) } }
+        if (open.isNotEmpty()) seatLog("STOOD DOWN: ${open.size} open question(s) answered Cancel, the game ending without them")
     }
 
     /** Ends the game being played with no winner, for no one's choice at the table. */
@@ -424,7 +443,7 @@ class SeatGui(
     /** Blocks the calling Forge thread until the seat answers [make]'s prompt. */
     private fun awaitDialog(make: (Long) -> Prompt, fallback: SeatAction, betweenGames: Boolean = false): SeatAction {
         if (pricing) throw PricingAsked(make(0).message)
-        if (finished && !betweenGames) return fallback
+        if ((finished || stoodDown) && !betweenGames) return fallback
         val pending = PendingDialog(make(promptIds.incrementAndGet()))
         if (!edt.isCurrent()) snapshot() // the calling engine thread is the one waiting
         synchronized(dialogs) { dialogs.addLast(pending); publish(pending.prompt) }
@@ -459,11 +478,14 @@ class SeatGui(
             return emptyList()
         }
         if (min >= items.size && max >= items.size) return items // all of them, no decision
-        val action = awaitDialog({ ChoicePrompt(it, message, options, min, max) }, SeatAction.Choose((0 until min).toList()))
+        // Forge's section headings (`--PERMANENTS:--`) are labels: a default never picks one, or Forge only asks again.
+        val pickable = items.indices.filterNot { options[it].label.let { l -> l.startsWith("--") && l.endsWith("--") } }.ifEmpty { items.indices.toList() }
+        val action = awaitDialog({ ChoicePrompt(it, message, options, min, max) }, SeatAction.Choose(pickable.take(min)))
         val picked = (action as? SeatAction.Choose)?.indices?.distinct()?.filter { it in items.indices }
         if (picked == null || picked.size < min || picked.size > max) {
+            if (stoodDown) return pickable.take(min).map { items[it] }
             autoAnswered("choice", "invalid answer $action for '$message' (min=$min max=$max); took the first $min")
-            return items.take(min)
+            return pickable.take(min).map { items[it] }
         }
         return picked.map { items[it] }
     }
@@ -558,12 +580,14 @@ class SeatGui(
     override fun openView(myPlayers: TrackableCollection<PlayerView>?) {
         seatPlayerIds = myPlayers?.map { it.id }?.toSet().orEmpty()
         finished = false
+        stoodDown = false
+        reported = false
         conceded = false
         // Card ids start again in every game: game 1's picks and views must not mark game 2's cards (Forge's own openView clears its selection).
         selectableIds = emptySet(); actionableIds = emptySet(); highlightedIds = emptySet()
         cardViews.clear(); playerViews.clear()
         skippingTurn = null
-        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); zoneLog.attach(it); knownInHand.attach(it); countered.attach(it) }
+        gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); zoneLog.attach(it); knownInHand.attach(it); countered.attach(it); finishWatch.attach(it) }
         dirty = true
     }
 
@@ -578,7 +602,8 @@ class SeatGui(
     override fun updateCurrentPlayer(player: PlayerView?) {}
 
     override fun finishGame() {
-        if (finished) return
+        if (reported) return
+        reported = true
         finished = true
         dirty = true
         recorder.note("finishGame: ${gameView?.let { if (it.outcome?.isDraw == true) "draw" else "${it.winningPlayerName} won" }}")

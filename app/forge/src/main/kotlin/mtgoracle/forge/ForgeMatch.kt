@@ -95,11 +95,11 @@ class RunningMatch internal constructor(
         ForgeRuntime.edt.later { hosted.continueMatch() }
     }
 
-    /** Concedes the game being played; in a match, the next one can still follow. */
-    fun concede() = gui.concedeNow()
+    /** Concedes the game being played; in a match, the next one can still follow. The other person's open question goes with it. */
+    fun concede() { guestGui?.standDown(); gui.concedeNow() }
 
-    /** The second person concedes the game being played. */
-    fun concedeGuest() { guestGui?.concedeNow() }
+    /** The second person concedes the game being played; the host's open question goes with it. */
+    fun concedeGuest() { val guest = guestGui ?: return; gui.standDown(); guest.concedeNow() }
 
     /**
      * Leaves the match: the game on is conceded (and recorded so), and no
@@ -122,7 +122,7 @@ class RunningMatch internal constructor(
         brokenOff = reason
         leaving = true
         val last = resultFlow.value
-        if (last == null) gui.endAsDraw()
+        if (last == null) { guestGui?.standDown(); gui.standDown(); gui.endAsDraw() }
         else if (!last.matchOver) finishWith(last.copy(matchOver = true), replaceLast = true)
     }
 

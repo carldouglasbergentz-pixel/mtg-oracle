@@ -48,6 +48,8 @@ class ScriptedSeat(
     private val triedThisTurn = mutableSetOf<Int>()
     private var triedTurn = -1
     private val choicesSeen = mutableMapOf<List<String>, Int>()
+    /** What was clicked as a target in each targeting Input, by its serial: a chosen player isn't highlighted as a card is. */
+    private val targetsClicked = mutableMapOf<Int, MutableSet<SeatAction>>()
     var decisions = 0
         private set
 
@@ -142,18 +144,24 @@ class ScriptedSeat(
         // A chosen target is highlighted, and a click on it un-picks it. Each click is a new prompt, so clicking it
         // again looped for good on "any number of targets" (Pyrokinesis): with one chosen and OK on, that is enough.
         val chosen = prompt.highlightedCardIds
-        if (prompt.okEnabled && chosen.isNotEmpty()) return SeatAction.Ok
+        val clicked = targetsClicked.getOrPut(prompt.inputSerial) { mutableSetOf() }
+        if (prompt.okEnabled && (chosen.isNotEmpty() || clicked.isNotEmpty())) return SeatAction.Ok
         val theirs = prompt.selectableCardIds.filter { id -> id !in chosen && opponent.battlefield.any { it.id == id } }
         val mine = prompt.selectableCardIds.filter { it !in theirs && it !in chosen }
-        val candidates: List<SeatAction> = theirs.map { SeatAction.ClickCard(it) } +
-            SeatAction.ClickPlayer(opponent.id) + mine.map { SeatAction.ClickCard(it) } + SeatAction.ClickPlayer(me.id)
-        return candidates.getOrNull(attempt) ?: if (prompt.okEnabled) SeatAction.Ok else SeatAction.Cancel
+        val candidates: List<SeatAction> = (theirs.map { SeatAction.ClickCard(it) } +
+            SeatAction.ClickPlayer(opponent.id) + mine.map { SeatAction.ClickCard(it) } + SeatAction.ClickPlayer(me.id)).filter { it !in clicked }
+        return (candidates.getOrNull(attempt) ?: candidates.firstOrNull())?.also { clicked += it }
+            ?: if (prompt.okEnabled) SeatAction.Ok else SeatAction.Cancel
     }
 
-    /** Same options offered again (a spell we couldn't pay for last time): take the next one. */
+    /**
+     * Same options offered again (a spell we couldn't pay for last time, a pick Forge refused): take the next one.
+     * Forge's section headings (`--PERMANENTS:--`) are labels, not choices: picking one only asks again.
+     */
     private fun choiceIndex(prompt: ChoicePrompt): Int {
         val seen = (choicesSeen[prompt.labels] ?: 0).also { choicesSeen[prompt.labels] = it + 1 }
-        return if (prompt.min == 0) seen % prompt.options.size else 0
+        val real = prompt.options.indices.filterNot { prompt.labels[it].let { l -> l.startsWith("--") && l.endsWith("--") } }.ifEmpty { prompt.options.indices.toList() }
+        return if (prompt.min == 0 || seen > 0) real[seen % real.size] else real.first()
     }
 
     private fun label(prompt: Prompt): String = when (prompt) {
