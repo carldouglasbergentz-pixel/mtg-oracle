@@ -265,8 +265,12 @@ class SeatGui(
     fun concedeNow() {
         conceded = true
         val controller = seatController
-        if (controller != null) edt.later { controller.concede() }
-        else gameView?.game?.let { game -> game.action.invoke { game.setGameOver(forge.game.GameEndReason.Draw) } }
+        if (controller != null) edt.later { controller.concede() } else endAsDraw()
+    }
+
+    /** Ends the game being played with no winner, for no one's choice at the table. */
+    internal fun endAsDraw() {
+        gameView?.game?.let { game -> game.action.invoke { game.setGameOver(forge.game.GameEndReason.Draw) } }
     }
 
     override fun setStops(stops: PhaseStops) {

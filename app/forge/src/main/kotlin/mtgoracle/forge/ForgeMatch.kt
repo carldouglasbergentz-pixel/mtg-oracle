@@ -84,6 +84,8 @@ class RunningMatch internal constructor(
     @Volatile var gameStartedAt: Instant = startedAt
         private set
     @Volatile private var leaving = false
+    /** Why the match was broken off ([breakOff]); null while it plays on. */
+    @Volatile private var brokenOff: String? = null
 
     /** The next game: Forge asks about sideboards and play/draw, as its own match screen does. */
     fun continueMatch() {
@@ -110,13 +112,28 @@ class RunningMatch internal constructor(
         else if (!last.matchOver) finishWith(last.copy(matchOver = true), replaceLast = true)
     }
 
+    /**
+     * Ends the match for a reason no one at the table chose: the other
+     * person's connection went. The game on stops with no winner, never as a
+     * concession, and no game follows.
+     */
+    fun breakOff(reason: String) {
+        recorder.note("BROKEN OFF: $reason")
+        brokenOff = reason
+        leaving = true
+        val last = resultFlow.value
+        if (last == null) gui.endAsDraw()
+        else if (!last.matchOver) finishWith(last.copy(matchOver = true), replaceLast = true)
+    }
+
     internal fun gameEnded(result: MatchResult) {
         val so = gamesFlow.value
         val wins = so.count { it.winner == Winner.ME } + if (result.winner == Winner.ME) 1 else 0
         val losses = so.count { it.winner == Winner.OPPONENT } + if (result.winner == Winner.OPPONENT) 1 else 0
         val needed = spec.format.games / 2 + 1
         val over = leaving || hosted.isMatchOver || wins >= needed || losses >= needed || so.size + 1 >= spec.format.games
-        finishWith(result.copy(gameNo = so.size + 1, conceded = gui.conceded, wins = wins, losses = losses, matchOver = over), replaceLast = false)
+        val summary = brokenOff?.let { "broken off: $it" } ?: result.summary
+        finishWith(result.copy(gameNo = so.size + 1, conceded = gui.conceded, wins = wins, losses = losses, matchOver = over, summary = summary), replaceLast = false)
     }
 
     private fun finishWith(result: MatchResult, replaceLast: Boolean) {
@@ -213,9 +230,11 @@ object ForgeMatch {
         }
     }
 
-    /** Two people may not share a name: Forge's log and the board tell them apart by it. */
-    private fun guestName(spec: MatchSpec): String =
-        if (spec.guestName.equals(spec.seatName, ignoreCase = true)) "${spec.guestName} (2)" else spec.guestName
+    private fun guestName(spec: MatchSpec): String = tableName(spec.seatName, spec.guestName)
+
+    /** The second person's name at the table: two people may not share one, since Forge's log and the board tell them apart by it. */
+    fun tableName(seatName: String, guestName: String): String =
+        if (guestName.equals(seatName, ignoreCase = true)) "$guestName (2)" else guestName
 
     /** The cards whose chosen printing Forge lacks: the board shows Scryfall's art for them (ForgeCards.printingKey). */
     private fun missingPrintings(deck: PlayDeck): Map<String, String> = deck.cards.mapNotNull { card ->

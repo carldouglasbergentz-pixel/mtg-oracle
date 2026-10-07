@@ -155,6 +155,7 @@ gradlew :app:installLocal       :: the snapshot to play
 gradlew :app:run                :: the window from the build outputs, for development only
 gradlew :app:cli -Pargs="card Sol Ring --json"
 gradlew :app:scriptedGame -Pdata=<dir with a DB copy>
+gradlew :app:localDuel -Pargs="Jori En;Phelia Doggo"   :: network play on this machine: a host's window and a guest's
 ```
 
 `-Pdata=<dir>` points any task at another data directory, relative to the repo root.

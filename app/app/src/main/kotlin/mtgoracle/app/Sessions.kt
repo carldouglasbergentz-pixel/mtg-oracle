@@ -78,10 +78,23 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         format: MatchFormat = MatchFormat.BO1,
         /** False for a simulation: no spectator, so no pause on every event. */
         paced: Boolean = true,
+        /** HUMAN_VS_HUMAN: the two people's names, the host's first. */
+        names: Pair<String, String>? = null,
     ): RunningMatch {
         val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
         val watched = if (mode == GameMode.AI_VS_AI) MatchFormat.BO1 else format
-        return ForgeMatch.start(MatchSpec(mode, prepared.seat, prepared.opponent, logDir.resolve("$stamp.log"), seed, stops, startState, watched, paced))
+        val spec = MatchSpec(mode, prepared.seat, prepared.opponent, logDir.resolve("$stamp.log"), seed, stops, startState, watched, paced)
+        return ForgeMatch.start(names?.let { (host, guest) -> spec.copy(seatName = host, guestName = guest) } ?: spec)
+    }
+
+    /**
+     * Why a guest's [deck] can't sit at a table where the host plays [host],
+     * or null when it can: what a local game would refuse, said to the guest.
+     */
+    fun judgeGuest(host: PlayDeck, deck: PlayDeck): String? {
+        if (deck.gameType != host.gameType) return "This table plays ${host.gameType.label}, and ${deck.name} is ${deck.gameType.label}."
+        val unknown = ForgeCards.check(deck).unknown
+        return if (unknown.isEmpty()) null else "The host's Forge lacks ${unknown.joinToString()}, so ${deck.name} can't be played there."
     }
 
     /** [row] into `games`, unless it is two people's: those are not kept yet (`games.mode` has no value for them). */

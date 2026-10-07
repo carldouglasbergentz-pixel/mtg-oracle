@@ -224,4 +224,5 @@ registerMode("cli", "The command line: -Pargs=\"card Sol Ring --json\" (or app\\
 registerMode("sync", "Fetches what moved upstream into data/mtg.db: -Pargs=\"[--force] [cards rules combos tags oracletags formats printings]\".", "sync")
 registerMode("prefetchImages", "Downloads card art for the cards in your decks (-Pargs=\"<deck name>\" for one).", "prefetch")
 registerMode("stagedPictures", "Headless: the staged boards (table, lands, stack box, trail, hidden info, reveal, watch) rendered with real art; -Pargs=\"<board names>\" for some.", "snapshots")
+registerMode("localDuel", "Network play on this machine: a host's window and a guest's, over a loopback link: -Pargs=\"<host deck>;<guest deck>\".", "local-duel")
 registerMode("scriptedGame", "Headless: a scripted seat plays through the UI against the AI; use -Pdata=<copy>.", "scripted")

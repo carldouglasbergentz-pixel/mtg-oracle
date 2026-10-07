@@ -22,6 +22,7 @@ import kotlin.system.exitProcess
  *   prefetch [deck name]   fetch card art for your decks (or one deck) into the image cache
  *   scripted               headless evidence run on a copy of the database (see Scripted.kt)
  *   snapshots              the StagedBoards rendered with real art (review pictures)
+ *   local-duel <a>;<b>     network play on this machine: a host's window and a guest's over a loopback link
  */
 fun main(args: Array<String>) {
     val paths = AppPaths.fromSystemProperties()
@@ -38,6 +39,7 @@ fun main(args: Array<String>) {
             "cli" -> Cli.run(paths, args.drop(1))
             "prefetch" -> Headless.prefetch(paths, args.drop(1).joinToString(" ").ifBlank { null })
             "scripted" -> Scripted.run(paths, args.drop(1))
+            "local-duel" -> LocalDuel.run(paths, args.drop(1))
             "snapshots" -> StagedPictures.run(paths, java.io.File(System.getProperty("mtgoracle.evidence") ?: "build/evidence", "staged"), args.drop(1).toSet())
             else -> { System.err.println("unknown mode $mode"); 64 }
         }
