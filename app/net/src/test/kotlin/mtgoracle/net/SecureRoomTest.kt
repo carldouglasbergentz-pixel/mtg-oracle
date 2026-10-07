@@ -27,16 +27,16 @@ class SecureRoomTest {
     private val deck = AiCopy.asBuilt(Deck(1, "Green", null, null, listOf(DeckCard("Forest", 60, false, false))))
     private val hello = HostMessage.Hello(PROTOCOL_VERSION, "test", "Alice")
 
-    /** Two ends of a link in memory: what one sends, the other receives; [tap] sees and may change each line on the way. */
+    /** Two ends of a link in memory: what one sends, the other receives; a tap sees and may change each line on its way, one per direction. */
     private class Pipe(private val out: LinkedBlockingQueue<String>, private val into: LinkedBlockingQueue<String>, private val tap: (String) -> String?) : Link {
         @Volatile var closed = false
         override fun send(line: String): Boolean { if (closed) return false; tap(line)?.let(out::put); return true }
         override fun receive(): String? = if (closed) null else into.poll(2, TimeUnit.SECONDS)
         override fun close() { closed = true }
         companion object {
-            fun pair(tap: (String) -> String? = { it }): Pair<Pipe, Pipe> {
+            fun pair(aToB: (String) -> String? = { it }, bToA: (String) -> String? = { it }): Pair<Pipe, Pipe> {
                 val a = LinkedBlockingQueue<String>(); val b = LinkedBlockingQueue<String>()
-                return Pipe(a, b, tap) to Pipe(b, a, tap)
+                return Pipe(a, b, aToB) to Pipe(b, a, bToA)
             }
         }
     }
@@ -70,46 +70,74 @@ class SecureRoomTest {
 
     private val secret = ByteArray(Invite.SECRET_BYTES) { it.toByte() }
 
+    /** Both ends' openings at once, as two apps make them: each sends its random bytes, then reads the other's. */
+    private fun opened(host: SecureLink, guest: SecureLink) {
+        val hostSide = thread { host.send("ready") }
+        assertEquals("ready", guest.receive())
+        hostSide.join()
+    }
+
     @Test
     fun `sealed lines open at the other end, and nothing readable travels`() {
         val seen = ConcurrentLinkedQueue<String>()
-        val (a, b) = Pipe.pair { seen += it; it }
+        val (a, b) = Pipe.pair(aToB = { seen += it; it }, bToA = { seen += it; it })
         val host = SecureLink(a, secret, SecureLink.Role.HOST)
         val guest = SecureLink(b, secret, SecureLink.Role.GUEST)
+        opened(host, guest)
         host.send("""{"type":"board","card":"Raging Goblin"}""")
         guest.send("åäö — Ponder")
         assertEquals("""{"type":"board","card":"Raging Goblin"}""", guest.receive())
         assertEquals("åäö — Ponder", host.receive())
         host.send("again"); host.send("again")
         assertEquals("again", guest.receive()); assertEquals("again", guest.receive())
-        assertTrue(seen.none { "Goblin" in it || "Ponder" in it || "again" in it }, "the wire carries only sealed lines: $seen")
+        assertTrue(seen.none { "Goblin" in it || "Ponder" in it || "again" in it || "ready" in it }, "the wire carries only sealed lines: $seen")
         assertEquals(seen.size, seen.distinct().size, "the same text twice is two different sealed lines")
     }
 
     @Test
-    fun `a changed, repeated or foreign line never opens, and the link closes`() {
-        fun check(name: String, tap: (String) -> String?, sender: (Link) -> Link = { SecureLink(it, secret, SecureLink.Role.HOST) },
+    fun `a changed, foreign or unsealed line never opens, and the link closes`() {
+        fun check(name: String, tap: (String) -> String? = { it }, sender: (Link) -> Link = { SecureLink(it, secret, SecureLink.Role.HOST) },
                   receiver: (Link) -> SecureLink = { SecureLink(it, secret, SecureLink.Role.GUEST) }) {
-            val (a, b) = Pipe.pair(tap)
+            val (a, b) = Pipe.pair(aToB = tap)
             val to = receiver(b)
-            sender(a).send("pay 2 life")
+            thread { sender(a).send("pay 2 life") }
             assertNull(to.receive(), "$name: doesn't open")
             assertNotNull(to.failure, "$name: says why")
             assertTrue(b.closed, "$name: the link closed")
         }
+        // Every line flipped, the opening's random bytes too: the two sides make different keys.
         check("a flipped character", tap = { line -> line.replaceRange(5, 6, if (line[5] == 'A') "B" else "A") })
-        check("another invite's secret", tap = { it }, sender = { SecureLink(it, ByteArray(Invite.SECRET_BYTES) { 7 }, SecureLink.Role.HOST) })
-        check("both sides as host", tap = { it }, receiver = { SecureLink(it, secret, SecureLink.Role.HOST) })
-        check("plain text", tap = { it }, sender = { it })
-        // The same sealed line twice: the second has the wrong number for its place.
-        var first: String? = null
-        val (a, b) = Pipe.pair { line -> if (first == null) { first = line; line } else first }
-        val from = SecureLink(a, secret, SecureLink.Role.HOST)
-        val to = SecureLink(b, secret, SecureLink.Role.GUEST)
-        from.send("pay 2 life"); from.send("pass")
-        assertEquals("pay 2 life", to.receive())
-        assertNull(to.receive(), "a replayed line doesn't open")
-        assertNotNull(to.failure)
+        check("another invite's secret", sender = { SecureLink(it, ByteArray(Invite.SECRET_BYTES) { 7 }, SecureLink.Role.HOST) })
+        check("both sides as host", receiver = { SecureLink(it, secret, SecureLink.Role.HOST) })
+        check("plain text", sender = { it })
+    }
+
+    @Test
+    fun `a line sent again never opens, on its own connection or on another`() {
+        // On its own connection: the third line the host sends is its second sealed line again.
+        var lines = 0
+        var kept: String? = null
+        val (a, b) = Pipe.pair(aToB = { line -> lines++; if (lines == 2) kept = line; if (lines == 3) kept else line })
+        val host = SecureLink(a, secret, SecureLink.Role.HOST)
+        val guest = SecureLink(b, secret, SecureLink.Role.GUEST)
+        opened(host, guest) // the host's first two lines: its random bytes, and "ready"
+        host.send("pass")
+        assertNull(guest.receive(), "a repeated line has the wrong number for its place")
+        assertNotNull(guest.failure)
+
+        // On another: everything the guest sent on a first connection, played to the same room again.
+        val captured = mutableListOf<String>()
+        val (c, d) = Pipe.pair(bToA = { line -> captured += line; line })
+        val host1 = SecureLink(c, secret, SecureLink.Role.HOST)
+        val guest1 = SecureLink(d, secret, SecureLink.Role.GUEST)
+        opened(host1, guest1)
+        guest1.send("""{"type":"hello","name":"Bob"}""")
+        assertEquals("""{"type":"hello","name":"Bob"}""", host1.receive())
+        val (e, replayer) = Pipe.pair()
+        val host2 = SecureLink(e, secret, SecureLink.Role.HOST)
+        captured.forEach(replayer::send) // the guest's random bytes, then its sealed hello
+        assertNull(host2.receive(), "the second connection's keys are its own: the old hello doesn't open")
+        assertNotNull(host2.failure)
     }
 
     // --- the room -----------------------------------------------------------
@@ -122,7 +150,7 @@ class SecureRoomTest {
         val waiting = thread { guest = room.awaitGuest(hello, judge = { null }, onKnock = { knocks += it }) }
 
         // A scan: connects and says nonsense. Then one with a link sealed by another invite's secret.
-        TcpLink.connectLocal(room.invite.port).also { closing += it }.let { it.send("GET / HTTP/1.1"); assertNotNull(it.receive(), "it hears only a sealed hello"); assertNull(it.receive(), "and is hung up on") }
+        TcpLink.connectLocal(room.invite.port).also { closing += it }.let { it.send("GET / HTTP/1.1"); assertNotNull(it.receive(), "it hears only random bytes"); assertNull(it.receive(), "and is hung up on") }
         val forged = Invite(room.invite.address, room.invite.port, ByteArray(Invite.SECRET_BYTES) { 1 })
         RemoteSeat(forged.join(), "Mallory", deck, "test").also { closing += it }.start().let { mallory ->
             val deadline = System.currentTimeMillis() + 5_000
@@ -172,7 +200,7 @@ class SecureRoomTest {
         val knocks = ConcurrentLinkedQueue<Door.Outcome>()
         thread(isDaemon = true) { room.awaitGuest(hello, judge = { null }, onKnock = { knocks += it }) }
         val silent = TcpLink.connectLocal(room.invite.port).also { closing += it }
-        silent.receive() // the sealed hello
+        silent.receive() // the room's random bytes
         val started = System.currentTimeMillis()
         assertNull(silent.receive(), "hung up on")
         val waited = System.currentTimeMillis() - started

@@ -23,7 +23,7 @@ object Door {
 
     fun admit(link: Link, hello: HostMessage.Hello, judge: (GuestMessage.Hello) -> String?): Outcome {
         link.bound(KNOCK_LINE, KNOCK_MILLIS)
-        if (!link.send(Wire.encode(hello))) return stranger(link, "gone before the hello")
+        if (!link.send(Wire.encode(hello))) return stranger(link, (link as? SecureLink)?.failure ?: "gone before the hello")
         val line = link.receive()
             ?: return stranger(link, (link as? SecureLink)?.failure ?: "said nothing within ${KNOCK_MILLIS / 1000} s, or hung up")
         // The line opened, so they hold the invite: whatever is wrong now, they are told.
