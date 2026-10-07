@@ -14,6 +14,10 @@ import kotlin.test.assertTrue
  * table's row count and a digest of its rows as SQLite quotes them, so `'3'`
  * is not `3`). The full exports were compared the same way, table for
  * table, before the Python sync was retired (step 6b).
+ *
+ * One deliberate difference: `cards.games` is the union over every printing
+ * (2026-10-07), where Python kept the oracle printing's. Six fixture cards
+ * widen; with their games put back, `cards` digests to Python's exactly.
  */
 class SyncParityTest {
 
@@ -34,7 +38,7 @@ class SyncParityTest {
         "custom_formats" to "format, name, aliases, derives_from, points_budget, singleton, source_url, list_current_as_of",
         "custom_format_points" to "format, card_name, points",
         // The markers and the counts; the stamps of the two local sources are "now". Printings came after Python.
-        "(SELECT source, CASE WHEN source IN ('local_tags', 'custom_formats') THEN '' ELSE updated_at END AS marker, row_count FROM sync_state WHERE source != 'scryfall_printings')" to "source, marker, row_count",
+        "(SELECT source, CASE WHEN source IN ('local_tags', 'custom_formats') THEN '' ELSE updated_at END AS marker, row_count FROM sync_state WHERE source NOT IN ('scryfall_printings', 'scryfall_printings_games'))" to "source, marker, row_count",
     )
 
     /** `table <tab> rows <tab> sha-256 of the rows, in one order`, per table. */

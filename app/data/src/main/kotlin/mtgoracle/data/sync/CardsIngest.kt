@@ -9,7 +9,9 @@ import java.sql.Connection
 /**
  * Scryfall's oracle cards and rulings into `cards`, `card_legalities` and
  * `rulings` (sync_cards.ingest_cards / ingest_rulings). Cards are upserted on
- * name and never deleted; legalities and rulings are a full snapshot.
+ * name and never deleted; legalities and rulings are a full snapshot. A
+ * card's games are merged into the stored ones, which the printings source
+ * widens to every printing's ([CardGames]).
  */
 internal object CardsIngest {
     /**
@@ -104,6 +106,7 @@ internal object CardsIngest {
         fun flush() { if (pending > 0) { legality.executeBatch(); pending = 0 } }
 
         val written = HashMap<String, Pair<Boolean, Boolean>>()
+        val games = HashMap(CardGames.stored(conn))
         var count = 0
         var collisions = 0
         var skipped = 0
@@ -125,10 +128,12 @@ internal object CardsIngest {
                 written[name] = rank
 
                 val faces = card.array("card_faces")?.takeIf { it.isNotEmpty() }
+                val merged = games[name].orEmpty() + letters(card["games"])
+                games[name] = merged
                 upsert.bind(
                     name, card.py("oracle_id"), oracleText(card), manaCost(card), manaValue(card), colors(card),
                     sortedCsv(card["color_identity"]), faceField(card, "power"), faceField(card, "toughness"), card.py("rarity"),
-                    typeLine(card), layout, faces?.let(PyJson::dumps), letters(card["games"]).sorted().joinToString(","),
+                    typeLine(card), layout, faces?.let(PyJson::dumps), CardGames.csv(merged),
                     truthy(card.py("reserved")), card.py("edhrec_rank"),
                 )
                 upsert.executeUpdate()

@@ -59,8 +59,8 @@ class Lookup(val db: MtgDb) {
     /**
      * Of [names], the cards MTG Arena doesn't have, sorted: what a list exported
      * for Arena must change. A card on Arena has a row in one of Arena's own
-     * formats, legal or banned there. `cards.games` can't tell: it is the games
-     * of the one printing Scryfall chose (Eternal Witness's lacks Arena).
+     * formats, legal or banned there: what Arena plays now. `cards.games` is
+     * every printing's games, and keeps a game a card has since left.
      */
     fun notOnArena(names: Collection<String>): List<String> {
         val distinct = names.distinctBy { it.lowercase() }

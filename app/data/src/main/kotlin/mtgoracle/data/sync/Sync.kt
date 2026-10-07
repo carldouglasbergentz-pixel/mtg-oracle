@@ -17,6 +17,8 @@ import java.sql.Connection
  * Never touches a deck.
  */
 private const val PRINTINGS_KEY = "scryfall_printings"
+/** Set when the bulk export last widened `cards.games` to every printing's: a database without it reads the export once. */
+private const val GAMES_KEY = "scryfall_printings_games"
 
 class Sync(
     private val db: MtgDb,
@@ -185,44 +187,54 @@ class Sync(
     }
 
     /**
-     * Every paper printing, cheaply. The first time (or with `force`) the
-     * whole `default_cards` export, about 80 MB. After that only Scryfall's
+     * Every paper printing, cheaply. The first time (or with `force`, or once
+     * where no export has widened `cards.games` yet) the whole
+     * `default_cards` export, about 80 MB. After that only Scryfall's
      * small `/sets` list, and the sets whose card count moved since (a new
      * set, more spoiled cards) are fetched one search at a time; most days
-     * that is nothing at all.
+     * that is nothing at all. Every printing read, digital ones included,
+     * adds its games to its card's (`CardGames`), so digital sets that moved
+     * are fetched too, for their games alone.
      */
     private fun printings(bulk: Map<String, Bulk>, force: Boolean): List<String> {
         val entry = bulk["default_cards"] ?: run { log("Scryfall has no bulk entry for default_cards: printings skipped"); return emptyList() }
         val stored = db.read { conn -> conn.createStatement().use { st -> st.executeQuery("SELECT COUNT(*) FROM printings").use { it.next(); it.getInt(1) } } }
         val sets = PrintingsIngest.parseSets(upstream.scryfallApi(Upstream.SCRYFALL_SETS) ?: error("Scryfall has no /sets"))
         check(sets.isNotEmpty()) { "Scryfall's set list came back empty: nothing was changed" }
-        if (force || stored == 0) {
+        val gamesFromBulk = db.read { conn -> SyncState.get(conn, GAMES_KEY) != null }
+        if (force || stored == 0 || !gamesFromBulk) {
             val uri = entry.jsonlUri ?: error("Scryfall's default_cards entry has no jsonl_download_uri: the bulk-data API changed")
             val file = File(rawDir, "scryfall_default_cards.jsonl.gz")
             log("downloading every printing (default_cards)")
             upstream.download(uri, file)
             db.write(foreignKeys = false) { conn ->
-                val n = PrintingsIngest.replaceAll(conn, jsonLines(file))
+                val games = CardGames.Collector()
+                val n = PrintingsIngest.replaceAll(conn, jsonLines(file).onEach(games::add))
                 check(n > 0) { "the default_cards export held no paper printings: nothing was changed" }
                 PrintingsIngest.saveSets(conn, sets, nowStamp())
                 SyncState.set(conn, PRINTINGS_KEY, entry.updatedAt.orEmpty(), n)
-                log("printings: $n, in ${sets.size} sets")
+                val widened = CardGames.add(conn, games.byName)
+                // With no cards yet there was nothing to widen: the export is read again once they are there.
+                if (CardGames.stored(conn).isNotEmpty()) SyncState.set(conn, GAMES_KEY, entry.updatedAt.orEmpty(), widened)
+                log("printings: $n, in ${sets.size} sets; $widened card(s) gained a game from another printing")
             }
             return emptyList()
         }
         val known = db.read(PrintingsIngest::knownSets)
-        val moved = sets.filter { !it.digital && known[it.code] != it.cardCount }
+        val moved = sets.filter { known[it.code] != it.cardCount }
         if (moved.isEmpty()) { log("printings: up to date (${known.size} sets)"); return emptyList() }
         val notes = mutableListOf<String>()
         for (set in moved) {
             log("printings: fetching ${set.code} (${known[set.code]?.let { "$it → ${set.cardCount}" } ?: "new, ${set.cardCount}"} cards)")
             // Every language, as the first sync's export has them: an English-only search lost the set's
             // printings that exist only in another language, since the set is replaced whole.
-            val cards = PrintingsIngest.preferEnglish(searchSet(set.code))
+            val found = searchSet(set.code)
+            val games = CardGames.Collector().apply { found.forEach(::add) }
             db.write(foreignKeys = false) { conn ->
-                val n = PrintingsIngest.replaceSet(conn, set.code, cards)
+                val n = PrintingsIngest.replaceSet(conn, set.code, PrintingsIngest.preferEnglish(found))
                 PrintingsIngest.saveSets(conn, listOf(set), nowStamp())
-                notes += "${set.code.uppercase()}: $n printing(s)"
+                val widened = CardGames.add(conn, games.byName)
+                notes += "${set.code.uppercase()}: " + (if (set.digital) "digital" else "$n printing(s)") + if (widened > 0) ", $widened card(s) gained a game" else ""
             }
         }
         db.write(foreignKeys = false) { conn ->
