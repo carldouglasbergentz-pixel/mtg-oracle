@@ -1,11 +1,14 @@
 package mtgoracle.core.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Where the seat gets priority with an empty stack (MTGO's phase stops).
  *
  * Anywhere else the game flows past, unless something goes on the stack or a
  * decision is needed (attackers, blockers, targets) — those always stop.
  */
+@Serializable
 data class PhaseStops(val ownTurn: Set<Step>, val opponentTurn: Set<Step>) {
 
     fun stopsAt(seatsTurn: Boolean, step: Step): Boolean =

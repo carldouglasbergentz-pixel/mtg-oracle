@@ -1,5 +1,7 @@
 package mtgoracle.core.deck
 
+import kotlinx.serialization.Serializable
+
 /*
  * The deck Forge plays, and the AI's copy of it — the same rules as the
  * retired Python `forge export` (services._export_deck, forge_format):
@@ -18,6 +20,7 @@ package mtgoracle.core.deck
 /** The name Forge knows a card by: its front face. */
 fun forgeCardName(name: String): String = name.split(" // ", limit = 2)[0].trim()
 
+@Serializable
 data class PlayCard(
     val forgeName: String,
     val quantity: Int,
@@ -26,6 +29,7 @@ data class PlayCard(
     val collectorNumber: String?,
 )
 
+@Serializable
 data class PlayDeck(
     val deckId: Int,
     /** What the game calls it: the deck's name, with " (AI)" for the AI copy. */

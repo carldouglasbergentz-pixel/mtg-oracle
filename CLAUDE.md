@@ -15,7 +15,7 @@ original there.
 - **Per-feature history** → [`CHANGELOG.md`](CHANGELOG.md). Append-only.
 - **Bootstrapping a new contributor** → [`README.md`](README.md).
 - **App aesthetic intent** → [`docs/app-design.md`](docs/app-design.md).
-- **Why the app is built as it is** → [`docs/adr/0001-standalone-jvm-app-with-embedded-forge.md`](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md). [`docs/feature-parity.md`](docs/feature-parity.md) is the record of the port, row by row.
+- **Why the app is built as it is** → [`docs/adr/0001-standalone-jvm-app-with-embedded-forge.md`](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md); network play → [`docs/adr/0002-network-play.md`](docs/adr/0002-network-play.md). [`docs/feature-parity.md`](docs/feature-parity.md) is the record of the port, row by row.
 - **Deck-analysis report style** → [`docs/reports/report-style.md`](docs/reports/report-style.md). Reports are written in **Swedish** (every other doc here is English, because those are code-facing), live in `docs/reports/*-report.html` **and** as an artifact, with their reference lists in `docs/reports/decklists/<name>/`, and share one inlined stylesheet. Read it before writing a new one — the convention existed only as a single example once, and the second report was written in the wrong language because of it.
 - **Stable user preferences** → `memory/` (loaded selectively).
 - **This file** → durable rules: schema semantics, conventions, don'ts, plan-first gate, self-review checklist. Loaded every turn — keep it lean.
@@ -76,7 +76,7 @@ Corrections are for **specific factual mistakes** about cards/rules/combos. They
 
 ## Layers (`app/`, ADR 0001)
 
-A Gradle build (wrapper in `app/`, JDK 25 toolchain, Kotlin + Compose Desktop) with five modules, dependencies one-way, enforced by Gradle:
+A Gradle build (wrapper in `app/`, JDK 25 toolchain, Kotlin + Compose Desktop) with six modules, dependencies one-way, enforced by Gradle:
 
 | module | owns | may import |
 |---|---|---|
@@ -84,6 +84,7 @@ A Gradle build (wrapper in `app/`, JDK 25 toolchain, Kotlin + Compose Desktop) w
 | `data` | `data/mtg.db` over JDBC: the schema, `Lookup` (cards, search SQL, combos, rules, analysis input), `DeckWriter` / `LibraryWriter`, `GameStore`, the sync | core |
 | `forge` | **every Forge import**: runtime, the seat (`SeatGui`, an `IGuiGame`), printings (`ForgeCards`), images (`ForgeImages`), matches | core |
 | `ui` | the house-style kit and screens in Compose, the renderers, plus `OffscreenDriver` | core |
+| `net` | network play's wire (ADR 0002): the messages, one JSON object per line (`Wire`, `PROTOCOL_VERSION`), the handshake, the log sent as the lines the guest lacks | core |
 | `app` | the entry point: wiring (`AppController`, with `PlayControl`, `SyncControl` and `UpdateControl` beside it; `LookupCommands`, `Sessions`), the window, the CLI, headless modes | all |
 
 `ui` imports only `core`, so a report the screens show is plain data in `core` (`core/sync/SyncReport.kt`, `core/play/Records.kt`, `core/analysis/*`), filled in by `data`. Anything two surfaces need (the window and the CLI) is one function they both call; the CLI runs the same commands and renderings as the output pane.
@@ -101,6 +102,8 @@ A Gradle build (wrapper in `app/`, JDK 25 toolchain, Kotlin + Compose Desktop) w
   1. `GameSeat`, the board snapshot and the prompt/answer types in `core` stay plain data. They carry no Forge object, no Compose type and no JVM handle, and could be serialised as they are.
   2. Filtering per viewer happens in `forge`, before a snapshot leaves it (see the next rule). A remote seat is just another viewer.
   3. Answers are asynchronous. Nothing on the engine side may assume the answer comes from this process or arrives within a frame.
+
+  The seam's types are `@Serializable` (`net/Wire.kt` sends them as they are), so a type a `GameSeat` carries must stay serialisable, and changing one changes the protocol: raise `PROTOCOL_VERSION`. `WireRealGameTest` sends real games' boards and prompts through the wire and back.
 
   Two people at one table already play (`GameMode.HUMAN_VS_HUMAN`: a second `SeatGui`, `RunningMatch.guest`, each filtered for its own person; `TwoPeopleTest`). Their games are not recorded yet: `games.mode` has no value for them. Forge's static dialogs name no player, so `AppGuiBase.seats` sends one to the seat Forge asked last; the only one a game reaches is a cost's "from whose zone" (`HumanCostDecision`), in the middle of the payer's own decision.
 - **Hidden information never leaves `forge`.** `Snapshots` asks Forge per card and per viewer: `mayView` (reveals, "look at") for the card as it is, and `canFaceDownBeShownToAny` (what Forge's own `mayFlip` uses) before naming a face-down card. A card that fails either becomes `CardState.back()` with a stand-in id, so the UI can't leak what it never receives. One addition: a card the seat saw go from a public zone into another player's hand is known there (`KnownInHand`) until that hand loses a card unseen, and passes `visible` as Forge's reveals do. An *ability* on the stack is public with its source even when the source has gone to a hidden zone (`abilityNamesItsSource`: Hawkeye's trigger after Condemn read "hidden"); only a face-down source stays unnamed. Watching AI vs AI shows public zones only unless `setShowAllHands` (H). `HiddenInfoTest` renders real games and searches every drawn string.

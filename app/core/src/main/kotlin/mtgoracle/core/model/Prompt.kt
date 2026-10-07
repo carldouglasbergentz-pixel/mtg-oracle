@@ -2,6 +2,7 @@ package mtgoracle.core.model
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.Serializable
 
 /*
  * The human seat, as the UI sees it.
@@ -20,12 +21,17 @@ import kotlinx.coroutines.flow.StateFlow
 enum class InputKind { MULLIGAN, PRIORITY, PAY_MANA, TARGET, ATTACK, BLOCK, SELECT_CARDS, CONFIRM, OTHER }
 
 /** Something on the board a dialog option stands for, so the board can be clicked to choose it. */
+@Serializable
 sealed interface BoardRef {
+    @Serializable
     data class Card(val id: Int) : BoardRef
+    @Serializable
     data class Player(val id: Int) : BoardRef
+    @Serializable
     data class StackItem(val id: Int) : BoardRef
 }
 
+@Serializable
 data class ChoiceOption(
     val label: String,
     val ref: BoardRef? = null,
@@ -33,12 +39,14 @@ data class ChoiceOption(
     val card: CardState? = null,
 )
 
+@Serializable
 sealed interface Prompt {
     /** Unique per published prompt; an answer names the prompt it answers. */
     val id: Long
     val message: String
 }
 
+@Serializable
 data class InputPrompt(
     override val id: Long,
     override val message: String,
@@ -64,6 +72,7 @@ data class InputPrompt(
 ) : Prompt
 
 /** Pick [min]..[max] options. min = max = -1 is Forge's reveal: look, then continue. */
+@Serializable
 data class ChoicePrompt(
     override val id: Long,
     override val message: String,
@@ -75,6 +84,7 @@ data class ChoicePrompt(
     val labels: List<String> get() = options.map { it.label }
 }
 
+@Serializable
 data class ConfirmPrompt(
     override val id: Long,
     override val message: String,
@@ -83,6 +93,7 @@ data class ConfirmPrompt(
 ) : Prompt
 
 /** Put all [items] in an order (first = top of library, first to resolve...). */
+@Serializable
 data class OrderPrompt(
     override val id: Long,
     override val message: String,
@@ -91,6 +102,7 @@ data class OrderPrompt(
     val firstLabel: String,
 ) : Prompt
 
+@Serializable
 data class DistributeTarget(
     val label: String, val ref: BoardRef?,
     /** Lethal damage, when it applies. */
@@ -100,6 +112,7 @@ data class DistributeTarget(
 )
 
 /** Divide [total] among [targets]: combat damage, divided damage, shields. */
+@Serializable
 data class DistributePrompt(
     override val id: Long,
     override val message: String,
@@ -138,6 +151,7 @@ data class DistributePrompt(
 }
 
 /** A number in [min]..[max]: X costs, "choose a number". */
+@Serializable
 data class NumberPrompt(
     override val id: Long,
     override val message: String,
@@ -151,12 +165,14 @@ data class NumberPrompt(
 ) : Prompt
 
 /** A card and how many copies, in a deck section. */
+@Serializable
 data class DeckEntry(val name: String, val count: Int)
 
 /**
  * Between games of a match: your main deck and sideboard, to swap cards
  * between. The answer is the new main deck; what is left is the sideboard.
  */
+@Serializable
 data class SideboardPrompt(
     override val id: Long,
     override val message: String,
@@ -166,20 +182,32 @@ data class SideboardPrompt(
     val minMain: Int,
 ) : Prompt
 
+@Serializable
 sealed interface SeatAction {
     /** The main deck to play the next game with, by card name. */
+    @Serializable
     data class Sideboard(val main: Map<String, Int>) : SeatAction
     /** Paying a cost: spend one mana of [colour] (W U B R G C) from your pool, as a click on Forge's pool does. */
+    @Serializable
     data class UseMana(val colour: Char) : SeatAction
+    @Serializable
     data class ClickCard(val cardId: Int) : SeatAction
+    @Serializable
     data class ClickPlayer(val playerId: Int) : SeatAction
+    @Serializable
     data object Ok : SeatAction
+    @Serializable
     data object Cancel : SeatAction
+    @Serializable
     data class Choose(val indices: List<Int>) : SeatAction
+    @Serializable
     data class Confirm(val yes: Boolean) : SeatAction
     /** Indices of the prompt's items, first first; items left out keep their order after them. */
+    @Serializable
     data class Order(val indices: List<Int>) : SeatAction
+    @Serializable
     data class Distribute(val amounts: List<Int>) : SeatAction
+    @Serializable
     data class Number(val value: Int?) : SeatAction
 }
 

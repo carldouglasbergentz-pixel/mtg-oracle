@@ -19,6 +19,7 @@ dependencies {
     implementation(project(":data"))
     implementation(project(":forge"))
     implementation(project(":ui"))
+    implementation(project(":net"))
     testImplementation(testFixtures(project(":data")))
     testImplementation(kotlin("test"))
     testImplementation(libs.junit.jupiter)

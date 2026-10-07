@@ -1,5 +1,7 @@
 package mtgoracle.core.model
 
+import kotlinx.serialization.Serializable
+
 /** What a play-by-play line tells: the log pane colours a line by it. */
 enum class LogKind { TURN, PHASE, MANA, CAST, RESOLVE, LAND, DRAW, COMBAT, DAMAGE, LIFE_LOST, LIFE_GAINED, DISCARD, REVEAL, COUNTERED, ZONE, OUTCOME, OTHER }
 
@@ -9,6 +11,7 @@ enum class LogKind { TURN, PHASE, MANA, CAST, RESOLVE, LAND, DRAW, COMBAT, DAMAG
  * as printed, for the zoom pane once it has left the table; null when Forge
  * lacks it (a token).
  */
+@Serializable
 data class LogCard(val start: Int, val end: Int, val name: String, val id: Int? = null, val card: CardState? = null)
 
 /**
@@ -18,6 +21,7 @@ data class LogCard(val start: Int, val end: Int, val name: String, val id: Int? 
  * the players it was shown to (a card revealed to you, which Forge can't tell
  * from one you only looked at), and only their seats get it.
  */
+@Serializable
 data class LogLine(val seq: Long, val kind: LogKind, val text: String, val cards: List<LogCard> = emptyList(), val seenBy: Set<Int>? = null) {
     /** Whether a seat of [players] may read it. */
     fun readableBy(players: Set<Int>): Boolean = seenBy == null || seenBy.any { it in players }

@@ -1,5 +1,7 @@
 package mtgoracle.core.model
 
+import kotlinx.serialization.Serializable
+
 /*
  * What the UI sees of a game: plain immutable data, no Forge types.
  *
@@ -8,6 +10,7 @@ package mtgoracle.core.model
  * whole. The UI never holds a Forge object.
  */
 
+@Serializable
 data class CardState(
     val id: Int,
     val name: String,
@@ -54,6 +57,7 @@ data class CardState(
     }
 }
 
+@Serializable
 data class PlayerState(
     val id: Int,
     val name: String,
@@ -86,6 +90,7 @@ data class PlayerState(
 
 enum class StackKind(val verb: String) { SPELL("cast"), ACTIVATED("activated"), TRIGGERED("triggered") }
 
+@Serializable
 data class StackEntry(
     val id: Int,
     val text: String,
@@ -112,11 +117,14 @@ data class StackEntry(
  * visibility rule as the board, so a hidden card is never named — and
  * [cardIds] holds only cards this seat may see.
  */
+@Serializable
 data class TrailEntry(val seq: Long, val actorId: Int, val text: String, val cardIds: Set<Int> = emptySet())
 
 /** One attacker, what it attacks, and who blocks it (in damage order). */
+@Serializable
 data class CombatLine(val attackerId: Int, val defender: String, val blockerIds: List<Int>)
 
+@Serializable
 data class BoardState(
     val turn: Int,
     /** Forge's display name for the step, e.g. "Main phase, precombat". */

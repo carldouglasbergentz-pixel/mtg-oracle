@@ -1,5 +1,6 @@
 package mtgoracle.core.deck
 
+import kotlinx.serialization.Serializable
 import mtgoracle.core.lookup.Formats
 
 /*
@@ -47,6 +48,7 @@ data class DeckCard(
 
 enum class Section { COMMANDER, MAIN, SIDEBOARD }
 
+@Serializable
 data class Substitution(val cardName: String, val substitute: String)
 
 data class Deck(

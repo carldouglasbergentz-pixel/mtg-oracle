@@ -1,4 +1,4 @@
-// MTG Oracle's JVM app (docs/adr/0001). Modules: core, data, forge, ui, app.
+// MTG Oracle's JVM app (docs/adr/0001). Modules: core, data, forge, ui, net, app.
 //
 // Forge is a local file dependency of :forge only, never vendored: a build of
 // the Duel Commander PR branch (Card-Forge/forge#12090), staged in the release
@@ -18,6 +18,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.compose) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
 }
 
 val forgeJvmArgs = listOf(
