@@ -37,8 +37,8 @@ class SeatHost(private val seat: GameSeat, private val link: Link, private val o
     /** The guest's playmat, as pixels, once they send one: whether it is shown is the host's choice. */
     val guestMat: StateFlow<MatPicture?> get() = guestMatFlow
 
-    /** The match the guest sat down to. */
-    fun match(format: MatchFormat) = send(HostMessage.Match(format))
+    /** The match the guest sat down to, against the host's [deck]. */
+    fun match(format: MatchFormat, deck: String) = send(HostMessage.Match(format, deck))
 
     /** How the game just played ended, from the guest's side; null once the next has begun. */
     fun result(outcome: GameOutcome?) = send(HostMessage.Result(outcome))

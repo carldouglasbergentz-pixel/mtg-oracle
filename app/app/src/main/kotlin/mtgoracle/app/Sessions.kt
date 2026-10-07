@@ -159,6 +159,21 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         return id
     }
 
+    /**
+     * A game played as the guest at someone's network table: your [deck] against the host's, named
+     * `deck (host)`, as the host's outcome told it from your side.
+     */
+    fun recordAsGuest(deck: PlayDeck, host: String, hostDeck: String, outcome: mtgoracle.net.GameOutcome, format: MatchFormat?, matchId: String, startedAt: java.time.Instant): Long? {
+        val row = GameRecord(
+            playedAt = startedAt.truncatedTo(ChronoUnit.SECONDS), mode = GameMode.HUMAN_VS_HUMAN,
+            deckId = deck.deckId, deckName = deck.name, opponentDeckId = null, opponentName = "$hostDeck ($host)",
+            opponentAiVariant = false, seed = null, winner = outcome.winner, turns = outcome.turns,
+            durationMs = java.time.Duration.between(startedAt, java.time.Instant.now()).toMillis(),
+            forgeVersion = null, logPath = null, matchId = matchId, gameNo = outcome.gameNo, matchFormat = format, conceded = false,
+        )
+        return store?.insert(row)
+    }
+
     /** One `games` row for a finished game; null when this session doesn't record (no store). */
     fun record(match: RunningMatch, result: MatchResult): Long? {
         val spec = match.spec

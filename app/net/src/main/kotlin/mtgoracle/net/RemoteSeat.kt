@@ -9,7 +9,6 @@ import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.model.Prompt
 import mtgoracle.core.model.SeatAction
 import mtgoracle.core.model.SeatCommand
-import mtgoracle.core.play.MatchFormat
 import kotlin.concurrent.thread
 
 /** Where a remote seat stands with its table. */
@@ -54,11 +53,11 @@ class RemoteSeat(
     override val warning: StateFlow<String?> get() = warningFlow
     override val showAllHands: StateFlow<Boolean> get() = noHands
 
-    private val formatFlow = MutableStateFlow<MatchFormat?>(null)
+    private val matchFlow = MutableStateFlow<HostMessage.Match?>(null)
     private val outcomeFlow = MutableStateFlow<GameOutcome?>(null)
     private val theirMatFlow = MutableStateFlow<MatPicture?>(null)
-    /** The match the host set: best of one, three or five; null until seated. */
-    val format: StateFlow<MatchFormat?> get() = formatFlow
+    /** The match the host set (best of one, three or five) and the host's deck; null until seated. */
+    val match: StateFlow<HostMessage.Match?> get() = matchFlow
     /** The game just played, between games; null while one is on. */
     val outcome: StateFlow<GameOutcome?> get() = outcomeFlow
     /** The host's playmat, as pixels: whether it is shown is the guest's choice. */
@@ -119,7 +118,7 @@ class RemoteSeat(
                 is HostMessage.YieldStatus -> yieldFlow.value = message.text
                 is HostMessage.Warning -> warningFlow.value = message.text
                 is HostMessage.End -> { settle(Seating.Ended(message.reason)); return }
-                is HostMessage.Match -> formatFlow.value = message.format
+                is HostMessage.Match -> matchFlow.value = message
                 is HostMessage.Result -> outcomeFlow.value = message.outcome
                 is HostMessage.Mat -> theirMatFlow.value = message.mat
             }

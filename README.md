@@ -94,6 +94,15 @@ A card name in any output opens its profile when clicked, and shows the card in 
 
 A picture of your own under your half of the table, and one under the AI's. In the lobby, **Add a playmat from the clipboard** takes a picture you copied (or its file, copied in Explorer); pictures put in `data\playmats\` are offered too. Each side's mat is chosen with `[<]` and `[>]`. A mat fills its half and is cropped rather than stretched: drag its preview to place the part that shows, zoom in (up to 300 %) to frame a detail, and set its own dim (0–90 %) to keep the cards readable over it. `[ reset ]` puts it back in the middle at 100 %.
 
+### Network play
+
+Play a friend from the lobby, each on your own computer. Choose your deck, then:
+
+- **Host a room.** Your router opens a port to your computer (UPnP), and you get an invite (`MTG-…`, put on the clipboard for you) to send your friend. Windows may ask whether the app may accept connections: allow it. The match format is yours (best of 1, 3 or 5).
+- **Join.** Copy the invite you were sent, then Join from the clipboard. You play the deck you chose.
+
+Only the host needs a router that lets someone in; the guest connects outward, which every network allows. If hosting can't work, the lobby says why (UPnP turned off in the router, another router in front of yours, or a provider that shares one address among its customers); then let your friend host. Everything between the two apps is encrypted with a secret only the invite holds, and a room lets in no one without it. Your name at a table is set in the lobby. Your playmat goes along as pixels (never as a file), and the other's is shown only when you choose. Both sides record the games: the opponent is `deck (person)`.
+
 ### Moving a library: `.mtgoracle` packages
 
 A package carries decks with all they hold (cards and printings, the considering list, the AI copy's substitutes, the history), the games played with them, and your own combos.

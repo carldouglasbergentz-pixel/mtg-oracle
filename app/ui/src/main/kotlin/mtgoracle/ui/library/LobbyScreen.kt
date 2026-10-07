@@ -94,6 +94,12 @@ fun LobbyScreen(
     /** The playmats, yours and the AI's; null leaves the section out. */
     mats: LobbyMats? = null,
     onMat: (MatAction) -> Unit = {},
+    /** Network play: host or join a friend's table; null leaves the section out. */
+    network: LobbyNetwork? = null,
+    onNet: (NetAction) -> Unit = {},
+    /** A question open over the lobby (your name at a network table). */
+    ask: mtgoracle.ui.lookup.Ask? = null,
+    onAskClosed: () -> Unit = {},
 ) {
     val simRunning = simulation?.running == true
     val focus = remember { FocusRequester() }
@@ -127,7 +133,7 @@ fun LobbyScreen(
     }
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Palette.surface).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
-            if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            if (e.type != KeyEventType.KeyDown || ask != null) return@onPreviewKeyEvent false
             when (e.key) {
                 Key.DirectionUp -> move(-1)
                 Key.DirectionDown -> move(+1)
@@ -201,10 +207,12 @@ fun LobbyScreen(
                             BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
                         }
                         if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis)
+                        network?.let { GridText(""); NetworkSection(it, canPlay = me != null && forgeReady && !simRunning, onNet) }
                         mats?.let { GridText(""); MatsSection(it, onMat) }
                     }
                 }
             }
+            ask?.let { mtgoracle.ui.lookup.AskBar(it) { onAskClosed(); focus.requestFocus() } }
             StatusLine(listOf("Tab" to "your deck / opponent", "↑↓" to "choose", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
                 "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library"), null, cols)
         }

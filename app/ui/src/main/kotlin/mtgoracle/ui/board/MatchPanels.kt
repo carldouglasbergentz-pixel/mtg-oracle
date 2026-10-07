@@ -46,6 +46,8 @@ data class MatchStatus(
     val over: Boolean,
     /** Forge's achievements earned in this match: `Overkill: Win a game with opponent at -5 life`. */
     val achievements: List<String> = emptyList(),
+    /** A guest at a network table: the host starts the next game, so there is nothing to continue. */
+    val waitingForHost: Boolean = false,
 )
 
 /** What the match panels do. */
@@ -104,9 +106,14 @@ fun ResultPanel(status: MatchStatus, onClick: (ClickTarget) -> Unit, modifier: M
             GridText("")
             Row {
                 if (status.over) GridButton("Back to the lobby", MatchTargets.LOBBY, true, onClick)
+                else if (status.waitingForHost) GridButton("Waiting for the host", MatchTargets.CONTINUE, false, onClick)
                 else GridButton("Continue to game ${last.gameNo + 1}", MatchTargets.CONTINUE, true, onClick)
             }
-            GridText(fit(if (status.over) "Enter or Esc: the lobby" else "Enter: continue · sideboarding and play/draw come next", cols - 4), color = Palette.dim)
+            GridText(fit(when {
+                status.over -> "Enter or Esc: the lobby"
+                status.waitingForHost -> "the host starts game ${last.gameNo + 1}; sideboarding and play/draw come next"
+                else -> "Enter: continue · sideboarding and play/draw come next"
+            }, cols - 4), color = Palette.dim)
         }
     }
 }

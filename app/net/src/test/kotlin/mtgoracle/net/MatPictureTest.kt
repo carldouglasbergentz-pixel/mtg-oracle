@@ -56,8 +56,8 @@ class MatPictureTest {
     @Test
     fun `the match and its results travel too`() {
         listOf(
-            HostMessage.Match(MatchFormat.BO3),
-            HostMessage.Result(GameOutcome(Winner.OPPONENT, gameNo = 1, wins = 0, losses = 1, matchOver = false, summary = "Host won")),
+            HostMessage.Match(MatchFormat.BO3, "Jori En"),
+            HostMessage.Result(GameOutcome(Winner.OPPONENT, gameNo = 1, wins = 0, losses = 1, matchOver = false, summary = "Host won", turns = 9)),
             HostMessage.Result(null),
             HostMessage.Mat(null),
         ).forEach { assertEquals(it, Wire.host(Wire.encode(it))) }

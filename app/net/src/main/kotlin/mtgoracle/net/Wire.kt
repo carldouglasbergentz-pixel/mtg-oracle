@@ -60,9 +60,9 @@ sealed interface HostMessage {
     @Serializable @SerialName("end")
     data class End(val reason: String) : HostMessage
 
-    /** The match the guest sits down to: best of one, three or five. */
+    /** The match the guest sits down to: best of one, three or five, against the host's [deck]. */
     @Serializable @SerialName("match")
-    data class Match(val format: MatchFormat) : HostMessage
+    data class Match(val format: MatchFormat, val deck: String) : HostMessage
 
     /** How the game just played ended, as the guest sees it; null when the next one has begun. */
     @Serializable @SerialName("result")
@@ -75,7 +75,7 @@ sealed interface HostMessage {
 
 /** A finished game from one side of the table: who won as that side sees it, the match so far, and the table's words for it. */
 @Serializable
-data class GameOutcome(val winner: Winner, val gameNo: Int, val wins: Int, val losses: Int, val matchOver: Boolean, val summary: String)
+data class GameOutcome(val winner: Winner, val gameNo: Int, val wins: Int, val losses: Int, val matchOver: Boolean, val summary: String, val turns: Int? = null)
 
 /** What a remote seat sends the host: its hello, then the [mtgoracle.core.model.GameSeat] calls its person makes. */
 @Serializable

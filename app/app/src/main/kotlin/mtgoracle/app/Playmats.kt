@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import mtgoracle.forge.Log
+import mtgoracle.net.MatPicture
+import mtgoracle.ui.board.MatPixels
 import mtgoracle.ui.board.Playmat
 import mtgoracle.ui.library.LobbyMats
 import mtgoracle.ui.library.MatAction
@@ -35,6 +37,25 @@ class Playmats(private val dir: File, private val settings: Settings, private va
         val file = name?.let { File(dir, it) }?.takeIf { it.isFile } ?: return null
         val (x, y, zoom) = settings.matFrame(name)
         return Playmat(file, settings.matDim(name) / 10f, x, y, zoom)
+    }
+
+    /**
+     * Your mat as it crosses a network table: your own picture, decoded and scaled here to fit
+     * [MatPicture.MAX_WIDTH] × [MatPicture.MAX_HEIGHT], sent as pixels with its place, zoom and dim; null for none.
+     */
+    fun picture(name: String?): MatPicture? {
+        val mat = mat(name) ?: return null
+        val image = runCatching { ImageIO.read(mat.file) }.getOrNull() ?: return null
+        val scale = minOf(1.0, MatPicture.MAX_WIDTH.toDouble() / image.width, MatPicture.MAX_HEIGHT.toDouble() / image.height)
+        val w = (image.width * scale).toInt().coerceIn(1, MatPicture.MAX_WIDTH)
+        val h = (image.height * scale).toInt().coerceIn(1, MatPicture.MAX_HEIGHT)
+        val scaled = java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        scaled.createGraphics().apply {
+            setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+            drawImage(image, 0, 0, w, h, null)
+            dispose()
+        }
+        return MatPicture.of(scaled.getRGB(0, 0, w, h, null, 0, w).map { it and 0xFFFFFF }.toIntArray(), w, h, mat.dim, mat.x, mat.y, mat.zoom)
     }
 
     fun lobby(): LobbyMats = LobbyMats(names(), MatSide(mine, mat(mine)), MatSide(theirs, mat(theirs)), "data\\playmats\\")
@@ -96,4 +117,12 @@ class Playmats(private val dir: File, private val settings: Settings, private va
         val PICTURES = setOf("png", "jpg", "jpeg", "gif", "bmp", "webp")
         const val MAX_BYTES = 40_000_000L
     }
+}
+
+/**
+ * The other side's mat as the board draws it: its pixels checked against what it claims (none at all
+ * when they aren't), its place, zoom and dim kept within what a mat may have.
+ */
+fun MatPicture.toPlaymat(): Playmat? = rgb()?.let { pixels ->
+    Playmat(null, dim.coerceIn(0f, 0.9f), x.coerceIn(0f, 1f), y.coerceIn(0f, 1f), zoom.coerceIn(1f, Playmat.MAX_ZOOM), MatPixels(width, height, pixels))
 }

@@ -135,6 +135,32 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 format = app.play.format.label, onCycleFormat = app.play::cycleFormat,
                 simGames = app.play.simGames, onCycleSimGames = app.play::cycleSimGames, simulation = app.play.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
                 onSimulate = app.play::simulate, onStopSimulation = app.play::stopSimulation,
+                network = app.net.lobby(), onNet = app.net::act, ask = app.net.ask, onAskClosed = { app.net.ask = null },
+            )
+        }
+        Screen.Guest -> {
+            val seat = app.net.guest ?: return
+            val match by seat.match.collectAsState()
+            val outcome by seat.outcome.collectAsState()
+            val seating by seat.seating.collectAsState()
+            val games = app.net.guestGames
+            val format = match?.format ?: mtgoracle.core.play.MatchFormat.BO1
+            val ended = seating !is mtgoracle.net.Seating.Seated && seating !is mtgoracle.net.Seating.Knocking
+            val status = MatchStatus(format.label, format.games, games, betweenGames = outcome != null || (ended && games.isNotEmpty()),
+                over = games.lastOrNull()?.matchOver == true || ended, waitingForHost = true)
+            BoardScreen(
+                seat = seat,
+                myMat = app.mats.mat(app.mats.mine), theirMat = app.net.theirMat,
+                inputGuardMillis = System.getProperty("mtgoracle.inputGuardMillis")?.toLongOrNull() ?: INPUT_GUARD_MILLIS,
+                title = "at ${seat.board.value?.players?.firstOrNull { !it.isSeat }?.name ?: "the host"}'s table" + (match?.let { " vs ${it.deck} · ${it.format.label}" } ?: ""),
+                mode = app.boardMode,
+                extraHints = listOf("T" to "text/art: ${app.boardMode.name.lowercase()}"),
+                notice = app.notice,
+                layout = remember { app.settings.boardLayout },
+                onLayoutChange = { app.settings.boardLayout = it },
+                onExtraKey = { key -> if (key == Key.T) { app.toggleMode(); true } else false },
+                match = status.takeIf { games.isNotEmpty() },
+                matchControls = MatchControls(onContinue = {}, onConcedeGame = app.net::concedeAsGuest, onLeaveMatch = app.net::leaveTable, onBackToLobby = app.net::leaveTable),
             )
         }
         Screen.Playing -> {
@@ -148,7 +174,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             BoardScreen(
                 seat = match.seat,
                 tips = app.tips, onTipsDone = app::tipsDone,
-                myMat = app.mats.mat(app.mats.mine), theirMat = app.mats.mat(app.mats.theirs),
+                myMat = app.mats.mat(app.mats.mine), theirMat = if (app.net.hostingMatch(match)) app.net.theirMat else app.mats.mat(app.mats.theirs),
                 inputGuardMillis = System.getProperty("mtgoracle.inputGuardMillis")?.toLongOrNull() ?: INPUT_GUARD_MILLIS,
                 title = "${match.spec.seat.name} vs ${match.spec.opponent.name}" + if (match.spec.format.games > 1) " · ${match.spec.format.label}" else "",
                 mode = app.boardMode,

@@ -209,6 +209,25 @@ class Settings(private val file: File) {
         get() = props.getProperty("lobby.opponent")?.toIntOrNull()
         set(value) { if (value == null) props.remove("lobby.opponent") else props.setProperty("lobby.opponent", value.toString()); save() }
 
+    /**
+     * The name you go by at a network table, sent to the other side: "Player" until you set one. Never the
+     * computer's user name, which may be a work account and is nobody else's business.
+     */
+    var playerName: String
+        get() = props.getProperty("net.name")?.takeIf { it.isNotBlank() } ?: "Player"
+        set(value) { props.setProperty("net.name", value); save() }
+    val playerNamed: Boolean get() = !props.getProperty("net.name").isNullOrBlank()
+
+    /** Your playmat goes to the other side of a network table (as pixels). */
+    var shareMat: Boolean
+        get() = props.getProperty("net.shareMat") != "false"
+        set(value) { props.setProperty("net.shareMat", value.toString()); save() }
+
+    /** The other side's playmat is shown: off until you choose it, since you can't know what a stranger's is. */
+    var showTheirMat: Boolean
+        get() = props.getProperty("net.showTheirMat") == "true"
+        set(value) { props.setProperty("net.showTheirMat", value.toString()); save() }
+
     /** When a release last asked GitHub for a newer one (Updates): once a day, and at each start. */
     var updateLastCheck: java.time.Instant?
         get() = instant("update.lastCheck")

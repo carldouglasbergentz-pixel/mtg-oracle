@@ -45,6 +45,8 @@ sealed interface Screen {
     data object Library : Screen
     data object Lobby : Screen
     data object Playing : Screen
+    /** At someone else's network table: the board over a remote seat. */
+    data object Guest : Screen
     /** Forge's achievements, from the library's toolbar. */
     data object Achievements : Screen
     /** The board broke (see AppController.onCrash): what happened, and the way out. */
@@ -487,6 +489,15 @@ class AppController(private val paths: AppPaths) {
 
     private fun copyToClipboard(text: String) = writeClipboard(text)
 
+    /** Where a hosted room opens: the router's port (UPnP) in the app; the tests open one on loopback. */
+    var openRoom: () -> mtgoracle.net.Opening = { mtgoracle.net.Room.public() }
+
+    /** Network play: hosting a friend, or sitting at their table. */
+    val net: NetPlay by lazy {
+        NetPlay(settings, play, sessions = { sessions }, mats = mats, deckById = ::deckById, readClipboard = { readClipboard() },
+            writeClipboard = { writeClipboard(it) }, show = { screen = it }, say = { notice = it }, openRoom = { openRoom() })
+    }
+
     /** The deck open in the workspace; null in the library. */
     val editing: mtgoracle.core.lookup.DeckScope? get() = commands?.scope
     /** Lines or frames in the workspace's deck pane. */
@@ -633,7 +644,10 @@ class AppController(private val paths: AppPaths) {
      * is what the player chose — unless the app broke it off, which makes it
      * unfinished.
      */
-    fun shutdown() = play.shutdown(unfinished = crashed != null && crashed === play.match)
+    fun shutdown() {
+        net.close()
+        play.shutdown(unfinished = crashed != null && crashed === play.match)
+    }
 
     /** Forge's achievements, for the achievements view; null until Forge is up and they are read. */
     var achievements by mutableStateOf<List<mtgoracle.core.play.AchievementGroup>?>(null)

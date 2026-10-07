@@ -106,12 +106,12 @@ class RemoteSeatTest {
         val host = SeatHost(HostSideSeat(), link) {}.also { closing += it }.start()
         waitFor("the guest's mat") { host.guestMat.value == guestMat }
         val hostMat = MatPicture.of(IntArray(4) { 0xFF0000 }, 2, 2, dim = 0.5f, x = 0.5f, y = 0.5f, zoom = 1f)
-        host.match(mtgoracle.core.play.MatchFormat.BO3)
+        host.match(mtgoracle.core.play.MatchFormat.BO3, "Jori En")
         host.mat(hostMat)
         val outcome = GameOutcome(mtgoracle.core.play.Winner.ME, gameNo = 1, wins = 1, losses = 0, matchOver = false, summary = "Bob won")
         host.result(outcome)
         waitFor("the match, the result and the host's mat") {
-            guest.format.value == mtgoracle.core.play.MatchFormat.BO3 && guest.outcome.value == outcome && guest.theirMat.value == hostMat
+            guest.match.value == HostMessage.Match(mtgoracle.core.play.MatchFormat.BO3, "Jori En") && guest.outcome.value == outcome && guest.theirMat.value == hostMat
         }
         host.result(null)
         waitFor("the next game begun") { guest.outcome.value == null }
