@@ -22,19 +22,40 @@ import kotlin.math.roundToInt
  * what the crop leaves over (0: the left or top edge, 1: the right or
  * bottom), [zoom] (1 to 3) enlarges it past filling, to frame a part of the
  * picture. [dim] (0 to 0.9) is how much of the background lies over it, so
- * the cards read.
+ * the cards read. The picture is the player's own [file], or for the player
+ * across a network table, [pixels].
  */
-data class Playmat(val file: File, val dim: Float, val x: Float = 0.5f, val y: Float = 0.5f, val zoom: Float = 1f) {
+data class Playmat(val file: File?, val dim: Float, val x: Float = 0.5f, val y: Float = 0.5f, val zoom: Float = 1f, val pixels: MatPixels? = null) {
     companion object {
         const val MAX_ZOOM = 3f
     }
 }
 
-/** Decoded once per file and its time: a mat is drawn on every frame of a game. */
+/**
+ * A picture as plain values, 0xRRGGBB row by row: a playmat from across a
+ * network table. It becomes an image by copying the values, never by
+ * decoding bytes, so nothing a peer sends reaches an image decoder.
+ */
+class MatPixels(val width: Int, val height: Int, val rgb: IntArray) {
+    init { require(width > 0 && height > 0 && rgb.size == width * height) { "${rgb.size} pixels for ${width}x$height" } }
+}
+
+/** Decoded once per file and its time (or built once from its pixels): a mat is drawn on every frame of a game. */
 private object MatImages {
     private val cache = ConcurrentHashMap<Pair<String, Long>, ImageBitmap>()
+    @Volatile private var built: Pair<MatPixels, ImageBitmap>? = null
 
-    fun of(file: File): ImageBitmap? {
+    fun of(mat: Playmat): ImageBitmap? = mat.pixels?.let(::of) ?: mat.file?.let(::of)
+
+    private fun of(pixels: MatPixels): ImageBitmap {
+        built?.takeIf { it.first === pixels }?.let { return it.second }
+        val image = java.awt.image.BufferedImage(pixels.width, pixels.height, java.awt.image.BufferedImage.TYPE_INT_RGB)
+            .apply { setRGB(0, 0, pixels.width, pixels.height, pixels.rgb, 0, pixels.width) }.toComposeImageBitmap()
+        built = pixels to image
+        return image
+    }
+
+    private fun of(file: File): ImageBitmap? {
         if (!file.isFile) return null
         val key = file.absolutePath to file.lastModified()
         cache[key]?.let { return it }
@@ -45,11 +66,11 @@ private object MatImages {
     }
 
     /** The picture's size in pixels, for a drag to turn into a move of the crop; null when it can't be read. */
-    fun size(file: File): IntSize? = of(file)?.let { IntSize(it.width, it.height) }
+    fun size(mat: Playmat): IntSize? = of(mat)?.let { IntSize(it.width, it.height) }
 }
 
 /** The picture's size, for the lobby's drag: how far a move of the mouse moves the crop. */
-fun playmatSize(mat: Playmat): IntSize? = MatImages.size(mat.file)
+fun playmatSize(mat: Playmat): IntSize? = MatImages.size(mat)
 
 /**
  * The picture's drawn size in a space of [w] × [h]: scaled until it covers,
@@ -68,7 +89,7 @@ fun coverSize(image: IntSize, w: Float, h: Float, zoom: Float): Pair<Float, Floa
  */
 @Composable
 fun PlaymatLayer(mat: Playmat, modifier: Modifier = Modifier.fillMaxSize()) {
-    val image = remember(mat.file, mat.file.lastModified()) { MatImages.of(mat.file) } ?: return
+    val image = remember(mat.file, mat.file?.lastModified(), mat.pixels) { MatImages.of(mat) } ?: return
     val shade = Palette.background.copy(alpha = mat.dim.coerceIn(0f, 0.9f))
     // Clipped to its own space: cropping is the point, and a mat scaled to cover drew past it where nothing else clipped.
     Canvas(modifier.clipToBounds()) {

@@ -96,6 +96,28 @@ class RemoteSeatTest {
     }
 
     @Test
+    fun `the match, its results and both playmats cross the table`() {
+        val guestMat = MatPicture.of(IntArray(4) { 0x00FF00 }, 2, 2, dim = 0.2f, x = 0f, y = 1f, zoom = 2f)
+        val listener = TcpLink.listenLocal().also { closing += it }
+        val guest = RemoteSeat(TcpLink.connectLocal(listener.port), "Bob", deck, "test", mat = guestMat).also { closing += it }.start()
+        val link = listener.accept(5_000).also { closing += it }
+        assertIs<Door.Outcome.Admitted>(Door.admit(link, HostMessage.Hello(PROTOCOL_VERSION, "test", "Alice")) { null })
+        Door.seat(link, "Bob")
+        val host = SeatHost(HostSideSeat(), link) {}.also { closing += it }.start()
+        waitFor("the guest's mat") { host.guestMat.value == guestMat }
+        val hostMat = MatPicture.of(IntArray(4) { 0xFF0000 }, 2, 2, dim = 0.5f, x = 0.5f, y = 0.5f, zoom = 1f)
+        host.match(mtgoracle.core.play.MatchFormat.BO3)
+        host.mat(hostMat)
+        val outcome = GameOutcome(mtgoracle.core.play.Winner.ME, gameNo = 1, wins = 1, losses = 0, matchOver = false, summary = "Bob won")
+        host.result(outcome)
+        waitFor("the match, the result and the host's mat") {
+            guest.format.value == mtgoracle.core.play.MatchFormat.BO3 && guest.outcome.value == outcome && guest.theirMat.value == hostMat
+        }
+        host.result(null)
+        waitFor("the next game begun") { guest.outcome.value == null }
+    }
+
+    @Test
     fun `a guest who leaves is gone, and one whose link drops is lost`() {
         val events = ConcurrentLinkedQueue<GuestEvent>()
         val (seat, guest, door) = knock()

@@ -9,6 +9,7 @@ import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.model.Prompt
 import mtgoracle.core.model.SeatAction
 import mtgoracle.core.model.SeatCommand
+import mtgoracle.core.play.MatchFormat
 import kotlin.concurrent.thread
 
 /** Where a remote seat stands with its table. */
@@ -34,6 +35,8 @@ class RemoteSeat(
     private val deck: PlayDeck,
     private val app: String,
     private val initialStops: PhaseStops = PhaseStops.DEFAULT,
+    /** The guest's own playmat, sent once seated; null to show none. */
+    private val mat: MatPicture? = null,
 ) : GameSeat, AutoCloseable {
     private val seatingFlow = MutableStateFlow<Seating>(Seating.Knocking)
     val seating: StateFlow<Seating> get() = seatingFlow
@@ -50,6 +53,16 @@ class RemoteSeat(
     override val yieldStatus: StateFlow<String?> get() = yieldFlow
     override val warning: StateFlow<String?> get() = warningFlow
     override val showAllHands: StateFlow<Boolean> get() = noHands
+
+    private val formatFlow = MutableStateFlow<MatchFormat?>(null)
+    private val outcomeFlow = MutableStateFlow<GameOutcome?>(null)
+    private val theirMatFlow = MutableStateFlow<MatPicture?>(null)
+    /** The match the host set: best of one, three or five; null until seated. */
+    val format: StateFlow<MatchFormat?> get() = formatFlow
+    /** The game just played, between games; null while one is on. */
+    val outcome: StateFlow<GameOutcome?> get() = outcomeFlow
+    /** The host's playmat, as pixels: whether it is shown is the guest's choice. */
+    val theirMat: StateFlow<MatPicture?> get() = theirMatFlow
 
     private val log = LogReceiver()
     private var lastBoard: BoardState? = null
@@ -90,6 +103,7 @@ class RemoteSeat(
                 is HostMessage.Accepted -> {
                     seatingFlow.value = Seating.Seated(message.name)
                     send(GuestMessage.SetStops(stopsFlow.value))
+                    mat?.let { send(GuestMessage.Mat(it)) }
                 }
                 is HostMessage.Refused -> { settle(Seating.Refused(message.reason)); return }
                 is HostMessage.Log -> {
@@ -105,6 +119,9 @@ class RemoteSeat(
                 is HostMessage.YieldStatus -> yieldFlow.value = message.text
                 is HostMessage.Warning -> warningFlow.value = message.text
                 is HostMessage.End -> { settle(Seating.Ended(message.reason)); return }
+                is HostMessage.Match -> formatFlow.value = message.format
+                is HostMessage.Result -> outcomeFlow.value = message.outcome
+                is HostMessage.Mat -> theirMatFlow.value = message.mat
             }
         }
         settle(Seating.Lost("the connection to the host was lost"))

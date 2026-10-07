@@ -4,12 +4,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.GameSeat
 import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.model.Prompt
+import mtgoracle.core.play.MatchFormat
 import kotlin.concurrent.thread
 
 /** What the guest did that the host's match must act on. */
@@ -30,6 +33,18 @@ class SeatHost(private val seat: GameSeat, private val link: Link, private val o
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val log = LogSender()
     @Volatile private var closing = false
+    private val guestMatFlow = MutableStateFlow<MatPicture?>(null)
+    /** The guest's playmat, as pixels, once they send one: whether it is shown is the host's choice. */
+    val guestMat: StateFlow<MatPicture?> get() = guestMatFlow
+
+    /** The match the guest sat down to. */
+    fun match(format: MatchFormat) = send(HostMessage.Match(format))
+
+    /** How the game just played ended, from the guest's side; null once the next has begun. */
+    fun result(outcome: GameOutcome?) = send(HostMessage.Result(outcome))
+
+    /** The host's playmat for the guest's table, or none. */
+    fun mat(picture: MatPicture?) = send(HostMessage.Mat(picture))
 
     private data class View(val board: BoardState?, val prompt: Prompt?, val stops: PhaseStops, val yieldStatus: String?, val warning: String?)
 
@@ -66,6 +81,7 @@ class SeatHost(private val seat: GameSeat, private val link: Link, private val o
                 GuestMessage.Concede -> onGuest(GuestEvent.Conceded)
                 GuestMessage.Leave -> { closing = true; onGuest(GuestEvent.Left); close(); return }
                 is GuestMessage.Hello -> Unit // said once, at the door
+                is GuestMessage.Mat -> guestMatFlow.value = message.mat
             }
         }
         lost("the connection to the guest was lost")

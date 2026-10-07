@@ -12,6 +12,8 @@ import mtgoracle.core.model.PhaseStops
 import mtgoracle.core.model.Prompt
 import mtgoracle.core.model.SeatAction
 import mtgoracle.core.model.SeatCommand
+import mtgoracle.core.play.MatchFormat
+import mtgoracle.core.play.Winner
 
 /**
  * The protocol's version. Host and guest must speak exactly the same one, so
@@ -57,7 +59,23 @@ sealed interface HostMessage {
     /** The table closes: the match is over, or the host left. */
     @Serializable @SerialName("end")
     data class End(val reason: String) : HostMessage
+
+    /** The match the guest sits down to: best of one, three or five. */
+    @Serializable @SerialName("match")
+    data class Match(val format: MatchFormat) : HostMessage
+
+    /** How the game just played ended, as the guest sees it; null when the next one has begun. */
+    @Serializable @SerialName("result")
+    data class Result(val outcome: GameOutcome?) : HostMessage
+
+    /** The host's playmat, or none: pixels only ([MatPicture]). */
+    @Serializable @SerialName("mat")
+    data class Mat(val mat: MatPicture?) : HostMessage
 }
+
+/** A finished game from one side of the table: who won as that side sees it, the match so far, and the table's words for it. */
+@Serializable
+data class GameOutcome(val winner: Winner, val gameNo: Int, val wins: Int, val losses: Int, val matchOver: Boolean, val summary: String)
 
 /** What a remote seat sends the host: its hello, then the [mtgoracle.core.model.GameSeat] calls its person makes. */
 @Serializable
@@ -82,6 +100,10 @@ sealed interface GuestMessage {
     /** The guest leaves the table. */
     @Serializable @SerialName("leave")
     data object Leave : GuestMessage
+
+    /** The guest's playmat, or none: pixels only ([MatPicture]). */
+    @Serializable @SerialName("mat")
+    data class Mat(val mat: MatPicture?) : GuestMessage
 }
 
 /** A line that is no message of this protocol: malformed, cut off, or from another version. */

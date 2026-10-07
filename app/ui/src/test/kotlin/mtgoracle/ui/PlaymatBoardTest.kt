@@ -39,6 +39,22 @@ class PlaymatBoardTest {
     }
 
     @Test
+    fun `a mat from across a network table is drawn from its pixels alone`() {
+        val pixels = mtgoracle.ui.board.MatPixels(64, 36, IntArray(64 * 36) { 0x1E82C8 })
+        OffscreenDriver(1600, 900) {
+            BoardScreen(FakeSeat(quietBoard(), null), "MTG Oracle", CardMode.TEXT, theirMat = Playmat(null, 0.3f, pixels = pixels))
+        }.use { d ->
+            d.settle(5)
+            fun bluish(region: String): Int {
+                val r = d.registry[ClickTarget.Control("region:$region")]!!
+                return d.pixels(Rect(r.right - 60, r.top + 30, r.right - 20, r.bottom - 30)).count { c -> (c and 0xFF) > 110 && (c shr 16 and 0xFF) < 80 }
+            }
+            assertTrue(bluish("far-field") > 100, "the opponent's mat, from pixels")
+            assertTrue(bluish("near-field") == 0, "and not under yours")
+        }
+    }
+
+    @Test
     fun `the picture covers its space, enlarged by the zoom, and the place picks the part shown`() {
         // A 600 × 350 mat on a 1500 × 400 half: scaled to the width (2.5), 875 high, so 475 to move up and down.
         assertEquals(1500f to 875f, coverSize(IntSize(600, 350), 1500f, 400f, zoom = 1f))
