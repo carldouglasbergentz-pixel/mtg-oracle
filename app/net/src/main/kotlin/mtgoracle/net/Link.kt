@@ -9,6 +9,8 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 
 /** Lines both ways between a host and a guest: TCP on this machine now, the relay later. */
 interface Link : AutoCloseable {
@@ -25,11 +27,13 @@ interface Link : AutoCloseable {
 }
 
 /**
- * A [Link] over a TCP socket. Only ever bound to this machine's loopback
- * address ([listenLocal]): nothing on the network reaches it.
+ * A [Link] over a TCP socket: on this machine's loopback address for local
+ * play ([listenLocal]), or at every address while a room is open to the
+ * internet ([listen], for [Room.public]).
  */
 class TcpLink(private val socket: Socket) : Link {
     @Volatile private var maxLine = MAX_LINE
+    private val closed = AtomicBoolean(false)
     private val reader: BufferedReader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
     private val writer: Writer = OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8)
 
@@ -44,7 +48,7 @@ class TcpLink(private val socket: Socket) : Link {
         false
     }
 
-    override fun receive(): String? = try {
+    override fun receive(): String? = if (closed.get()) null else try {
         readLine()
     } catch (e: IOException) {
         null
@@ -70,8 +74,24 @@ class TcpLink(private val socket: Socket) : Link {
         runCatching { socket.soTimeout = readTimeoutMillis }
     }
 
+    /**
+     * Closes in order: what was sent goes first, then the end of the stream,
+     * and what the peer still sends is read away until it closes too (two
+     * seconds at most). A socket closed with lines unread is reset on
+     * Windows, and the peer loses the last ones sent: a goodbye, an End.
+     */
     override fun close() {
-        runCatching { socket.close() }
+        if (closed.getAndSet(true)) return
+        runCatching { socket.shutdownOutput() }
+        thread(name = "tcp-link-close", isDaemon = true) {
+            runCatching {
+                socket.soTimeout = 2_000
+                val input = socket.getInputStream()
+                val away = ByteArray(8192)
+                while (input.read(away) >= 0) Unit
+            }
+            runCatching { socket.close() }
+        }
     }
 
     companion object {
@@ -80,6 +100,9 @@ class TcpLink(private val socket: Socket) : Link {
 
         /** A listener on this machine's loopback address, on a free port; a few can queue while a stranger is turned away. */
         fun listenLocal(): Listener = Listener(ServerSocket(0, 4, InetAddress.getLoopbackAddress()))
+
+        /** A listener on [port] at [bind], or at every address this machine has when null: a room opened to the internet. */
+        fun listen(bind: InetAddress?, port: Int): Listener = Listener(ServerSocket(port, 4, bind))
 
         fun connect(address: InetAddress, port: Int, timeoutMillis: Int = 10_000): TcpLink =
             TcpLink(Socket().apply { connect(InetSocketAddress(address, port), timeoutMillis) })

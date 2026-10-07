@@ -2,15 +2,18 @@ package mtgoracle.net
 
 import java.io.IOException
 import java.net.InetAddress
+import kotlin.random.Random
 
 /**
  * The host's open room: a listener, and the invite that leads to it. Every
  * link to it is a [SecureLink] under the invite's secret, so a stranger who
  * finds the port (a scan does) can't say a word the door understands: they
  * are hung up on and the room waits on. The guest with the invite is let in,
- * and then the listener closes: no one else.
+ * and then the listener closes: no one else. A room opened to the internet
+ * ([public]) keeps its port on the router until it is closed, so close it
+ * when the match ends.
  */
-class Room private constructor(private val listener: TcpLink.Listener, val invite: Invite) : AutoCloseable {
+class Room private constructor(private val listener: TcpLink.Listener, val invite: Invite, private val mapping: Mapping? = null) : AutoCloseable {
     /** The guest let in: their link and their hello. */
     data class Guest(val link: Link, val hello: GuestMessage.Hello)
 
@@ -44,12 +47,31 @@ class Room private constructor(private val listener: TcpLink.Listener, val invit
         }
     }
 
-    override fun close() = listener.close()
+    override fun close() {
+        listener.close()
+        mapping?.close()
+    }
 
     companion object {
         const val MAX_STRANGERS = 20
+        /** How long the router keeps the port without hearing from the room: renewed at half time. */
+        const val LEASE_SECONDS = 7200
+        /** What the port is called in the router's list. */
+        const val MAPPING_NAME = "MTG Oracle"
 
         /** A room on this machine's loopback address: local play, and the tests. */
         fun local(): Room = TcpLink.listenLocal().let { Room(it, Invite.create(InetAddress.getLoopbackAddress(), it.port)) }
+
+        /**
+         * A room a friend can reach over the internet: the router (UPnP) opens a port to this machine, and the
+         * invite carries the router's address outside. When that can't work, the reason, in plain words.
+         * [bind] is the address to listen on, every one this machine has unless the tests say loopback.
+         */
+        fun public(
+            mapper: PortMapper = PortMapper(),
+            bind: InetAddress? = null,
+            leaseSeconds: Int = LEASE_SECONDS,
+            port: () -> Int = { Random.nextInt(49152, 65536) },
+        ): Opening = Mapping.openRoom(mapper, bind, leaseSeconds, port) { listener, invite, mapping -> Room(listener, invite, mapping) }
     }
 }
