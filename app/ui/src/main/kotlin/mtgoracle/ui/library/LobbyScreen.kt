@@ -91,6 +91,9 @@ fun LobbyScreen(
     /** While Forge starts: when it began (System.nanoTime), and how long it took last time. */
     forgeStartedAt: Long? = null,
     forgeExpectedMillis: Long? = null,
+    /** The playmats, yours and the AI's; null leaves the section out. */
+    mats: LobbyMats? = null,
+    onMat: (MatAction) -> Unit = {},
 ) {
     val simRunning = simulation?.running == true
     val focus = remember { FocusRequester() }
@@ -198,6 +201,7 @@ fun LobbyScreen(
                             BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
                         }
                         if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis)
+                        mats?.let { GridText(""); MatsSection(it, onMat) }
                     }
                 }
             }

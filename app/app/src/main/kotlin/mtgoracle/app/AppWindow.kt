@@ -129,7 +129,8 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 decks = app.decks, meId = app.play.lobbyMeId, opponents = app.play.opponents(), selectedId = app.play.opponentId, useAiCopy = app.play.useAiCopy, watch = app.play.watch,
                 notes = prepared?.notes.orEmpty(), forgeReady = app.forgeReady, canStart = prepared != null && !prepared.blocked,
                 onSelectMe = app.play::chooseMe, onSelect = { app.play.opponentId = it },
-                forgeStartedAt = app.forgeStartedAt, forgeExpectedMillis = app.settings.forgeStartMillis, onToggleAiCopy = { app.play.useAiCopy = !app.play.useAiCopy }, onToggleWatch = { app.play.watch = !app.play.watch },
+                forgeStartedAt = app.forgeStartedAt, forgeExpectedMillis = app.settings.forgeStartMillis,
+                mats = app.mats.lobby(), onMat = { action -> app.mats.act(action)?.let { app.notice = it } }, onToggleAiCopy = { app.play.useAiCopy = !app.play.useAiCopy }, onToggleWatch = { app.play.watch = !app.play.watch },
                 onStart = app.play::start, onLibrary = app::backToLibrary,
                 format = app.play.format.label, onCycleFormat = app.play::cycleFormat,
                 simGames = app.play.simGames, onCycleSimGames = app.play::cycleSimGames, simulation = app.play.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
@@ -147,6 +148,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             BoardScreen(
                 seat = match.seat,
                 tips = app.tips, onTipsDone = app::tipsDone,
+                myMat = app.mats.mat(app.mats.mine), theirMat = app.mats.mat(app.mats.theirs),
                 inputGuardMillis = System.getProperty("mtgoracle.inputGuardMillis")?.toLongOrNull() ?: INPUT_GUARD_MILLIS,
                 title = "${match.spec.seat.name} vs ${match.spec.opponent.name}" + if (match.spec.format.games > 1) " · ${match.spec.format.label}" else "",
                 mode = app.boardMode,

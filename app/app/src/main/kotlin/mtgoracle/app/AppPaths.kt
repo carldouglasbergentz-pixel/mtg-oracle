@@ -41,6 +41,8 @@ data class AppPaths(
     val exports: File get() = data.resolve("exports")
     /** Where a `.mtgoracle` package dropped in is taken from, at start (done ones go to `done/`). */
     val imports: File get() = data.resolve("import")
+    /** The playmats: pictures for each side of the table, chosen in the lobby. */
+    val playmats: File get() = data.resolve("playmats")
     /** Where a migration's backup goes (the three newest are kept). */
     val backups: File get() = data.resolve("backups")
     val home: File get() = data.resolve("app")
@@ -148,6 +150,20 @@ class Settings(private val file: File) {
     var theme: String?
         get() = props.getProperty("theme")
         set(value) { if (value == null) props.remove("theme") else props.setProperty("theme", value); save() }
+
+    /** Each side's playmat in the lobby, by file name; none when absent. */
+    var matMine: String?
+        get() = props.getProperty("lobby.matMine")
+        set(value) { if (value == null) props.remove("lobby.matMine") else props.setProperty("lobby.matMine", value); save() }
+    var matTheirs: String?
+        get() = props.getProperty("lobby.matTheirs")
+        set(value) { if (value == null) props.remove("lobby.matTheirs") else props.setProperty("lobby.matTheirs", value); save() }
+
+    /** A playmat's dim in tenths (four, until set), and the part of it that shows (MatAnchor's name). */
+    fun matDim(name: String): Int = props.getProperty("playmat.$name.dim")?.toIntOrNull()?.coerceIn(0, 9) ?: 4
+    fun setMatDim(name: String, tenths: Int) { props.setProperty("playmat.$name.dim", tenths.coerceIn(0, 9).toString()); save() }
+    fun matAnchor(name: String): String? = props.getProperty("playmat.$name.anchor")
+    fun setMatAnchor(name: String, anchor: String) { props.setProperty("playmat.$name.anchor", anchor); save() }
 
     /** The getting-started checklist was put away (Hide); the library's tour was seen; a first game's tips were read. */
     var guideDone: Boolean

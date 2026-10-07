@@ -187,6 +187,8 @@ class Lanes(battlefield: List<CardState>, looks: Looks) {
 fun Half(
     player: PlayerState, board: BoardState, far: Boolean, stops: PhaseStops?, showHand: Boolean, looks: Looks,
     modifier: Modifier = Modifier, zoneCols: Int = ZONE_COLS, zoneDrag: PaneDrag? = null,
+    /** The player's playmat, under their battlefield; null for the plain table. */
+    mat: Playmat? = null,
 ) {
     val side = if (far) "far" else "near"
     Row(modifier.fillMaxWidth()) {
@@ -195,7 +197,7 @@ fun Half(
             // Its right border is the handle.
             if (zoneDrag != null) PaneEdge(zoneDrag, "$side-zones-edge", Modifier.align(Alignment.CenterEnd))
         }
-        Battlefield(player, far, showHand, looks, Modifier.weight(1f).fillMaxHeight().region("$side-field"))
+        Battlefield(player, far, showHand, looks, Modifier.weight(1f).fillMaxHeight().region("$side-field"), mat)
     }
 }
 
@@ -219,9 +221,11 @@ const val ZONE_COLUMN_MIN_ROWS = ZONE_FIXED_ROWS + 3 + 2
  * can re-plan its band.
  */
 @Composable
-private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier) {
+private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier, mat: Playmat? = null) {
     val lanes = Lanes(player.battlefield, looks)
     BoxPane(null, modifier) {
+        // The mat under everything on the battlefield; the cards' frames keep their own background over it.
+        mat?.let { PlaymatLayer(it) }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val cells = LocalCells.current
             val density = LocalDensity.current

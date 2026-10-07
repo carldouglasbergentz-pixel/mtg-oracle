@@ -282,6 +282,7 @@ class AppController(private val paths: AppPaths) {
     private fun showPackageFolders() = runCatching {
         paths.exports.mkdirs()
         paths.imports.mkdirs()
+        paths.playmats.mkdirs()
         val readme = paths.imports.resolve("README.txt")
         if (!readme.exists()) readme.writeText(
             "Put a .mtgoracle package here (an export from MTG Oracle: decks, games, your own combos)\r\n" +
@@ -470,6 +471,14 @@ class AppController(private val paths: AppPaths) {
         val card = DeckCard(canonical, quantity = 1, isCommander = false, isSideboard = false, info = info)
         return card.face(keyFor(card)) // the key is asked for each time: Forge may have come up since
     }
+
+    /** A picture on the clipboard (copied from a page or an editor): a new playmat. The tests put their own. */
+    var clipboardImage: () -> java.awt.Image? = {
+        runCatching { java.awt.Toolkit.getDefaultToolkit().systemClipboard.getData(java.awt.datatransfer.DataFlavor.imageFlavor) as java.awt.Image }.getOrNull()
+    }
+
+    /** The playmats under each half of the table, chosen in the lobby. */
+    val mats = Playmats(paths.playmats, settings, readClipboard = { readClipboard() }, clipboardImage = { clipboardImage() })
 
     /** Where the app puts what it copies (export, `copy`); the tests keep it off the system clipboard. */
     var writeClipboard: (String) -> Unit = { text ->

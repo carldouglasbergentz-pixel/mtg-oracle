@@ -113,6 +113,9 @@ fun BoardScreen(
     /** A first game's tips ([FIRST_GAME_TIPS]), one at a time over the table; [onTipsDone] when they are read or put away. */
     tips: List<String> = emptyList(),
     onTipsDone: () -> Unit = {},
+    /** The playmats: yours under the near half, the opponent's under the far one (watching: player two's, player one's). */
+    myMat: Playmat? = null,
+    theirMat: Playmat? = null,
 ) {
     val none = remember { MutableStateFlow<BoardState?>(null) }
     val noPrompt = remember { MutableStateFlow<Prompt?>(null) }
@@ -272,10 +275,10 @@ fun BoardScreen(
                                 Column(Modifier.fillMaxSize()) {
                                     Column(Modifier.fillMaxWidth().cellHeight(plan.farRows + MIDLINE_ROWS + plan.nearRows).onGloballyPositioned { val r = it.boundsInWindow(); if (r != table) table = r }) {
                                         Half(far, b, far = true, stops = seatStops, showHand = showAllHands, looks = farLooks, modifier = Modifier.cellHeight(plan.farRows).region("far-half"),
-                                            zoneCols = panes.zoneCols, zoneDrag = zoneDrag)
+                                            zoneCols = panes.zoneCols, zoneDrag = zoneDrag, mat = theirMat)
                                         MidRule(leftCols, Modifier.region("midline").onGloballyPositioned { val r = it.boundsInWindow(); if (r != midline) midline = r })
                                         Half(near, b, far = false, stops = seatStops, showHand = false, looks = nearLooks, modifier = Modifier.cellHeight(plan.nearRows).region("near-half"),
-                                            zoneCols = panes.zoneCols, zoneDrag = zoneDrag)
+                                            zoneCols = panes.zoneCols, zoneDrag = zoneDrag, mat = myMat)
                                     }
                                     val showNearHand = b.seat != null || showAllHands
                                     BoxPane(if (showNearHand) "hand (${near.handCount})" else "hand ${near.handCount} (hidden: H shows)",

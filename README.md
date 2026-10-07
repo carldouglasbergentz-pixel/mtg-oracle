@@ -90,6 +90,10 @@ The library lists your folders and decks, with the selected deck's analysis abov
 
 A card name in any output opens its profile when clicked, and shows the card in the zoom pane on hover.
 
+### Playmats
+
+A picture of your own under your half of the table, and one under the AI's. In the lobby, **Add a playmat from the clipboard** takes a picture you copied (or its file, copied in Explorer); pictures put in `data\playmats\` are offered too. Each side's mat is chosen with `[<]` and `[>]`. A mat fills its half and is cropped rather than stretched, so you choose which part of it shows (top, middle, bottom), and its own dim (0–90 %) keeps the cards readable over it; a preview shows both.
+
 ### Moving a library: `.mtgoracle` packages
 
 A package carries decks with all they hold (cards and printings, the considering list, the AI copy's substitutes, the history), the games played with them, and your own combos.

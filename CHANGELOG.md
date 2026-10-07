@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Playmats.** A picture under your half of the table, and one under the AI's.
+  - **In the lobby**, under the match: each side's mat chosen with `[<]` / `[>]` (none, then each picture), its dim (`0` and nine steps to 90 %), which part of it shows (top, middle, bottom), and a preview of the two with a zone's rule over it. **Add a playmat from the clipboard** takes a picture copied as a file in Explorer, its path, or the picture itself (saved as PNG); pictures put in `data\playmats\` (made at start) are offered too. Each mat keeps its own dim and part; each side's choice is kept for the next start.
+  - **On the board** a mat fills its half's battlefield under the cards, cropped rather than stretched, with the background over it at its dim; the cards keep their own frames over it.
+  - `Playmat`, `PlaymatLayer`, `MatsSection`, `Playmats`. `PlaymatsTest`, `PlaymatBoardTest`.
 - **Getting started.** A first start met an empty database, a notice line and "Pick a deck on the left." with no deck to pick.
   - **A checklist** in the library's middle column: card data, Forge, your first deck, a game against the AI, each ticking itself from the app's own state (cards synced, Forge up, a deck, a game played), with the button that does it (Sync now, Import from the clipboard, New deck, Open the lobby). Hide puts it away for good; a deck clicked shows the deck and the checklist steps aside.
   - **A tour of the library**, the first time and from the checklist's *Show me around*: five stops, each outlining what it points at (the decks, the toolbar, the command line, the zoom pane).
