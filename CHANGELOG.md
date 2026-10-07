@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A stack box folded by itself opens again.** The box folds to its bar when it would cover a card the prompt wants clicked wherever it went, and then neither the bar nor S could open it: the bar only undid the viewer's own fold, which was not set, and S toggled that fold. Now either opens it, over the cards, until the prompt changes, and the status line says `S open stack` while it is folded either way. `StackBoxTest`.
+
+
 ## [0.3.0] - 2026-10-07
 
 Getting started for a first start (a checklist, a tour, a first game's tips), playmats under each half of the table, and a card Forge shows you drawn over the table and kept in the log. A 0.2.x install takes it with `update`; the database is the same (schema v3).

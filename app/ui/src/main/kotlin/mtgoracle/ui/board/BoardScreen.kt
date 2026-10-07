@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -138,6 +139,11 @@ fun BoardScreen(
     val registry = LocalClickRegistry.current ?: remember { ClickRegistry() }
 
     fun arrange(next: BoardLayout) { arrangement = next; onLayoutChange(next) }
+    // The stack box folds by itself over cards the prompt wants clicked; the viewer can still open it for that prompt.
+    var stackOpenFor by remember { mutableStateOf<Long?>(null) }
+    var stackAutoFolded by remember { mutableStateOf(false) }
+    fun openStack() { if (arrangement.stackCollapsed) arrange(arrangement.copy(stackCollapsed = false)); stackOpenFor = prompt?.id }
+    fun foldStack() { stackOpenFor = null; arrange(arrangement.copy(stackCollapsed = true)) }
     // When the prompt on screen first showed. A click meant for the one before (a second OK, a double-click)
     // landed on the reveal that followed it: Cloud's Lion Sash was shown and closed in the same half second.
     val shownAt = remember(prompt?.id) { System.nanoTime() }
@@ -154,7 +160,7 @@ fun BoardScreen(
     val onClick: (ClickTarget) -> Unit = { target ->
         when {
             target is ClickTarget.Stop -> seat?.setStops(stops.toggled(target.seatsTurn, target.step))
-            target == ClickTarget.Control("stack-bar") -> arrange(arrangement.copy(stackCollapsed = false))
+            target == ClickTarget.Control("stack-bar") -> openStack()
             target == MatchTargets.OPEN_MENU -> menuOpen = matchControls != null
             target == MatchTargets.CANCEL -> menuOpen = false
             target == MatchTargets.CONCEDE_GAME -> { menuOpen = false; matchControls?.onConcedeGame?.invoke() }
@@ -202,7 +208,7 @@ fun BoardScreen(
                     }
                     if (onExtraKey(event.key)) return@onPreviewKeyEvent true
                     if (event.key == Key.H && seat?.canShowAllHands == true) { seat.setShowAllHands(!showAllHands); return@onPreviewKeyEvent true }
-                    if (event.key == Key.S) { arrange(arrangement.copy(stackCollapsed = !arrangement.stackCollapsed)); return@onPreviewKeyEvent true }
+                    if (event.key == Key.S) { if (arrangement.stackCollapsed || stackAutoFolded) openStack() else foldStack(); return@onPreviewKeyEvent true }
                     if (event.key == Key.R && !event.isCtrlPressed) { arrange(arrangement.copy(rotateTapped = !arrangement.rotateTapped)); return@onPreviewKeyEvent true }
                     if (event.key == Key.L && !event.isCtrlPressed) { arrange(arrangement.copy(logSteps = !arrangement.logSteps)); return@onPreviewKeyEvent true }
                     // Ctrl+←/→ moves the right column's edge, with Shift the zone columns' edge: the border goes the arrow's way.
@@ -306,15 +312,16 @@ fun BoardScreen(
                     }
                 }
                 val watchHint = if (seat?.canShowAllHands == true) listOf("H" to if (showAllHands) "hide hands" else "show hands") else emptyList()
-                val stackHint = listOf("S" to if (arrangement.stackCollapsed) "open stack" else "fold stack", "R" to if (arrangement.rotateTapped) "tapped: turned" else "tapped: upright",
+                val stackHint = listOf("S" to if (arrangement.stackCollapsed || stackAutoFolded) "open stack" else "fold stack", "R" to if (arrangement.rotateTapped) "tapped: turned" else "tapped: upright",
                     "L" to if (arrangement.logSteps) "log: events only" else "log: every step")
                 val matchHint = if (matchControls != null) listOf("Ctrl+Q" to "concede") else emptyList()
                 StatusLine(hints(prompt) + stackHint + matchHint + watchHint + extraHints, notice ?: yieldStatus, totalCols, Modifier.region("status"), warning = warning)
             }
             val sides = b?.sides
             if (b != null && sides != null && b.stack.isNotEmpty() && midline != Rect.Zero && prompt !is SideboardPrompt) {
-                StackLayer(b, sides.first.id, prompt, mode, cells, registry, arrangement, ::arrange, midline, header, table, leftCols, totalCols, totalRows, onClick, onHover)
-            }
+                StackLayer(b, sides.first.id, prompt, mode, cells, registry, arrangement, ::arrange, midline, header, table, leftCols, totalCols, totalRows, onClick, onHover,
+                    forceOpen = stackOpenFor != null && stackOpenFor == prompt?.id, onAutoFolded = { stackAutoFolded = it })
+            } else if (stackAutoFolded) SideEffect { stackAutoFolded = false }
             // A first game's tips, at the top of the table, out of the cards' way as far as it can be.
             if (tips.isNotEmpty() && !showResult && !menuOpen) {
                 BoardTips(tips, onTipsDone, Modifier.align(Alignment.TopCenter).offset { IntOffset(0, (3 * cells.height).roundToInt()) })
@@ -334,7 +341,8 @@ fun BoardScreen(
 /**
  * The stack box, floating. Where the viewer put it (or centred on the
  * midline over the table) — unless that covers a card the current prompt
- * wants clicked: then across the midline, or folded to its bar. Dragged by
+ * wants clicked: then across the midline, or folded to its bar, which the
+ * viewer can still open for that prompt ([forceOpen]). Dragged by
  * its top edge; the new place is the viewer's, persisted, and kept inside
  * the window when it shrinks.
  */
@@ -344,6 +352,7 @@ private fun StackLayer(
     arrangement: BoardLayout, arrange: (BoardLayout) -> Unit, midline: Rect, header: Rect, table: Rect,
     leftCols: Int, totalCols: Int, totalRows: Int,
     onClick: (ClickTarget) -> Unit, onHover: (ClickTarget?) -> Unit,
+    forceOpen: Boolean, onAutoFolded: (Boolean) -> Unit,
 ) {
     var drag by remember { mutableStateOf(Offset.Zero) }
     var dragging by remember { mutableStateOf(false) }
@@ -361,7 +370,9 @@ private fun StackLayer(
     val placement = if (dragging) StackPlacement.AS_SET else settled.let {
         placeStackBox(at(col, row), above = at(col, clampCells(midRow - rows, rows, totalRows)),
             below = at(col, clampCells(midRow + MIDLINE_ROWS, rows, totalRows)), midlineY = midline.center.y, legal = legalRects(prompt, registry))
-    }
+    }.let { if (it == StackPlacement.FOLDED && forceOpen) StackPlacement.AS_SET else it }
+    val autoFolded = !arrangement.stackCollapsed && placement == StackPlacement.FOLDED
+    SideEffect { onAutoFolded(autoFolded) }
     if (arrangement.stackCollapsed || placement == StackPlacement.FOLDED) {
         // On the header's rule line, at its right end: no card is ever drawn there.
         val barCols = stackBarText(b.stack.size).length

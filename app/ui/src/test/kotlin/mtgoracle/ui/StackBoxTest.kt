@@ -114,6 +114,36 @@ class StackBoxTest {
     }
 
     @Test
+    fun `a box folded over the prompt's cards opens again on the bar or S, for that prompt`() {
+        // Creatures across both halves, every one a legal target: no place for the box is clear.
+        val b = sampleBoard().let { b ->
+            b.copy(players = b.players.map { p ->
+                val base = if (p.isSeat) 70 else 60
+                p.copy(battlefield = p.battlefield + (0 until 9).map { card(base + it, "Goblin ${base + it}", creature = true, cost = "{R}") })
+            })
+        }
+        val seat = FakeSeat(b, null)
+        board(seat).use { d ->
+            d.settle(5)
+            val all = b.players.flatMap { p -> p.battlefield.map { it.id } }.toSet()
+            seat.prompt.value = InputPrompt(5, "Choose a target", InputKind.TARGET, "InputSelectTargets", 0, "", "Cancel", false, true, all, emptySet())
+            d.settle(6)
+            assertNull(d.registry[box], "folded by itself: it would cover a target wherever it went")
+            assertTrue("open stack" in d.text.all(), "and S says it opens it")
+            assertTrue(d.click(bar))
+            d.settle(4)
+            assertNotNull(d.registry[box], "the bar opens it, over the cards, for this prompt")
+            d.key(Key.S)
+            assertNull(d.registry[box], "S folds it")
+            d.key(Key.S)
+            assertNotNull(d.registry[box], "and S opens it again")
+            seat.prompt.value = InputPrompt(6, "Choose another target", InputKind.TARGET, "InputSelectTargets", 0, "", "Cancel", false, true, all, emptySet())
+            d.settle(6)
+            assertNull(d.registry[box], "a new prompt folds it by itself again")
+        }
+    }
+
+    @Test
     fun `the placement rule - where it is, else across the midline, else folded`() {
         val mid = 500f
         val wanted = Rect(100f, 450f, 400f, 550f)
