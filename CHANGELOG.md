@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **A line in the log**, `Shown to you: Sylvan Library (in AI's library)`, its cards marked. Forge can't tell a reveal (everyone sees) from a look (one player), so the line is for this seat alone (`LogLine.seenBy`, filtered per seat in `SeatGui`), and its names don't mark the public lines after it.
   - `RevealPanelTest`, `KnownChoicesTest`, `LogLinesTest`.
 
+### Fixed
+- **The tour's outline lies on what it points at.** It was drawn with a character border, which sits in the cells inside a box's edge: round a pane it fell on the pane's own border, round the toolbar half a cell inside it. It is a line on the target's own edges now, and `GuideTest` checks each stop's outline, its rectangle and the pixels of its top edge, at 100 % and 125 % text.
+
+
 
 ## [0.2.1] - 2026-10-05
 

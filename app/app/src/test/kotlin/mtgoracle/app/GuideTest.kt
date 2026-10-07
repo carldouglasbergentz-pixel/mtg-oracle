@@ -3,6 +3,7 @@ package mtgoracle.app
 import mtgoracle.data.DbFixture
 import mtgoracle.ui.OffscreenDriver
 import mtgoracle.ui.kit.ClickTarget
+import androidx.compose.ui.graphics.toArgb
 import mtgoracle.ui.library.GuideControls
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.File
@@ -57,6 +58,34 @@ class GuideTest {
         }
         val again = app(data)
         assertFalse(again.guideOpen || again.touring, "the next start: neither")
+    }
+
+    @Test
+    fun `the tour outlines exactly what each stop points at, at any text size`() {
+        val data = createTempDirectory("mtg-oracle-guide-").toFile().also { dirs += it }
+        val app = app(data)
+        OffscreenDriver(1600, 900) { AppContent(app) {} }.use { d ->
+            for (scale in listOf(0, 2)) {
+                repeat(scale) { app.stepTextScale(1) }
+                app.startTour()
+                d.settle(5)
+                for (stop in mtgoracle.ui.library.LIBRARY_TOUR) {
+                    stop.region?.let { region ->
+                        val target = assertNotNull(d.registry[ClickTarget.Control("region:$region")], region)
+                        val outline = assertNotNull(d.registry[ClickTarget.Control("region:tour-outline")], "an outline for $region")
+                        for ((a, b) in listOf(target.left to outline.left, target.top to outline.top, target.right to outline.right, target.bottom to outline.bottom)) {
+                            assertTrue(kotlin.math.abs(a - b) <= 1.5f, "at ${app.textScale}: the outline $outline is not on $region $target")
+                        }
+                        // And drawn there: the accent along the target's own top edge, not half a cell inside it.
+                        val accent = mtgoracle.ui.theme.Palette.accent.toArgb()
+                        val edge = d.pixels(androidx.compose.ui.geometry.Rect(target.left + 8, target.top, target.right - 8, target.top + 2))
+                        assertTrue(edge.count { it == accent } > edge.size / 2, "at ${app.textScale}: no line on $region's top edge")
+                    }
+                    d.click(ClickTarget.Control("tour:next")); d.settle(3)
+                }
+                assertFalse(app.touring)
+            }
+        }
     }
 
     @Test

@@ -1,6 +1,7 @@
 package mtgoracle.ui.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import mtgoracle.ui.kit.Border
 import mtgoracle.ui.kit.ClickRegistry
 import mtgoracle.ui.kit.ClickTarget
@@ -73,10 +75,12 @@ internal fun TourOverlay(stops: List<TourStop>, registry: ClickRegistry, onDone:
         val h = constraints.maxHeight.toFloat()
         val target = stop.region?.let { registry[ClickTarget.Control("region:$it")] }?.translate(-origin.left, -origin.top)
         // The target outlined: the box points at it.
+        // The target outlined on its own edges. Not with boxBorder: a character border is drawn in the cells
+        // inside a box's edge, so round a pane it fell on the pane's own border and round the toolbar inside it.
         if (target != null) with(LocalDensity.current) {
             Box(
                 Modifier.offset { IntOffset(target.left.roundToInt(), target.top.roundToInt()) }
-                    .size(target.width.toDp(), target.height.toDp()).boxBorder(null, border = Border.DOUBLE, color = Palette.accent),
+                    .size(target.width.toDp(), target.height.toDp()).border(2.dp, Palette.accent).region("tour-outline"),
             )
         }
         val boxW = BOX_COLS * cells.width
