@@ -159,11 +159,26 @@ class Settings(private val file: File) {
         get() = props.getProperty("lobby.matTheirs")
         set(value) { if (value == null) props.remove("lobby.matTheirs") else props.setProperty("lobby.matTheirs", value); save() }
 
-    /** A playmat's dim in tenths (four, until set), and the part of it that shows (MatAnchor's name). */
+    /** A playmat's dim in tenths (four, until set). */
     fun matDim(name: String): Int = props.getProperty("playmat.$name.dim")?.toIntOrNull()?.coerceIn(0, 9) ?: 4
     fun setMatDim(name: String, tenths: Int) { props.setProperty("playmat.$name.dim", tenths.coerceIn(0, 9).toString()); save() }
-    fun matAnchor(name: String): String? = props.getProperty("playmat.$name.anchor")
-    fun setMatAnchor(name: String, anchor: String) { props.setProperty("playmat.$name.anchor", anchor); save() }
+
+    /**
+     * Where a playmat's picture sits in its crop (x, y: 0 to 1) and its zoom (1 to 3); the middle at 100 % until
+     * set. A mat placed before (top, middle, bottom) starts where it was.
+     */
+    fun matFrame(name: String): Triple<Float, Float, Float> {
+        val old = when (props.getProperty("playmat.$name.anchor")) { "TOP" -> 0f; "BOTTOM" -> 1f; else -> 0.5f }
+        fun read(key: String, default: Float) = props.getProperty("playmat.$name.$key")?.toFloatOrNull() ?: default
+        return Triple(read("x", 0.5f).coerceIn(0f, 1f), read("y", old).coerceIn(0f, 1f), read("zoom", 1f).coerceIn(1f, 3f))
+    }
+    fun setMatFrame(name: String, x: Float, y: Float, zoom: Float) {
+        props.setProperty("playmat.$name.x", "%.3f".format(java.util.Locale.ROOT, x.coerceIn(0f, 1f)))
+        props.setProperty("playmat.$name.y", "%.3f".format(java.util.Locale.ROOT, y.coerceIn(0f, 1f)))
+        props.setProperty("playmat.$name.zoom", "%.2f".format(java.util.Locale.ROOT, zoom.coerceIn(1f, 3f)))
+        props.remove("playmat.$name.anchor")
+        save()
+    }
 
     /** The getting-started checklist was put away (Hide); the library's tour was seen; a first game's tips were read. */
     var guideDone: Boolean

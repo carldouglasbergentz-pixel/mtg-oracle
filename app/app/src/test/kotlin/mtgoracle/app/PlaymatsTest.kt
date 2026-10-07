@@ -2,7 +2,6 @@ package mtgoracle.app
 
 import mtgoracle.data.DbFixture
 import mtgoracle.ui.OffscreenDriver
-import mtgoracle.ui.board.MatAnchor
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.library.MatAction
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -53,11 +52,11 @@ class PlaymatsTest {
         app.mats.act(MatAction.Cycle(mine = false, by = 1))
         assertEquals("Forest Glade.png", app.mats.theirs)
         app.mats.act(MatAction.Dim(mine = true, tenths = 7))
-        app.mats.act(MatAction.Anchor(mine = true, anchor = MatAnchor.TOP))
+        app.mats.act(MatAction.Frame(mine = true, x = 0.2f, y = 0f, zoom = 1.5f))
         val again = AppController(AppPaths(data, assets, forgeHome = Scenario.home))
         val mat = assertNotNull(again.mats.mat(again.mats.mine), "kept for the next start")
         assertEquals(0.7f, mat.dim, 0.001f)
-        assertEquals(MatAnchor.TOP, mat.anchor)
+        assertEquals(Triple(0.2f, 0f, 1.5f), Triple(mat.x, mat.y, mat.zoom))
         assertEquals("Forest Glade.png", again.mats.theirs)
 
         app.play.openLobby(app.decks.first().id)
@@ -66,6 +65,18 @@ class PlaymatsTest {
             assertTrue("playmats" in d.text.all() && "playmat.png" in d.text.all(), d.text.all())
             assertTrue(d.click(ClickTarget.Control("mat:me:dim:3")))
             assertEquals(0.3f, app.mats.mat(app.mats.mine)!!.dim, 0.001f)
+            // A drag places the picture, kept once let go: down shows more of its top (y falls), right more of its left.
+            val before = app.mats.mat(app.mats.mine)!!
+            assertTrue(d.drag(ClickTarget.Control("region:mat-preview-me"), androidx.compose.ui.geometry.Offset(40f, 30f)))
+            d.settle(3)
+            val after = app.mats.mat(app.mats.mine)!!
+            assertTrue(after.y < before.y || before.y == 0f, "dragged down, the picture moves down: y ${before.y} -> ${after.y}")
+            assertTrue(after.x < before.x, "dragged right: x ${before.x} -> ${after.x}")
+            assertEquals(before.zoom, after.zoom)
+            assertTrue(d.click(ClickTarget.Control("mat:me:zoom-in")))
+            assertEquals(before.zoom + 0.1f, app.mats.mat(app.mats.mine)!!.zoom, 0.001f)
+            assertTrue(d.click(ClickTarget.Control("mat:me:reset")))
+            assertEquals(Triple(0.5f, 0.5f, 1f), app.mats.mat(app.mats.mine)!!.let { Triple(it.x, it.y, it.zoom) })
             d.settle(3)
             d.savePng(File(Scenario.pngDir, "playmats-lobby.png"))
         }

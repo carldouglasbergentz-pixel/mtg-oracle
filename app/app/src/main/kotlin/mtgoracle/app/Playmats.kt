@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import mtgoracle.forge.Log
-import mtgoracle.ui.board.MatAnchor
 import mtgoracle.ui.board.Playmat
 import mtgoracle.ui.library.LobbyMats
 import mtgoracle.ui.library.MatAction
@@ -34,7 +33,8 @@ class Playmats(private val dir: File, private val settings: Settings, private va
     fun mat(name: String?): Playmat? {
         version // read: a change to a mat's settings is seen
         val file = name?.let { File(dir, it) }?.takeIf { it.isFile } ?: return null
-        return Playmat(file, settings.matDim(name) / 10f, settings.matAnchor(name)?.let { a -> MatAnchor.entries.firstOrNull { it.name == a } } ?: MatAnchor.MIDDLE)
+        val (x, y, zoom) = settings.matFrame(name)
+        return Playmat(file, settings.matDim(name) / 10f, x, y, zoom)
     }
 
     fun lobby(): LobbyMats = LobbyMats(names(), MatSide(mine, mat(mine)), MatSide(theirs, mat(theirs)), "data\\playmats\\")
@@ -50,7 +50,7 @@ class Playmats(private val dir: File, private val settings: Settings, private va
             null
         }
         is MatAction.Dim -> side(action.mine)?.let { settings.setMatDim(it, action.tenths); version++; null }
-        is MatAction.Anchor -> side(action.mine)?.let { settings.setMatAnchor(it, action.anchor.name); version++; null }
+        is MatAction.Frame -> side(action.mine)?.let { settings.setMatFrame(it, action.x, action.y, action.zoom); version++; null }
         MatAction.Add -> add()
     }
 

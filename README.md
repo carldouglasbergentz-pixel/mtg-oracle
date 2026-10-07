@@ -92,7 +92,7 @@ A card name in any output opens its profile when clicked, and shows the card in 
 
 ### Playmats
 
-A picture of your own under your half of the table, and one under the AI's. In the lobby, **Add a playmat from the clipboard** takes a picture you copied (or its file, copied in Explorer); pictures put in `data\playmats\` are offered too. Each side's mat is chosen with `[<]` and `[>]`. A mat fills its half and is cropped rather than stretched, so you choose which part of it shows (top, middle, bottom), and its own dim (0–90 %) keeps the cards readable over it; a preview shows both.
+A picture of your own under your half of the table, and one under the AI's. In the lobby, **Add a playmat from the clipboard** takes a picture you copied (or its file, copied in Explorer); pictures put in `data\playmats\` are offered too. Each side's mat is chosen with `[<]` and `[>]`. A mat fills its half and is cropped rather than stretched: drag its preview to place the part that shows, zoom in (up to 300 %) to frame a detail, and set its own dim (0–90 %) to keep the cards readable over it. `[ reset ]` puts it back in the middle at 100 %.
 
 ### Moving a library: `.mtgoracle` packages
 
