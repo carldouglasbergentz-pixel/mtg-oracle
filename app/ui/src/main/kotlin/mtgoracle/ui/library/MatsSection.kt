@@ -77,7 +77,7 @@ internal fun MatsSection(mats: LobbyMats, onMat: (MatAction) -> Unit) {
                 GridText("  ")
                 LinkButton("[ Add a playmat from the clipboard ]", ClickTarget.Control("mat:add")) { onMat(MatAction.Add) }
             }
-            WrapText("    Copy a picture (or its file in Explorer), then Add; or put pictures in ${mats.folder}.", color = Palette.dim, hang = 4)
+            WrapText("    Copy a picture (or its file in Explorer), then Add; or put pictures in ${mats.folder}.", color = Palette.dim)
         }
     }
 }

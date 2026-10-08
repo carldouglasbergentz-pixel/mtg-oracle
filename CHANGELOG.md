@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The lobby's network play reads cleanly in every look.** Its playmat toggles were chrome buttons, which drop a label's brackets, so a drawn look (Windows 7 …) read `x] send my playmat` and `] show the other's playmat`: they are clicked as text now, as the match's options above them are. Its help lines hung twice as deep as they began, so "Host: …" went on under nothing; they start in one column (the playmats' note too). Host a room and Join (Copy the invite and Close the room for an open room) are big buttons, as Start and Simulate are. `NetworkSectionTest`, every look.
 - **A newer release is said even when the status line already has something to say.** Its notice showed only while nothing else was said, so a message left from start-up (the schema's migration, on the first start of a new version) hid it until something cleared the line. Now it takes the line once when found, unless a game is on, and comes back whenever the line is free.
 
 ## [0.4.0] - 2026-10-08
