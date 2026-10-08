@@ -182,6 +182,7 @@ Trivial edits (typo, comment tweak, one-line config) may skip — call out that 
 
 ## Conventions
 
+- **A format is stored by its key** when the catalog knows it (`FormatCatalog.canonical`: `canlander` is `canadianhighlander`, `EDH` is `commander`), as typed when not; every write goes through it, and `LibraryWriter.canonicalFormats` brings older rows in line at start.
 - **A deck's format is the switch for every rule** — legality, singleton and points all hang off `decks.format`, and a deck with none gets none of them. When a rule seems not to fire, check the format first. `deck_folders.format` is a *default* that new decks in that folder inherit; a deck's own value always wins.
 - **`COLLATE NOCASE` needs a NOCASE index.** SQLite cannot use a BINARY index to satisfy a NOCASE comparison, so every name column this project compares case-insensitively has a matching `... COLLATE NOCASE` index (in schema v1). Adding a new NOCASE query on an unindexed column silently costs a full table scan — that gap once made a deck read take 747 ms instead of 0.8 ms.
 - **Nothing expensive in a mouse-move handler.** A drag emits one event per column crossed; re-rendering a pane or writing a file per event reads as a hang. Move that work to the drag's end.

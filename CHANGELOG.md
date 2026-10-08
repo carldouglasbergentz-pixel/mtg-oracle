@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The limited tab simulates, and says the record.** Simulate (S, N for how many) has an AI play your limited deck against the deck the AI builds from its own pool, as the constructed tab does with a pairing: a build tried out, each game recorded as it ends. The match's title says the deck's record against the AI's pool, played and simulated (`AI (BLB sealed) · you 2–1 · AI 6–4`). `LimitedTest`.
 
 ### Changed
+- **A format is stored by its key.** A deck's or a folder's format the app knows is kept under one name, however it was written: `canlander`, `Canadian Highlander` and `CHL` are `canadianhighlander`, `EDH` is `commander`, `DC` is `duel`; a name no rule knows stays as typed, a label. The library is brought in line once at start, after a backup (`mtg-…-pre-formats.db`), and an imported package or list follows the same rule. Until now a folder of `canlander` and a deck of `canadianhighlander` named one format two ways. `FormatKeyTest`; `deck-state.txt`'s `__parity_can__` is `canadianhighlander` now, where Python kept what was typed.
 - **The toolbar's buttons have room above and below them** (a third of a row), so they don't sit on the panes' edge. **The lobby's constructed and limited are tabs of their own**, as the deck pane's are: each clicked by itself, the one shown inverted (raised in a drawn look), where the whole row lit up under the mouse. `LimitedTabTest`.
 
 ### Fixed
