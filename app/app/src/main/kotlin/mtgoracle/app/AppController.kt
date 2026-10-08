@@ -219,6 +219,18 @@ class AppController(private val paths: AppPaths) {
     /** A limited deck's pool for its title; read once per change of the deck, not per frame. */
     fun poolNote(deck: Deck): String? = if (db == null) null else try { limited.poolNote(deck) } catch (e: Exception) { Log.error("could not read the pool of ${deck.name}", e); "pool unreadable!" }
 
+    /** The lobby's Build: the limited deck opened in the workspace, its pool in the middle. */
+    fun buildLimited(deckId: Int) {
+        select(deckId)
+        screen = Screen.Library
+        edit()
+    }
+
+    /** The lobby's Delete: the library's question, asked over the lobby; the deck and its packs go on its answer. */
+    fun deleteLimited(deckId: Int) {
+        lookupUi?.intent?.invoke(mtgoracle.ui.library.LibraryIntent.DeleteDeck(deckId))
+    }
+
     fun chooseSet(code: String) {
         limitedSet = code
         settings.limitedSet = code

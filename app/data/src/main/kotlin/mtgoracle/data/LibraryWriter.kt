@@ -84,8 +84,21 @@ class LibraryWriter(private val db: MtgDb) {
     /** Deletes a deck; its rows, list and history go with it (the foreign keys cascade). */
     fun deleteDeck(deckId: Int) = db.write { conn ->
         deckFolder(conn, deckId)
+        val poolId = conn.query("SELECT pool_id FROM decks WHERE id = ?", deckId) { getObject(1)?.let { (it as Number).toInt() } }.firstOrNull()
         conn.update("DELETE FROM deck_cards WHERE deck_id = ?", deckId)
         conn.update("DELETE FROM decks WHERE id = ?", deckId)
+        // A limited deck's pool goes with it, and the pool it was opened against (the AI's, the friend's), unless another deck holds one of them.
+        poolId?.let { deletePoolIfUnheld(conn, it) }
+    }
+
+    private fun deletePoolIfUnheld(conn: java.sql.Connection, poolId: Int) {
+        if (conn.query("SELECT 1 FROM decks WHERE pool_id = ?", poolId) { 1 }.isNotEmpty()) return
+        val rival = conn.query("SELECT rival_pool_id FROM limited_pools WHERE id = ?", poolId) { getObject(1)?.let { (it as Number).toInt() } }.firstOrNull()
+        conn.update("DELETE FROM limited_pools WHERE id = ?", poolId)
+        rival?.let { r ->
+            val held = conn.query("SELECT 1 FROM decks WHERE pool_id = ? UNION ALL SELECT 1 FROM limited_pools WHERE rival_pool_id = ?", r, r) { 1 }.isNotEmpty()
+            if (!held) conn.update("DELETE FROM limited_pools WHERE id = ?", r)
+        }
     }
 
     /**

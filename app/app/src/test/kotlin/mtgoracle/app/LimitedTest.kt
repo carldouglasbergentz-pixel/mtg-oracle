@@ -175,5 +175,11 @@ class LimitedTest {
         val rows = sql("SELECT mode, deck_id, deck_name, opponent_deck_id, opponent_name, winner, game_no, conceded FROM games") { (1..8).map { getObject(it) } }
         val row = rows.single().take(6)
         assertEquals(listOf<Any?>("human_vs_ai", deck.id, deck.name, null, "AI (BLB sealed)", "me"), row)
+
+        // Deleted, the deck takes its packs with it, its own and the AI's; the game keeps its names.
+        mtgoracle.data.LibraryWriter(MtgDb(db())).deleteDeck(deck.id)
+        assertEquals(listOf(0, 0), listOf("limited_pools WHERE id IN (${mine.id}, ${ai.id})", "limited_pool_cards WHERE pool_id IN (${mine.id}, ${ai.id})")
+            .map { sql("SELECT COUNT(*) FROM $it") { getInt(1) }.single() })
+        assertEquals(listOf<Any?>(null, deck.name), sql("SELECT deck_id, deck_name FROM games") { listOf(getObject(1), getString(2)) }.single())
     }
 }

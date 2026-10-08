@@ -28,7 +28,7 @@ class LimitedTabTest {
 
     @AfterTest fun house() { Palette.theme = Themes.HOUSE }
 
-    private class Asked { val sets = mutableListOf<String>(); var opened = 0; var tabs = 0; var started = 0 }
+    private class Asked { val sets = mutableListOf<String>(); var opened = 0; var tabs = 0; var started = 0; val built = mutableListOf<Int>(); val deleted = mutableListOf<Int>() }
 
     private fun render(theme: Theme, chosen: String, asked: Asked = Asked(), check: (OffscreenDriver) -> Unit) {
         Palette.theme = theme
@@ -36,7 +36,8 @@ class LimitedTabTest {
             LobbyScreen(listOf(me), 1, emptyList(), null, useAiCopy = false, watch = false, notes = emptyList(),
                 forgeReady = true, canStart = true, onSelectMe = {}, onSelect = {}, onToggleAiCopy = {}, onToggleWatch = {}, onStart = { asked.started++ }, onLibrary = {},
                 limited = LobbyLimited(sets, chosen, opponent = "AI (BLB sealed)"),
-                onToggleTab = { asked.tabs++ }, onChooseSet = { asked.sets += it }, onOpenSealed = { asked.opened++ })
+                onToggleTab = { asked.tabs++ }, onChooseSet = { asked.sets += it }, onOpenSealed = { asked.opened++ },
+                onBuild = { asked.built += it }, onDelete = { asked.deleted += it })
         }.use { d ->
             d.settle(5)
             d.savePng(File(pngDir, "lobby-limited-${theme.key}.png"))
@@ -58,6 +59,8 @@ class LimitedTabTest {
                 assertTrue(d.click(ClickTarget.Control("start")), "${theme.key}: Start")
                 d.key(Key.L)
                 assertEquals(listOf(1, listOf("S02"), 2, 1), listOf(asked.opened, asked.sets, asked.tabs, asked.started), theme.key)
+                assertTrue(d.click(ClickTarget.Control("limited-build")) && d.click(ClickTarget.Control("limited-delete")), "${theme.key}: Build and Delete")
+                assertEquals(listOf(1) to listOf(1), asked.built to asked.deleted, "${theme.key}: on the chosen deck")
             }
         }
     }

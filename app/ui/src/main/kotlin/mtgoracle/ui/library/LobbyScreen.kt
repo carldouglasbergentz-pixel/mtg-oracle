@@ -113,6 +113,9 @@ fun LobbyScreen(
     onToggleTab: () -> Unit = {},
     onChooseSet: (String) -> Unit = {},
     onOpenSealed: () -> Unit = {},
+    /** The limited tab: the chosen deck opened in the workspace to build, or deleted (after a question). */
+    onBuild: (Int) -> Unit = {},
+    onDelete: (Int) -> Unit = {},
 ) {
     val simRunning = simulation?.running == true
     val focus = remember { FocusRequester() }
@@ -134,6 +137,8 @@ fun LobbyScreen(
             name == "tab" -> onToggleTab()
             name.startsWith("set:") -> { list = 1; onChooseSet(name.removePrefix("set:")) }
             name == "open-sealed" -> if (limited?.opening == false && forgeReady) onOpenSealed()
+            name == "limited-build" -> meId?.let(onBuild)
+            name == "limited-delete" -> meId?.let(onDelete)
         }
     }
     fun move(by: Int) {
@@ -160,6 +165,8 @@ fun LobbyScreen(
                 Key.Tab -> list = 1 - list
                 Key.L -> onToggleTab()
                 Key.O -> if (limited?.opening == false && forgeReady) onOpenSealed() else return@onPreviewKeyEvent false
+                Key.E -> if (limited != null && meId != null) onBuild(meId) else return@onPreviewKeyEvent false
+                Key.Delete -> if (limited != null && meId != null) onDelete(meId) else return@onPreviewKeyEvent false
                 Key.A -> if (limited == null) onToggleAiCopy() else return@onPreviewKeyEvent false
                 Key.W -> onToggleWatch()
                 Key.B -> onCycleFormat()
@@ -245,8 +252,8 @@ fun LobbyScreen(
             }
             ask?.let { mtgoracle.ui.lookup.AskBar(it) { onAskClosed(); focus.requestFocus() } }
             StatusLine(
-                if (limited != null) listOf("L" to "constructed", "Tab" to "your deck / set", "↑↓" to "choose", "O" to "open sealed", "W" to "watch", "B" to "best of",
-                    "Enter" to "start", "Esc" to "library")
+                if (limited != null) listOf("L" to "constructed", "Tab" to "your deck / set", "↑↓" to "choose", "E" to "build", "Del" to "delete", "O" to "open sealed",
+                    "W" to "watch", "B" to "best of", "Enter" to "start", "Esc" to "library")
                 else listOf("L" to "limited", "Tab" to "your deck / opponent", "↑↓" to "choose", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
                     "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library"),
                 null, cols,
@@ -317,9 +324,15 @@ private fun LimitedMatch(
     val set = limited.sets.firstOrNull { it.code == limited.chosenSet }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         FitText("  ${me?.name ?: "your limited deck"}  vs  ${limited.opponent ?: "-"}", bold = true)
+        if (me != null) Row(verticalAlignment = Alignment.CenterVertically) {
+            GridText(" ")
+            BigButton("Build  (E)", ClickTarget.Control("limited-build"), true, onClick)
+            GridText(" ")
+            BigButton("Delete", ClickTarget.Control("limited-delete"), true, onClick)
+        }
         WrapText(
             "  The AI opened its own six packs of the same set when you opened yours, and builds its deck from them as the match starts. " +
-                "Your deck holds its whole pool in the sideboard: open it in the library and move cards to the main deck, forty or more. Basic lands are free.",
+                "Build (E) opens your deck with its pool in the middle: + takes a card into the deck, forty or more. Basic lands are free.",
             color = Palette.dim, hang = 2,
         )
         GridText("")

@@ -98,7 +98,8 @@ class LibraryActions(
                 is LibraryIntent.DeckFormat -> ui.ask = Ask.Choose("Format of ${deckName(intent.deckId)}", formatOptions(), { o ->
                     setFormat(intent.deckId, o.value.ifEmpty { null })
                 })
-                is LibraryIntent.DeleteDeck -> ui.ask = Ask.Buttons("Delete ${deckName(intent.deckId)}, its considering list and its history? This cannot be undone.", listOf(
+                is LibraryIntent.DeleteDeck -> ui.ask = Ask.Buttons("Delete ${deckName(intent.deckId)}, its considering list and its history" +
+                    (if (library.deck(intent.deckId)?.poolId != null) ", and the packs it was opened from" else "") + "? This cannot be undone.", listOf(
                     "Delete" to {
                         act {
                             if (openDeckId() == intent.deckId) leaveDeck()

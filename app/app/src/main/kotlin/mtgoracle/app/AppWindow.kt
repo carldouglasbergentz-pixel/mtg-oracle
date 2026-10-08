@@ -136,8 +136,10 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 format = app.play.format.label, onCycleFormat = app.play::cycleFormat,
                 simGames = app.play.simGames, onCycleSimGames = app.play::cycleSimGames, simulation = app.play.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
                 onSimulate = app.play::simulate, onStopSimulation = app.play::stopSimulation,
-                network = app.net.lobby(), onNet = app.net::act, ask = app.net.ask, onAskClosed = { app.net.ask = null },
+                // A question of the lobby's own (your name at a table) or of the library's (deleting a limited deck from here).
+                network = app.net.lobby(), onNet = app.net::act, ask = app.net.ask ?: app.lookupUi?.ask, onAskClosed = { app.net.ask = null; app.lookupUi?.ask = null },
                 limited = app.lobbyLimited(), onToggleTab = app.play::toggleTab, onChooseSet = app::chooseSet, onOpenSealed = app::openSealed,
+                onBuild = app::buildLimited, onDelete = app::deleteLimited,
             )
         }
         Screen.Guest -> {
