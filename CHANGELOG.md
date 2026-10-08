@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
+Network play: host a room in the lobby and send the invite, or join a friend's from the clipboard, and play each on your own computer, sealed with the invite's secret and recorded on both sides. Also a game's end that is never lost, `game:` filters over every printing, a stack box that opens again, and a README for the app as it is. A 0.3.0 install takes it with `update`; the first start migrates the database to schema v4 (games between two people), after a `pre-v4` backup. A friend without access to the repository installs it from the zip.
+
 ### Added
 - **Network play from the lobby** (step 5). The lobby's match pane hosts and joins. **Host a room**: the router opens a port (UPnP), the invite goes to the clipboard, and the room waits for your friend, counting the connections it turned away; when hosting can't work it says why. **Join from the clipboard**: you sit down at your friend's table with the deck you chose; the board is the same, between games the panel waits for the host, and the table closing or the link dropping is said. A name of your own at a table is asked the first time (never the computer's user name). Your playmat crosses as pixels when you choose to send it, and the other's shows only when you choose to see it. Both sides record each game (`deck (person)`). `NetPlayTest`: two apps in one JVM, the invite on the clipboard, a match played to its end and recorded on both sides.
 - **Schema v4: two people's games are recorded** (step 5b). `games.mode` takes `human_vs_human`; SQLite can't change a CHECK, so the table is built again with the same columns, rows and indexes, after the automatic `pre-v4` backup, and the migration refuses to finish if a row went missing. A game against a person is stored with the opponent as `deck (person)` and no deck id (the guest's id belongs to the guest's database), and the records count it as played, beside the games against the AI. `SchemaTest`.
