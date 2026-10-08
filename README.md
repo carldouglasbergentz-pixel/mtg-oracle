@@ -183,11 +183,11 @@ mtg-oracle/
 │   ├── app/                      Entry point, wiring, the window, the command line, headless modes
 │   ├── mtg.cmd                   The command line, from the newest snapshot
 │   └── run-mtg-oracle.cmd / .sh  Play the newest snapshot
+├── ROADMAP.md                    What comes next
 ├── docs/
-│   ├── project-plan.md           Where we are (read first)
 │   ├── app-design.md             The look, the board, the interaction model
 │   ├── adr/                      Architecture decisions
-│   └── reports/                  Deck-analysis reports (Swedish) and their reference decklists
+│   └── feature-parity.md         The port from Python, row by row
 ├── data/
 │   ├── formats/                  Community-format definitions (tracked)
 │   ├── raw/, backups/, app/, game_logs/, playmats/, exports/, import/   Git-ignored
@@ -202,4 +202,4 @@ mtg-oracle/
 - Don't fetch from Scryfall, Wizards or Spellbook at query time: the sync is the refresh path. Don't edit `data/raw/`, which every sync overwrites.
 - Spellbook is comprehensive for known combos, not exhaustive; your own combos fill the gap.
 
-See [`CHANGELOG.md`](CHANGELOG.md) for the history and [`docs/project-plan.md`](docs/project-plan.md) for what's next.
+See [`CHANGELOG.md`](CHANGELOG.md) for the history and [`ROADMAP.md`](ROADMAP.md) for what's next.

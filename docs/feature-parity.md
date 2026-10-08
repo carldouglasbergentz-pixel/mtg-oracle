@@ -4,7 +4,7 @@
 
 The Kotlin app (ADR 0001) replaced the Textual TUI and the CLI piece by piece. This list recorded everything the Python build did, so nothing was lost in the move. Each feature was ticked when the new app had it.
 
-Steps refer to Phase 6 in `project-plan.md`:
+Steps refer to Phase 6 of the project plan:
 
 - **2** covers foundation and play.
 - **3** covers lookup and search (done 2026-09-30).

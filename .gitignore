@@ -60,6 +60,9 @@ Thumbs.db
 .vscode/
 *.swp
 
+# The maintainer's own notes (the project plan, the deck reports): a private repository of their own.
+docs/private/
+
 # Claude Code per-user local settings (project .claude/settings.json IS tracked)
 .claude/settings.local.json
 # Playmats: the user's own pictures

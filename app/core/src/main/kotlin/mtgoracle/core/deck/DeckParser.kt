@@ -17,7 +17,7 @@ data class ParsedRow(
  * Plain-text deck lists as Moxfield, Archidekt, Arena, MTGO, mtgtop8 and
  * card shops write them: a port of mtg_oracle/deck_parser.py, line for line,
  * held to it by DeckParserParityTest over every reference list in
- * docs/reports/decklists. Every shape below came out of a real export that
+ * the test fixture's decklists. Every shape below came out of a real export that
  * lost cards before it was handled; the comments in deck_parser.py say which.
  */
 object DeckParser {

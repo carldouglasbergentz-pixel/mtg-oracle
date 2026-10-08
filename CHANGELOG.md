@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Ready to be public.** The app is GPL-3.0 (`LICENSE`), as Forge, which it embeds, requires; `NOTICE.md` credits Forge, Scryfall, Scryfall Tagger, Commander Spellbook and Wizards of the Coast, with the Fan Content Policy's words, and a release carries `LICENSE.txt`, `NOTICE.txt` and `FORGE-SOURCE.txt` (the Forge commit inside, whose source is on the fork) beside the exe. The updates come from the public repository, with no login: nothing is sent but the requests, no token at all. `tools/stage_forge.py` stages Forge for a build, and the README says how to build it from a fresh clone and what a Forge update means. `SECURITY.md`, `CONTRIBUTING.md` and a bug report template. `UpdatesTest`.
+- **The project plan and the deck reports are the maintainer's own** (`docs/private/`, a private repository of their own, git-ignored here); `ROADMAP.md` is the public view of what comes next. A release has `data\import\` (with its README), `data\exports\` and `data\playmats\` before its first start.
 
 ## [0.5.0] - 2026-10-08
 

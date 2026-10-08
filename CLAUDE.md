@@ -11,12 +11,12 @@ original there.
 
 ## Where things live
 
-- **Status / phase progress / parked items** → [`docs/project-plan.md`](docs/project-plan.md). Read this first when starting a fresh chat.
+- **Status / phase progress / parked items** → `docs/private/project-plan.md`: the maintainer's own notes, a private repository of their own inside this one (`docs/private/` is git-ignored), so a clone of the public repository has none. Read it first when starting a fresh chat, when it is there. The public view of what's next is [`ROADMAP.md`](ROADMAP.md).
 - **Per-feature history** → [`CHANGELOG.md`](CHANGELOG.md). Append-only.
 - **Bootstrapping a new contributor** → [`README.md`](README.md).
 - **App aesthetic intent** → [`docs/app-design.md`](docs/app-design.md).
 - **Why the app is built as it is** → [`docs/adr/0001-standalone-jvm-app-with-embedded-forge.md`](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md); network play → [`docs/adr/0002-network-play.md`](docs/adr/0002-network-play.md); limited and who opens whose packs → [`docs/adr/0003-limited-pools.md`](docs/adr/0003-limited-pools.md). [`docs/feature-parity.md`](docs/feature-parity.md) is the record of the port, row by row.
-- **Deck-analysis report style** → [`docs/reports/report-style.md`](docs/reports/report-style.md). Reports are written in **Swedish** (every other doc here is English, because those are code-facing), live in `docs/reports/*-report.html` **and** as an artifact, with their reference lists in `docs/reports/decklists/<name>/`, and share one inlined stylesheet. Read it before writing a new one — the convention existed only as a single example once, and the second report was written in the wrong language because of it.
+- **Deck-analysis report style** → `docs/private/reports/report-style.md` (the maintainer's, private as the plan is). Reports are written in **Swedish** (every other doc here is English, because those are code-facing), live in `docs/private/reports/*-report.html` **and** as an artifact, with their reference lists in `docs/private/reports/decklists/<name>/`, and share one inlined stylesheet. Read it before writing a new one — the convention existed only as a single example once, and the second report was written in the wrong language because of it.
 - **Stable user preferences** → `memory/` (loaded selectively).
 - **This file** → durable rules: schema semantics, conventions, don'ts, plan-first gate, self-review checklist. Loaded every turn — keep it lean.
 
@@ -188,7 +188,7 @@ Trivial edits (typo, comment tweak, one-line config) may skip — call out that 
 - For *rules interactions*, prefer `rules` over `rulings`. Rulings clarify specific cards; rules govern the system.
 - For "can X do Y?" questions, check **both** rules AND that card's rulings.
 - Combo answers include: cards involved, color identity, prerequisites, result, steps.
-- Phase status changes go in [`docs/project-plan.md`](docs/project-plan.md), not here. CHANGELOG records the work; the project plan records the position.
+- Phase status changes go in `docs/private/project-plan.md`, not here. CHANGELOG records the work; the project plan records the position.
 
 ## Don't
 
@@ -198,4 +198,4 @@ Trivial edits (typo, comment tweak, one-line config) may skip — call out that 
 - Don't delete or replace `data/mtg.db` without confirming with the user: it holds their decks, games and corrections, which no sync can bring back.
 - Don't skip the `corrections` lookup on interaction/rules questions — that's how last session's bugs reach this session unfixed.
 - Don't mutate `corrections` rows in place when a correction turns out to be wrong — insert a new row that supersedes it, or `/correction delete <id>` after explicit confirmation.
-- Don't add status / "phase X done" lines here. That belongs in `docs/project-plan.md`.
+- Don't add status / "phase X done" lines here. That belongs in `docs/private/project-plan.md`.

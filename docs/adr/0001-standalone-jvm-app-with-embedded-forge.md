@@ -1,7 +1,7 @@
 # ADR 0001 — A standalone JVM app with Forge embedded
 
 - **Status:** accepted. The step-1 spike passed on 2026-09-29 (see "Spike result").
-- **Supersedes:** the 2026-08-19 "stay on Textual" decision in `docs/project-plan.md`
+- **Supersedes:** the 2026-08-19 "stay on Textual" decision in the project plan
 
 ## Context
 
