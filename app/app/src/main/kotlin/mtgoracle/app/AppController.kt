@@ -201,7 +201,8 @@ class AppController(private val paths: AppPaths) {
     /** The lobby, the match on, the simulation running, and each game written as it ends. */
     val play = PlayControl(settings, sessions = { sessions }, decks = { decks }, deckById = ::deckById, games = { lookupGames },
         forgeReady = { forgeReady }, show = { screen = it; if (it == Screen.Playing) anyGames = true }, say = { notice = it },
-        limitedControl = { limited.takeIf { db != null && forgeReady } })
+        limitedControl = { limited.takeIf { db != null && forgeReady } },
+        formatKey = { raw -> currentLookup?.formats?.resolve(raw)?.key ?: raw?.takeIf { it.isNotBlank() }?.let(mtgoracle.core.lookup.Formats::fold) })
 
     /** Sealed against the AI: opening a pool, and the AI's deck built from its own. */
     val limited = LimitedControl(

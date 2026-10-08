@@ -43,6 +43,14 @@ class LobbyTest {
         app.play.chooseMe(other.id)
         assertEquals(other.id, app.play.lobbyMeId)
         assertTrue(app.play.opponents().isNotEmpty() && app.play.opponents().all { gameType(it.deck.id) == gameType(other.id) }, "only decks that can face it")
+        // Of one format: a Premodern deck meets Premodern decks, not the Canadian Highlander ones Forge would also play.
+        val formats = mtgoracle.data.Lookup(mtgoracle.data.MtgDb(java.io.File(data, "mtg.db"))).formats
+        fun format(id: Int) = app.deckById(id)!!.format?.let { formats.resolve(it)?.key ?: it }
+        for (deck in app.decks.filter { app.deckById(it.id)!!.format != null && gameType(it.id) == mtgoracle.core.deck.GameType.CONSTRUCTED }) {
+            app.play.chooseMe(deck.id)
+            assertTrue(app.play.opponents().all { format(it.deck.id) == format(deck.id) }, "${deck.name} (${format(deck.id)}): ${app.play.opponents().map { it.deck.name to format(it.deck.id) }}")
+        }
+        app.play.chooseMe(other.id)
         assertTrue(app.play.opponentId in app.play.opponents().map { it.deck.id }, "and the opponent follows: ${app.play.opponentId}")
 
         // With no deck to start from, the last pairing played (kept by start and simulate).

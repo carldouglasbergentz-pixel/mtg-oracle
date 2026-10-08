@@ -31,6 +31,8 @@ class PlayControl(
     private val show: (Screen) -> Unit,
     private val say: (String?) -> Unit,
     private val limitedControl: () -> LimitedControl? = { null },
+    /** A deck's format as one key, its aliases folded (`canlander` is `canadianhighlander`); null for none. */
+    private val formatKey: (String?) -> String? = { raw -> raw?.takeIf { it.isNotBlank() }?.let(Formats::fold) },
 ) {
     /** The lobby's tab: limited (decks built from opened packs, against the AI's own pool) or constructed. */
     var limited by mutableStateOf(settings.lobbyLimited)
@@ -94,12 +96,19 @@ class PlayControl(
         settings.lobbyOpponent = opponentId
     }
 
+    /**
+     * The decks that can face yours: the same game, and the same format when
+     * yours has one. Forge plays a Canadian Highlander deck against a
+     * Premodern one (both are constructed), but nobody sits down to that.
+     */
     fun opponents(): List<OpponentChoice> {
         if (limited) return emptyList()
         val me = lobbyMe ?: return emptyList()
+        val format = formatKey(me.format)
         val records = records(me)
         return decks().mapNotNull { d ->
-            deckById(d.id)?.takeIf { it.gameType == me.gameType }?.let { OpponentChoice(d, it.substitutions.size, records[d.id]) }
+            deckById(d.id)?.takeIf { it.gameType == me.gameType && (format == null || formatKey(it.format) == format) }
+                ?.let { OpponentChoice(d, it.substitutions.size, records[d.id]) }
         }
     }
 
