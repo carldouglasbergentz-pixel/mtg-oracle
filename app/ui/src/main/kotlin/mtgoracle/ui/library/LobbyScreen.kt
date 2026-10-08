@@ -1,6 +1,10 @@
 package mtgoracle.ui.library
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -301,7 +305,7 @@ private fun SetList(cols: Int, limited: LobbyLimited, active: Boolean, modifier:
     }
     Column(modifier.fillMaxWidth()) {
         RuleLine(cols, label = "open a sealed pool: the set", heavy = active, color = if (active) Palette.accent else Palette.dim, bold = active)
-        Column(Modifier.fillMaxWidth().verticalScroll(scroll)) {
+        WholeLines(scroll) {
             if (limited.sets.isEmpty()) FitText("  the sets come once Forge is up", color = Palette.dim)
             limited.sets.forEach { set ->
                 DeckLine("set:${set.code}", "    ${set.code.padEnd(5)} ${set.name}  ${set.released.take(4)}", set.code == limited.chosenSet, onClick)
@@ -374,7 +378,22 @@ private fun ForgeStarting(startedAt: Long?, expectedMillis: Long?) {
 private fun DeckList(cols: Int, title: String, active: Boolean, modifier: Modifier, content: @Composable () -> Unit) {
     Column(modifier.fillMaxWidth()) {
         RuleLine(cols, label = title, heavy = active, color = if (active) Palette.accent else Palette.dim, bold = active)
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) { content() }
+        WholeLines(rememberScrollState()) { content() }
+    }
+}
+
+/**
+ * A list that scrolls under its rule, shown in whole lines: its visible height
+ * is a whole number of lines, so every place it scrolls to, its end included,
+ * starts on a line and no half line stands under the rule.
+ */
+@Composable
+private fun ColumnScope.WholeLines(scroll: ScrollState, content: @Composable () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+        val line = LocalCells.current.height
+        val rows = maxOf(1, (constraints.maxHeight / line).toInt())
+        val height = with(LocalDensity.current) { (rows * line).toDp() }
+        Column(Modifier.fillMaxWidth().height(height).verticalScroll(scroll)) { content() }
     }
 }
 
