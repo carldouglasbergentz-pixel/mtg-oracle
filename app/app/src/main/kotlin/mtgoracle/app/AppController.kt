@@ -65,6 +65,11 @@ sealed interface Screen {
  * threads. Play is [play], the sync [sync], a release's updates [updates];
  * this holds the library, the workspace, the screens and the crash screen.
  */
+/** What `data\import\README.txt` says; the release package writes the same file (`packageRelease`). */
+internal val IMPORT_README: String by lazy {
+    AppController::class.java.getResourceAsStream("/mtgoracle/app/import-README.txt")!!.bufferedReader(Charsets.UTF_8).readText().lines().joinToString("\r\n")
+}
+
 class AppController(private val paths: AppPaths) {
     val settings = Settings(paths.settings)
     var screen by mutableStateOf<Screen>(Screen.Loading)
@@ -404,21 +409,15 @@ class AppController(private val paths: AppPaths) {
 
     /**
      * data\import\ and data\exports\ from the first start, each saying what it is for: made only
-     * when first used, neither was there to be found (the user, 2026-10-05).
+     * when first used, neither was there to be found (the user, 2026-10-05). A release has them
+     * already (packageRelease); a build run from source makes them here.
      */
     private fun showPackageFolders() = runCatching {
         paths.exports.mkdirs()
         paths.imports.mkdirs()
         paths.playmats.mkdirs()
         val readme = paths.imports.resolve("README.txt")
-        if (!readme.exists()) readme.writeText(
-            "Put a .mtgoracle package here (an export from MTG Oracle: decks, games, your own combos)\r\n" +
-                "and it is imported at the next start. The app asks first, and nothing in your library\r\n" +
-                "is overwritten. An imported package moves to done\\, a skipped one to skipped\\.\r\n" +
-                "\r\n" +
-                "Or copy the file in Explorer and press Import in the library.\r\n" +
-                "Exports are saved in ..\\exports\\.\r\n",
-        )
+        if (!readme.exists()) readme.writeText(IMPORT_README)
     }.onFailure { Log.warn("could not make the package folders: ${it.message}") }
 
     /** Forge's word on each card name asked so far: it never changes while the app runs. */

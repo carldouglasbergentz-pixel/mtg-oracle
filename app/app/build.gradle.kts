@@ -149,11 +149,16 @@ val releaseModules = listOf(
     "java.logging", "java.prefs", "java.xml", "jdk.net",
 )
 
-/** [folder] and everything in it as [zip], under the folder's own name. */
+/** [folder] and everything in it as [zip], under the folder's own name; an empty folder too (data\\exports\\ before anything is exported). */
 fun zipFolder(folder: File, zip: File) {
     ZipOutputStream(zip.outputStream().buffered()).use { out ->
-        folder.walkTopDown().filter { it.isFile }.forEach { file ->
-            out.putNextEntry(ZipEntry(folder.name + "/" + file.relativeTo(folder).invariantSeparatorsPath))
+        folder.walkTopDown().forEach { file ->
+            val name = folder.name + "/" + file.relativeTo(folder).invariantSeparatorsPath
+            if (file.isDirectory) {
+                if (file.listFiles().isNullOrEmpty()) { out.putNextEntry(ZipEntry("$name/")); out.closeEntry() }
+                return@forEach
+            }
+            out.putNextEntry(ZipEntry(name))
             file.inputStream().use { it.copyTo(out) }
             out.closeEntry()
         }
@@ -219,6 +224,14 @@ tasks.register("packageRelease") {
             "MTG Oracle $release embeds Forge (GPL-3.0), built from commit $forgeCommit of\r\n" +
                 "https://github.com/carldouglasbergentz-pixel/forge\r\n" +
                 "Its source: https://github.com/carldouglasbergentz-pixel/forge/tree/$forgeCommit\r\n",
+        )
+        // data\ as the app makes it on a first start, there before it: where an export goes, where a package
+        // to import goes (its README says how), and the playmats. An update never touches data\ (Updates).
+        val data = image.resolve("data")
+        listOf("exports", "playmats").forEach { data.resolve(it).mkdirs() }
+        data.resolve("import").mkdirs()
+        data.resolve("import/README.txt").writeText(
+            project.file("src/main/resources/mtgoracle/app/import-README.txt").readText().lines().joinToString("\r\n"),
         )
         val zip = releaseRoot.resolve("MTG-Oracle-$release-windows-x64.zip")
         zipFolder(image, zip)
