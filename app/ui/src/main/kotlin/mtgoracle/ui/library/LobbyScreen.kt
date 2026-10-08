@@ -209,7 +209,10 @@ fun LobbyScreen(
                 }
                 BoxPane("the match", Modifier.weight(1f).fillMaxHeight()) {
                     // Every line takes the pane's measured width: facts are cut where the pane ends, instructions wrap.
-                    if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick)
+                    if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick) {
+                        network?.let { GridText(""); NetworkSection(it, canPlay = forgeReady && !simRunning && limited.chosenSet != null, onNet,
+                            sealedSet = limited.sets.firstOrNull { s -> s.code == limited.chosenSet }?.name) }
+                    }
                     else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         FitText("  ${me?.name ?: "your deck"}  vs  ${opponent?.deck?.name ?: "-"}", bold = true)
                         GridText("")
@@ -308,6 +311,8 @@ private fun SetList(cols: Int, limited: LobbyLimited, active: Boolean, modifier:
 private fun LimitedMatch(
     me: DeckSummary?, limited: LobbyLimited, watch: Boolean, format: String, notes: List<String>, canStart: Boolean,
     forgeReady: Boolean, forgeStartedAt: Long?, forgeExpectedMillis: Long?, onClick: (ClickTarget) -> Unit,
+    /** Network play, under the rest: a sealed table hosted or joined. */
+    network: @Composable () -> Unit = {},
 ) {
     val set = limited.sets.firstOrNull { it.code == limited.chosenSet }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -337,6 +342,7 @@ private fun LimitedMatch(
             GridText(" ")
             BigButton(if (limited.opening) "Opening…" else "Open sealed", ClickTarget.Control("open-sealed"), set != null && forgeReady && !limited.opening, onClick)
         }
+        network()
     }
 }
 

@@ -32,6 +32,11 @@ sealed interface NetState {
     data object Joining : NetState
     /** Why the last try didn't work, said as it is. */
     data class Failed(val reason: String) : NetState
+    /**
+     * At a sealed table of [set] with [friend], before the match: the [deck] this side builds (once its pool is
+     * opened), whether this side is [ready], and where it stands.
+     */
+    data class Building(val set: String, val friend: String, val deck: String?, val ready: Boolean, val note: String?) : NetState
 }
 
 /** Network play in the lobby: your name at a table, your playmat choices, and where it stands. */
@@ -46,6 +51,10 @@ sealed interface NetAction {
     /** Join the room whose invite is on the clipboard. */
     data object Join : NetAction
     data object CancelJoin : NetAction
+    /** A sealed table: this side's deck is built (the host holds to it, the guest sends it). */
+    data object Ready : NetAction
+    /** A sealed table: leave it before the match; the pool stays. */
+    data object LeaveTable : NetAction
     data object ToggleShareMat : NetAction
     data object ToggleShowTheirMat : NetAction
 }
@@ -56,7 +65,7 @@ sealed interface NetAction {
  * the name and playmat choices that go with you.
  */
 @Composable
-internal fun NetworkSection(net: LobbyNetwork, canPlay: Boolean, onNet: (NetAction) -> Unit) {
+internal fun NetworkSection(net: LobbyNetwork, canPlay: Boolean, onNet: (NetAction) -> Unit, sealedSet: String? = null) {
     BoxWithConstraints(Modifier.fillMaxWidth().region("lobby-network")) {
         val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
         Column {
@@ -85,12 +94,27 @@ internal fun NetworkSection(net: LobbyNetwork, canPlay: Boolean, onNet: (NetActi
                         BigButton("Host a room", ClickTarget.Control("net:host"), true) { onNet(NetAction.Host) }
                         GridText(" ")
                         BigButton("Join from the clipboard", ClickTarget.Control("net:join"), true) { onNet(NetAction.Join) }
-                    } else FitText("  choose your deck first", color = Palette.dim)
+                    } else FitText(if (sealedSet != null) "  choose a set first" else "  choose your deck first", color = Palette.dim)
                     WrapText("      Host: your router opens a port (UPnP) and you get an invite to send. Join: copy the invite you were sent, then Join. " +
-                        "You play the deck chosen above; the host's match format counts.", color = Palette.dim)
+                        (if (sealedSet != null) "A sealed table of $sealedSet when you host it: each of you opens six packs in your own app, builds, then Ready; " +
+                            "neither sees the other's pool, and each checks the other's deck against it."
+                        else "You play the deck chosen above; the host's match format counts."), color = Palette.dim)
                     if (state is NetState.Failed) WrapText("  ${state.reason}", color = Palette.accent)
                 }
                 NetState.Opening -> FitText("  asking your router to open a port…", color = Palette.dim)
+                is NetState.Building -> {
+                    FitText("  a sealed table of ${state.set} with ${state.friend}", color = Palette.accent, bold = true)
+                    FitText("  your deck: ${state.deck ?: "(your packs are being opened)"}", color = if (state.deck != null) Palette.foreground else Palette.dim)
+                    state.note?.let { WrapText("  $it", color = Palette.accent, hang = 2) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        GridText(" ")
+                        BigButton(if (state.ready) "Ready ✓" else "Ready", ClickTarget.Control("net:ready"), state.deck != null && !state.ready) { onNet(NetAction.Ready) }
+                        GridText(" ")
+                        BigButton("Leave the table", ClickTarget.Control("net:leave"), true) { onNet(NetAction.LeaveTable) }
+                    }
+                    WrapText("      Build in the library (your deck is in the Limited folder): the pool is in the middle, + takes a card. " +
+                        "Ready checks the deck against your pool (forty or more) and holds you to it; the match begins when both are ready.", color = Palette.dim)
+                }
                 NetState.Joining -> Row {
                     GridText("  knocking on your friend's room…  ", color = Palette.dim)
                     LinkButton("[ Cancel ]", ClickTarget.Control("net:cancel-join")) { onNet(NetAction.CancelJoin) }

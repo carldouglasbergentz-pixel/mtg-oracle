@@ -10,6 +10,16 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import mtgoracle.core.deck.AiCopy
 import mtgoracle.core.deck.Deck
+import mtgoracle.core.deck.PlayDeck
+import mtgoracle.core.limited.LimitedSet
+import mtgoracle.core.limited.OpenedPool
+import mtgoracle.core.limited.Sealed
+import mtgoracle.forge.ForgeLimited
+import mtgoracle.net.LimitedTable
+import mtgoracle.net.SealedEvent
+import mtgoracle.net.SealedHost
+import mtgoracle.net.SealedProgress
+import mtgoracle.net.SealedSeat
 import mtgoracle.core.play.MatchResult
 import mtgoracle.core.play.Winner
 import mtgoracle.forge.ForgeMatch
@@ -56,6 +66,11 @@ class NetPlay(
     private val show: (Screen) -> Unit,
     private val say: (String?) -> Unit,
     private val openRoom: () -> Opening = { Room.public() },
+    /** The limited tab's chosen set when the lobby shows that tab: a room opened there is a sealed table of it. */
+    private val sealedSet: () -> LimitedSet? = { null },
+    /** This side's pool at a sealed table, made a deck (and opened to build) against the named friend: its id. */
+    private val tablePool: (OpenedPool, String) -> Int = { _, _ -> error("no sealed tables here") },
+    private val limited: () -> LimitedControl? = { null },
 ) {
     private val version = System.getProperty("mtgoracle.version") ?: "dev build"
 
@@ -66,8 +81,17 @@ class NetPlay(
     /** Bumped when a setting the lobby shows changes. */
     private var changed by mutableStateOf(0)
 
-    /** The host's side of the table on now: the room (and its port), the guest's seat sent down the link, the match. */
-    private class HostTable(val room: Room, val host: SeatHost, val match: RunningMatch, val scope: CoroutineScope)
+    /**
+     * The host's side of the table on now: the room (and its port), the guest's seat sent down the link, the match,
+     * and at a sealed table the host's secret and deck, revealed to the guest when it ends.
+     */
+    private class HostTable(val room: Room, val host: SeatHost, val match: RunningMatch, val scope: CoroutineScope, val reveal: Pair<String, PlayDeck>? = null)
+
+    /** A sealed table being built, as the host: its steps, and the link to close when the host leaves it. */
+    @Volatile private var building: SealedHost? = null
+    @Volatile private var buildingLink: mtgoracle.net.Link? = null
+    /** The deck this side builds at a sealed table, once its pool is opened. */
+    @Volatile private var tableDeckId: Int? = null
     @Volatile private var hosting: HostTable? = null
     @Volatile private var openRoomNow: Room? = null
 
@@ -96,6 +120,8 @@ class NetPlay(
             NetAction.CloseRoom -> closeRoom()
             NetAction.CancelJoin -> cancelJoin()
             NetAction.CopyInvite -> (state as? NetState.Hosting)?.let { writeClipboard(it.invite); say("the invite is on the clipboard: send it to your friend") }
+            NetAction.Ready -> ready()
+            NetAction.LeaveTable -> if (guest != null) leaveTable(concede = false) else leaveBuilding()
             NetAction.ToggleShareMat -> { settings.shareMat = !settings.shareMat; changed++ }
             NetAction.ToggleShowTheirMat -> { settings.showTheirMat = !settings.showTheirMat; changed++; refreshTheirMat() }
         }
@@ -124,7 +150,8 @@ class NetPlay(
     @Volatile private var cancelled = false
 
     private fun host() {
-        val deck = play.lobbyMe ?: return say("choose your deck first")
+        val set = sealedSet()
+        val deck = if (set != null) null else play.lobbyMe ?: return say("choose your deck first")
         if (play.match != null || play.simulating) return say("a game or a simulation is on: finish it first")
         if (!idle) return say("a room or a table is already on")
         cancelled = false
@@ -133,6 +160,8 @@ class NetPlay(
             var room: Room? = null
             var link: mtgoracle.net.Link? = null
             try {
+                // What this app's Forge opens for the set: a guest whose app opens other packs is turned away at the door.
+                val table = set?.let { LimitedTable(it, Sealed.PACKS, ForgeLimited.packsDigest(it, Sealed.PACKS)) }
                 room = when (val opening = openRoom()) {
                     is Opening.NotReachable -> { state = NetState.Failed(opening.reason); return@thread }
                     is Opening.Opened -> opening.room
@@ -143,9 +172,10 @@ class NetPlay(
                 writeClipboard(invite)
                 state = NetState.Hosting(invite, strangers = 0)
                 say("the room is open and its invite is on the clipboard: send it to your friend")
-                val me = AiCopy.asBuilt(deck)
+                val me = deck?.let(AiCopy::asBuilt)
                 var strangers = 0
-                val admitted = room.awaitGuest(HostMessage.Hello(PROTOCOL_VERSION, version, settings.playerName), judge = { sessions().judgeGuest(me, it.deck) },
+                // A constructed table judges the guest's deck (the handshake refused a hello with none); a sealed one builds it at the table.
+                val admitted = room.awaitGuest(HostMessage.Hello(PROTOCOL_VERSION, version, settings.playerName, table), judge = { hello -> me?.let { sessions().judgeGuest(it, hello.deck!!) } },
                     onKnock = { knock ->
                         val now = state as? NetState.Hosting ?: return@awaitGuest
                         state = when (knock) {
@@ -161,13 +191,22 @@ class NetPlay(
                 }
                 link = admitted.link
                 val guestName = ForgeMatch.tableName(settings.playerName, admitted.hello.name)
-                val match = play.startNetwork(admitted.hello.deck, settings.playerName to guestName)
+                var sealed: SealedHost? = null
+                var guestDeck = admitted.hello.deck
+                if (table != null) {
+                    // A sealed table: seated now, each builds a deck from a pool of its own, and the match begins when both decks are in.
+                    Door.seat(admitted.link, guestName)
+                    val built = buildSealed(table, admitted.link, guestName) ?: return@thread
+                    sealed = built.first
+                    guestDeck = built.second
+                }
+                val match = play.startNetwork(guestDeck!!, settings.playerName to guestName, hostDeck = sealed?.deck)
                 if (match == null) {
                     Door.turnAway(admitted.link, "The host started another game meanwhile: ask them to open the room again.")
                     state = NetState.Failed("a game or a simulation started meanwhile: open the room again")
                     return@thread
                 }
-                Door.seat(admitted.link, guestName)
+                if (table == null) Door.seat(admitted.link, guestName)
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 val host = SeatHost(match.guest!!, admitted.link) { event ->
                     when (event) {
@@ -178,7 +217,7 @@ class NetPlay(
                         is GuestEvent.Lost -> { say(event.reason); match.breakOff(event.reason) }
                     }
                 }
-                hosting = HostTable(room, host, match, scope)
+                hosting = HostTable(room, host, match, scope, reveal = sealed?.let { s -> s.deck?.let { s.secret to it } })
                 // Before the seat starts: a guest gone at once ends the match, and that result must not go by unheard.
                 scope.launch { host.guestMat.collect { refreshTheirMat() } }
                 scope.launch {
@@ -194,7 +233,7 @@ class NetPlay(
                 host.match(match.spec.format, match.spec.seat.name)
                 if (settings.shareMat) host.mat(mats.picture(mats.mine))
                 state = NetState.Idle
-                say("$guestName sat down with ${admitted.hello.deck.name}")
+                say("$guestName sat down with ${guestDeck.name}")
             } catch (e: Exception) {
                 Log.error("hosting failed", e)
                 state = NetState.Failed("Hosting failed: ${e.message}. The room is closed.")
@@ -214,6 +253,7 @@ class NetPlay(
     private fun endHosting(reason: String, wait: Boolean = false) {
         val table = hosting ?: return
         hosting = null
+        table.reveal?.let { (secret, deck) -> table.host.reveal(secret, deck) }
         table.host.end(reason)
         table.scope.cancel()
         theirMat = null
@@ -234,7 +274,8 @@ class NetPlay(
     @Volatile private var knocking: RemoteSeat? = null
 
     private fun join() {
-        val deck = play.lobbyMe ?: return say("choose your deck first")
+        val sealedTable = play.limited
+        val deck = if (sealedTable) null else play.lobbyMe ?: return say("choose your deck first")
         if (play.match != null || play.simulating) return say("a game or a simulation is on: finish it first")
         if (!idle) return say("a room or a table is already on")
         val invite = try {
@@ -253,8 +294,9 @@ class NetPlay(
                 return@thread
             }
             if (cancelled) { link.close(); joining = false; return@thread }
-            val mine = AiCopy.asBuilt(deck)
-            val seat = RemoteSeat(link, settings.playerName, mine, version, settings.stops, mat = if (settings.shareMat) mats.picture(mats.mine) else null).start()
+            val mine = deck?.let(AiCopy::asBuilt)
+            val seat = RemoteSeat(link, settings.playerName, mine, version, settings.stops, mat = if (settings.shareMat) mats.picture(mats.mine) else null,
+                sealed = if (sealedTable) guestSealed() else null).start()
             knocking = seat
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
             guestScope = scope
@@ -272,14 +314,29 @@ class NetPlay(
                 seat.seating.collect { seating ->
                     when (seating) {
                         Seating.Knocking -> Unit
-                        is Seating.Seated -> { knocking = null; joining = false; guest = seat; state = NetState.Idle; show(Screen.Guest); say("seated as ${seating.name}") }
+                        is Seating.Seated -> {
+                            knocking = null; joining = false; guest = seat
+                            // At a sealed table the board waits for the match: the decks are built first, in the lobby and the workspace.
+                            val table = seat.sealedProgress.value?.table
+                            if (table == null) { state = NetState.Idle; show(Screen.Guest); say("seated as ${seating.name}") }
+                            else {
+                                // The set as this app names it, never the host's text.
+                                val set = ForgeLimited.set(table.set.code)?.name ?: table.set.code.filter(Char::isLetterOrDigit).take(8)
+                                state = NetState.Building(set, seat.host ?: "the host", deck = null, ready = false, note = "opening your packs")
+                                say("seated at a sealed table of $set")
+                            }
+                        }
                         is Seating.Refused -> giveUp("Your friend's room turned you away: ${seating.reason}")
                         is Seating.Lost -> if (guest !== seat) giveUp(if (cancelled) null else seating.reason) else say(seating.reason)
-                        is Seating.Ended -> if (guest !== seat) giveUp(null) else say("the table closed: ${seating.reason}")
+                        // A sealed table's end says what came of checking the host's deck too: it came just before.
+                        is Seating.Ended -> if (guest !== seat) giveUp(null)
+                            else say("the table closed: ${fromHost(seating.reason)}" + (seat.sealedProgress.value?.hostCheck?.let { ". $it" } ?: ""))
                     }
                 }
             }
             scope.launch { seat.theirMat.collect { refreshTheirMat() } }
+            scope.launch { seat.match.collect { if (it != null && seat.sealedProgress.value != null && guest === seat) { state = NetState.Idle; show(Screen.Guest) } } }
+            scope.launch { seat.sealedProgress.collect { progress -> progress?.let { guestProgress(it) } } }
             scope.launch {
                 seat.outcome.collect { outcome ->
                     if (outcome == null) { gameStarted = Instant.now(); return@collect }
@@ -293,7 +350,7 @@ class NetPlay(
                     if (known >= 0) { guestGames = guestGames.toMutableList().also { it[known] = entry }; return@collect }
                     guestGames = guestGames + entry
                     try {
-                        sessions().recordAsGuest(mine, hostName(seat), fromHost(host?.deck ?: "the host's deck"), outcome, host?.format, matchId, gameStarted)
+                        sessions().recordAsGuest(mine ?: seat.sealedProgress.value?.sent ?: return@collect, hostName(seat), fromHost(host?.deck ?: "the host's deck"), outcome, host?.format, matchId, gameStarted)
                     } catch (e: Exception) {
                         Log.error("could not record the network game", e)
                         say("game ${outcome.gameNo} was NOT recorded: ${e.message}")
@@ -301,6 +358,86 @@ class NetPlay(
                 }
             }
         }
+    }
+
+    // --- a sealed table -------------------------------------------------------
+
+    /**
+     * The host's side of a sealed table, from the guest's seating to both decks in: the host's pool opened and made a
+     * deck to build, the guest's deck judged against the guest's pool. The host's table and the guest's deck, or null
+     * when the guest left or the link went (the lobby says which).
+     */
+    private fun buildSealed(table: LimitedTable, link: mtgoracle.net.Link, friend: String): Pair<SealedHost, PlayDeck>? {
+        val sealed = SealedHost(link, table, open = { seed -> ForgeLimited.open(table.set, table.packs, seed) }) { event ->
+            when (event) {
+                is SealedEvent.PoolOpened -> {
+                    tableDeckId = tablePool(event.pool, friend)
+                    state = NetState.Building(table.set.name, friend, deck = deckById(tableDeckId!!)?.name, ready = false, note = "build your deck from the pool, then Ready")
+                }
+                is SealedEvent.Refused -> (state as? NetState.Building)?.let { state = it.copy(note = "$friend's deck was turned away: ${event.reason}") }
+            }
+        }
+        building = sealed
+        buildingLink = link
+        state = NetState.Building(table.set.name, friend, deck = null, ready = false, note = "opening your packs")
+        val outcome = sealed.run()
+        building = null
+        buildingLink = null
+        return when (outcome) {
+            is SealedHost.Outcome.Gone -> {
+                state = NetState.Failed("The sealed table closed: ${outcome.reason}. Your pool is kept, in the Limited folder.")
+                null
+            }
+            is SealedHost.Outcome.Seated -> {
+                tableDeckId?.let { id -> runCatching { limited()?.addRival(id, outcome.pool, friend) }.onFailure { Log.error("could not keep $friend's pool", it) } }
+                sealed to outcome.deck
+            }
+        }
+    }
+
+    /** The guest app's part at a sealed table: this app's packs, and its pool made a deck to build. */
+    private fun guestSealed(): SealedSeat = object : SealedSeat {
+        override fun packsDigest(table: LimitedTable): String? = ForgeLimited.set(table.set.code)?.let { ForgeLimited.packsDigest(it, table.packs) }
+        override fun open(table: LimitedTable, seed: Long): OpenedPool = ForgeLimited.open(ForgeLimited.set(table.set.code)!!, table.packs, seed)
+        override fun poolOpened(table: LimitedTable, pool: OpenedPool) { tableDeckId = tablePool(pool, (knocking ?: guest)?.host ?: "the host") }
+    }
+
+    /** The guest's sealed table as the lobby shows it: the pool, the host ready, what the host said of the deck; after the match, the host's check. */
+    private fun guestProgress(progress: SealedProgress) {
+        progress.hostCheck?.let { say(it); return }
+        val now = state as? NetState.Building ?: return
+        val deck = tableDeckId?.let { deckById(it)?.name }
+        state = now.copy(deck = deck, ready = progress.sent != null && progress.refusal == null, note = when {
+            progress.accepted -> "your deck is in: the match begins"
+            progress.refusal != null -> "the host turned your deck away: ${progress.refusal}"
+            progress.sent != null -> "your deck is sent: waiting for the host's word"
+            progress.hostReady && progress.pool != null -> "the host is ready: build your deck from the pool, then Ready"
+            progress.pool != null -> "build your deck from the pool; Ready once the host is"
+            else -> "opening your packs"
+        })
+    }
+
+    /** Ready, at a sealed table: this side's deck as built, checked against its pool, and sent (the guest's) or held to (the host's). */
+    private fun ready() {
+        val id = tableDeckId ?: return say("your pool is still being opened")
+        val deck = limited()?.playDeck(id) ?: return say("your table's deck is gone")
+        val host = building
+        val seat = guest
+        // Each returns why not, or null when done.
+        val refusal = when {
+            host != null -> host.ready(deck)
+            seat != null -> seat.sendDeck(deck)
+            else -> return say("no sealed table is on")
+        }
+        if (refusal != null) return say(refusal)
+        (state as? NetState.Building)?.let { state = it.copy(ready = true, note = if (building != null) "ready: waiting for ${it.friend}'s deck" else "your deck is sent: waiting for the host's word") }
+    }
+
+    /** The host leaves a sealed table being built: the guest is told the table closed, and the pool stays. */
+    private fun leaveBuilding() {
+        val link = buildingLink ?: return
+        link.send(mtgoracle.net.Wire.encode(HostMessage.End("the host left the table")))
+        link.close()
     }
 
     /** Stops knocking on a friend's room. */

@@ -217,11 +217,12 @@ class PlayControl(
      * under the two people's [names] and the lobby's match format: shown and recorded as any match, as
      * human_vs_human. Null when a game or a simulation holds Forge.
      */
-    fun startNetwork(guestDeck: mtgoracle.core.deck.PlayDeck, names: Pair<String, String>): RunningMatch? {
+    fun startNetwork(guestDeck: mtgoracle.core.deck.PlayDeck, names: Pair<String, String>, hostDeck: mtgoracle.core.deck.PlayDeck? = null): RunningMatch? {
         if (simulating || match != null) return null
-        val me = lobbyMe ?: return null
-        settings.lobbyMe = lobbyMeId
-        val ready = Prepared(mtgoracle.core.deck.AiCopy.asBuilt(me), guestDeck, emptyList(), blocked = false)
+        // At a sealed table the host plays the deck it was ready with; else the lobby's deck, as built.
+        val mine = hostDeck ?: lobbyMe?.let(mtgoracle.core.deck.AiCopy::asBuilt) ?: return null
+        if (hostDeck == null) settings.lobbyMe = lobbyMeId
+        val ready = Prepared(mine, guestDeck, emptyList(), blocked = false)
         val running = sessions().start(ready, mode = GameMode.HUMAN_VS_HUMAN, stops = settings.stops, format = format, names = names)
         begin(running)
         return running

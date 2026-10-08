@@ -74,12 +74,12 @@ object LocalDuel {
     fun table(sessions: Sessions, hostDeck: PlayDeck, guestDeck: PlayDeck, version: String, seed: Long = Random.nextLong(), wrap: (Link) -> Link = { it }): Table {
         val room = Room.local()
         val guest = RemoteSeat(room.invite.join(), "Guest", guestDeck, version).start()
-        val admitted = room.awaitGuest(HostMessage.Hello(PROTOCOL_VERSION, version, HOST), judge = { sessions.judgeGuest(hostDeck, it.deck) },
+        val admitted = room.awaitGuest(HostMessage.Hello(PROTOCOL_VERSION, version, HOST), judge = { sessions.judgeGuest(hostDeck, it.deck!!) }, // a constructed table: the handshake refused a hello with no deck
             onKnock = { error("the guest was turned away: $it") }) ?: error("the room closed: ${room.closedBecause}")
         val link = wrap(admitted.link)
         val hello = admitted.hello
         val guestName = ForgeMatch.tableName(HOST, hello.name)
-        val match = sessions.start(Prepared(hostDeck, hello.deck, emptyList(), blocked = false), GameMode.HUMAN_VS_HUMAN, seed = seed, names = HOST to guestName)
+        val match = sessions.start(Prepared(hostDeck, hello.deck!!, emptyList(), blocked = false), GameMode.HUMAN_VS_HUMAN, seed = seed, names = HOST to guestName)
         Door.seat(link, guestName)
         val host = SeatHost(match.guest!!, link) { event ->
             when (event) {

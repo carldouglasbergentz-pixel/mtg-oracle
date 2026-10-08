@@ -28,6 +28,17 @@ class PoolStore(private val db: MtgDb) {
         StoredPool(id, OpenedPool(LimitedSet(head.setCode, head.scryfallCode, head.setName, released = ""), head.seed, packs), head.product, head.openedBy, head.rivalPoolId)
     }
 
+    /**
+     * [rival] (the other person's pool at a network table, opened by
+     * [openedBy]) stored and linked to pool [poolId], which had none: what
+     * the deck built from [poolId] was played against.
+     */
+    fun addRival(poolId: Int, rival: OpenedPool, product: String, openedBy: String, forgeVersion: String?): Int = db.write { conn ->
+        val id = insert(conn, rival, product, openedBy, forgeVersion, rivalPoolId = null)
+        conn.update("UPDATE limited_pools SET rival_pool_id = ? WHERE id = ? AND rival_pool_id IS NULL", id, poolId)
+        id
+    }
+
     private data class Head(val setCode: String, val scryfallCode: String, val setName: String, val product: String, val packs: Int, val seed: Long, val openedBy: String, val rivalPoolId: Int?)
 
     companion object {

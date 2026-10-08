@@ -18,13 +18,31 @@ object Handshake {
 
     private val INVISIBLE = setOf(Character.FORMAT, Character.LINE_SEPARATOR, Character.PARAGRAPH_SEPARATOR)
 
-    /** Why the host turns [hello] away, or null when it may sit down. */
-    fun refusal(hello: GuestMessage.Hello): String? =
+    /**
+     * Why the host, having said [host], turns [hello] away, or null when they may sit down: the same protocol
+     * and the same app, then a deck with cards (constructed) or the same packs (a sealed table).
+     */
+    fun refusal(hello: GuestMessage.Hello, host: HostMessage.Hello): String? =
         mismatch(theirs = hello.protocol, them = "your app", us = "the host's app")
-            ?: if (hello.deck.cards.isEmpty()) "Your deck has no cards." else null
+            ?: otherApp(theirs = hello.app, ours = host.app, them = "Your app", us = "the host's")
+            ?: when (val table = host.table) {
+                null -> if (hello.deck == null || hello.deck.cards.isEmpty()) "Your deck has no cards." else null
+                else -> if (hello.packsDigest != table.packsDigest) "Your app opens other packs of ${table.set.name} than the host's: both need the same version." else null
+            }
 
-    /** Why the guest can't sit at a table that said [hello], or null when it can. */
-    fun refusal(hello: HostMessage.Hello): String? = mismatch(theirs = hello.protocol, them = "the host's app", us = "your app")
+    /** Why the guest, running [app], can't sit at a table that said [hello], or null when they can. */
+    fun refusal(hello: HostMessage.Hello, app: String): String? =
+        mismatch(theirs = hello.protocol, them = "the host's app", us = "your app")
+            ?: otherApp(theirs = hello.app, ours = app, them = "The host's app", us = "yours")
+            // The guest's app opens the packs the host names: a changed host can't make it open a thousand.
+            ?: hello.table?.packs?.takeIf { it !in 1..MAX_PACKS }?.let { "The host's table asks for $it packs each; a table opens 1 to $MAX_PACKS." }
+
+    /** The most packs a sealed table opens for each side: a prerelease is six, a long event no more than twelve. */
+    const val MAX_PACKS = 12
+
+    /** Network play is between the same versions: two of them could open other packs, or read a card otherwise. */
+    private fun otherApp(theirs: String, ours: String, them: String, us: String): String? =
+        if (theirs == ours) null else "$them is ${theirs.take(40)} and $us is ${ours.take(40)}: network play needs the same version on both sides (`update`)."
 
     private fun mismatch(theirs: Int, them: String, us: String): String? = when {
         theirs == PROTOCOL_VERSION -> null

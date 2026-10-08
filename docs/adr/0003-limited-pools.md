@@ -1,6 +1,6 @@
 # ADR 0003 — Limited: Forge's packs, our pools, each side opening its own
 
-- **Status:** accepted 2026-10-08. Step 1 (sealed against the AI) is built; step 2 (sealed at a network table) is planned, as described below.
+- **Status:** accepted 2026-10-08. Step 1 (sealed against the AI) and step 2 (sealed at a network table, protocol 2) are built.
 
 ## Context
 
@@ -18,7 +18,9 @@ Two questions decide the design. Where does a pool live? And at a network table,
    2. each then sends the other an open random number;
    3. a pool is opened from its owner's secret and the other side's number, so its owner can't choose a good one (the other's number came after the secret was fixed), and the other side can't see it (it lacks the secret);
    4. a deck is sent with its owner's secret: the other side checks the secret against the envelope, opens the same packs itself, and checks the deck against them with `PoolRule`.
-5. **Both sides must have the same packs.** Network play requires the same app version, and the hello carries a fingerprint of what packs depend on (Forge's jar, its editions, its card scripts).
+5. **Both sides must have the same packs.** Network play requires the same app version, and a sealed table's hello carries a digest of what the host's Forge opens for the set from a fixed seed (`ForgeLimited.packsDigest`): that is what packs depend on, measured rather than listed. A guest whose app opens other packs is turned away at the door.
+
+The steps are `SealedHost` (the host's, before the match) and `RemoteSeat` with a `SealedSeat` (the guest's), over messages of their own (`Envelope`, `Nonce`, `Ready`, `Deck`, `Verdict`, `Reveal`); `Sealed.judge` is the one judgement of a deck against a pool, on both sides. The host's `Ready` carries a digest of its deck, and the `Reveal` after the match must match it. What a peer sends is checked before anything reads it: hex of the right length, a table of 1 to 12 packs, the set as this app names it, a refusal's text cut and cleaned; twenty decks turned away close the table.
 6. **The cards are the record, the seed is the proof.** A pool's cards are stored, not only its seed: a later Forge may open other packs from the same seed.
 
 ## What Forge had to change

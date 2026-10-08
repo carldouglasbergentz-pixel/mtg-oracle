@@ -29,7 +29,7 @@ object Door {
         // The line opened, so they hold the invite: whatever is wrong now, they are told.
         val guest = try { Wire.guest(line) } catch (e: WireError) { return refuse(link, "That was no message this table understands (${e.message}).") }
         if (guest !is GuestMessage.Hello) return refuse(link, "The first message must be a hello.")
-        (Handshake.refusal(guest) ?: judge(guest))?.let { return refuse(link, it) }
+        (Handshake.refusal(guest, hello) ?: judge(guest))?.let { return refuse(link, it) }
         // In, and from now on pinged ([Wire.PING_MILLIS]): silence this long means the link died without a word.
         link.bound(TcpLink.MAX_LINE, Wire.SILENCE_MILLIS)
         return Outcome.Admitted(guest.copy(name = Handshake.cleanName(guest.name)))

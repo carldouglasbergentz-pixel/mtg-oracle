@@ -100,6 +100,10 @@ class WireTest {
             HostMessage.Board(board.copy(log = emptyList())), HostMessage.Board(null), HostMessage.Log(-1, log), HostMessage.Log(2, emptyList()),
             HostMessage.Ask(null), HostMessage.Stops(PhaseStops(setOf(Step.MAIN1), emptySet())), HostMessage.YieldStatus("yielding"), HostMessage.YieldStatus(null),
             HostMessage.Warning("auto-answered"), HostMessage.End("Alice won the match"),
+            // A sealed table's steps.
+            HostMessage.Hello(PROTOCOL_VERSION, "0.5.0", "Douglas", LimitedTable(mtgoracle.core.limited.LimitedSet("BLB", "blb", "Bloomburrow", "2024-08-02"), 6, "ab12")),
+            HostMessage.Envelope("ab".repeat(32)), HostMessage.Nonce("cd".repeat(16)), HostMessage.Ready("ef".repeat(32)),
+            HostMessage.Verdict(null), HostMessage.Verdict("Your deck has 39 cards in its main deck, fewer than 40."), HostMessage.Reveal("01".repeat(32), deck),
         ).forEach(::roundTrip)
         prompts.forEach { roundTrip(HostMessage.Ask(it)) }
         assertEquals(board, (Wire.host(Wire.encode(HostMessage.Board(board))) as HostMessage.Board).board, "a whole board, log and all")
@@ -110,6 +114,8 @@ class WireTest {
         listOf(
             GuestMessage.Hello(PROTOCOL_VERSION, "0.3.0", "Bob", deck), GuestMessage.SetStops(PhaseStops.DEFAULT),
             GuestMessage.Concede, GuestMessage.Leave,
+            GuestMessage.Hello(PROTOCOL_VERSION, "0.5.0", "Bob", deck = null, packsDigest = "ab12"),
+            GuestMessage.Envelope("ab".repeat(32)), GuestMessage.Nonce("cd".repeat(16)), GuestMessage.Deck(deck, "01".repeat(32)),
         ).forEach(::roundTrip)
         SeatCommand.entries.forEach { roundTrip(GuestMessage.Command(it)) }
         actions.forEach { roundTrip(GuestMessage.Answer(99, it)) }

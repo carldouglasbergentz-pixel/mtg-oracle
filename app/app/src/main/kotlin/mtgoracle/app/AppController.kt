@@ -233,6 +233,29 @@ class AppController(private val paths: AppPaths) {
         lobbyLimited()?.let { tab -> tab.sets.firstOrNull { it.code == tab.chosenSet } }?.let(::openSealed)
     }
 
+    /**
+     * This side's pool at a sealed network table, made a deck against [friend] and opened in the workspace to build,
+     * as Open sealed opens one; the lobby keeps the table. Off the window's thread; returns the deck's id.
+     */
+    private fun tablePool(pool: mtgoracle.core.limited.OpenedPool, friend: String): Int {
+        val event = limited.tablePool(pool, friend)
+        java.awt.EventQueue.invokeLater {
+            try {
+                refreshLibrary()
+                play.chooseMe(event.deckId)
+                select(event.deckId)
+                commands?.enterDeck(event.deckId, intro = renderPool("${event.name}: your pool at ${friend}'s table", event.pool))
+                lookupUi?.showOutput = true
+                screen = Screen.Library
+                notice = "${event.name}: build it from the pool in the middle, then press P and Ready in the lobby"
+            } catch (e: Exception) {
+                Log.error("the table's deck ${event.name} was made, but could not be opened", e)
+                notice = "${event.name} is in the Limited folder, but it could not be opened: ${e.message}"
+            }
+        }
+        return event.deckId
+    }
+
     /** `sealed <set>`: the set by Forge's code or Scryfall's, opened as the lobby's Open sealed does. */
     private fun sealedCommand(arg: String): String {
         if (!forgeReady) return "Forge is still starting: it opens the packs"
@@ -585,7 +608,9 @@ class AppController(private val paths: AppPaths) {
     /** Network play: hosting a friend, or sitting at their table. */
     val net: NetPlay by lazy {
         NetPlay(settings, play, sessions = { sessions }, mats = mats, deckById = ::deckById, readClipboard = { readClipboard() },
-            writeClipboard = { writeClipboard(it) }, show = { screen = it }, say = { notice = it }, openRoom = { openRoom() })
+            writeClipboard = { writeClipboard(it) }, show = { screen = it }, say = { notice = it }, openRoom = { openRoom() },
+            sealedSet = { lobbyLimited()?.let { tab -> tab.sets.firstOrNull { it.code == tab.chosenSet } } },
+            tablePool = ::tablePool, limited = { limited })
     }
 
     /** The deck open in the workspace; null in the library. */

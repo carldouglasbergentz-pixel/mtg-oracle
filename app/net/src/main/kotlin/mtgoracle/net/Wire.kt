@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import mtgoracle.core.deck.PlayDeck
+import mtgoracle.core.limited.LimitedSet
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.LogLine
 import mtgoracle.core.model.PhaseStops
@@ -19,14 +20,34 @@ import mtgoracle.core.play.Winner
  * The protocol's version. Host and guest must speak exactly the same one, so
  * any change to a message, or to a type it carries, raises it.
  */
-const val PROTOCOL_VERSION = 1
+const val PROTOCOL_VERSION = 2
 
 /** What the host sends a remote seat: the seat's [mtgoracle.core.model.GameSeat] flows, as they change. */
 @Serializable
 sealed interface HostMessage {
-    /** First, on connecting: who hosts, and what they speak. */
+    /** First, on connecting: who hosts, what they speak, and the limited [table] they open, or none (constructed). */
     @Serializable @SerialName("hello")
-    data class Hello(val protocol: Int, val app: String, val host: String) : HostMessage
+    data class Hello(val protocol: Int, val app: String, val host: String, val table: LimitedTable? = null) : HostMessage
+
+    /** A sealed table: the hash of the host's secret, sent before it sees the guest's open number ([Envelope]). */
+    @Serializable @SerialName("envelope")
+    data class Envelope(val hash: String) : HostMessage
+
+    /** The host's open number, for the guest's pool: sent only once the guest's envelope is in. */
+    @Serializable @SerialName("nonce")
+    data class Nonce(val value: String) : HostMessage
+
+    /** The host has built its deck and holds to it (its [SealedKeys.deckDigest], checked at the [Reveal]): the guest may send theirs. */
+    @Serializable @SerialName("ready")
+    data class Ready(val deckDigest: String) : HostMessage
+
+    /** The guest's deck judged against their pool: null, it sits down; else why not, and they may send another. */
+    @Serializable @SerialName("verdict")
+    data class Verdict(val refusal: String?) : HostMessage
+
+    /** After the match: the host's secret and deck, so the guest can open the host's pool and check the deck against it. */
+    @Serializable @SerialName("reveal")
+    data class Reveal(val secret: String, val deck: PlayDeck) : HostMessage
 
     /** The guest sits down under [name], made unique at the table. */
     @Serializable @SerialName("accepted")
@@ -88,9 +109,24 @@ data class GameOutcome(
 /** What a remote seat sends the host: its hello, then the [mtgoracle.core.model.GameSeat] calls its person makes. */
 @Serializable
 sealed interface GuestMessage {
-    /** The answer to the host's hello: the name the guest goes by and the deck they bring. */
+    /**
+     * The answer to the host's hello: the name the guest goes by and the deck they bring; at a sealed table no
+     * deck (it is built at the table), and the digest of the packs the guest's app opens for its set.
+     */
     @Serializable @SerialName("hello")
-    data class Hello(val protocol: Int, val app: String, val name: String, val deck: PlayDeck) : GuestMessage
+    data class Hello(val protocol: Int, val app: String, val name: String, val deck: PlayDeck?, val packsDigest: String? = null) : GuestMessage
+
+    /** A sealed table: the hash of the guest's secret ([HostMessage.Envelope]). */
+    @Serializable @SerialName("envelope")
+    data class Envelope(val hash: String) : GuestMessage
+
+    /** The guest's open number, for the host's pool: sent only once the host's envelope is in. */
+    @Serializable @SerialName("nonce")
+    data class Nonce(val value: String) : GuestMessage
+
+    /** The guest's deck, after the host is ready, with the secret its pool was opened from. */
+    @Serializable @SerialName("deck")
+    data class Deck(val deck: PlayDeck, val secret: String) : GuestMessage
 
     @Serializable @SerialName("answer")
     data class Answer(val promptId: Long, val action: SeatAction) : GuestMessage
@@ -117,6 +153,14 @@ sealed interface GuestMessage {
     @Serializable @SerialName("ping")
     data object Ping : GuestMessage
 }
+
+/**
+ * A sealed table (ADR 0003): [packs] boosters of [set] for each side, opened by each side's own app.
+ * [packsDigest] is what the host's app opens for that set from a fixed seed: a guest whose app opens
+ * other packs can't check the host's, nor the host theirs.
+ */
+@Serializable
+data class LimitedTable(val set: LimitedSet, val packs: Int, val packsDigest: String)
 
 /** A line that is no message of this protocol: malformed, cut off, or from another version. */
 class WireError(message: String, cause: Throwable? = null) : Exception(message, cause)

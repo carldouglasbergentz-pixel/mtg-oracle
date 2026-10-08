@@ -50,6 +50,32 @@ class LimitedControl(
         return Event(id, name, mine)
     }
 
+    /**
+     * This side's pool at a network table, opened against [against]: a new
+     * deck in the Limited folder with the pool in its sideboard, as a sealed
+     * event's. The other's pool is added when the match begins ([addRival]).
+     */
+    fun tablePool(pool: OpenedPool, against: String): Event {
+        val writer = writer() ?: error("the database is still opening")
+        val names = names() ?: error("the database is still opening")
+        val mine = resolved(pool, names)
+        val folder = folderId()
+        val name = freeName("${pool.set.code} sealed vs ${against.take(24)} ${LocalDate.now()}", folder)
+        val id = writer.createFromPool(name, folder, Sealed.FORMAT, "sealed", mine, rival = null, rivalOpenedBy = against, forgeVersion = ForgeRuntime.version)
+        return Event(id, name, mine)
+    }
+
+    /** The other person's [pool] at a network table, kept beside deck [deckId]'s own: what it was played against. */
+    fun addRival(deckId: Int, pool: OpenedPool, openedBy: String) {
+        val deck = library().deck(deckId) ?: return
+        val poolId = deck.poolId ?: return
+        val names = names() ?: return
+        pools().addRival(poolId, resolved(pool, names), "sealed", openedBy, ForgeRuntime.version)
+    }
+
+    /** Deck [deckId] as Forge plays it at a limited table: as built, with basic lands to swap in between games. */
+    fun playDeck(deckId: Int): PlayDeck? = library().deck(deckId)?.let { Sealed.withSideboardBasics(mtgoracle.core.deck.AiCopy.asBuilt(it)) }
+
     /** The AI's deck against [deck], built from the pool opened against its own; null when it has none. */
     fun opponentFor(deck: Deck): PlayDeck? {
         val poolId = deck.poolId ?: return null

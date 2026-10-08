@@ -3,6 +3,7 @@ package mtgoracle.net
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import mtgoracle.core.deck.PlayDeck
+import mtgoracle.core.limited.OpenedPool
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.GameSeat
 import mtgoracle.core.model.PhaseStops
@@ -21,6 +22,31 @@ sealed interface Seating {
     data class Lost(val reason: String) : Seating
 }
 
+/** The guest app's part at a sealed table: the packs it opens, and its own pool once opened (ADR 0003). */
+interface SealedSeat {
+    /** The digest of the packs this app opens for [table]'s set from a fixed seed, or null when it opens none of it. */
+    fun packsDigest(table: LimitedTable): String?
+    /** [table]'s packs, opened from [seed]. */
+    fun open(table: LimitedTable, seed: Long): OpenedPool
+    /** This side's own pool, opened: the deck to build is made from it. */
+    fun poolOpened(table: LimitedTable, pool: OpenedPool)
+}
+
+/**
+ * Where the guest stands at a sealed table: its pool opened, the host ready,
+ * its deck sent and what the host said of it, and, after the match, what
+ * came of checking the host's deck against the host's pool.
+ */
+data class SealedProgress(
+    val table: LimitedTable,
+    val pool: OpenedPool? = null,
+    val hostReady: Boolean = false,
+    val sent: PlayDeck? = null,
+    val accepted: Boolean = false,
+    val refusal: String? = null,
+    val hostCheck: String? = null,
+)
+
 /**
  * The guest's seat at a table hosted elsewhere: a [GameSeat] fed by the
  * host's messages, so the board draws it as it draws a seat at its own
@@ -31,11 +57,14 @@ sealed interface Seating {
 class RemoteSeat(
     private val link: Link,
     private val name: String,
-    private val deck: PlayDeck,
+    /** The deck brought to a constructed table; none for a sealed one, where it is built at the table. */
+    private val deck: PlayDeck?,
     private val app: String,
     private val initialStops: PhaseStops = PhaseStops.DEFAULT,
     /** The guest's own playmat, sent once seated; null to show none. */
     private val mat: MatPicture? = null,
+    /** This app's part at a sealed table; null takes constructed tables only. */
+    private val sealed: SealedSeat? = null,
 ) : GameSeat, AutoCloseable {
     private val seatingFlow = MutableStateFlow<Seating>(Seating.Knocking)
     val seating: StateFlow<Seating> get() = seatingFlow
@@ -65,6 +94,32 @@ class RemoteSeat(
 
     private val log = LogReceiver()
     private var lastBoard: BoardState? = null
+
+    private val keys = SealedKeys()
+    private val sealedFlow = MutableStateFlow<SealedProgress?>(null)
+    /** A sealed table's steps as they come; null at a constructed one. */
+    val sealedProgress: StateFlow<SealedProgress?> get() = sealedFlow
+    @Volatile private var hostEnvelope: String? = null
+    /** The host's name, as its hello said it (cleaned as any name a table shows); null before it. */
+    @Volatile var host: String? = null
+        private set
+    @Volatile private var hostDigest: String? = null
+
+    /**
+     * The guest's deck for a sealed table, once the host is ready: checked here
+     * first against the guest's own pool, then sent with the secret it was
+     * opened from. Null when it was sent, else why it wasn't.
+     */
+    fun sendDeck(deck: PlayDeck): String? {
+        val now = sealedFlow.value ?: return "This is no sealed table."
+        val pool = now.pool ?: return "Your pool is still being opened."
+        if (!now.hostReady) return "The host isn't ready yet: send your deck once they are."
+        if (now.accepted) return "Your deck is already in."
+        mtgoracle.core.limited.Sealed.judge(deck, pool)?.let { return it }
+        sealedFlow.value = now.copy(sent = deck, refusal = null)
+        send(GuestMessage.Deck(deck, keys.secret))
+        return null
+    }
 
     fun start(): RemoteSeat {
         // A host that accepted the connection must say hello soon; seated, the pings keep the link from going quiet.
@@ -97,22 +152,73 @@ class RemoteSeat(
 
     private fun send(message: GuestMessage) { link.send(Wire.encode(message)) }
 
+    /** The answer to the host's hello: the deck for a constructed table, the packs' digest for a sealed one. Null, or why not. */
+    private fun hello(table: LimitedTable?): String? {
+        if (table == null) {
+            val deck = deck ?: return "This table plays constructed: choose your deck in the lobby's constructed tab, then join."
+            send(GuestMessage.Hello(PROTOCOL_VERSION, app, name, deck))
+            return null
+        }
+        val sealed = sealed ?: return "This table plays sealed (${table.set.name}): join from the lobby's limited tab."
+        val digest = sealed.packsDigest(table) ?: return "Your app opens no packs of ${table.set.name}."
+        sealedFlow.value = SealedProgress(table)
+        send(GuestMessage.Hello(PROTOCOL_VERSION, app, name, deck = null, packsDigest = digest))
+        return null
+    }
+
+    /** What came of checking the host's revealed deck: its secret against its envelope, the deck against the digest it was ready with, then against the host's pool. */
+    private fun checkHost(now: SealedProgress, reveal: HostMessage.Reveal): String {
+        val envelope = hostEnvelope ?: return "The host revealed a secret it never sealed."
+        if (!SealedKeys.opens(envelope, reveal.secret)) return "The host's secret isn't the one its envelope sealed: its pool can't be checked."
+        if (SealedKeys.deckDigest(reveal.deck) != hostDigest) return "The host played another deck than the one it was ready with."
+        val pool = sealed!!.open(now.table, SealedKeys.seed(reveal.secret, keys.nonce)!!)
+        return mtgoracle.core.limited.Sealed.judge(reveal.deck, pool)?.let { "The host's deck doesn't fit its pool: $it" }
+            ?: "The host's deck was built from its own pool: checked."
+    }
+
+    /** The host broke the sealed table's order: the link closes. */
+    private fun lost(reason: String) { settle(Seating.Lost(reason)) }
+
     private fun read() {
         while (true) {
             val line = link.receive() ?: break
             val message = try { Wire.host(line) } catch (e: WireError) { settle(Seating.Lost("the host sent what this app can't read (${e.message})")); return }
             when (message) {
                 is HostMessage.Hello -> {
-                    val refusal = Handshake.refusal(message)
+                    host = Handshake.cleanName(message.host)
+                    val refusal = Handshake.refusal(message, app) ?: hello(message.table)
                     if (refusal != null) { settle(Seating.Refused(refusal)); return }
-                    send(GuestMessage.Hello(PROTOCOL_VERSION, app, name, deck))
                 }
                 is HostMessage.Accepted -> {
                     link.bound(TcpLink.MAX_LINE, Wire.SILENCE_MILLIS)
                     seatingFlow.value = Seating.Seated(message.name)
                     send(GuestMessage.SetStops(stopsFlow.value))
                     mat?.let { send(GuestMessage.Mat(it)) }
+                    if (sealedFlow.value != null) send(GuestMessage.Envelope(keys.envelope))
                 }
+                is HostMessage.Envelope -> {
+                    if (sealedFlow.value == null || hostEnvelope != null || !SealedKeys.isEnvelope(message.hash)) return lost("the host's envelope came twice, or was no envelope")
+                    hostEnvelope = message.hash
+                    send(GuestMessage.Nonce(keys.nonce))
+                }
+                is HostMessage.Nonce -> {
+                    // Their number counts only after their envelope: before it, they could have chosen their secret to suit ours.
+                    val now = sealedFlow.value
+                    if (now == null || hostEnvelope == null || now.pool != null || !SealedKeys.isNonce(message.value)) return lost("the host's number came out of turn, or was no number")
+                    val pool = sealed!!.open(now.table, SealedKeys.seed(keys.secret, message.value)!!)
+                    // The app makes its deck of the pool first: whoever watches the progress then finds the deck there.
+                    sealed.poolOpened(now.table, pool)
+                    sealedFlow.value = now.copy(pool = pool)
+                }
+                is HostMessage.Ready -> {
+                    val now = sealedFlow.value ?: return lost("the host is ready at a table that is no sealed one")
+                    hostDigest = message.deckDigest
+                    sealedFlow.value = now.copy(hostReady = true)
+                }
+                is HostMessage.Verdict -> sealedFlow.value?.let { now ->
+                    sealedFlow.value = now.copy(accepted = message.refusal == null, refusal = message.refusal?.let { it.filterNot(Char::isISOControl).take(400) })
+                }
+                is HostMessage.Reveal -> sealedFlow.value?.let { now -> sealedFlow.value = now.copy(hostCheck = checkHost(now, message)) }
                 is HostMessage.Refused -> { settle(Seating.Refused(message.reason)); return }
                 is HostMessage.Log -> {
                     log.apply(message)

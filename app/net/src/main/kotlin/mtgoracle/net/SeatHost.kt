@@ -46,6 +46,9 @@ class SeatHost(private val seat: GameSeat, private val link: Link, private val o
     /** The host's playmat for the guest's table, or none. */
     fun mat(picture: MatPicture?) = send(HostMessage.Mat(picture))
 
+    /** A sealed table's match is over: the host's secret and deck, for the guest to check against the host's pool. */
+    fun reveal(secret: String, deck: mtgoracle.core.deck.PlayDeck) = send(HostMessage.Reveal(secret, deck))
+
     private data class View(val board: BoardState?, val prompt: Prompt?, val stops: PhaseStops, val yieldStatus: String?, val warning: String?)
 
     fun start(): SeatHost {
@@ -84,6 +87,8 @@ class SeatHost(private val seat: GameSeat, private val link: Link, private val o
                 is GuestMessage.Hello -> Unit // said once, at the door
                 is GuestMessage.Mat -> guestMatFlow.value = message.mat
                 GuestMessage.Ping -> Unit
+                // A sealed table's steps come before the match ([SealedHost]); late, they mean nothing.
+                is GuestMessage.Envelope, is GuestMessage.Nonce, is GuestMessage.Deck -> Unit
             }
         }
         lost("the connection to the guest was lost")

@@ -175,7 +175,7 @@ class SecureRoomTest {
         val room = Room.local().also { closing += it }
         val knocks = ConcurrentLinkedQueue<Door.Outcome>()
         var guest: Room.Guest? = null
-        val waiting = thread { guest = room.awaitGuest(hello, judge = { if (it.deck.cards.size < 2) "Bring a deck with spells." else null }, onKnock = { knocks += it }) }
+        val waiting = thread { guest = room.awaitGuest(hello, judge = { if (it.deck!!.cards.size < 2) "Bring a deck with spells." else null }, onKnock = { knocks += it }) }
         val first = RemoteSeat(room.invite.join(), "Bob", deck, "test").also { closing += it }.start()
         val deadline = System.currentTimeMillis() + 5_000
         while (first.seating.value !is Seating.Refused && System.currentTimeMillis() < deadline) Thread.sleep(10)

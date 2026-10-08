@@ -47,6 +47,17 @@ object ForgeLimited {
     }
 
     /**
+     * What this app's Forge opens for [set]: [packs] boosters from a fixed
+     * seed, hashed. Two apps whose digests differ open other packs from the
+     * same seed, and can't check each other's pools at a sealed table.
+     */
+    fun packsDigest(set: LimitedSet, packs: Int): String {
+        val pool = open(set, packs, seed = 0)
+        val text = pool.packs.joinToString("\n") { pack -> pack.joinToString("|") { "${it.name}/${it.setCode}/${it.collectorNumber}/${it.foil}" } }
+        return java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
+    }
+
+    /**
      * The deck Forge's AI builds from [pool] (its SealedDeckBuilder): forty
      * cards in the main deck, the rest of the pool in the sideboard, basic
      * lands from the pool's set when it has them. Seeded, so the same pool
