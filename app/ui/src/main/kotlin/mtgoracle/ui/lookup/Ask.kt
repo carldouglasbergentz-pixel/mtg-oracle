@@ -24,6 +24,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.TextRange
@@ -132,24 +133,52 @@ private fun ButtonsAsk(ask: Ask.Buttons, onClose: () -> Unit) {
 @Composable
 private fun ChooseAsk(ask: Ask.Choose, onClose: () -> Unit) {
     val focus = remember { FocusRequester() }
+    // A long list (an Island's hundreds of printings) is searched as the board's long choices are:
+    // what is typed goes to the filter, every word of it in the label or the detail.
+    val filtering = ask.options.size > FILTER_FROM
+    var filter by remember(ask) { mutableStateOf("") }
+    val shown = ask.options.withIndex().filter { (_, o) -> matches(o, filter) }
     Popup(alignment = Alignment.Center, onDismissRequest = onClose, properties = PopupProperties(focusable = true)) {
         val cols = 64
-        BoxPane(ask.title, Modifier.cellWidth(cols).region("ask"), borderColor = Palette.accent) {
+        BoxPane(ask.title, Modifier.cellWidth(cols).region("ask"), borderColor = Palette.accent) { Column {
+            if (filtering) GridText(mtgoracle.ui.kit.fit(" find: ${filter}_  ${shown.size}/${ask.options.size}  (type to narrow, Enter takes the first)", cols - 2), color = Palette.dim)
             Column(Modifier.heightIn(max = with(androidx.compose.ui.platform.LocalDensity.current) { (LocalCells.current.height * 24).toDp() })
                 .verticalScroll(rememberScrollState()).focusRequester(focus).onPreviewKeyEvent { e ->
-                    if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onClose(); true } else false
+                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    val typed = e.utf16CodePoint.takeIf { it in 32 until 0xFFFF && it != 127 }?.toChar()?.takeIf { !it.isISOControl() && Character.isDefined(it) }
+                    when {
+                        e.key == Key.Escape -> { onClose(); true }
+                        !filtering -> false
+                        e.key == Key.Backspace -> { filter = filter.dropLast(1); true }
+                        e.key == Key.Enter || e.key == Key.NumPadEnter -> {
+                            shown.firstOrNull()?.takeIf { filter.isNotBlank() }?.let { onClose(); ask.onPick(it.value) }
+                            true
+                        }
+                        typed != null -> { filter += typed; true }
+                        else -> false
+                    }
                 }.focusable()) {
-                ask.options.forEachIndexed { i, option ->
+                shown.forEach { (i, option) ->
                     GridText(
                         mtgoracle.ui.kit.fit(" ${option.label}" + if (option.detail.isEmpty()) "" else "  ${option.detail}", cols - 2),
                         Modifier.clickTarget(ClickTarget.Control("choose:$i"), { onClose(); ask.onPick(option) }, { ask.onHover(option) }).pointerHoverIcon(PointerIcon.Hand),
                     )
                 }
+                if (shown.isEmpty()) GridText(" (nothing matches '$filter')", color = Palette.dim)
                 GridText(" Cancel (Esc)", Modifier.clickTarget(ClickTarget.Control("ask:cancel"), { onClose() }).pointerHoverIcon(PointerIcon.Hand), color = Palette.dim)
             }
-        }
+        } }
     }
     LaunchedEffect(ask) { focus.requestFocus() }
+}
+
+/** A list longer than this has a filter. */
+private const val FILTER_FROM = 10
+
+/** Whether [option] holds every word of [filter], in its label or its detail, any case. */
+internal fun matches(option: Option, filter: String): Boolean {
+    val text = "${option.label} ${option.detail}".lowercase()
+    return filter.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.all { it in text }
 }
 
 @Composable
