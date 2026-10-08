@@ -25,7 +25,7 @@ The steps are `SealedHost` (the host's, before the match) and `RemoteSeat` with 
 
 ## What Forge had to change
 
-`BoosterSlot.replaceSlot()` rolled with `Math.random()`, the one draw in booster generation that `MyRandom.setRandom()` could not seed, so every edition written with booster slots (Bloomburrow, Duskmourn, Foundations and the newer sets) opened differently under the same seed. It draws from `MyRandom` now: one line, offered to Forge as a pull request of its own, and carried in our Forge build (`tools/forge-dc`, branch `mtg-oracle-forge`: the Duel Commander branch plus that commit) until Forge has it.
+`BoosterSlot.replaceSlot()` rolled with `Math.random()`, the one draw in booster generation that `MyRandom.setRandom()` could not seed, so every edition written with booster slots (Bloomburrow, Duskmourn, Foundations and the newer sets) opened differently under the same seed. It draws from `MyRandom` now: one line, merged into Forge as #12184 (2026-10-08), and carried in our Forge build (`tools/forge-dc`, branch `mtg-oracle-forge`: the Duel Commander branch plus that commit) until Forge has it.
 
 ## Trust
 
