@@ -67,7 +67,7 @@ MORE
   guide                               getting started: the checklist, and a tour of the library
   sealed <set>                        open a sealed pool (six packs of BLB, dom ...) for you and the AI
   sort <layers>                       searches laid out by colour, type and mv (the first groups);
-                                      a new order clears the pane; a limited pool has its own
+                                      one search at a time; a limited pool has its own
   quit                                close the app
 
 Mouse: a card name opens its profile and shows the card in the zoom pane on hover;

@@ -9,8 +9,12 @@ import mtgoracle.core.lookup.SearchPage
  * new width instead of keeping lines cut for the old one.
  */
 class OutputLog {
-    /** [page]: a search's page, which the pane may draw as a grid of cards instead of [rendering]'s lines. */
-    data class Entry(val id: Long, val rendering: Rendering, val isEcho: Boolean = false, val page: SearchPage? = null)
+    /**
+     * [page]: a search's page, which the pane may draw as a grid of cards
+     * instead of [rendering]'s lines. [ofSearch]: the page, or the deck's
+     * filters said above it, which go when the next search comes.
+     */
+    data class Entry(val id: Long, val rendering: Rendering, val isEcho: Boolean = false, val page: SearchPage? = null, val ofSearch: Boolean = page != null)
 
     val entries = mutableStateListOf<Entry>()
     private var nextId = 0L
@@ -21,9 +25,35 @@ class OutputLog {
 
     fun add(rendering: Rendering) = append(rendering, isEcho = false)
 
-    /** A page of search results: lines in text mode, a grid of cards otherwise. */
-    fun addSearch(page: SearchPage, rendering: Rendering) {
+    /**
+     * A page of search results, lines in text mode, a grid of cards
+     * otherwise, under [notice] (the deck's filters) when there is one. It
+     * takes the place of every search before it: the pane holds one search
+     * at a time, and what else was asked stays.
+     */
+    fun addSearch(page: SearchPage, rendering: Rendering, notice: Rendering? = null) {
+        dropSearches()
+        if (notice != null) entries += Entry(nextId++, notice, ofSearch = true)
         entries += Entry(nextId++, rendering, isEcho = false, page = page)
+    }
+
+    /** Every search's entries out, and an earlier echo left with nothing under it; the newest echo is the command now running. */
+    private fun dropSearches() {
+        val running = entries.lastOrNull { it.isEcho }?.id
+        val drop = mutableSetOf<Long>()
+        var echo: Entry? = null
+        val printed = mutableListOf<Entry>()
+        // A command whose output was all search goes with it; one that printed something else keeps its echo.
+        fun close() {
+            val e = echo ?: return
+            if (e.id != running && printed.isNotEmpty() && printed.all { it.ofSearch }) drop += e.id
+        }
+        for (entry in entries) {
+            if (entry.isEcho) { close(); echo = entry; printed.clear() } else printed += entry
+            if (entry.ofSearch) drop += entry.id
+        }
+        close()
+        if (drop.isNotEmpty()) entries.removeAll { it.id in drop }
     }
 
     /** [page] in place of the newest search page, where it stands and under its id, so nothing scrolls; added when there is none. */

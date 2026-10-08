@@ -201,9 +201,18 @@ class SearchSql(
         return Sql("(${integerOnly(column)} AND CAST(c.$column AS INTEGER) $sqlOp ?)", listOf(n))
     }
 
-    /** ORDER BY for a search laid out in [layers] (CardSort), each ranked as `SortLayer.rank` ranks a row, then the name. */
-    fun sortLayers(layers: List<SortLayer>): Sql =
-        Sql((layers.map(::rankOf) + "c.name COLLATE NOCASE ASC").joinToString(", "))
+    /**
+     * ORDER BY for a search laid out in [layers] (CardSort), each ranked as
+     * `SortLayer.rank` ranks a row, then the name; [named] (exactName) first.
+     */
+    fun sortLayers(layers: List<SortLayer>, named: Sql? = null): Sql {
+        val first = named?.let { listOf("CASE WHEN ${it.text} THEN 0 ELSE 1 END") }.orEmpty()
+        return Sql((first + layers.map(::rankOf) + "c.name COLLATE NOCASE ASC").joinToString(", "), named?.params.orEmpty())
+    }
+
+    /** The card named [phrase], as typed: the whole name, or a two-faced card's front face. */
+    fun exactName(phrase: String): Sql =
+        Sql("(c.name = ? COLLATE NOCASE OR c.name LIKE ? ESCAPE '!' COLLATE NOCASE)", listOf(phrase, likeLiteral(phrase) + " // %"))
 
     /** [layer]'s rank of a card as SQL: what `SortLayer.rank` says of its row, case for case. */
     fun rankOf(layer: SortLayer): String = when (layer) {

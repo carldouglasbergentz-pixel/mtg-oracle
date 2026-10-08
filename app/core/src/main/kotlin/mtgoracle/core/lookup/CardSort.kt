@@ -94,6 +94,8 @@ data class CardSort(val slots: List<SortLayer?>) {
 
     companion object {
         const val SLOTS = 3
+        /** A search of words: the card they name, first, in a group of its own. */
+        const val NAMED = "Named"
         val DEFAULT = CardSort(listOf(SortLayer.COLOUR, SortLayer.TYPE, SortLayer.MV))
 
         /** `colour type mv`, one to three layers or `-`, none twice; null when it isn't one. */

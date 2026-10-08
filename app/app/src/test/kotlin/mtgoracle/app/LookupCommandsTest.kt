@@ -50,9 +50,10 @@ class LookupCommandsTest {
 
     /** What [line] printed (its echo included), as text at 100 columns. */
     private fun run(line: String): String {
-        val before = commands.output.entries.size
+        // By id, not position: a search takes the place of the one before it, so earlier entries go.
+        val before = commands.output.entries.maxOfOrNull { it.id } ?: -1
         commands.submit(line)
-        return commands.output.entries.drop(before).flatMap { it.rendering.lines(100) }.joinToString("\n") { it.text }
+        return commands.output.entries.filter { it.id > before }.flatMap { it.rendering.lines(100) }.joinToString("\n") { it.text }
     }
 
     private fun links(): List<OutputLink> = commands.output.entries.flatMap { it.rendering.lines(100) }.flatMap { it.spans }.map { it.link }
@@ -67,14 +68,17 @@ class LookupCommandsTest {
         run("card lightning bolt")
         run("sort type mv")
         assertEquals("sort type mv -", kept.last().command)
-        assertEquals(1, commands.output.entries.size, "a new order starts on a clean pane: the re-sorted list alone")
+        assertEquals(1, commands.output.entries.count { it.page != null }, "one search at a time")
+        assertTrue(commands.output.entries.none { it.isEcho && "t:creature" in it.rendering.lines(100).first().text }, "the search before went, its command with it")
+        assertTrue(commands.output.allText().contains("Legality:"), "what else was asked stays: the card's profile")
         assertEquals("Creature", assertNotNull(commands.output.latestSearch?.page?.arrangement).groups.first().first, "laid out anew, in place")
         val slot = links().filterIsInstance<OutputLink.Sort>().last()
         assertTrue(!slot.pool, "the search's own slots, not a pool's")
         commands.open(slot)
         assertEquals(slot.sort, kept.last())
         run("sort").let { assertTrue("sort (searches): ${slot.sort.command.removePrefix("sort ")}." in it, it) }
-        assertTrue("sort:" !in run("llanowar"), "a search of words keeps their relevance")
+        assertTrue("sort:" in run("llanowar"), "a search of words is laid out too")
+        assertEquals(1, commands.output.entries.count { it.page != null }, "and takes the last one's place")
         assertTrue("sort:" !in LookupCommands(lookup, decks = { library.decks() }, faceOf = { null }).let { cli ->
             cli.submit("t:creature c:g"); cli.output.entries.flatMap { it.rendering.lines(100) }.joinToString("\n") { it.text }
         }, "the command line's searches stay in name order")

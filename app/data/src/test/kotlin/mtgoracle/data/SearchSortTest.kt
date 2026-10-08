@@ -49,8 +49,22 @@ class SearchSortTest {
     }
 
     @Test
+    fun `a search of words is laid out too, the card they name first, in a group of its own`() {
+        val page = lookup.search.page(SearchLanguage.parse("lightning bolt"), pageSize = 25, sort = CardSort.DEFAULT)
+        val arranged = assertNotNull(page.arrangement)
+        assertEquals("Lightning Bolt", page.rows.first().name)
+        assertEquals(CardSort.NAMED to 1, arranged.groups.first(), arranged.groups.toString())
+        assertEquals(page.total, arranged.totals.values.sum(), "the named card is counted once: ${arranged.totals}")
+        val colours = listOf("White", "Blue", "Black", "Red", "Green", "Multicolour", "Colourless")
+        val rest = arranged.groups.drop(1).map { colours.indexOf(it.first) }
+        assertTrue(rest.isNotEmpty() && -1 !in rest && rest == rest.sorted(), "then the rest by colour: ${arranged.groups}")
+        val front = lookup.search.page(SearchLanguage.parse("fire"), pageSize = 25, sort = CardSort.DEFAULT)
+        assertTrue(front.rows.first().name.startsWith("Fire // "), "a two-faced card's front face names it: ${front.rows.map { it.name }}")
+    }
+
+    @Test
     fun `a search that orders itself keeps its own order`() {
-        for (q in listOf("bolt", "t:creature order:asc_name", "like:\"lightning bolt\"")) {
+        for (q in listOf("t:creature order:asc_name", "like:\"lightning bolt\"")) {
             assertNull(lookup.search.page(SearchLanguage.parse(q), pageSize = 25, sort = CardSort.DEFAULT).arrangement, q)
         }
         val byName = lookup.search.page(SearchLanguage.parse("t:creature"), pageSize = 25)

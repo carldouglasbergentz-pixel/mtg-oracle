@@ -429,7 +429,7 @@ class LookupCommands(
         } catch (e: SearchError) {
             return searchError(e)
         }
-        showPage(query, 1, filters, announce = true)
+        showPage(query, 1, filters)
         if (typo != null && lastSearch?.query == query && lastSearch?.total == 0) {
             say("(no card matches, and '${arg.substringBefore(' ')}' is no command — did you mean `$typo`?)", Tone.DIM)
         }
@@ -442,8 +442,8 @@ class LookupCommands(
         showPage(current.query, page, current.filters)
     }
 
-    /** Runs one page; [announce] names the deck's filters above it (a new search, not a page turn). */
-    private fun showPage(query: SearchQuery, page: Int, filters: List<String>, announce: Boolean = false, inPlace: Boolean = false) {
+    /** Runs one page, the deck's filters named above it, in place of the search before it (OutputLog.addSearch). */
+    private fun showPage(query: SearchQuery, page: Int, filters: List<String>, inPlace: Boolean = false) {
         // A limited deck's pool is one page, laid out in groups, unless the search asks for an order of its own.
         // Any other search is laid out page by page in the database, unless it orders itself (CardSearch.page).
         val pool = scope?.fromPool == true && query.order.isEmpty()
@@ -454,18 +454,18 @@ class LookupCommands(
             return searchError(e)
         }
         lastSearch = result
-        if (announce && filters.isNotEmpty()) say(renderDeckFilterNotice(filters))
         ui.selected = null
         // In the workspace a row carries `+ sb ?`, and a pointed card its points.
         val points = ui.points
         val rendering = renderSearch(result, actions = scope != null && editing != null, points = { points[it.lowercase()] })
-        if (inPlace) output.replaceSearch(result, rendering) else output.addSearch(result, rendering)
+        if (inPlace) output.replaceSearch(result, rendering)
+        else output.addSearch(result, rendering, notice = renderDeckFilterNotice(filters).takeIf { filters.isNotEmpty() })
     }
 
     /** The cards most like [card], within the deck's filters as any search is. */
     private fun likeSearch(card: String) {
         val (query, filters) = SearchQuery(SearchNode.Term("like", ":", card)).let { q -> scope?.restrict(q) ?: (q to emptyList()) }
-        showPage(query, 1, filters, announce = true)
+        showPage(query, 1, filters)
     }
 
     /** How a limited deck's pool is laid out now. */
@@ -496,11 +496,10 @@ class LookupCommands(
         showSorted()
     }
 
-    /** The last search laid out anew on a clean pane: the lists before it are gone, and the new order starts at its first page. */
+    /** The last search laid out anew, in its place: the new order starts at its first page. */
     private fun showSorted() {
         val s = lastSearch ?: return
-        output.clear()
-        showPage(s.query, 1, s.filters, announce = true)
+        showPage(s.query, 1, s.filters)
     }
 
     private fun layOutPool(sort: CardSort) {
