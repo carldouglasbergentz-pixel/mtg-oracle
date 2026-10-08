@@ -8,6 +8,7 @@ What MTG Oracle does today is in the [README](README.md), and how it got there i
 
 ## Ideas waiting their turn
 
+- **Commander for four.** A game of multiplayer Commander, you against three AIs first, people over the network after. Forge's engine already plays it for any number of players (40 life, commander damage, each creature attacking the player or planeswalker it is sent at), and its AI plays it soundly if simply. What is two-player is ours: the board's two halves, a result as "me or the opponent", and a game that ends when you leave it, where at a table of four the others play on.
 - **Packages that carry limited pools.** A `.mtgoracle` export keeps decks, history and games, but not the packs a sealed deck was opened from: imported, it is an ordinary deck of format `sealed`.
 - **A board you arrange.** Move your own permanents on the table as on a real one, as the hand already can be, without breaking that nothing moves on a click but what changed.
 - **More community formats**: Leviathan, Penny Dreadful, and Old School where the community's lists differ from Scryfall's.
