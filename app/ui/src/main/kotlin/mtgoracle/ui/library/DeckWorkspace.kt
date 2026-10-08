@@ -230,6 +230,7 @@ fun DeckWorkspace(
                                             "choose printing..." to { lookup.intent(LibraryIntent.ChoosePrinting(deck.id, row.card.name, row.section)) },
                                             (if (sub == null) "AI substitute..." else "AI substitute (now ${sub.substitute})...") to { lookup.intent(LibraryIntent.AiSubstitute(deck.id, row.card.name)) },
                                             sub?.let { "no AI substitute" to { lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, row.card.name)) } },
+                                            "find similar" to { lookup.open(mtgoracle.ui.lookup.OutputLink.Like(row.card.name)) },
                                         )
                                     }
                                 },

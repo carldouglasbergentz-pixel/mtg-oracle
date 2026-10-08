@@ -75,3 +75,8 @@ ERR
 ERR
 0	
 ERR
+116	Lightning StrikeShockTarfireGin'tak ChargePlay with FireCollateral DamageIncinerateYamabushi's FlameBurst LightningBolt of KeranosGalvanic BlastMelt ThroughNeedle DropWild SlashSpikefield Hazard // Spikefield CaveBottle-Cap BlastIre of KaminariCarbonizeIncendiary FlowFireboltGoblin ArsonistSeal of FireSkewer the CriticsTruck TossStingerquill Charm
+79	ShockTarfireGin'tak ChargePlay with FireCollateral DamageBurst LightningGalvanic BlastMelt ThroughNeedle DropWild SlashSpikefield Hazard // Spikefield CaveFireboltGoblin ArsonistSeal of FireBlazing SalvoForked BoltFlame-Blessed BoltFanatical FirebrandCrushFrost BiteAjani's AnguishChaos CharmGoblin FirestarterChain LightningGalvanic Discharge
+116	About FaceAbradeAcademic DisputeActive VolcanoAerial VolleyAjani's AnguishAlchemist's RetrievalAncient GrudgeArtifact BlastArtillerizeAssault // BatteryBalduvian RageBanishing KnackBanners RaisedBarge InBlazing SalvoBolt of KeranosBoltfireBoltwaveBorrowed HostilityBottle-Cap BlastBranching BoltBrandBrightstone RitualBrute Force
+1	Lightning Bolt
+ERR

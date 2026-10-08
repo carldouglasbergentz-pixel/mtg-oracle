@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`like:` finds the cards most like a card** (`like:"llanowar elves"`, also `alike:` and `similar:`), likest first unless the search orders them: Elvish Mystic and Fyndhorn Elves for Llanowar Elves, Cancel for Counterspell, Lightning Strike for Lightning Bolt. What a card does comes from Scryfall Tagger's tags (trivia such as cycles, alliteration and type errata left out), each counted by how rare it is, more when Tagger calls it strong and when the roles read it; then its kind, words, mana value and colours. With other filters it ranks among what they find, so `like:counterspell f:premodern`, or any `like:` inside a deck, is the likest the format and the deck's colours allow, not what is left of the likest of all. A deck row's menu has "find similar". A name that is no card is an error. `LikeQualityTest` (on the user's database), `SearchParityTest`.
 - **The limited tab simulates, and says the record.** Simulate (S, N for how many) has an AI play your limited deck against the deck the AI builds from its own pool, as the constructed tab does with a pairing: a build tried out, each game recorded as it ends. The match's title says the deck's record against the AI's pool, played and simulated (`AI (BLB sealed) · you 2–1 · AI 6–4`). `LimitedTest`.
 
 ### Changed

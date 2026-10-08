@@ -21,7 +21,7 @@ class Lookup(val db: MtgDb) {
     val combos = Combos(db, names)
     val cards = Cards(db, names, combos, corrections)
     val rules = Rules(db)
-    val search = CardSearch(db, formats)
+    val search = CardSearch(db, formats, names, LikeIndex(db))
     val analysis = Analysis(db, names, combos)
     /** The games played and simulated, for `results`. */
     val games = GameStore(db)

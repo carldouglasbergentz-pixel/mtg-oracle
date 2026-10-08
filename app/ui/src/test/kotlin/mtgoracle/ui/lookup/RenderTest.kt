@@ -56,6 +56,7 @@ class RenderTest {
                     is OutputLink.Cards -> assertTrue(link.names.isNotEmpty(), "an empty list is never a link")
                     // A slot shows the layer it holds now; the link carries the layout a click makes.
                     is OutputLink.Sort -> assertTrue(shown.startsWith("[") && shown.endsWith("]"), shown)
+                    is OutputLink.Like -> assertTrue(shown.isNotEmpty(), "a like link shows something")
                 }
             }
         }

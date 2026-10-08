@@ -151,6 +151,9 @@ object Roles {
     )
 
     /** The roles one label implies, or null when the label is not recognised. */
+    /** Whether the roles read a role from Tagger's [label] (`mana dork` is mana): what `like:` weighs higher (Likeness.weight). */
+    fun readsRole(label: String): Boolean = labelRoles(label.lowercase())?.isNotEmpty() == true
+
     private fun labelRoles(label: String): List<String>? {
         TAG_EXACT_ROLES[label]?.let { return it }
         return TAG_PREFIX_ROLES.firstOrNull { label.startsWith(it.first) }?.second

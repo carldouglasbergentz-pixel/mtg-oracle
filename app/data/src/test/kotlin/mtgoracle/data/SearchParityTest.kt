@@ -95,6 +95,12 @@ class SearchParityTest {
         // Ours, not Python's: what is left of a limited deck's pool (its sideboard), by the deck's id.
         "pool:999999",
         "pool:abc",
+        // Ours too: the cards most like a card, likest first unless the search orders them (LikeIndex).
+        "like:\"lightning bolt\"",
+        "like:\"lightning bolt\" mv<=1",
+        "like:\"lightning bolt\" order:asc_name",
+        "-like:\"lightning bolt\" t:instant c:r mv=1",
+        "like:\"no such card\"",
     )
 
     private val names = listOf(

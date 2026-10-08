@@ -15,6 +15,7 @@ import mtgoracle.core.lookup.closest
 import mtgoracle.core.lookup.PoolArrangement
 import mtgoracle.core.lookup.PoolSort
 import mtgoracle.core.lookup.SearchError
+import mtgoracle.core.lookup.SearchNode
 import mtgoracle.core.lookup.SearchLanguage
 import mtgoracle.core.lookup.SearchPage
 import mtgoracle.core.lookup.SearchQuery
@@ -191,6 +192,8 @@ class LookupCommands(
             is OutputLink.Rule -> { output.echo("rule ${link.number}"); guarded { rule(link.number) } }
             is OutputLink.Run -> { output.echo(link.command); guarded { dispatch(link.command) } }
             is OutputLink.Cards -> { output.echo(link.title); say(mtgoracle.ui.lookup.renderCardList(link.title, link.names)) }
+            // A search built as a tree, so a name with quotes in it (Kongming, "Sleeping Dragon") is never text to parse.
+            is OutputLink.Like -> { output.echo("like:\"${link.card}\""); guarded { likeSearch(link.card) } }
             // A result's `+ sb ?`: the deck changes, the output doesn't.
             is OutputLink.Edit -> { ui.showOutput = showing; guarded { edit(link.action) } }
             // A pool's `sort:` slot: the page is laid out anew where it stands, and the scrollback stays where it was.
@@ -453,6 +456,12 @@ class LookupCommands(
         val points = ui.points
         val rendering = renderSearch(result, actions = scope != null && editing != null, points = { points[it.lowercase()] })
         if (inPlace) output.replaceSearch(result, rendering) else output.addSearch(result, rendering)
+    }
+
+    /** The cards most like [card], within the deck's filters as any search is. */
+    private fun likeSearch(card: String) {
+        val (query, filters) = SearchQuery(SearchNode.Term("like", ":", card)).let { q -> scope?.restrict(q) ?: (q to emptyList()) }
+        showPage(query, 1, filters, announce = true)
     }
 
     /** How a limited deck's pool is laid out now. */

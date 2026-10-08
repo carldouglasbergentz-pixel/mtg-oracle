@@ -56,6 +56,8 @@ Mana, function and card kind:
   otag:TAG    Scryfall Tagger function (otag:removal, otag:ramp, otag:mana-rock;
               a tag also finds its children, removal -> removal-creature, ...)
   is:X        commander, permanent, spell, historic, dfc, mdfc, split, reserved
+  like:NAME   the cards most like a card, likest first: what it does (Tagger's
+              tags), then its kind, mana value, colours and words (like:"llanowar elves")
 
 Colors can be letters (`u`, `uw`), words (`blue`, `white`, `blue white`), or
 braced (`{W}{U}`).
@@ -70,6 +72,7 @@ Examples:
     goblin mv<=2 c:r
     o:"enters the battlefield" t:creature c:u mv<=3
     otag:removal c:w mv<=2 order:asc_edhrec
+    like:"llanowar elves" c:r
     kw:flying (c:w or c:u) -t:artifact
     f:competitivebrawl ci<=UR t:instant order:asc_edhrec
     f:commander game:paper t:artifact mv<=2 order:asc_edhrec

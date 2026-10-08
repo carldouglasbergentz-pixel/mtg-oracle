@@ -21,6 +21,8 @@ class SearchSql(
     /** The rarities and layouts the cards have, which `r:` and `layout:` must name; empty, anything goes (no cards yet). */
     private val rarities: Set<String> = emptySet(),
     private val layouts: Set<String> = emptySet(),
+    /** `like:`'s cards for a card's name, likest first; a SearchError for a name that is no card. */
+    private val like: (String) -> List<String> = { throw SearchError("like: isn't available here") },
 ) {
 
     fun where(node: SearchNode?): Sql = if (node == null) Sql("1=1") else compile(node)
@@ -131,6 +133,11 @@ class SearchSql(
                 Sql(predicate)
             }
             "m" -> manaCost(op, value)
+            "like" -> {
+                textOnly("like")
+                val names = like(value.trim())
+                if (names.isEmpty()) Sql("0") else Sql(names.joinToString(", ", "c.name IN (", ")") { "?" }, names)
+            }
             "pool" -> {
                 textOnly("pool")
                 val deckId = value.trim().toIntOrNull() ?: throw SearchError("pool: takes a deck's id, got '$value'")
@@ -196,7 +203,12 @@ class SearchSql(
      * ORDER BY for the sort keys, NULLs last whatever the direction; the name
      * breaks every tie. With no sort asked for, [freeWords] rank by relevance.
      */
-    fun orderBy(keys: List<SortKey>, freeWords: List<String> = emptyList()): Sql {
+    fun orderBy(keys: List<SortKey>, freeWords: List<String> = emptyList(), likeTarget: String? = null): Sql {
+        // `like:` with no order of its own: likest first.
+        if (keys.isEmpty() && likeTarget != null) {
+            val names = like(likeTarget.trim())
+            if (names.isNotEmpty()) return Sql(names.indices.joinToString(" ", "CASE c.name ", " ELSE ${names.size} END, c.name COLLATE NOCASE ASC") { "WHEN ? THEN $it" }, names)
+        }
         if (keys.isEmpty()) {
             if (freeWords.isEmpty()) return Sql("c.name COLLATE NOCASE ASC")
             val rank = relevance(freeWords)

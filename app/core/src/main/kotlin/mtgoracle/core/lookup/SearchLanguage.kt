@@ -47,6 +47,38 @@ object SearchLanguage {
         else -> emptyList()
     }
 
+    /** The card a search is `like:`, which orders it when nothing else does: the first such term not under a `-`. */
+    fun likeTarget(node: SearchNode?): String? = when (node) {
+        is SearchNode.Term -> node.value.takeIf { SearchFields.ALIAS[node.field.lowercase()] == "like" }
+        is SearchNode.And -> node.parts.firstNotNullOfOrNull(::likeTarget)
+        is SearchNode.Or -> node.parts.firstNotNullOfOrNull(::likeTarget)
+        else -> null
+    }
+
+    /**
+     * What a search asks besides its `like:`, when the `like:` is one of the
+     * things it asks all at once (`like:counterspell f:premodern`, or a
+     * deck's filters added to it): the cards that `like:` ranks among, so a
+     * narrow format still gets its own likest. Null when there is nothing
+     * else, or the `like:` is under an `or` or a `-`.
+     */
+    fun likeAmong(node: SearchNode?): SearchNode? {
+        val parts = conjuncts(node)
+        val like = parts.firstOrNull { it is SearchNode.Term && SearchFields.ALIAS[it.field.lowercase()] == "like" } ?: return null
+        val rest = parts - like
+        return when (rest.size) {
+            0 -> null
+            1 -> rest.single()
+            else -> SearchNode.And(rest)
+        }
+    }
+
+    private fun conjuncts(node: SearchNode?): List<SearchNode> = when (node) {
+        null -> emptyList()
+        is SearchNode.And -> node.parts.flatMap(::conjuncts)
+        else -> listOf(node)
+    }
+
     /** The whole query: sort tokens out first, then the filter. An empty filter matches everything. */
     fun parse(query: String): SearchQuery {
         val (cleaned, order) = extractOrder(query)
