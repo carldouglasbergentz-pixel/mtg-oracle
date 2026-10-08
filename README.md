@@ -10,7 +10,7 @@ Download `MTG-Oracle-<version>-windows-x64.zip` from the release, unpack it anyw
 
 On a first start the database is empty: press **[ Sync ]** (or let the daily sync do it within a minute). The first sync downloads about 800 MB, most of it Commander Spellbook's combos and Scryfall's printings, and takes a few minutes; after that only what moved upstream is fetched.
 
-**Updating.** The app looks for a newer release a few seconds after it starts, and `update` installs it: the download is checked against its `.sha256`, and `data\` is never touched. While the repository is private this needs the GitHub CLI (`gh`) signed in with access to it; otherwise unpack the new zip over the old folder, keeping `data\`.
+**Updating.** The app looks for a newer release a few seconds after it starts, and `update` installs it: the download is checked against its `.sha256`, and `data\` is never touched. No login is needed. By hand: unpack the new zip over the old folder, keeping `data\`.
 
 `mtg.exe`, beside the window's exe, is the command line (see below).
 
@@ -120,7 +120,19 @@ mtg help
 
 The app (`app/`) is Kotlin and Compose Desktop with Forge embedded ([ADR 0001](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md)); network play is [ADR 0002](docs/adr/0002-network-play.md). It replaced a Python TUI and CLI in October 2026; that code lives at the git tag `python-final`.
 
-Requirements: JDK 25, and Forge in `tools/forge-dc/` (git-ignored, GPL-3). Forge is, for now, a build of our Duel Commander branch (Card-Forge/forge#12090), because no release plays Duel Commander yet. In the fork's worktree (`D:/Projekt/forge-dc/forge-verify`), on the branch's committed head, run `mvn -pl forge-gui-desktop -am package -DskipTests -Dcheckstyle.skip`, then `python D:/Projekt/forge-dc/tools/stage_for_mtg_oracle.py D:/Projekt/forge-dc/forge-verify tools/forge-dc`. `tools/forge-dc/build.txt` names the commit; restage whenever the branch moves. `-PforgeDir=tools/forge` builds against an unpacked Forge 2.0.14 release instead, which has no Duel Commander.
+Requirements: JDK 25, Maven, Python 3, and Forge in `tools/forge-dc/` (git-ignored, GPL-3). Forge is, for now, a build of our branch [`mtg-oracle-forge`](https://github.com/carldouglasbergentz-pixel/forge/tree/mtg-oracle-forge): the Duel Commander work ([Card-Forge/forge#12090](https://github.com/Card-Forge/forge/pull/12090)), because no Forge release plays Duel Commander yet. To build it:
+
+```bat
+git clone -b mtg-oracle-forge https://github.com/carldouglasbergentz-pixel/forge.git ..\forge
+cd ..\forge
+mvn -pl forge-gui-desktop -am package -DskipTests -Dcheckstyle.skip
+cd ..\mtg-oracle
+python tools\stage_forge.py ..\forge tools\forge-dc
+```
+
+`tools/stage_forge.py` copies Forge's desktop jar and `res/` into the layout the app builds against, and `tools/forge-dc/build.txt` names the commit it came from; restage whenever the branch moves. `-PforgeDir=tools/forge` builds against an unpacked Forge release instead (2.0.14 has no Duel Commander).
+
+**When Forge moves.** Forge is inside the app, so a Forge update is a new release of the app, and network play (which needs the same version on both sides) moves with it. Rebuild and restage Forge, then run `gradlew test`: it holds the seam to Forge's internal API, which isn't stable, and `ForgeLimitedTest` holds the packs a seed opens to recorded digests, which change when Forge's packs do (new sets, mended booster sheets: update the digests on purpose). New cards reach the database by the daily sync whatever Forge does; the packs and the rules of a new set come with Forge. Once a Forge release plays Duel Commander, the app goes back to Forge's own releases and the branch goes.
 
 From `app/`:
 
@@ -145,11 +157,15 @@ Play from a snapshot, not `gradlew :app:run`: a build replaces the class files u
 ### A release
 
 ```bat
-gradlew :app:packageRelease -PreleaseVersion=0.4.0
-gh release create v0.4.0 <zip> <zip>.sha256
+gradlew :app:packageRelease -PreleaseVersion=0.5.1
+gh release create v0.5.1 <zip> <zip>.sha256
 ```
 
-This builds `app\app\build\release\MTG Oracle\` and its zip (about 150 MB) with a `.sha256` beside it: `MTG Oracle.exe` (the window), `mtg.exe` (the command line), `runtime\` (a Java of its own) and `app\` (the jars, Forge's assets, the points lists). A release is built from a clean tree (`-PallowDirty` for a trial), versioned `0.4.0+<commit>`, and published from a pushed tag; without its `.sha256` it can't be installed by `update`.
+This builds `app\app\build\release\MTG Oracle\` and its zip (about 150 MB) with a `.sha256` beside it: `MTG Oracle.exe` (the window), `mtg.exe` (the command line), `runtime\` (a Java of its own), `app\` (the jars, Forge's assets, the points lists), and `LICENSE.txt`, `NOTICE.txt` and `FORGE-SOURCE.txt` (the Forge commit inside, whose source the GPL says goes with it: it must be pushed to the fork). A release is built from a clean tree (`-PallowDirty` for a trial), versioned `0.5.1+<commit>`, and published from a pushed tag; without its `.sha256` it can't be installed by `update`.
+
+## Licence and credits
+
+GPL-3.0 ([`LICENSE`](LICENSE)), because Forge is embedded. Card data and images come from Scryfall, combos from Commander Spellbook, the rules from Wizards of the Coast: see [`NOTICE.md`](NOTICE.md). MTG Oracle is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
 
 ## Project layout
 

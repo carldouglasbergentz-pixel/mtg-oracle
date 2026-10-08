@@ -47,13 +47,13 @@ class UpdatesTest {
         }
     }
 
-    /** A GitHub-shaped API: the latest release, its assets behind a redirect to "storage", which must get no token. */
+    /** A GitHub-shaped API: the latest release, its assets behind a redirect to "storage"; no request carries a login. */
     private fun serve(tag: String, zip: File, sha: String): String {
         val http = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val base = "http://127.0.0.1:${http.address.port}"
         val name = "MTG-Oracle-${tag.removePrefix("v")}-windows-x64.zip"
         http.createContext("/repos/") { ex ->
-            val ok = ex.requestHeaders.getFirst("Authorization") == "Bearer test-token"
+            val ok = ex.requestHeaders.getFirst("Authorization") == null
             val body = """{"tag_name":"$tag","assets":[{"name":"$name","url":"$base/assets/1","size":${zip.length()}},{"name":"$name.sha256","url":"$base/assets/2","size":80}]}"""
             ex.sendResponseHeaders(if (ok) 200 else 401, body.length.toLong()); ex.responseBody.use { it.write(body.toByteArray()) }
         }
@@ -66,7 +66,7 @@ class UpdatesTest {
             } else { ex.responseHeaders.add("Location", "$base/storage/$id"); ex.sendResponseHeaders(302, -1); ex.close() }
         }
         http.createContext("/storage/") { ex ->
-            check(ex.requestHeaders.getFirst("Authorization") == null) { "the token went to storage" }
+            check(ex.requestHeaders.getFirst("Authorization") == null) { "a login went to storage" }
             val bytes = if (ex.requestURI.path.endsWith("/1")) zip.readBytes() else "$sha  $name\n".toByteArray()
             ex.sendResponseHeaders(200, bytes.size.toLong()); ex.responseBody.use { it.write(bytes) }
         }
@@ -89,9 +89,9 @@ class UpdatesTest {
         val zip = zip(dir.resolve("new.zip"),
             "MTG Oracle/app/marker.txt" to "new", "MTG Oracle/runtime/marker.txt" to "new", "MTG Oracle/data/mtg.db" to "a stranger's decks")
         val base = serve("v0.2.0", zip, Updates.sha256(zip))
-        val updates = Updates(install, ReleaseVersion.parse("0.1.0")!!, token = { "test-token" }, api = base)
+        val updates = Updates(install, ReleaseVersion.parse("0.1.0")!!, api = base)
         val release = assertNotNull(updates.newer(), "0.2.0 is newer than 0.1.0")
-        assertNull(Updates(install, ReleaseVersion.parse("0.2.0")!!, token = { "test-token" }, api = base).newer(), "and not newer than itself")
+        assertNull(Updates(install, ReleaseVersion.parse("0.2.0")!!, api = base).newer(), "and not newer than itself")
 
         val program = updates.download(release)
         assertEquals("new", program.resolve("app/marker.txt").readText())
@@ -116,18 +116,16 @@ class UpdatesTest {
         val install = install()
         val zip = zip(dir.resolve("new.zip"), "MTG Oracle/app/marker.txt" to "new", "MTG Oracle/runtime/marker.txt" to "new")
         val base = serve("v0.2.0", zip, "0".repeat(64))
-        val updates = Updates(install, ReleaseVersion.parse("0.1.0")!!, token = { "test-token" }, api = base)
+        val updates = Updates(install, ReleaseVersion.parse("0.1.0")!!, api = base)
         val refused = assertFailsWith<UpdateRefused> { updates.download(updates.newer()!!) }
         assertTrue("SHA-256" in refused.message!!, refused.message)
         assertEquals("old", install.resolve("app/marker.txt").readText(), "nothing installed")
     }
 
     @Test
-    fun `a zip naming a path outside its folder is refused, and no login is said`() {
+    fun `a zip naming a path outside its folder is refused`() {
         val evil = zip(dir.resolve("evil.zip"), "MTG Oracle/app/x.txt" to "x", "../../outside.txt" to "escaped", launchers = false)
         assertFailsWith<UpdateRefused> { Updates.unzip(evil, dir.resolve("into")) }
         assertFalse(dir.resolve("outside.txt").exists() || dir.parentFile.resolve("outside.txt").exists(), "nothing written outside")
-        val noLogin = assertFailsWith<UpdateRefused> { Updates(install(), ReleaseVersion.parse("0.1.0")!!, token = { null }, api = "http://127.0.0.1:1").latest() }
-        assertTrue("gh auth login" in noLogin.message!!)
     }
 }

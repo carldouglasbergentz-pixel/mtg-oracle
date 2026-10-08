@@ -13,7 +13,6 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.security.MessageDigest
 import java.time.Duration
-import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
 
 /** A release's version, numbers only, as the tags name them: `v0.1.0`. */
@@ -31,7 +30,7 @@ data class ReleaseVersion(val parts: List<Int>) : Comparable<ReleaseVersion> {
     }
 }
 
-/** A file on a release, as the API names it: [apiUrl] is where it is fetched with the token. */
+/** A file on a release, as the API names it: [apiUrl] is where it is fetched. */
 data class ReleaseAsset(val name: String, val apiUrl: String, val size: Long)
 
 /** The newest release: its version, the package zip, and the zip's SHA-256 file. */
@@ -41,21 +40,18 @@ data class Release(val version: ReleaseVersion, val zip: ReleaseAsset, val sha25
 class UpdateRefused(message: String) : RuntimeException(message)
 
 /**
- * The release's updates, from the private repo's GitHub releases: what the
+ * The release's updates, from the public repo's GitHub releases: what the
  * newest is, its download (checked against the SHA-256 published beside it),
  * and the swap. The swap is a script run once the app has closed. It replaces
  * the program ([install]'s `app\`, `runtime\` and launchers) and never touches
  * `data\`: the decks, games and settings stay.
  *
- * The token is the GitHub CLI's (`gh auth token`, from the keyring it was
- * logged in with): nothing secret is kept by the app, and a machine without a
- * logged-in `gh` simply checks nothing. The token goes to api.github.com
- * only, never to the storage a download is redirected to, and is never logged.
+ * The releases are public, so nothing is sent but the requests themselves:
+ * no login, no token, nothing kept by the app.
  */
 class Updates(
     private val install: File,
     private val current: ReleaseVersion,
-    private val token: () -> String? = ::ghToken,
     private val api: String = "https://api.github.com",
     private val repo: String = REPO,
     private val http: HttpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(Duration.ofSeconds(20)).build(),
@@ -69,8 +65,7 @@ class Updates(
 
     /** The newest release GitHub has (not a draft or prerelease), or null when there is none. */
     fun latest(): Release? {
-        val auth = token() ?: throw UpdateRefused(NO_LOGIN)
-        val response = http.send(apiRequest("$api/repos/$repo/releases/latest", auth).build(), HttpResponse.BodyHandlers.ofString())
+        val response = http.send(apiRequest("$api/repos/$repo/releases/latest").build(), HttpResponse.BodyHandlers.ofString())
         if (response.statusCode() == 404) return null
         if (response.statusCode() != 200) throw UpdateRefused("GitHub answered ${response.statusCode()} for the latest release")
         return parseRelease(response.body())
@@ -81,13 +76,12 @@ class Updates(
      * beside it, then unpacked in `update\new\`; the folder that holds the program.
      */
     fun download(release: Release, progress: (String) -> Unit = {}): File {
-        val auth = token() ?: throw UpdateRefused(NO_LOGIN)
         if (updateDir.exists() && !clear(updateDir)) throw UpdateRefused("can't clear $updateDir")
         updateDir.mkdirs()
         val zip = updateDir.resolve(release.zip.name)
         progress("downloading ${release.zip.name} (${release.zip.size / 1_000_000} MB)")
-        fetch(release.zip, auth, Duration.ofMinutes(10), HttpResponse.BodyHandlers.ofFile(zip.toPath()))
-        val expected = String(fetch(release.sha256, auth, Duration.ofMinutes(1), HttpResponse.BodyHandlers.ofByteArray())).trim().substringBefore(' ').lowercase()
+        fetch(release.zip, Duration.ofMinutes(10), HttpResponse.BodyHandlers.ofFile(zip.toPath()))
+        val expected = String(fetch(release.sha256, Duration.ofMinutes(1), HttpResponse.BodyHandlers.ofByteArray())).trim().substringBefore(' ').lowercase()
         val actual = sha256(zip)
         if (expected.length != 64 || expected != actual) throw UpdateRefused("the download's SHA-256 is $actual, the release says $expected: not installed")
         progress("unpacking ${release.version}")
@@ -140,19 +134,18 @@ class Updates(
         ProcessBuilder("cmd.exe", "/c", script.canonicalPath).directory(updateDir).start()
     }
 
-    private fun apiRequest(url: String, auth: String) = HttpRequest.newBuilder(URI(url))
-        .header("Authorization", "Bearer $auth")
+    private fun apiRequest(url: String) = HttpRequest.newBuilder(URI(url))
         .header("Accept", "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28")
         .timeout(Duration.ofSeconds(30))
 
     /**
-     * [asset]'s content: the API answers with it, or redirects to storage, which is then
-     * asked without the token. Only `application/octet-stream` may be asked for: with
-     * the API's own JSON type beside it, GitHub answers 200 with the asset's description.
+     * [asset]'s content: the API answers with it, or redirects to storage. Only
+     * `application/octet-stream` may be asked for: with the API's own JSON type
+     * beside it, GitHub answers 200 with the asset's description.
      */
-    private fun <T> fetch(asset: ReleaseAsset, auth: String, timeout: Duration, body: HttpResponse.BodyHandler<T>): T {
-        val first = http.send(apiRequest(asset.apiUrl, auth).setHeader("Accept", "application/octet-stream").timeout(timeout).build(), body)
+    private fun <T> fetch(asset: ReleaseAsset, timeout: Duration, body: HttpResponse.BodyHandler<T>): T {
+        val first = http.send(apiRequest(asset.apiUrl).setHeader("Accept", "application/octet-stream").timeout(timeout).build(), body)
         if (first.statusCode() == 200) return first.body()
         if (first.statusCode() !in 300..399) throw UpdateRefused("GitHub answered ${first.statusCode()} for ${asset.name}")
         val location = URI(first.headers().firstValue("Location").orElseThrow { UpdateRefused("GitHub gave ${asset.name} no location") })
@@ -165,8 +158,7 @@ class Updates(
 
     companion object {
         /** The repository the releases are published in. */
-        const val REPO = "carldouglasbergentz-pixel/mtg-oracle-private"
-        const val NO_LOGIN = "no GitHub login to read the releases with: run `gh auth login` once (the repo is private)"
+        const val REPO = "carldouglasbergentz-pixel/mtg-oracle"
         /** The program's folder in the zip, and its window launcher's name. */
         const val PROGRAM = "MTG Oracle"
 
@@ -210,20 +202,6 @@ class Updates(
             val buffer = ByteArray(1 shl 16)
             while (true) { val n = input.read(buffer); if (n < 0) break; digest.update(buffer, 0, n) }
             digest.digest().joinToString("") { "%02x".format(it) }
-        }
-
-        /** The GitHub CLI's token, or null when gh isn't there or isn't logged in. Fixed arguments: nothing of the user's reaches the command. */
-        fun ghToken(): String? {
-            val gh = listOf("gh", "${System.getenv("ProgramFiles") ?: "C:\\Program Files"}\\GitHub CLI\\gh.exe")
-            for (exe in gh) {
-                val token = runCatching {
-                    val process = ProcessBuilder(exe, "auth", "token").redirectErrorStream(false).start()
-                    val out = process.inputStream.bufferedReader().readText().trim()
-                    if (process.waitFor(15, TimeUnit.SECONDS) && process.exitValue() == 0) out.takeIf { it.isNotEmpty() } else null
-                }.getOrNull()
-                if (token != null) return token
-            }
-            return null
         }
     }
 }

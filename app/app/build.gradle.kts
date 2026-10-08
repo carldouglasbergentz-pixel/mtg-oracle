@@ -28,6 +28,7 @@ dependencies {
 
 val repoRoot = rootProject.extra["repoRoot"] as File
 val forgeAssets = rootProject.extra["forgeAssets"] as File
+val forgeDir = rootProject.extra["forgeDir"] as File
 
 compose.desktop {
     application {
@@ -209,6 +210,16 @@ tasks.register("packageRelease") {
         val said = process.inputStream.bufferedReader().readText()
         if (process.waitFor() != 0) throw GradleException("jpackage failed:\n$said")
         val image = releaseRoot.resolve("MTG Oracle")
+        // The licence and credits beside the exe, and the Forge inside named by its commit: the GPL's source goes with the binary.
+        repoRoot.resolve("LICENSE").copyTo(image.resolve("LICENSE.txt"), overwrite = true)
+        repoRoot.resolve("NOTICE.md").copyTo(image.resolve("NOTICE.txt"), overwrite = true)
+        val forgeCommit = forgeDir.resolve("build.txt").takeIf { it.isFile }?.readLines()?.getOrNull(1)?.substringBefore(' ')
+            ?: throw GradleException("no Forge commit in ${forgeDir.resolve("build.txt")}: stage Forge with tools/stage_forge.py")
+        image.resolve("FORGE-SOURCE.txt").writeText(
+            "MTG Oracle $release embeds Forge (GPL-3.0), built from commit $forgeCommit of\r\n" +
+                "https://github.com/carldouglasbergentz-pixel/forge\r\n" +
+                "Its source: https://github.com/carldouglasbergentz-pixel/forge/tree/$forgeCommit\r\n",
+        )
         val zip = releaseRoot.resolve("MTG-Oracle-$release-windows-x64.zip")
         zipFolder(image, zip)
         val sha = MessageDigest.getInstance("SHA-256").digest(zip.readBytes()).joinToString("") { "%02x".format(it) }
