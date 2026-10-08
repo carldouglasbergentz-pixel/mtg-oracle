@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Network protocol 2: an app of this version plays only an app of this version.
+## [0.5.0] - 2026-10-08
+
+Limited: sealed against the AI and with a friend. The lobby has a limited tab: open six packs of a set, build your deck from the pool in the middle of the workspace (laid out by colour, type and mana value), and play it against the AI's own pool, or host a sealed table where each of you opens your own packs and neither sees the other's pool. A 0.4.0 install takes it with `update`; the first start migrates the database to schema v5 (limited pools), after a `pre-v5` backup. Network protocol 2: network play needs the same version on both sides, so a friend on 0.4.0 updates too.
 
 ### Added
 - **Sealed with a friend** (ADR 0003, step 2). Host a room from the lobby's limited tab and it is a sealed table of the chosen set; your friend joins from their limited tab. Each of you opens six packs in your own app, from a seed neither can steer: each side seals a secret first (its hash), then gets the other's open number, and its pool comes from the two. Neither sees the other's pool while building. Each pool opens as a deck in your Limited folder, built from the pool in the middle as a sealed deck is; Ready checks it against your pool and holds you to it. The host is ready first; the guest's deck goes with its secret, and the host opens the guest's packs itself and judges the deck against them, telling the guest why when it doesn't fit. The match begins when both are in, and is recorded on both sides. When it ends the host's secret and deck go to the guest, who checks them against the host's pool and the deck the host was ready with ("checked" in the status line). The host keeps the guest's pool beside its own. A guest whose app opens other packs of the set is turned away at the door. `SealedTableTest` (honest tables, a changed guest app's card beyond its pool, a secret not its own, a deck out of turn, a number before its envelope, a host playing another deck), `SealedNetPlayTest` (two apps at one table, through to the records), `LimitedTabTest`.
