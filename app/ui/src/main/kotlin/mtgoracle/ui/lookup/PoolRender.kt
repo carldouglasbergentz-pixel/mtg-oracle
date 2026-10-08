@@ -11,7 +11,7 @@ private const val INDENT = "    "
 fun renderPool(title: String, pool: OpenedPool): Rendering = Rendering { width ->
     Lines(width).apply {
         add(title, Tone.BOLD)
-        wrap("${pool.packs.size} packs of ${pool.set.name} (${pool.set.code}), ${pool.cards.size} cards. It is all in the sideboard: move cards to the main deck to build.", tone = Tone.DIM)
+        wrap("${pool.packs.size} packs of ${pool.set.name} (${pool.set.code}), ${pool.cards.size} cards. Above, what is left of it: [+] takes a card into the deck, - in the deck puts it back.", tone = Tone.DIM)
         val names = pool.cards.map { it.name + if (it.foil) "*" else "" }
         val column = (names.maxOfOrNull { it.length } ?: 0) + 2
         val perLine = ((width - INDENT.length) / column).coerceAtLeast(1)

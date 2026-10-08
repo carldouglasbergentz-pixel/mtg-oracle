@@ -22,12 +22,9 @@ import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 
 /** The order the deck view groups by, front face's type deciding. */
-internal val TYPE_ORDER = listOf("Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land")
+internal val TYPE_ORDER = mtgoracle.core.lookup.CardTypes.ORDER
 
-fun primaryType(card: DeckCard): String {
-    val front = card.info?.typeLine?.split(" // ")?.first().orEmpty()
-    return TYPE_ORDER.firstOrNull { front.contains(it) } ?: "Other"
-}
+fun primaryType(card: DeckCard): String = mtgoracle.core.lookup.CardTypes.primary(card.info?.typeLine)
 
 /**
  * A deck grouped by type, the commander first and the sideboard last: art

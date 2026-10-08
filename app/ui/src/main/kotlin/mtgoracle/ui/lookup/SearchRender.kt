@@ -1,5 +1,6 @@
 package mtgoracle.ui.lookup
 
+import mtgoracle.core.lookup.PoolSort
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.core.lookup.SearchPage
 
@@ -23,13 +24,18 @@ fun renderSearch(page: SearchPage, actions: Boolean = false, points: (String) ->
     Lines(width).apply {
         if (page.rows.isEmpty()) { add("(no cards matching filters)", Tone.DIM); return@apply }
         val offset = (page.page - 1) * page.pageSize
-        add("${page.total} card(s) — showing ${offset + 1}-${minOf(offset + page.rows.size, page.total)} (page ${page.page} of ${page.lastPage})", Tone.BOLD)
+        val arranged = page.arrangement
+        if (arranged != null) poolHeader(page.total, arranged.sort)
+        else add("${page.total} card(s) — showing ${offset + 1}-${minOf(offset + page.rows.size, page.total)} (page ${page.page} of ${page.lastPage})", Tone.BOLD)
+        // A pool's groups each begin under a heading of their own: where each starts, by row.
+        val starts = arranged?.groups?.runningFold(0) { at, g -> at + g.second }?.zip(arranged.groups)?.associate { (at, g) -> at to g }.orEmpty()
         val controls = if (actions) ACTIONS.sumOf { it.first.length + 1 } else 0
         val prefixW = INDENT.length + 6 + controls // "  [  1] " and "+ sb ? "
         // The name keeps its 42 columns while the pane allows; the type line takes the rest.
         val nameW = (width - prefixW - COST_W - 2 - 12).coerceIn(12, NAME_W)
         val typeW = maxOf(8, width - prefixW - nameW - COST_W - 2)
         page.rows.forEachIndexed { i, row ->
+            starts[i]?.let { (label, n) -> add(groupHeading(label, n), Tone.BOLD) }
             val text = StringBuilder("$INDENT[${(i + 1).toString().padStart(3)}] ")
             val spans = mutableListOf<LinkSpan>()
             if (actions) for ((label, section) in ACTIONS) {
@@ -53,6 +59,26 @@ fun renderSearch(page: SearchPage, actions: Boolean = false, points: (String) ->
         text.append("`card <N>` to expand row")
         add(text.toString(), Tone.DIM, spans)
     }.out
+}
+
+/** A pool group's heading, the same in lines and in the grid. */
+fun groupHeading(label: String, count: Int): String = "$INDENT── $label ($count)"
+
+/**
+ * A limited deck's pool, and how it is laid out: each slot a link that turns
+ * it to the next layer (`sort ...`, our own command), the first naming the groups.
+ */
+private fun Lines.poolHeader(total: Int, sort: PoolSort) {
+    val text = StringBuilder("$total card(s) in the pool · sort: ")
+    val spans = mutableListOf<LinkSpan>()
+    sort.slots.forEachIndexed { i, layer ->
+        if (i > 0) text.append(" › ")
+        val label = "[${layer?.word ?: "-"}]"
+        spans += LinkSpan(text.length, text.length + label.length, OutputLink.Sort(sort.cycled(i)))
+        text.append(label)
+    }
+    text.append("  (click one to change it; the first groups)")
+    add(text.toString(), Tone.BOLD, spans)
 }
 
 /** The filters a deck added to a search — announced, never applied silently. Empty when there are none. */

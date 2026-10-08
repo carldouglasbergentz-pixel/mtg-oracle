@@ -18,6 +18,8 @@ sealed interface OutputLink {
     data class Cards(val title: String, val names: List<String>) : OutputLink
     /** A change to the open deck (a result's `+`, `sb`, `?`). */
     data class Edit(val action: EditAction) : OutputLink
+    /** A limited deck's pool laid out anew (its page's `sort:` slots): the page changes in place, nothing is added. */
+    data class Sort(val sort: mtgoracle.core.lookup.PoolSort) : OutputLink
 }
 
 data class LinkSpan(val start: Int, val end: Int, val link: OutputLink)

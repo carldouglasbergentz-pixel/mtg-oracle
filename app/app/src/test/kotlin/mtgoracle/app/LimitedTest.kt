@@ -110,6 +110,14 @@ class LimitedTest {
         fun pool() = assertNotNull(output.latestSearch?.page, "the pool's page; notice: ${app.notice}")
         assertEquals(deck.cards.filter { it.isSideboard }.size, pool().total, "every card of the pool, each once")
         assertTrue(pool().filters.any { "pool" in it }, pool().filters.toString())
+        // Laid out by colour, then type, then mana value; `sort` changes it in place, and it is kept for next time.
+        val colours = setOf("White", "Blue", "Black", "Red", "Green", "Multicolour", "Colourless")
+        assertTrue(assertNotNull(pool().arrangement).groups.all { it.first in colours }, pool().arrangement.toString())
+        assertEquals(pool().total, pool().rows.size, "the whole pool on one page")
+        assertNotNull(app.commands).submit("sort type mv")
+        assertTrue(pool().arrangement!!.groups.all { it.first in mtgoracle.core.lookup.CardTypes.ORDER + "Other" }, pool().arrangement.toString())
+        assertEquals("sort type mv -", app.settings.limitedSort.command)
+        assertNotNull(app.commands).submit("sort colour type mv")
         OffscreenDriver(1800, 1100) { AppContent(app) {} }.use { d ->
             d.settle(8)
             d.savePng(File(Scenario.pngDir, "limited-workspace.png"))

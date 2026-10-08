@@ -54,6 +54,8 @@ class RenderTest {
                     is OutputLink.Combo -> assertTrue(shown.startsWith("[") && shown.endsWith("]"), shown)
                     is OutputLink.Edit -> assertTrue(shown in setOf("+", "sb", "?"), shown)
                     is OutputLink.Cards -> assertTrue(link.names.isNotEmpty(), "an empty list is never a link")
+                    // A slot shows the layer it holds now; the link carries the layout a click makes.
+                    is OutputLink.Sort -> assertTrue(shown.startsWith("[") && shown.endsWith("]"), shown)
                 }
             }
         }

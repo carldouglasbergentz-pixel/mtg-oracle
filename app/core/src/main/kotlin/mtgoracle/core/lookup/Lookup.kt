@@ -89,7 +89,11 @@ data class CardProfile(
     val corrections: List<Correction>,
 )
 
-data class SearchRow(val name: String, val typeLine: String?, val manaCost: String?)
+data class SearchRow(
+    val name: String, val typeLine: String?, val manaCost: String?,
+    /** `cards.colors` (`B,G`) and `cards.mana_value`: what a limited pool's layout groups by (PoolSort). */
+    val colors: String? = null, val manaValue: Double? = null,
+)
 
 /**
  * One page of a search. [query] is what ran, deck filters included; paging
@@ -103,6 +107,8 @@ data class SearchPage(
     val pageSize: Int,
     /** Labels for the filters a deck added (`ci<=BG`, `f:commander`): announced, never silent. */
     val filters: List<String> = emptyList(),
+    /** A limited deck's pool, laid out in groups ([rows] already in that order); null for any other page. */
+    val arrangement: PoolArrangement? = null,
 ) {
     val lastPage: Int get() = maxOf(1, (total + pageSize - 1) / pageSize)
     val hasNext: Boolean get() = page < lastPage

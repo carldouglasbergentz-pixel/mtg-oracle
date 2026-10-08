@@ -29,10 +29,12 @@ class CardSearch(private val db: MtgDb, formats: FormatCatalog) {
                 st.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
             }
             val rows = conn.prepareStatement(
-                "SELECT c.name, c.type_line, c.mana_cost FROM cards c WHERE ${where.text} ORDER BY ${orderBy.text} LIMIT ? OFFSET ?",
+                "SELECT c.name, c.type_line, c.mana_cost, c.colors, c.mana_value FROM cards c WHERE ${where.text} ORDER BY ${orderBy.text} LIMIT ? OFFSET ?",
             ).use { st ->
                 st.bind(where.params + orderBy.params + listOf(size, (at - 1) * size))
-                st.executeQuery().use { rs -> rs.rows { SearchRow(getString("name"), getString("type_line"), getString("mana_cost")) } }
+                st.executeQuery().use { rs ->
+                    rs.rows { SearchRow(getString("name"), getString("type_line"), getString("mana_cost"), getString("colors"), getDouble("mana_value").takeIf { !wasNull() }) }
+                }
             }
             SearchPage(query, rows, total, at, size, filters)
         }

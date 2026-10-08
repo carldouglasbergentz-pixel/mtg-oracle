@@ -228,6 +228,11 @@ class Settings(private val file: File) {
         get() = props.getProperty("limited.set")
         set(value) { if (value == null) props.remove("limited.set") else props.setProperty("limited.set", value); save() }
 
+    /** How a limited deck's pool is laid out in the workspace: `colour type mv`, `-` for an empty slot. */
+    var limitedSort: mtgoracle.core.lookup.PoolSort
+        get() = props.getProperty("limited.sort")?.let { mtgoracle.core.lookup.PoolSort.parse(it.split(' ')) } ?: mtgoracle.core.lookup.PoolSort.DEFAULT
+        set(value) { props.setProperty("limited.sort", value.command.removePrefix("sort ")); save() }
+
     var shareMat: Boolean
         get() = props.getProperty("net.shareMat") != "false"
         set(value) { props.setProperty("net.shareMat", value.toString()); save() }

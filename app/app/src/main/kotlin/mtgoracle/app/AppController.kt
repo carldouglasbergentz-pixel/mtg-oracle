@@ -146,6 +146,7 @@ class AppController(private val paths: AppPaths) {
             selectedDeck = { selectedId }, sync = { force, only -> sync.run(force, only) }, autoSync = sync::setting, update = updates::install,
             onGuide = ::openGuide,
             onSealed = ::sealedCommand,
+            poolSort = settings.limitedSort, keepPoolSort = { settings.limitedSort = it },
             onCardsChanged = { commands?.let { current -> buildLookup(db, carry = current) } },
             output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
         )
@@ -261,7 +262,7 @@ class AppController(private val paths: AppPaths) {
                     play.chooseMe(event.deckId)
                     select(event.deckId)
                     backToLibrary()
-                    commands?.let { it.enterDeck(event.deckId); it.output.add(renderPool("${event.name}: your sealed pool", event.pool)) }
+                    commands?.enterDeck(event.deckId, intro = renderPool("${event.name}: your sealed pool", event.pool))
                     lookupUi?.showOutput = true
                     notice = "${event.name}: build it from the pool in the middle, then play it in the lobby's limited tab"
                 } catch (e: Exception) {

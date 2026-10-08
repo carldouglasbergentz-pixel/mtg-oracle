@@ -54,22 +54,31 @@ internal fun SearchGrid(
     val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
     Column {
         lines.firstOrNull()?.let { OutputLineView(it, at, onOpen, onHover) }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
-            page.rows.forEachIndexed { i, row ->
-                val face = remember(row.name) { faceOf(row.name) ?: row.face() }
-                val link = OutputLink.Card(row.name)
-                val keep = remember { BringIntoViewRequester() }
-                if (i == selected) LaunchedEffect(i) { keep.bringIntoView() }
-                Column(Modifier.bringIntoViewRequester(keep)) {
-                    CardFrame(
-                        face, CardMode.ART,
-                        emphasis = if (i == selected) Emphasis.SELECTABLE else Emphasis.NONE,
-                        target = ClickTarget.Link(link, at + GRID_TARGETS + i),
-                        onClick = { onOpen(link) },
-                        onHover = { onHover(link) },
-                        mark = points(row.name)?.let { "($it)" },
-                    )
-                    if (actions) GridActions(row.name, at + GRID_TARGETS + 100 + i * 3, onOpen)
+        // A pool laid out in groups: each under its heading, a row of cards of its own; any other page is one group.
+        val groups = page.arrangement?.groups ?: listOf("" to page.rows.size)
+        var start = 0
+        for ((label, count) in groups) {
+            val first = start
+            start += count
+            if (label.isNotEmpty()) OutputLineView(OutLine(groupHeading(label, count), Tone.BOLD), at, onOpen, onHover)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                page.rows.subList(first, first + count).forEachIndexed { offset, row ->
+                    val i = first + offset
+                    val face = remember(row.name) { faceOf(row.name) ?: row.face() }
+                    val link = OutputLink.Card(row.name)
+                    val keep = remember { BringIntoViewRequester() }
+                    if (i == selected) LaunchedEffect(i) { keep.bringIntoView() }
+                    Column(Modifier.bringIntoViewRequester(keep)) {
+                        CardFrame(
+                            face, CardMode.ART,
+                            emphasis = if (i == selected) Emphasis.SELECTABLE else Emphasis.NONE,
+                            target = ClickTarget.Link(link, at + GRID_TARGETS + i),
+                            onClick = { onOpen(link) },
+                            onHover = { onHover(link) },
+                            mark = points(row.name)?.let { "($it)" },
+                        )
+                        if (actions) GridActions(row.name, at + GRID_TARGETS + 100 + i * 3, onOpen)
+                    }
                 }
             }
         }

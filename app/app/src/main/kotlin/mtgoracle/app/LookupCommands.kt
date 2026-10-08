@@ -12,6 +12,8 @@ import mtgoracle.core.lookup.ComboSummary
 import mtgoracle.core.lookup.DeckScope
 import mtgoracle.core.lookup.Explain
 import mtgoracle.core.lookup.closest
+import mtgoracle.core.lookup.PoolArrangement
+import mtgoracle.core.lookup.PoolSort
 import mtgoracle.core.lookup.SearchError
 import mtgoracle.core.lookup.SearchLanguage
 import mtgoracle.core.lookup.SearchPage
@@ -69,6 +71,9 @@ class LookupCommands(
     private val onQuit: () -> Unit = {},
     /** `guide`: the getting-started checklist, opened in the library. */
     private val onGuide: () -> Unit = {},
+    /** How a limited deck's pool is laid out ([PoolSort]) when the workspace opens, and where a change to it is kept. */
+    poolSort: PoolSort = PoolSort.DEFAULT,
+    private val keepPoolSort: (PoolSort) -> Unit = {},
     /** `sealed <set>`: a sealed pool opened, for you and the AI; what to say of it. Forge opens packs, so only the window has it. */
     private val onSealed: (String) -> String = { "sealed opens packs with Forge: run it in the window" },
     /** The deck engine; null leaves the workspace read-only (tests of lookup alone). */
@@ -111,7 +116,7 @@ class LookupCommands(
      * Opens deck [id] to work on: search follows it from now on. False when it is gone.
      * [carried]: the same deck, re-entered after a sync rebuilt the lookup — its output stays.
      */
-    fun enterDeck(id: Int, carried: Boolean = false): Boolean {
+    fun enterDeck(id: Int, carried: Boolean = false, intro: mtgoracle.ui.lookup.Rendering? = null): Boolean {
         val entered = lookup.deckScope(id) ?: return false
         // Another deck starts with an empty output: the last deck's searches and reports only crowd it.
         // The same deck again keeps what it had; a `cd` keeps its own echo.
@@ -130,7 +135,9 @@ class LookupCommands(
         ui.deckTab = mtgoracle.ui.lookup.DeckTab.DECK
         onEnterDeck(id)
         editing?.refresh(id)
-        if (entered.fromPool && lastSearch == null) entered.restrict(SearchLanguage.parse(POOL_ORDER)).let { (query, filters) -> showPage(query, 1, filters) }
+        // A limited deck opens on its pool, at the top of the pane; [intro] (a new pool's packs) follows it, to read further down.
+        if (entered.fromPool && lastSearch == null) entered.restrict(SearchLanguage.parse("")).let { (query, filters) -> showPage(query, 1, filters) }
+        intro?.let(output::add)
         return true
     }
 
@@ -186,6 +193,8 @@ class LookupCommands(
             is OutputLink.Cards -> { output.echo(link.title); say(mtgoracle.ui.lookup.renderCardList(link.title, link.names)) }
             // A result's `+ sb ?`: the deck changes, the output doesn't.
             is OutputLink.Edit -> { ui.showOutput = showing; guarded { edit(link.action) } }
+            // A pool's `sort:` slot: the page is laid out anew where it stands, and the scrollback stays where it was.
+            is OutputLink.Sort -> { ui.showOutput = showing; guarded { layOutPool(link.sort) } }
         }
     }
 
@@ -243,6 +252,7 @@ class LookupCommands(
             "clear" -> output.clear()
             "quit", "exit" -> onQuit()
             "guide" -> { onGuide(); say("(the getting-started checklist, in the library's middle column)", Tone.DIM) }
+            "sort" -> sortPool(arg)
             "sealed" -> say(onSealed(arg))
             "add" -> deckCommand(arg, "add [--sb] [--force] <card> [N]") { card, n, flags ->
                 EditAction.Add(card, if ("--sb" in flags || "--sideboard" in flags) DeckSection.SIDEBOARD else DeckSection.MAIN, n ?: 1)
@@ -428,8 +438,11 @@ class LookupCommands(
 
     /** Runs one page; [announce] names the deck's filters above it (a new search, not a page turn). */
     private fun showPage(query: SearchQuery, page: Int, filters: List<String>, announce: Boolean = false, inPlace: Boolean = false) {
+        // A limited deck's pool is one page, laid out in groups, unless the search asks for an order of its own.
+        val pool = scope?.fromPool == true && query.order.isEmpty()
         val result = try {
-            lookup.search.page(query, page = page, pageSize = PAGE_SIZE, filters = filters)
+            lookup.search.page(query, page = if (pool) 1 else page, pageSize = if (pool) POOL_PAGE else PAGE_SIZE, filters = filters)
+                .let { r -> if (!pool) r else poolSort.arrange(r.rows).let { (rows, groups) -> r.copy(rows = rows, arrangement = PoolArrangement(poolSort, groups)) } }
         } catch (e: SearchError) {
             return searchError(e)
         }
@@ -440,6 +453,23 @@ class LookupCommands(
         val points = ui.points
         val rendering = renderSearch(result, actions = scope != null && editing != null, points = { points[it.lowercase()] })
         if (inPlace) output.replaceSearch(result, rendering) else output.addSearch(result, rendering)
+    }
+
+    /** How a limited deck's pool is laid out now. */
+    var poolSort: PoolSort = poolSort
+        private set
+
+    /** `sort colour type mv`: the pool's layout, one to three layers (`-` for none), the first naming the groups. */
+    private fun sortPool(arg: String) {
+        if (arg.isBlank()) return say("sort: ${poolSort.command.removePrefix("sort ")}. Change it with `sort <layers>`: colour, type, mv, one to three of them, the first naming the groups.", Tone.DIM)
+        if (scope?.fromPool != true) return say("sort lays out a limited deck's pool: open one first")
+        layOutPool(PoolSort.parse(arg.trim().split(Regex("\\s+"))) ?: return say("usage: sort <layers>, one to three of colour, type, mv (`-` for none), none twice: e.g. `sort colour type mv`"))
+    }
+
+    private fun layOutPool(sort: PoolSort) {
+        poolSort = sort
+        keepPoolSort(sort)
+        lastSearch?.let { s -> showPage(s.query, s.page, s.filters, inPlace = true) }
     }
 
     private fun searchError(e: SearchError) {
@@ -655,8 +685,8 @@ class LookupCommands(
         }.trimEnd()
 
         const val PAGE_SIZE = 50
-        /** A limited deck's pool as it opens in the workspace: by colour, then mana value. */
-        const val POOL_ORDER = "order:asc_color order:asc_mv"
+        /** A limited deck's pool is one page: six packs, a prerelease, a campaign's pool with room to spare. */
+        const val POOL_PAGE = 1000
         /** How `cd` names the decks outside every folder (the TUI's path for them). */
         const val UNSORTED = "(unsorted)"
 
