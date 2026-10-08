@@ -36,7 +36,8 @@ class AchievementsViewTest {
             d.settle(5)
             assertEquals(Screen.Achievements, app.screen)
             val groups = assertNotNull(app.achievements)
-            assertEquals(5, groups.size, "${groups.map { it.name }}")
+            assertEquals(6, groups.size, "${groups.map { it.name }}")
+            assertTrue(groups.take(2).map { it.name }.toSet().size == 2, "Constructed and Sealed, each a collection of its own: ${groups.map { it.name }}")
             val all = groups.flatMap { it.achievements }
             assertTrue(all.filter { !it.special }.all { it.levels.isNotEmpty() }, "a tiered one has its levels")
             val lobotomy = assertNotNull(all.firstOrNull { it.card == "Jace, the Mind Sculptor" }, "a planeswalker's ultimate names its card: ${all.mapNotNull { it.card }.take(5)}")

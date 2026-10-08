@@ -221,8 +221,10 @@ fun LobbyScreen(
                 BoxPane("the match", Modifier.weight(1f).fillMaxHeight()) {
                     // Every line takes the pane's measured width: facts are cut where the pane ends, instructions wrap.
                     if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick) {
+                        // As under the constructed tab's match: network play, then the playmats.
                         network?.let { GridText(""); NetworkSection(it, canPlay = forgeReady && !simRunning && limited.chosenSet != null, onNet,
                             sealedSet = limited.sets.firstOrNull { s -> s.code == limited.chosenSet }?.name) }
+                        mats?.let { GridText(""); MatsSection(it, onMat) }
                     }
                     else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         FitText("  ${me?.name ?: "your deck"}  vs  ${opponent?.deck?.name ?: "-"}", bold = true)
@@ -322,7 +324,7 @@ private fun SetList(cols: Int, limited: LobbyLimited, active: Boolean, modifier:
 private fun LimitedMatch(
     me: DeckSummary?, limited: LobbyLimited, watch: Boolean, format: String, notes: List<String>, canStart: Boolean,
     forgeReady: Boolean, forgeStartedAt: Long?, forgeExpectedMillis: Long?, onClick: (ClickTarget) -> Unit,
-    /** Network play, under the rest: a sealed table hosted or joined. */
+    /** Under the rest, as under the constructed tab's match: network play (a sealed table hosted or joined) and the playmats. */
     network: @Composable () -> Unit = {},
 ) {
     val set = limited.sets.firstOrNull { it.code == limited.chosenSet }

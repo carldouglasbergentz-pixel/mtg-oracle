@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The limited tab has the playmats**, as the constructed tab has under its match: each side's mat, its dim, place and zoom, chosen there as well. `LimitedTabTest`.
+- **A sealed game's achievements are shown.** Forge counts them in its own Sealed collection, which the achievements view didn't read: it shows it beside Constructed's now. `AchievementsViewTest`.
+
 ## [0.5.1] - 2026-10-08
 
 MTG Oracle is public: [github.com/carldouglasbergentz-pixel/mtg-oracle](https://github.com/carldouglasbergentz-pixel/mtg-oracle), GPL-3.0. A release now updates from there with no login. Install it fresh (unpack, start `MTG Oracle.exe`, Sync); bring your library over as a `.mtgoracle` package exported from the old one. Network play needs this version on both sides.

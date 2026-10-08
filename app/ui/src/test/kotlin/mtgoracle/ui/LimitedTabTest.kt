@@ -66,7 +66,7 @@ class LimitedTabTest {
     }
 
     @Test
-    fun `a sealed table being built shows the deck, where it stands, Ready and Leave, in every look`() {
+    fun `a sealed table being built shows the deck, where it stands, Ready and Leave, and the playmats, in every look`() {
         for (theme in Themes.ALL) {
             Palette.theme = theme
             val asked = mutableListOf<mtgoracle.ui.library.NetAction>()
@@ -75,12 +75,14 @@ class LimitedTabTest {
                 LobbyScreen(listOf(me), 1, emptyList(), null, useAiCopy = false, watch = false, notes = emptyList(),
                     forgeReady = true, canStart = false, onSelectMe = {}, onSelect = {}, onToggleAiCopy = {}, onToggleWatch = {}, onStart = {}, onLibrary = {},
                     network = mtgoracle.ui.library.LobbyNetwork("Alice", shareMat = false, showTheirMat = false, state = building), onNet = { asked += it },
+                    mats = mtgoracle.ui.library.LobbyMats(emptyList(), mtgoracle.ui.library.MatSide(null, null), mtgoracle.ui.library.MatSide(null, null), "data/playmats"),
                     limited = LobbyLimited(sets, "BLB", opponent = null))
             }.use { d ->
                 d.settle(5)
                 d.savePng(File(pngDir, "lobby-sealed-table-${theme.key}.png"))
                 val all = d.text.all()
                 assertTrue("a sealed table of Bloomburrow with Bob" in all && "your deck: BLB sealed vs Bob 2026-10-08" in all, "${theme.key}: the table")
+                assertTrue("playmats" in all, "${theme.key}: the playmats, as under the constructed tab")
                 assertTrue(d.click(ClickTarget.Control("net:ready")) && d.click(ClickTarget.Control("net:leave")), "${theme.key}: Ready and Leave")
                 assertEquals(listOf(mtgoracle.ui.library.NetAction.Ready, mtgoracle.ui.library.NetAction.LeaveTable), asked, theme.key)
             }

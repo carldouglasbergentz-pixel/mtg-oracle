@@ -14,13 +14,14 @@ import forge.localinstance.achievements.Achievement as ForgeAchievement
 
 /**
  * Forge's achievements, read for the achievements view: the collections a
- * game in this app adds to. Every game here is Constructed to Forge (the
- * Commander variants too), and the four card-and-challenge collections are
- * updated after any game (AchievementCollection.updateAll). Forge must be up.
+ * game in this app adds to. A constructed game is Constructed to Forge (the
+ * Commander variants too), a limited one Sealed (FModel.getAchievements), and
+ * the four card-and-challenge collections are updated after any game
+ * (AchievementCollection.updateAll). Forge must be up.
  */
 object ForgeAchievements {
     fun groups(): List<AchievementGroup> = listOf(
-        FModel.getAchievements(GameType.Constructed),
+        FModel.getAchievements(GameType.Constructed), FModel.getAchievements(GameType.Sealed),
         AltWinAchievements.instance, PlaneswalkerAchievements.instance, ChallengeAchievements.instance, CardActivationAchievements.instance,
     ).map { collection -> AchievementGroup(collection.toString(), collection.map(::view)) }
 
