@@ -1,82 +1,33 @@
 # MTG Oracle
 
-A local-first Magic: The Gathering workbench: a desktop app to look up cards, rules and combos, build decks with Scryfall-style search, analyse them against reference lists, and play them against Forge's AI on a board of its own. Everything works over one SQLite database of cards, rulings, the Comprehensive Rules, Commander Spellbook combos and your own decks.
+A local-first Magic: The Gathering workbench for Windows. Look up cards, rules and combos; build decks with Scryfall-style search; analyse them against reference lists; and play them against Forge's AI, or against a friend over the internet, on a board of its own. Everything works over one SQLite database of cards, rulings, the Comprehensive Rules, Commander Spellbook combos and your own decks.
 
-It runs offline after the first sync. There is no network at query time, and card art is fetched once and cached.
+Lookups never go to the network: the data is synced once a day and card art is fetched once and cached. The network is used for that sync, for checking for a new version, and for playing a friend.
 
-The app (`app/`) is Kotlin and Compose Desktop, with Forge embedded ([ADR 0001](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md)). It owns everything:
-- the schema and its migrations;
-- the data sync;
-- the library and the deck workspace;
-- lookups and analysis;
-- play, recorded game by game;
-- a command line for scripts.
+## Getting the app
 
-It replaced a Python TUI and CLI in October 2026. That code lives at the git tag `python-final`.
+Download `MTG-Oracle-<version>-windows-x64.zip` from the release, unpack it anywhere and start **`MTG Oracle.exe`**. It brings its own Java; nothing else needs installing. Everything it keeps (the database, settings, logs, card images, exports) lives in `data\` beside the exe, so the folder can be moved or backed up as it is.
 
-## What's in the box
+On a first start the database is empty: press **[ Sync ]** (or let the daily sync do it within a minute). The first sync downloads about 800 MB, most of it Commander Spellbook's combos and Scryfall's printings, and takes a few minutes; after that only what moved upstream is fetched.
 
-- **Cards.** 35k+ unique cards from the Scryfall bulk export: mana cost, colours, mana value, power/toughness, rarity, layout, and per-face data for DFCs, split and flip cards.
-- **Rulings.** 78k+ official rulings, joined to cards by `oracle_id`.
-- **Comprehensive Rules.** Every numbered rule (3,300+), parsed from the Wizards `.txt` release with parent and section links.
-- **Combos.** 110k+ Commander Spellbook combos, with their cards, prerequisites, results and step-by-step play. Your own combos go alongside them (`combo add`).
-- **Format legality.** Every card's status (`legal` / `restricted` / `banned`) in all 23 formats Scryfall tracks, plus which games it was printed in and its EDHREC rank. It is searchable and enforced per deck. `duel` *is* Duel Commander and `tlr` is Tiny Leaders: Reborn.
-- **Community formats with points.** Canadian Highlander's points list, with the 10-point cap enforced on `add`. The definitions are curated JSON in [`data/formats/`](data/formats/). Legality is inherited from the Scryfall format they share a ban list with.
-- **Tags.** Scryfall Tagger's oracle tags (what a card *does*: removal, ramp, a tutor), and locally derived ones:
-  - CR 702 keywords;
-  - types;
-  - per-ability `has_target` / `produces_mana` / `is_mana_ability` (CR 605.1a/b).
-- **Decks.** Folders, decks, sideboards, a considering list, and a full history in which every change can be undone. You can import from any common list format and export back.
-- **Analysis.** What each card does and what it really costs, curves by role, and the chance of each role being castable on curve. You can also compare a deck with a reference set: where it steps outside the set's ranges, and the cards the set plays that the deck lacks.
-- **Play.** Your decks against Forge's AI, or the AI against itself (simulated without a board), recorded in `games`. The AI can play a substituted copy of a deck.
-- **Feedback loop.** A `corrections` table that keeps factual mistakes from coming back. It is attached to card lookups automatically.
+**Updating.** The app looks for a newer release a few seconds after it starts, and `update` installs it: the download is checked against its `.sha256`, and `data\` is never touched. While the repository is private this needs the GitHub CLI (`gh`) signed in with access to it; otherwise unpack the new zip over the old folder, keeping `data\`.
 
-## Quick start
+`mtg.exe`, beside the window's exe, is the command line (see below).
 
-Requirements: JDK 25, and Forge in `tools/forge-dc/` (git-ignored, GPL-3).
+## What it does
 
-Forge is, for now, a build of our Duel Commander branch (Card-Forge/forge#12090), because no release plays Duel Commander yet. In the fork's worktree (`D:/Projekt/forge-dc/forge-verify`), on the branch's committed head, run `mvn -pl forge-gui-desktop -am package -DskipTests -Dcheckstyle.skip` and then `python D:/Projekt/forge-dc/tools/stage_for_mtg_oracle.py D:/Projekt/forge-dc/forge-verify tools/forge-dc`. That copies the release layout the app builds against: the desktop jar, `res/`, and the zipped card scripts. `tools/forge-dc/build.txt` names the commit. Restage it whenever the branch moves. `-PforgeDir=tools/forge` builds against an unpacked Forge 2.0.14 release instead, which has no Duel Commander. Once Forge releases Duel Commander, the app goes back to a release.
+### Your library
 
-```bat
-cd app
-gradlew :app:installLocal       :: builds a snapshot into app\dist\<timestamp>\
-run-mtg-oracle.cmd              :: plays the newest snapshot (run-mtg-oracle.sh elsewhere)
-```
+- **Folders and decks** in the library, the selected deck's analysis above them. **Enter** (or `cd <deck>`) opens a deck in the workspace: the deck beside a search, its considering list, its history and the AI's copy.
+- **Lists in and out.** Import from any common decklist format, export back, MTGO and Arena included. A list import is loaded verbatim.
+- **History.** Every change to a deck is one revision, and `undo` takes it back (undo of undo is redo).
+- **Printings.** A card can be set to the printing you own; its art follows on the board too.
+- **Format-aware decks.** A deck's format is the switch for every rule. With a format and a commander, `add` checks colour identity, legality (banned and pool), singleton (basics and "any number" cards exempt) and a points budget (Canadian Highlander). Each refusal names its reason, and `--force` overrides for one call. `duel` *is* Duel Commander, `tlr` Tiny Leaders: Reborn.
+- **Packages.** A `.mtgoracle` package carries decks with everything they hold (history, printings, the AI copy, the considering list), the games played with them and your own combos. Right-click a deck or a folder to export one; copy a package and press **Import**, or put it in `data\import\` for the next start. The import asks first, overwrites nothing, and takes a backup before it writes.
 
-On a first start there is no database. The app creates an empty one and asks you to press **[ Sync ]**. That fetches the cards, rulings, rules, combos, tags and printings, which takes a few minutes and mostly goes on Spellbook's 600 MB export and Scryfall's 80 MB of printings. After that, [ Sync ] (or `sync` on the command line) fetches only what moved upstream.
+### Looking things up
 
-Play from the snapshot, not `gradlew :app:run`. A build replaces the class files under a running game. Each snapshot is stamped with its git hash, which the window title shows, and the three newest are kept.
-
-### The command line
-
-`app\mtg.cmd` runs the newest snapshot's command line. Its text output is what the app's output pane shows, and `--json` gives structured output for scripts:
-
-```bat
-mtg.cmd card "Deathrite Shaman"
-mtg.cmd search kw:flying c:u t:creature mv<=3 --json
-mtg.cmd profile "Duel Commander"
-mtg.cmd compare "Duel Commander/Elminster Boomer Wizard" --against "Duel Commander" --json
-mtg.cmd sync
-mtg.cmd help
-```
-
-The first `mtg.cmd sync` of a new install creates the database too.
-
-### Schema and backups
-
-The schema version is `PRAGMA user_version` ([`Schema.kt`](app/data/src/main/kotlin/mtgoracle/data/Schema.kt)). The app migrates the database at start, after a backup in `data/backups/` (the three newest are kept). A package import takes one of its own first (`…-pre-import.db`, three kept).
-
-Two Gradle tasks work on the schema alone:
-- `gradlew :app:migrate` migrates and does nothing else;
-- `gradlew :app:checkSchema` checks without writing.
-
-A database the old Python migrations made (version 0) is checked against version 1 and adopted unchanged. If one is missing part of version 1, the app stops and names what is missing. The fix is to run `python scripts/self_heal.py` from the `python-final` tag.
-
-## In the app
-
-On a first start the library shows **getting started**: a checklist from no card data to a first game, each step ticking itself as the app gets there, and a short tour of the library; a first game gets a few tips over the table. **Guide** in the toolbar (or `guide`) brings the checklist back.
-
-The library lists your folders and decks, with the selected deck's analysis above it. Enter (or `cd <deck>`) opens a deck in the workspace: the deck beside a search, its considering list, its history and the AI's copy. The command line (`:` or Ctrl+K) does the rest. `help` lists every command, and `help search` gives the search syntax. In outline:
+The command line (`:` or Ctrl+K) does the lookups; `help` lists every command and `help search` the search syntax.
 
 | | |
 |---|---|
@@ -85,34 +36,12 @@ The library lists your folders and decks, with the selected deck's analysis abov
 | Combos | `combo <card>`, `combos A; B`, `combo-info <id>`, `combo add` / `combo remove` |
 | Decks | `cd`, `add [--sb] [--force]`, `remove`, `consider`, `commander`, `undo`, `history` |
 | Analysis | `profile [<deck>\|<folder>]`, `compare <deck>\|<folder>` |
-| Data | `sync [--force] [<source> ...]`, `prune [--yes]` |
 | Games | `results [<deck>]` |
+| The app | `sync`, `update`, `guide`, `prune` |
 
-A card name in any output opens its profile when clicked, and shows the card in the zoom pane on hover.
+A card name in any output opens its profile when clicked, and shows the card in the zoom pane on hover. Card names are forgiving: `lim-duls vault`, `thassas oracle` and `fire/ice` all resolve.
 
-### Playmats
-
-A picture of your own under your half of the table, and one under the AI's. In the lobby, **Add a playmat from the clipboard** takes a picture you copied (or its file, copied in Explorer); pictures put in `data\playmats\` are offered too. Each side's mat is chosen with `[<]` and `[>]`. A mat fills its half and is cropped rather than stretched: drag its preview to place the part that shows, zoom in (up to 300 %) to frame a detail, and set its own dim (0–90 %) to keep the cards readable over it. `[ reset ]` puts it back in the middle at 100 %.
-
-### Network play
-
-Play a friend from the lobby, each on your own computer. Choose your deck, then:
-
-- **Host a room.** Your router opens a port to your computer (UPnP), and you get an invite (`MTG-…`, put on the clipboard for you) to send your friend. Windows may ask whether the app may accept connections: allow it. The match format is yours (best of 1, 3 or 5).
-- **Join.** Copy the invite you were sent, then Join from the clipboard. You play the deck you chose.
-
-Only the host needs a router that lets someone in; the guest connects outward, which every network allows. If hosting can't work, the lobby says why (UPnP turned off in the router, another router in front of yours, or a provider that shares one address among its customers); then let your friend host. Everything between the two apps is encrypted with a secret only the invite holds, and a room lets in no one without it. Your name at a table is set in the lobby. Your playmat goes along as pixels (never as a file), and the other's is shown only when you choose. Both sides record the games: the opponent is `deck (person)`.
-
-### Moving a library: `.mtgoracle` packages
-
-A package carries decks with all they hold (cards and printings, the considering list, the AI copy's substitutes, the history), the games played with them, and your own combos.
-
-- **Export:** right-click a deck or a folder in the library: *export as a package*, or *export the whole library as a package*. The file goes to `data\exports\`.
-- **Import:** copy the file (in Explorer, or its path as text) and press the library's **Import**, or drop it in `data\import\`, where it is taken at the next start (and moved to `done\` once in).
-
-The import asks first. It says what the package holds and what of it is already here, and the history, the games and the combos can each be left out; the decks always come. Nothing is overwritten: a deck that is already here with the same contents is left alone, and one of the same name with other contents comes in as `Name (2)`. Games and combos already here are not taken twice. Cards this database doesn't know yet are named, and a dropped package can wait for the next sync. A copy of the database is taken first (`data/backups/mtg-…-pre-import.db`, the newest three kept).
-
-### Search
+**Search** is Scryfall's language, minus printings:
 
 ```
 o:"enters the battlefield" t:creature c:u mv<=3
@@ -122,27 +51,60 @@ f:canlander t:land order:desc_mv
 otag:removal c:w mv<=2
 ```
 
-The search language is Scryfall's, minus printings:
-- **Free text.** A bare word or a quoted phrase matches the name, the type line or the oracle text, with name matches first.
-- **Fields:** `o:` `t:` `n:` `n=` `kw:` `c:` `c=` `ci:` `mv:` `pow:` `tou:` `r:` `m:` `layout:` `otag:` `is:` `f:` `banned:` `restricted:` `game:`.
-- **Comparisons and logic:** comparisons on the numeric fields, plus `or`, `-`, and parentheses.
-- **Sorting:** `order:asc_FIELD` / `order:desc_FIELD`.
+Free text matches the name, type line or oracle text; fields are `o:` `t:` `n:` `n=` `kw:` `c:` `c=` `ci:` `mv:` `pow:` `tou:` `r:` `m:` `layout:` `otag:` `is:` `f:` `banned:` `restricted:` `game:`, with comparisons, `or`, `-`, parentheses and `order:`. Inside a deck, a search finds only what the deck can play.
 
-Inside a deck, a search finds only what the deck can play: its commander's colour identity and its format.
+### Analysis
 
-Card names are forgiving: `lim-duls vault`, `thassas oracle`, `fire/ice` and `delver of secrets` all resolve.
+What each card does and what it really costs, curves by role, and the chance of each role being castable on curve. `compare` sets a deck against one deck (head to head) or a folder of reference lists: where it steps outside the set's ranges, and the cards the set plays that it lacks.
 
-### Format-aware decks
+### Playing
 
-A deck's format is the switch for every rule. With a format and a commander, `add` checks:
-- colour identity;
-- legality, banned and pool;
-- singleton, with basics and "any number" cards exempt;
-- the points budget.
+The **lobby** pairs your deck with an opponent of the same game type and sets the match: best of 1, 3 or 5, with sideboarding between games.
 
-Each refusal names its reason, and `--force` overrides for one call. A list import is always loaded verbatim. Replacing a deck from a list keeps its commander when the list has no Commander section.
+- **Against Forge's AI.** The AI plays its *AI copy* of a deck when it has one: cards it can't play swapped for substitutes. In the deck builder, a card the AI won't play or Forge lacks is flagged, and its `[!]` goes straight to choosing a substitute.
+- **Watch** the AI play your deck, or **simulate** a number of AI-vs-AI games without a board, each recorded.
+- **The board** is a table of type zones in the app's own style, with card art and a zoom pane, a floating stack, phase stops (F2 pass, F4 end turn, F6 skip the turn), a game log of the whole match, and nothing hidden shown to you that a real table wouldn't.
+- **Results.** Every game is recorded; `results` and the lobby show your record against each deck, played and simulated apart.
+- **Achievements.** Forge's achievements, earned as you play, in a view of their own.
 
-## Data sources
+### Playing a friend
+
+Each on your own computer. Choose your deck in the lobby, then under **network play**:
+
+- **Host a room.** Your router opens a port to your computer (UPnP), and you get an invite (`MTG-…`, put on the clipboard) to send your friend. Windows may ask whether the app may accept connections: allow it. The match format is yours.
+- **Join.** Copy the invite you were sent, then **Join from the clipboard**.
+
+Only the host needs a router that lets someone in; the guest connects outward, which every network allows. When hosting can't work the lobby says why (UPnP turned off, another router in front of yours, or a provider that shares one address among its customers): then let your friend host. Everything between the two apps is encrypted with a secret only the invite holds, and a room lets in no one without it. Your name at a table is set in the lobby. Both sides record the games, the opponent as `deck (person)`; the host's game log keeps the whole match, for going through it afterwards.
+
+### Making it yours
+
+- **Playmats.** A picture of your own under your half of the table, and one under the AI's. Add one from the clipboard in the lobby (a picture, or its file copied in Explorer), or put pictures in `data\playmats\`. Drag the preview to place it, zoom up to 300 %, and set a dim to keep the cards readable. At a network table your mat goes along as pixels, never as a file, and the other's shows only if you choose.
+- **Looks.** F8 picks a theme (several, a Windows 95 among them), F7 switches card art and text, Ctrl+= / Ctrl+- size everything.
+- **Getting started.** A first start shows a checklist from no card data to a first game, a short tour of the library, and a few tips over a first game's table. **Guide** in the toolbar (or `guide`) brings it back.
+
+### The command line
+
+`mtg.exe` (`app\mtg.cmd` in a development checkout) runs the same commands as the window's command line, and `--json` gives structured output for scripts:
+
+```bat
+mtg card "Deathrite Shaman"
+mtg search kw:flying c:u t:creature mv<=3 --json
+mtg profile "Duel Commander"
+mtg compare "Duel Commander/Elminster Boomer Wizard" --against "Duel Commander" --json
+mtg sync
+mtg help
+```
+
+## What's in the data
+
+- **Cards.** 35k+ unique cards from Scryfall: costs, colours, types, per-face data for two-faced cards, legality in all 23 formats Scryfall tracks, which games they are on (every printing's), EDHREC rank.
+- **Printings.** Every paper printing, for choosing a card's art.
+- **Rulings.** 78k+ official rulings.
+- **Comprehensive Rules.** Every numbered rule, with parent and section links.
+- **Combos.** 110k+ Commander Spellbook combos with their cards, prerequisites, results and steps; your own combos beside them.
+- **Tags.** Scryfall Tagger's oracle tags (what a card *does*: removal, ramp, a tutor), and locally derived keywords, types and abilities.
+- **Community formats with points.** Canadian Highlander's list, curated in [`data/formats/`](data/formats/).
+- **Corrections.** A table of factual mistakes, so they don't come back.
 
 | Source | Fetch | Cadence | Skipped when unchanged by |
 |---|---|---|---|
@@ -152,45 +114,42 @@ Each refusal names its reason, and `--force` overrides for one call. A list impo
 | Oracle tags | Scryfall Tagger bulk | daily | `updated_at` |
 | Local tags | derived from `oracle_text` and the type line | every sync | rebuilt (fast) |
 | Community formats | curated JSON in `data/formats/` | when the list changes | rebuilt |
-| Printings (card art) | Scryfall `default_cards` bulk the first time, then only the sets whose card count moved (`/sets` + search) | as sets release | each set's card count |
+| Printings | Scryfall `default_cards` bulk the first time, then only the sets whose card count moved | as sets release | each set's card count |
 
-## Development
+## Building from source
 
-Build and test from `app/`:
+The app (`app/`) is Kotlin and Compose Desktop with Forge embedded ([ADR 0001](docs/adr/0001-standalone-jvm-app-with-embedded-forge.md)); network play is [ADR 0002](docs/adr/0002-network-play.md). It replaced a Python TUI and CLI in October 2026; that code lives at the git tag `python-final`.
+
+Requirements: JDK 25, and Forge in `tools/forge-dc/` (git-ignored, GPL-3). Forge is, for now, a build of our Duel Commander branch (Card-Forge/forge#12090), because no release plays Duel Commander yet. In the fork's worktree (`D:/Projekt/forge-dc/forge-verify`), on the branch's committed head, run `mvn -pl forge-gui-desktop -am package -DskipTests -Dcheckstyle.skip`, then `python D:/Projekt/forge-dc/tools/stage_for_mtg_oracle.py D:/Projekt/forge-dc/forge-verify tools/forge-dc`. `tools/forge-dc/build.txt` names the commit; restage whenever the branch moves. `-PforgeDir=tools/forge` builds against an unpacked Forge 2.0.14 release instead, which has no Duel Commander.
+
+From `app/`:
 
 ```bat
 gradlew test                    :: every module
-gradlew :app:installLocal       :: the snapshot to play
+gradlew :app:installLocal       :: a snapshot to play, into app\dist\<timestamp>\
+run-mtg-oracle.cmd              :: play the newest snapshot (run-mtg-oracle.sh elsewhere)
 gradlew :app:run                :: the window from the build outputs, for development only
 gradlew :app:cli -Pargs="card Sol Ring --json"
 gradlew :app:scriptedGame -Pdata=<dir with a DB copy>
-gradlew :app:localDuel -Pargs="Jori En;Phelia Doggo"   :: network play on this machine: a host's window and a guest's
+gradlew :app:localDuel -Pargs="Jori En;Phelia Doggo"   :: network play on one machine: a host's window and a guest's
+gradlew :app:migrate            :: bring the database to this build's schema (a backup first)
+gradlew :app:checkSchema        :: check it, without writing
 ```
 
-`-Pdata=<dir>` points any task at another data directory, relative to the repo root.
+Play from a snapshot, not `gradlew :app:run`: a build replaces the class files under a running game. Each snapshot is stamped with its git hash, which the window title shows; the three newest are kept. `-Pdata=<dir>` points any task at another data directory, relative to the repo root.
+
+**The schema** version is `PRAGMA user_version` ([`Schema.kt`](app/data/src/main/kotlin/mtgoracle/data/Schema.kt)). The app migrates at start, after a backup in `data/backups/` (three kept). A database the old Python migrations made is adopted unchanged when it has all of version 1.
+
+**The tests** never write `data/mtg.db`. Most run on a frozen fixture (`app/data/src/testFixtures/fixture/`): a 3,000-card cut of the upstream exports, reference decklists, and the answers the Python original gave on that data. The few that read your own database skip when it is absent.
 
 ### A release
 
 ```bat
-gradlew :app:packageRelease -PreleaseVersion=0.1.0
+gradlew :app:packageRelease -PreleaseVersion=0.4.0
+gh release create v0.4.0 <zip> <zip>.sha256
 ```
 
-This builds `app\app\build\release\MTG Oracle\` and its zip, `MTG-Oracle-0.1.0-windows-x64.zip` (about 150 MB), with a `.sha256` beside it. The folder holds:
-- `MTG Oracle.exe`, the window, with no console;
-- `mtg.exe`, the command line;
-- `runtime\`, a Java of its own, so the machine needs no JDK;
-- `app\`, the jars, Forge's assets and the points lists.
-
-Unpacked anywhere, it keeps its data in `data\` beside the exe: the database, settings, logs, Forge's image cache and exports. A first start makes an empty database, and the daily sync fills it within a minute. The first sync downloads about 800 MB, Spellbook's 675 MB among them.
-
-A release is built from a clean tree (`-PallowDirty` for a trial), and its version is `0.1.0+<commit>` in the window title and `app.log`.
-
-The tests never write `data/mtg.db`. Most of them run on a frozen fixture instead (`app/data/src/testFixtures/fixture/`):
-- a 3,000-card cut of the upstream exports;
-- the reference decklists;
-- the answers the Python original gave on that data.
-
-The app's own sync builds a fresh database from the fixture for each test run. The tests that read the user's own database skip when it is absent.
+This builds `app\app\build\release\MTG Oracle\` and its zip (about 150 MB) with a `.sha256` beside it: `MTG Oracle.exe` (the window), `mtg.exe` (the command line), `runtime\` (a Java of its own) and `app\` (the jars, Forge's assets, the points lists). A release is built from a clean tree (`-PallowDirty` for a trial), versioned `0.4.0+<commit>`, and published from a pushed tag; without its `.sha256` it can't be installed by `update`.
 
 ## Project layout
 
@@ -198,33 +157,33 @@ The app's own sync builds a fresh database from the fixture for each test run. T
 mtg-oracle/
 ├── CLAUDE.md                     Project rules for Claude Code (read first)
 ├── CHANGELOG.md                  Per-feature history (Keep a Changelog)
-├── app/                          Gradle build, five modules, one-way dependencies
+├── app/                          Gradle build, six modules, one-way dependencies
 │   ├── core/                     Plain data and pure logic: board and prompts, decks and their rules,
 │   │                             the search language, the analysis engine
 │   ├── data/                     data/mtg.db over JDBC: schema, lookups, search SQL, deck writes, sync
 │   ├── forge/                    Every Forge import: runtime, the seat, printings, images, matches
 │   ├── ui/                       The house-style kit and the screens
+│   ├── net/                      Network play: the wire, the invite and sealed link, rooms, UPnP
 │   ├── app/                      Entry point, wiring, the window, the command line, headless modes
 │   ├── mtg.cmd                   The command line, from the newest snapshot
 │   └── run-mtg-oracle.cmd / .sh  Play the newest snapshot
 ├── docs/
 │   ├── project-plan.md           Where we are (read first)
 │   ├── app-design.md             The look, the board, the interaction model
-│   ├── feature-parity.md         The port from Python, row by row (history)
 │   ├── adr/                      Architecture decisions
 │   └── reports/                  Deck-analysis reports (Swedish) and their reference decklists
 ├── data/
 │   ├── formats/                  Community-format definitions (tracked)
-│   ├── raw/, backups/, app/, game_logs/   Downloads, backups, the app's own files (git-ignored)
+│   ├── raw/, backups/, app/, game_logs/, playmats/, exports/, import/   Git-ignored
 │   └── mtg.db                    The database (git-ignored)
 └── tools/forge-dc/               Forge from the Duel Commander branch, staged (git-ignored)
 ```
 
 ## Conventions
 
-- All SQL is parameterised. Reads use a read-only connection. Writes happen only through the data layer's writers (the sync and prune, DeckWriter and LibraryWriter, game records, substitutions, user combos), one transaction each.
+- All SQL is parameterised. Reads use a read-only connection; writes happen only through the data layer's writers, one transaction each.
 - Card names are case-insensitive everywhere, and diacritics, ligatures and apostrophes fold.
 - Don't fetch from Scryfall, Wizards or Spellbook at query time: the sync is the refresh path. Don't edit `data/raw/`, which every sync overwrites.
-- Spellbook is comprehensive for known combos, not exhaustive. Your own combos fill the gap.
+- Spellbook is comprehensive for known combos, not exhaustive; your own combos fill the gap.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the history and [`docs/project-plan.md`](docs/project-plan.md) for what's next.
