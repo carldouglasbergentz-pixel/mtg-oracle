@@ -28,7 +28,7 @@ class UpdateControl(
     /** The newer release found, if one is. */
     @Volatile private var newerRelease: Release? = null
     @Volatile private var updating = false
-    /** What the status line says of a newer release while nothing else is said. */
+    /** What the status line says of a newer release: once when found, then whenever nothing else is said. */
     var notice by mutableStateOf<String?>(null)
         private set
 
@@ -46,6 +46,9 @@ class UpdateControl(
             java.awt.EventQueue.invokeLater {
                 newerRelease = newer
                 notice = newer?.let { "MTG Oracle ${it.version} is out (this is ${u.running}) · `update` installs it" }
+                // Said once over whatever the status line holds: below a message left from start-up
+                // (the schema's migration) it was never seen. Not during a game.
+                if (notice != null && !busy()) say(notice)
             }
         }
     }

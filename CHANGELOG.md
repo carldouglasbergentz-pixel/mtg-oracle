@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A newer release is said even when the status line already has something to say.** Its notice showed only while nothing else was said, so a message left from start-up (the schema's migration, on the first start of a new version) hid it until something cleared the line. Now it takes the line once when found, unless a game is on, and comes back whenever the line is free.
+
 ## [0.4.0] - 2026-10-08
 
 Network play: host a room in the lobby and send the invite, or join a friend's from the clipboard, and play each on your own computer, sealed with the invite's secret and recorded on both sides. Also a game's end that is never lost, `game:` filters over every printing, a stack box that opens again, and a README for the app as it is. A 0.3.0 install takes it with `update`; the first start migrates the database to schema v4 (games between two people), after a `pre-v4` backup. A friend without access to the repository installs it from the zip.
