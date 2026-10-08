@@ -253,15 +253,23 @@ fun LobbyScreen(
     LaunchedEffect(Unit) { focus.requestFocus() }
 }
 
-/** Constructed or limited, the one shown inverted; L switches. */
+/**
+ * Constructed or limited, the one shown inverted; L switches. A row of its own
+ * between the toolbar and the panes, a blank row on each side, so the inverted
+ * tab never touches a button; its text starts in the panes' title column.
+ */
 @Composable
 private fun Tabs(limited: Boolean, onClick: (ClickTarget) -> Unit) {
-    Row(Modifier.fillMaxWidth().region("lobby-tabs").clickTarget(ClickTarget.Control("tab"), onClick)) {
-        GridText("  ")
-        Tab("constructed", !limited)
-        GridText("  ")
-        Tab("limited", limited)
-        GridText("   (L)", color = Palette.dim)
+    Column(Modifier.fillMaxWidth()) {
+        GridText("")
+        Row(Modifier.fillMaxWidth().region("lobby-tabs").clickTarget(ClickTarget.Control("tab"), onClick)) {
+            GridText("  ")
+            Tab("constructed", !limited)
+            GridText("  ")
+            Tab("limited", limited)
+            GridText("   (L switches)", color = Palette.dim)
+        }
+        GridText("")
     }
 }
 
