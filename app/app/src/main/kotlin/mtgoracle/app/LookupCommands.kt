@@ -130,6 +130,7 @@ class LookupCommands(
         ui.deckTab = mtgoracle.ui.lookup.DeckTab.DECK
         onEnterDeck(id)
         editing?.refresh(id)
+        if (entered.fromPool && lastSearch == null) entered.restrict(SearchLanguage.parse(POOL_ORDER)).let { (query, filters) -> showPage(query, 1, filters) }
         return true
     }
 
@@ -137,6 +138,8 @@ class LookupCommands(
     private fun deckChanged(id: Int) {
         if (scope?.deckId == id) lookup.deckScope(id)?.let { scope = it; ui.prompt = "${it.deckName}> " }
         onDeckChanged(id)
+        // A limited deck's search is what is left of its pool: a card taken or put back changes it.
+        if (scope?.deckId == id && scope?.fromPool == true) lastSearch?.let { s -> showPage(s.query, s.page, s.filters, inPlace = true) }
     }
 
     /** Deck [id] was changed from outside the workspace's edits (a rename, a format, an import): read everything again. */
@@ -424,7 +427,7 @@ class LookupCommands(
     }
 
     /** Runs one page; [announce] names the deck's filters above it (a new search, not a page turn). */
-    private fun showPage(query: SearchQuery, page: Int, filters: List<String>, announce: Boolean = false) {
+    private fun showPage(query: SearchQuery, page: Int, filters: List<String>, announce: Boolean = false, inPlace: Boolean = false) {
         val result = try {
             lookup.search.page(query, page = page, pageSize = PAGE_SIZE, filters = filters)
         } catch (e: SearchError) {
@@ -435,7 +438,8 @@ class LookupCommands(
         ui.selected = null
         // In the workspace a row carries `+ sb ?`, and a pointed card its points.
         val points = ui.points
-        output.addSearch(result, renderSearch(result, actions = scope != null && editing != null, points = { points[it.lowercase()] }))
+        val rendering = renderSearch(result, actions = scope != null && editing != null, points = { points[it.lowercase()] })
+        if (inPlace) output.replaceSearch(result, rendering) else output.addSearch(result, rendering)
     }
 
     private fun searchError(e: SearchError) {
@@ -651,6 +655,8 @@ class LookupCommands(
         }.trimEnd()
 
         const val PAGE_SIZE = 50
+        /** A limited deck's pool as it opens in the workspace: by colour, then mana value. */
+        const val POOL_ORDER = "order:asc_color order:asc_mv"
         /** How `cd` names the decks outside every folder (the TUI's path for them). */
         const val UNSORTED = "(unsorted)"
 

@@ -25,6 +25,8 @@ object SearchFields {
         "is" to "is",
         "m" to "m", "mana" to "m",
         "otag" to "otag", "function" to "otag", "oracletag" to "otag",
+        // What is left of a limited deck's pool: the cards in its sideboard. The workspace adds it, by the deck's id.
+        "pool" to "pool",
     )
 
     /** `is:` flags. data/SearchSql defines what each means; SearchSqlTest holds the two lists equal. */

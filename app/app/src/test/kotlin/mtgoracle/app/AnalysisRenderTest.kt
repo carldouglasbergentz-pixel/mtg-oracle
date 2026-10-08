@@ -26,7 +26,7 @@ class AnalysisRenderTest {
         val lookup = Lookup(db)
         val decks = db.read { c -> c.prepareStatement("SELECT id, name FROM decks ORDER BY id").use { st -> st.executeQuery().use { rs ->
             buildList { while (rs.next()) add(lookup.analysis.deckList(rs.getInt(1), rs.getString(2))) }
-        } } }
+        } } }.filter { it.cards.isNotEmpty() } // a deck still empty (a sealed pool not yet built) has no curve to report
         assumeTrue(decks.size >= 3, "three decks")
         val pool = lookup.analysis.pool(decks.flatMap { it.cards.keys })
         val profiles = decks.map { Archetype.profile(it, pool) }

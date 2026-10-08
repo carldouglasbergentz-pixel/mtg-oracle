@@ -185,6 +185,14 @@ class DeckParityTest {
         move __p_sealed__ Counterspell|main|considering|1|0
         move __p_sealed__ Counterspell|considering|main|1|0
         move __p_sealed__ Counterspell|sideboard|main|1|0
+        take __p_sealed__ Forest|1
+        putback __p_sealed__ Forest|9
+        putback __p_sealed__ Lightning Bolt|1
+        take __p_sealed__ Lightning Bolt|2
+        take __p_sealed__ Lightning Bolt|1
+        take __p_sealed__ Counterspell|1
+        take __parity_none__ Sol Ring|1
+        putback __parity_none__ Sol Ring|1
     """.trimIndent().lines()
 
     /** The first word is the op, the second the deck; the rest, split on `|`, its arguments. */
@@ -249,6 +257,9 @@ class DeckParityTest {
             "move" -> writer.move(id, a[0], DeckSection.of(a[1]), DeckSection.of(a[2]), a[3].toInt(), force = a[4] == "1")
             "commander" -> writer.promote(id, a[0], unset = a[1] == "1", force = a[2] == "1")
             "undo" -> writer.undo(id)
+            // The workspace's + and - on a limited deck: from and back to its pool (its sideboard).
+            "take" -> writer.addToMain(id, a[0], a[1].toInt())
+            "putback" -> writer.removeFromMain(id, a[0], a[1].toIntOrNull())
             else -> error("unknown op ${op.op}")
         }
     }

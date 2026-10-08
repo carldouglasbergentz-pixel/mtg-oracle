@@ -39,6 +39,54 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         canonical
     }
 
+    /**
+     * Into the main deck, as the workspace's `+` does. A deck built from a
+     * pool takes the copies out of its sideboard (the pool) while it holds
+     * them, as one `move`; anything else is [add], under every rule.
+     */
+    fun addToMain(deckId: Int, card: String, quantity: Int = 1, force: Boolean = false): String {
+        val canonical = names.resolve(card) ?: card
+        val inPool = db.read { conn ->
+            if (poolOf(conn, deckId) == null) 0 else conn.query(
+                "SELECT COALESCE(SUM(quantity), 0) FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE AND is_sideboard = 1", deckId, canonical,
+            ) { getInt(1) }.single()
+        }
+        return if (inPool >= quantity) move(deckId, canonical, DeckSection.SIDEBOARD, DeckSection.MAIN, quantity, force)
+        else add(deckId, card, quantity, force = force)
+    }
+
+    /**
+     * Out of the main deck, as the workspace's `-` does. A deck built from a
+     * pool puts the copies back in its sideboard (the pool), except basic
+     * lands beyond what the pool opened, which go: one revision either way.
+     * Anything else is [remove]. Returns (name, taken out, left in the main deck).
+     */
+    fun removeFromMain(deckId: Int, card: String, quantity: Int? = null): Triple<String, Int, Int> {
+        val canonical = names.resolve(card) ?: card
+        val poolId = db.read { conn -> poolOf(conn, deckId) } ?: return remove(deckId, card, quantity, DeckSection.MAIN)
+        return db.write { conn ->
+            quantity?.let(DeckRules::checkQuantity)
+            val before = snapshot(conn, deckId)
+            val name = before.keys.firstOrNull { it.second == DeckSection.MAIN && it.first.equals(canonical, ignoreCase = true) }?.first
+                ?: throw DeckRefusal(Kind.NOT_IN_DECK, "card not in the main deck: '$canonical'")
+            val main = before.getValue(name to DeckSection.MAIN)
+            val side = before[name to DeckSection.SIDEBOARD]
+            val take = minOf(quantity ?: main.quantity, main.quantity)
+            val opened = conn.query("SELECT COUNT(*) FROM limited_pool_cards WHERE pool_id = ? AND card_name = ? COLLATE NOCASE", poolId, name) { getInt(1) }.single()
+            val basic = DeckRules.isBasicLand(conn.query("SELECT type_line FROM cards WHERE name = ? COLLATE NOCASE", name) { getString(1) }.firstOrNull())
+            // A basic land the pool never opened came free, and goes; one it did open goes back with the rest.
+            val back = if (basic) minOf(take, maxOf(0, opened - (side?.quantity ?: 0))) else take
+            setSectionQuantity(conn, deckId, name, DeckSection.MAIN, main.quantity - take)
+            if (back > 0) setSectionQuantity(conn, deckId, name, DeckSection.SIDEBOARD, (side?.quantity ?: 0) + back, printing = side?.printing ?: main.printing, setPrinting = true)
+            touch(conn, deckId)
+            recordRevision(conn, deckId, if (back == take) "move" else "remove", before, "$name: main -> " + if (back == take) "sideboard" else "sideboard $back, out ${take - back}")
+            Triple(name, take, main.quantity - take)
+        }
+    }
+
+    private fun poolOf(conn: Connection, deckId: Int): Int? =
+        conn.query("SELECT pool_id FROM decks WHERE id = ?", deckId) { getObject(1)?.let { (it as Number).toInt() } }.firstOrNull()
+
     /** Puts a card on the considering list; no deck rule applies there (decks.consider_card). */
     fun consider(deckId: Int, card: String, quantity: Int = 1): String = db.write { conn ->
         DeckRules.checkQuantity(quantity)

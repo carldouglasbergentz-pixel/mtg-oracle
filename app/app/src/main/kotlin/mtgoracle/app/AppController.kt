@@ -256,14 +256,21 @@ class AppController(private val paths: AppPaths) {
                 return@thread
             }
             java.awt.EventQueue.invokeLater {
-                opening = false
-                refreshLibrary()
-                play.chooseMe(event.deckId)
-                select(event.deckId)
-                backToLibrary()
-                commands?.let { it.enterDeck(event.deckId); it.output.add(renderPool("${event.name}: your sealed pool", event.pool)) }
-                lookupUi?.showOutput = true
-                notice = "${event.name}: build it from the sideboard, then play it in the lobby's limited tab"
+                try {
+                    refreshLibrary()
+                    play.chooseMe(event.deckId)
+                    select(event.deckId)
+                    backToLibrary()
+                    commands?.let { it.enterDeck(event.deckId); it.output.add(renderPool("${event.name}: your sealed pool", event.pool)) }
+                    lookupUi?.showOutput = true
+                    notice = "${event.name}: build it from the pool in the middle, then play it in the lobby's limited tab"
+                } catch (e: Exception) {
+                    Log.error("the sealed deck ${event.name} was made, but could not be opened", e)
+                    notice = "${event.name} is in the Limited folder, but it could not be opened: ${e.message}"
+                } finally {
+                    // Last: Open sealed stays shut until the deck is open, and whoever waits for it sees it whole.
+                    opening = false
+                }
             }
         }
     }

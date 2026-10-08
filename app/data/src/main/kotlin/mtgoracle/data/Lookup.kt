@@ -84,11 +84,11 @@ class Lookup(val db: MtgDb) {
 
     /** What deck [deckId] can play, for `search` and the card profile's combos after `cd`; null if it is gone. */
     fun deckScope(deckId: Int): DeckScope? = db.read { conn ->
-        val (name, format) = conn.prepareStatement("SELECT name, format FROM decks WHERE id = ?").use { st ->
+        val (name, format, pool) = conn.prepareStatement("SELECT name, format, pool_id FROM decks WHERE id = ?").use { st ->
             st.setInt(1, deckId)
-            st.executeQuery().use { rs -> if (rs.next()) rs.getString("name") to rs.getString("format") else null }
+            st.executeQuery().use { rs -> if (rs.next()) Triple(rs.getString("name"), rs.getString("format"), rs.getObject("pool_id") != null) else null }
         } ?: return@read null
-        DeckScope(deckId, name, commanderIdentity(conn, deckId), formats.resolve(format))
+        DeckScope(deckId, name, commanderIdentity(conn, deckId), formats.resolve(format), fromPool = pool)
     }
 
     private fun readCustomFormats(): List<CustomFormat> = db.read { conn ->

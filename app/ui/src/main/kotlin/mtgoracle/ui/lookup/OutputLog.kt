@@ -26,6 +26,12 @@ class OutputLog {
         entries += Entry(nextId++, rendering, isEcho = false, page = page)
     }
 
+    /** [page] in place of the newest search page, where it stands and under its id, so nothing scrolls; added when there is none. */
+    fun replaceSearch(page: SearchPage, rendering: Rendering) {
+        val at = entries.indexOfLast { it.page != null }
+        if (at < 0) addSearch(page, rendering) else entries[at] = Entry(entries[at].id, rendering, isEcho = false, page = page)
+    }
+
     /** The newest search page in the scrollback: what the arrow keys select in. */
     val latestSearch: Entry? get() = entries.lastOrNull { it.page != null }
 

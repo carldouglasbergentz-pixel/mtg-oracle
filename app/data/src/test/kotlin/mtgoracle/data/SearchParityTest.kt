@@ -92,6 +92,9 @@ class SearchParityTest {
         "game:xbox",
         "c:xyz",
         "t:goblin -",
+        // Ours, not Python's: what is left of a limited deck's pool (its sideboard), by the deck's id.
+        "pool:999999",
+        "pool:abc",
     )
 
     private val names = listOf(

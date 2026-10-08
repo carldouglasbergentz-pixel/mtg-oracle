@@ -131,6 +131,11 @@ class SearchSql(
                 Sql(predicate)
             }
             "m" -> manaCost(op, value)
+            "pool" -> {
+                textOnly("pool")
+                val deckId = value.trim().toIntOrNull() ?: throw SearchError("pool: takes a deck's id, got '$value'")
+                Sql("EXISTS (SELECT 1 FROM deck_cards dc WHERE dc.deck_id = ? AND dc.is_sideboard = 1 AND dc.card_name = c.name)", listOf(deckId))
+            }
             "otag" -> {
                 textOnly("otag")
                 // Stored with spaces ('mana rock'), written by Scryfall with hyphens ('mana-rock'). A tag also

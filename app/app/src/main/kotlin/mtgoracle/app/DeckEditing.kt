@@ -57,9 +57,10 @@ class DeckEditing(
             DeckSection.CONSIDERING -> "considering +${action.quantity} ${writer.consider(deckId, action.card, action.quantity)}"
             DeckSection.SIDEBOARD -> "sideboard +${action.quantity} ${writer.add(deckId, action.card, action.quantity, sideboard = true, force = force)}"
             DeckSection.COMMANDER -> writer.promote(deckId, action.card, force = force).let { "${it.card}: ${it.action}" }
-            DeckSection.MAIN -> "+${action.quantity} ${writer.add(deckId, action.card, action.quantity, force = force)}"
+            DeckSection.MAIN -> "+${action.quantity} ${writer.addToMain(deckId, action.card, action.quantity, force = force)}"
         }
-        is EditAction.Remove -> writer.remove(deckId, action.card, if (action.all) null else action.quantity, action.section)
+        is EditAction.Remove -> (if (action.section == DeckSection.MAIN) writer.removeFromMain(deckId, action.card, if (action.all) null else action.quantity)
+            else writer.remove(deckId, action.card, if (action.all) null else action.quantity, action.section))
             .let { (card, removed, left) -> "-$removed $card (${action.section.key}; $left left)" }
         is EditAction.Move -> "${writer.move(deckId, action.card, action.from, action.to, 1, force)}: ${action.from.key} -> ${action.to.key}"
         is EditAction.Promote -> writer.promote(deckId, action.card, force = force).let { "${it.card}: ${it.action}" + (it.formatSet?.let { f -> "; format set to $f" } ?: "") }

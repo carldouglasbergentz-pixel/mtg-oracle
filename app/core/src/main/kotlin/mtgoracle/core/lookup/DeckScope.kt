@@ -11,6 +11,8 @@ data class DeckScope(
     val commanderCi: List<String>?,
     /** The deck's own format, resolved; null for none or one nothing defines. */
     val format: FormatInfo?,
+    /** Built from a pool (limited): its search is what is left of the pool, the cards in its sideboard. */
+    val fromPool: Boolean = false,
 ) {
     /** The deck's filters, each with the label the search announces it by. */
     val filters: List<Pair<SearchNode, String>> get() = buildList {
@@ -18,6 +20,7 @@ data class DeckScope(
             // An empty identity is colourless, which the language spells `c`.
             add(SearchNode.Term("ci", "<=", ci.joinToString("").ifEmpty { "c" }) to "ci<=${ci.joinToString("").ifEmpty { "C" }}")
         }
+        if (fromPool) add(SearchNode.Term("pool", ":", deckId.toString()) to "the pool (what is left of it)")
         format?.legalityKey?.let { key ->
             // The deck's own format name, and the pool it inherits: "f:Canadian Highlander" alone
             // would read as legality data we have, and we have Vintage's.

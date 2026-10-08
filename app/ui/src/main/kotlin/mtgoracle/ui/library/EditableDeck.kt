@@ -45,13 +45,17 @@ import mtgoracle.ui.theme.Palette
 /** One line of the deck pane: a card in a section, under a group heading. */
 data class DeckRow(val card: DeckCard, val section: DeckSection, val group: String)
 
-/** The deck pane's rows for [tab], in the order they are drawn (and the arrow keys walk). */
+/**
+ * The deck pane's rows for [tab], in the order they are drawn (and the arrow
+ * keys walk). A deck built from a pool shows its main deck only: its
+ * sideboard is the rest of the pool, which the search pane shows to build from.
+ */
 fun deckRows(deck: Deck, tab: DeckTab): List<DeckRow> = when (tab) {
     DeckTab.CONSIDERING -> deck.considering.map { DeckRow(it, DeckSection.CONSIDERING, "Considering") }
     DeckTab.HISTORY, DeckTab.AI_COPY -> emptyList()
     DeckTab.DECK -> {
         val order = listOf("Commander") + TYPE_ORDER + listOf("Other", "Sideboard")
-        deck.cards.map { c ->
+        deck.cards.filter { deck.poolId == null || it.section != Section.SIDEBOARD }.map { c ->
             when (c.section) {
                 Section.COMMANDER -> DeckRow(c, DeckSection.COMMANDER, "Commander")
                 Section.SIDEBOARD -> DeckRow(c, DeckSection.SIDEBOARD, "Sideboard")
