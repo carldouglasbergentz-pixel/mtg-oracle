@@ -20,8 +20,8 @@ sealed interface OutputLink {
     data class Edit(val action: EditAction) : OutputLink
     /** The cards most like [card] (`like:`), a search of its own: by the card's name as a value, never as typed text. */
     data class Like(val card: String) : OutputLink
-    /** A limited deck's pool laid out anew (its page's `sort:` slots): the page changes in place, nothing is added. */
-    data class Sort(val sort: mtgoracle.core.lookup.PoolSort) : OutputLink
+    /** A page laid out anew (its `sort:` slots), a limited deck's pool's sort or [pool] false a search's: the page changes in place, nothing is added. */
+    data class Sort(val sort: mtgoracle.core.lookup.CardSort, val pool: Boolean = true) : OutputLink
 }
 
 data class LinkSpan(val start: Int, val end: Int, val link: OutputLink)

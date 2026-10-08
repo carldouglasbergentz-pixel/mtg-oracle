@@ -152,6 +152,7 @@ class AppController(private val paths: AppPaths) {
             onGuide = ::openGuide,
             onSealed = ::sealedCommand,
             poolSort = settings.limitedSort, keepPoolSort = { settings.limitedSort = it },
+            searchSort = settings.searchSort, keepSearchSort = { settings.searchSort = it },
             onCardsChanged = { commands?.let { current -> buildLookup(db, carry = current) } },
             output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
         )

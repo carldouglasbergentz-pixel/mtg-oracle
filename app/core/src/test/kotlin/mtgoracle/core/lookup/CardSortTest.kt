@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class PoolSortTest {
+class CardSortTest {
     private fun row(name: String, type: String, colors: String, mv: Double) = SearchRow(name, type, null, colors, mv)
 
     private val pool = listOf(
@@ -21,7 +21,7 @@ class PoolSortTest {
 
     @Test
     fun `colour groups in WUBRG order, multicolour and colourless last, each sorted by type then mana value`() {
-        val (rows, groups) = PoolSort.DEFAULT.arrange(pool)
+        val (rows, groups) = CardSort.DEFAULT.arrange(pool)
         assertEquals(listOf("White" to 1, "Blue" to 1, "Red" to 3, "Multicolour" to 2, "Colourless" to 2), groups)
         assertEquals(
             listOf("Serra Angel", "Delver of Secrets // Insectile Aberration", "Goblin Guide", "Hill Giant", "Lightning Bolt", "Boros Charm", "Fire // Ice", "Mind Stone", "Plains"),
@@ -31,34 +31,34 @@ class PoolSortTest {
 
     @Test
     fun `by type then mana value, the front face deciding the type`() {
-        val (rows, groups) = PoolSort.parse(listOf("type", "mv"))!!.arrange(pool)
+        val (rows, groups) = CardSort.parse(listOf("type", "mv"))!!.arrange(pool)
         assertEquals(listOf("Creature" to 4, "Instant" to 3, "Artifact" to 1, "Land" to 1), groups)
         assertEquals(listOf("Delver of Secrets // Insectile Aberration", "Goblin Guide", "Hill Giant", "Serra Angel"), rows.take(4).map { it.name })
     }
 
     @Test
     fun `no layer is one group in name order`() {
-        val (rows, groups) = PoolSort.parse(listOf("-"))!!.arrange(pool)
+        val (rows, groups) = CardSort.parse(listOf("-"))!!.arrange(pool)
         assertEquals(listOf("the pool" to pool.size), groups)
         assertEquals(pool.map { it.name }.sortedBy { it.lowercase() }, rows.map { it.name })
     }
 
     @Test
     fun `a slot turns to the next layer no other slot holds, then to none, and the command says it back`() {
-        val sort = PoolSort.DEFAULT
+        val sort = CardSort.DEFAULT
         assertEquals("sort colour type mv", sort.command)
         assertEquals("sort - type mv", sort.cycled(0).command, "type and mv are taken: colour goes to none")
         assertEquals("sort colour type mv", sort.cycled(0).cycled(0).command)
         assertEquals("sort colour type -", sort.cycled(2).command)
-        assertEquals("sort colour mv -", PoolSort.parse(listOf("colour", "-", "-"))!!.cycled(1).cycled(1).command)
+        assertEquals("sort colour mv -", CardSort.parse(listOf("colour", "-", "-"))!!.cycled(1).cycled(1).command)
     }
 
     @Test
     fun `parse takes one to three layers, color as colour, none twice`() {
-        assertEquals("sort colour - -", PoolSort.parse(listOf("color"))!!.command)
-        assertNull(PoolSort.parse(listOf("mv", "mv")))
-        assertNull(PoolSort.parse(listOf("rarity")))
-        assertNull(PoolSort.parse(emptyList()))
-        assertNull(PoolSort.parse(listOf("colour", "type", "mv", "colour")))
+        assertEquals("sort colour - -", CardSort.parse(listOf("color"))!!.command)
+        assertNull(CardSort.parse(listOf("mv", "mv")))
+        assertNull(CardSort.parse(listOf("rarity")))
+        assertNull(CardSort.parse(emptyList()))
+        assertNull(CardSort.parse(listOf("colour", "type", "mv", "colour")))
     }
 }

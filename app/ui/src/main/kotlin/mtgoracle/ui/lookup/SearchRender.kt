@@ -1,6 +1,6 @@
 package mtgoracle.ui.lookup
 
-import mtgoracle.core.lookup.PoolSort
+import mtgoracle.core.lookup.CardSort
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.core.lookup.SearchPage
 
@@ -25,9 +25,13 @@ fun renderSearch(page: SearchPage, actions: Boolean = false, points: (String) ->
         if (page.rows.isEmpty()) { add("(no cards matching filters)", Tone.DIM); return@apply }
         val offset = (page.page - 1) * page.pageSize
         val arranged = page.arrangement
-        if (arranged != null) poolHeader(page.total, arranged.sort)
-        else add("${page.total} card(s) — showing ${offset + 1}-${minOf(offset + page.rows.size, page.total)} (page ${page.page} of ${page.lastPage})", Tone.BOLD)
-        // A pool's groups each begin under a heading of their own: where each starts, by row.
+        val showing = "${page.total} card(s) — showing ${offset + 1}-${minOf(offset + page.rows.size, page.total)} (page ${page.page} of ${page.lastPage})"
+        when {
+            arranged == null -> add(showing, Tone.BOLD)
+            arranged.pool -> sortHeader("${page.total} card(s) in the pool", arranged.sort, pool = true)
+            else -> sortHeader(showing, arranged.sort, pool = false)
+        }
+        // Groups each begin under a heading of their own, counted over the whole search: where each starts, by row.
         val starts = arranged?.groups?.runningFold(0) { at, g -> at + g.second }?.zip(arranged.groups)?.associate { (at, g) -> at to g }.orEmpty()
         val controls = if (actions) ACTIONS.sumOf { it.first.length + 1 } else 0
         val prefixW = INDENT.length + 6 + controls // "  [  1] " and "+ sb ? "
@@ -35,7 +39,7 @@ fun renderSearch(page: SearchPage, actions: Boolean = false, points: (String) ->
         val nameW = (width - prefixW - COST_W - 2 - 12).coerceIn(12, NAME_W)
         val typeW = maxOf(8, width - prefixW - nameW - COST_W - 2)
         page.rows.forEachIndexed { i, row ->
-            starts[i]?.let { (label, n) -> add(groupHeading(label, n), Tone.BOLD) }
+            starts[i]?.let { (label, n) -> if (label.isNotEmpty()) add(groupHeading(label, arranged!!.total(label, n)), Tone.BOLD) }
             val text = StringBuilder("$INDENT[${(i + 1).toString().padStart(3)}] ")
             val spans = mutableListOf<LinkSpan>()
             if (actions) for ((label, section) in ACTIONS) {
@@ -65,16 +69,17 @@ fun renderSearch(page: SearchPage, actions: Boolean = false, points: (String) ->
 fun groupHeading(label: String, count: Int): String = "$INDENT── $label ($count)"
 
 /**
- * A limited deck's pool, and how it is laid out: each slot a link that turns
- * it to the next layer (`sort ...`, our own command), the first naming the groups.
+ * What a page holds, [what], and how it is laid out: each slot a link that
+ * turns it to the next layer (`sort ...`, our own command), the first naming
+ * the groups. [pool]: a limited deck's pool's sort, else the searches'.
  */
-private fun Lines.poolHeader(total: Int, sort: PoolSort) {
-    val text = StringBuilder("$total card(s) in the pool · sort: ")
+private fun Lines.sortHeader(what: String, sort: CardSort, pool: Boolean) {
+    val text = StringBuilder("$what · sort: ")
     val spans = mutableListOf<LinkSpan>()
     sort.slots.forEachIndexed { i, layer ->
         if (i > 0) text.append(" › ")
         val label = "[${layer?.word ?: "-"}]"
-        spans += LinkSpan(text.length, text.length + label.length, OutputLink.Sort(sort.cycled(i)))
+        spans += LinkSpan(text.length, text.length + label.length, OutputLink.Sort(sort.cycled(i), pool))
         text.append(label)
     }
     text.append("  (click one to change it; the first groups)")

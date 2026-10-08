@@ -1,5 +1,6 @@
 package mtgoracle.data
 
+import mtgoracle.core.lookup.CardSort
 import mtgoracle.core.lookup.FormatCatalog
 import mtgoracle.core.lookup.SearchError
 import mtgoracle.core.lookup.SearchLanguage
@@ -7,6 +8,7 @@ import mtgoracle.core.lookup.SearchNode
 import mtgoracle.core.lookup.SearchPage
 import mtgoracle.core.lookup.SearchQuery
 import mtgoracle.core.lookup.SearchRow
+import mtgoracle.core.lookup.SortArrangement
 
 /** The search language over `cards`, a page at a time. (scryfall_search.run_query / count_query) */
 class CardSearch(private val db: MtgDb, private val formats: FormatCatalog, private val names: CardNames, private val likes: LikeIndex) {
@@ -43,12 +45,20 @@ class CardSearch(private val db: MtgDb, private val formats: FormatCatalog, priv
         return SearchSql(formats, rarities = known.first, layouts = known.second, like = { likes.similar(likeCard(it), pool) })
     }
 
-    /** One page of [query]. Throws SearchError for anything the user can fix. */
-    fun page(query: SearchQuery, page: Int = 1, pageSize: Int = 50, filters: List<String> = emptyList()): SearchPage {
+    /**
+     * One page of [query], laid out by [sort] (in groups, counted over the
+     * whole search) unless it orders itself: `order:`, `like:`'s likest
+     * first, or its words' relevance. Throws SearchError for anything the
+     * user can fix.
+     */
+    fun page(query: SearchQuery, page: Int = 1, pageSize: Int = 50, filters: List<String> = emptyList(), sort: CardSort? = null): SearchPage {
         val sql = compiler(query.where)
         val where = sql.where(query.where)
+        val freeWords = SearchLanguage.freeWords(query.where)
+        val likeTarget = SearchLanguage.likeTarget(query.where)
+        val laidOut = sort?.takeIf { query.order.isEmpty() && likeTarget == null && freeWords.isEmpty() }
         // Before any SQL runs: an unknown sort field is the user's to fix.
-        val orderBy = sql.orderBy(query.order, SearchLanguage.freeWords(query.where), SearchLanguage.likeTarget(query.where))
+        val orderBy = if (laidOut != null) sql.sortLayers(laidOut.layers) else sql.orderBy(query.order, freeWords, likeTarget)
         val size = pageSize.coerceIn(1, 1000)
         val at = maxOf(1, page)
         return db.read { conn ->
@@ -64,7 +74,16 @@ class CardSearch(private val db: MtgDb, private val formats: FormatCatalog, priv
                     rs.rows { SearchRow(getString("name"), getString("type_line"), getString("mana_cost"), getString("colors"), getDouble("mana_value").takeIf { !wasNull() }) }
                 }
             }
-            SearchPage(query, rows, total, at, size, filters)
+            val arrangement = laidOut?.let { s ->
+                val totals = s.layers.firstOrNull()?.let { first ->
+                    conn.prepareStatement("SELECT ${sql.rankOf(first)}, COUNT(*) FROM cards c WHERE ${where.text} GROUP BY 1").use { st ->
+                        st.bind(where.params)
+                        st.executeQuery().use { rs -> rs.rows { first.labelOf(getInt(1)) to getInt(2) } }
+                    }.groupingBy { it.first }.fold(0) { n, (_, count) -> n + count }
+                }.orEmpty()
+                SortArrangement(s, s.groups(rows, whole = ""), totals, pool = false)
+            }
+            SearchPage(query, rows, total, at, size, filters, arrangement)
         }
     }
 

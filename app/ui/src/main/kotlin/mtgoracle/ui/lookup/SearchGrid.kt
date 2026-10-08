@@ -54,13 +54,13 @@ internal fun SearchGrid(
     val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
     Column {
         lines.firstOrNull()?.let { OutputLineView(it, at, onOpen, onHover) }
-        // A pool laid out in groups: each under its heading, a row of cards of its own; any other page is one group.
+        // A page laid out in groups: each under its heading, a row of cards of its own; a page in no order is one group.
         val groups = page.arrangement?.groups ?: listOf("" to page.rows.size)
         var start = 0
         for ((label, count) in groups) {
             val first = start
             start += count
-            if (label.isNotEmpty()) OutputLineView(OutLine(groupHeading(label, count), Tone.BOLD), at, onOpen, onHover)
+            if (label.isNotEmpty()) OutputLineView(OutLine(groupHeading(label, page.arrangement?.total(label, count) ?: count), Tone.BOLD), at, onOpen, onHover)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
                 page.rows.subList(first, first + count).forEachIndexed { offset, row ->
                     val i = first + offset

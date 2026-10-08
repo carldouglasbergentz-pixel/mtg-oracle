@@ -91,7 +91,7 @@ data class CardProfile(
 
 data class SearchRow(
     val name: String, val typeLine: String?, val manaCost: String?,
-    /** `cards.colors` (`B,G`) and `cards.mana_value`: what a limited pool's layout groups by (PoolSort). */
+    /** `cards.colors` (`B,G`) and `cards.mana_value`: what a limited pool's layout groups by (CardSort). */
     val colors: String? = null, val manaValue: Double? = null,
 )
 
@@ -108,7 +108,7 @@ data class SearchPage(
     /** Labels for the filters a deck added (`ci<=BG`, `f:commander`): announced, never silent. */
     val filters: List<String> = emptyList(),
     /** A limited deck's pool, laid out in groups ([rows] already in that order); null for any other page. */
-    val arrangement: PoolArrangement? = null,
+    val arrangement: SortArrangement? = null,
 ) {
     val lastPage: Int get() = maxOf(1, (total + pageSize - 1) / pageSize)
     val hasNext: Boolean get() = page < lastPage

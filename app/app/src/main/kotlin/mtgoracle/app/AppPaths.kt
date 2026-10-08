@@ -229,9 +229,14 @@ class Settings(private val file: File) {
         set(value) { if (value == null) props.remove("limited.set") else props.setProperty("limited.set", value); save() }
 
     /** How a limited deck's pool is laid out in the workspace: `colour type mv`, `-` for an empty slot. */
-    var limitedSort: mtgoracle.core.lookup.PoolSort
-        get() = props.getProperty("limited.sort")?.let { mtgoracle.core.lookup.PoolSort.parse(it.split(' ')) } ?: mtgoracle.core.lookup.PoolSort.DEFAULT
+    var limitedSort: mtgoracle.core.lookup.CardSort
+        get() = props.getProperty("limited.sort")?.let { mtgoracle.core.lookup.CardSort.parse(it.split(' ')) } ?: mtgoracle.core.lookup.CardSort.DEFAULT
         set(value) { props.setProperty("limited.sort", value.command.removePrefix("sort ")); save() }
+
+    /** How any other search is laid out, kept apart from the pool's: `colour type mv`, `-` for an empty slot. */
+    var searchSort: mtgoracle.core.lookup.CardSort
+        get() = props.getProperty("search.sort")?.let { mtgoracle.core.lookup.CardSort.parse(it.split(' ')) } ?: mtgoracle.core.lookup.CardSort.DEFAULT
+        set(value) { props.setProperty("search.sort", value.command.removePrefix("sort ")); save() }
 
     var shareMat: Boolean
         get() = props.getProperty("net.shareMat") != "false"

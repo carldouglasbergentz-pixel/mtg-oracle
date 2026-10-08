@@ -12,8 +12,8 @@ import mtgoracle.core.lookup.ComboSummary
 import mtgoracle.core.lookup.DeckScope
 import mtgoracle.core.lookup.Explain
 import mtgoracle.core.lookup.closest
-import mtgoracle.core.lookup.PoolArrangement
-import mtgoracle.core.lookup.PoolSort
+import mtgoracle.core.lookup.SortArrangement
+import mtgoracle.core.lookup.CardSort
 import mtgoracle.core.lookup.SearchError
 import mtgoracle.core.lookup.SearchNode
 import mtgoracle.core.lookup.SearchLanguage
@@ -72,9 +72,12 @@ class LookupCommands(
     private val onQuit: () -> Unit = {},
     /** `guide`: the getting-started checklist, opened in the library. */
     private val onGuide: () -> Unit = {},
-    /** How a limited deck's pool is laid out ([PoolSort]) when the workspace opens, and where a change to it is kept. */
-    poolSort: PoolSort = PoolSort.DEFAULT,
-    private val keepPoolSort: (PoolSort) -> Unit = {},
+    /** How a limited deck's pool is laid out ([CardSort]) when the workspace opens, and where a change to it is kept. */
+    poolSort: CardSort = CardSort.DEFAULT,
+    private val keepPoolSort: (CardSort) -> Unit = {},
+    /** How any other search is laid out, and where a change to it is kept; null, in name order (the command line, for scripts). */
+    searchSort: CardSort? = null,
+    private val keepSearchSort: (CardSort) -> Unit = {},
     /** `sealed <set>`: a sealed pool opened, for you and the AI; what to say of it. Forge opens packs, so only the window has it. */
     private val onSealed: (String) -> String = { "sealed opens packs with Forge: run it in the window" },
     /** The deck engine; null leaves the workspace read-only (tests of lookup alone). */
@@ -197,7 +200,7 @@ class LookupCommands(
             // A result's `+ sb ?`: the deck changes, the output doesn't.
             is OutputLink.Edit -> { ui.showOutput = showing; guarded { edit(link.action) } }
             // A pool's `sort:` slot: the page is laid out anew where it stands, and the scrollback stays where it was.
-            is OutputLink.Sort -> { ui.showOutput = showing; guarded { layOutPool(link.sort) } }
+            is OutputLink.Sort -> { ui.showOutput = showing; guarded { if (link.pool) layOutPool(link.sort) else layOutSearch(link.sort) } }
         }
     }
 
@@ -255,7 +258,7 @@ class LookupCommands(
             "clear" -> output.clear()
             "quit", "exit" -> onQuit()
             "guide" -> { onGuide(); say("(the getting-started checklist, in the library's middle column)", Tone.DIM) }
-            "sort" -> sortPool(arg)
+            "sort" -> sort(arg)
             "sealed" -> say(onSealed(arg))
             "add" -> deckCommand(arg, "add [--sb] [--force] <card> [N]") { card, n, flags ->
                 EditAction.Add(card, if ("--sb" in flags || "--sideboard" in flags) DeckSection.SIDEBOARD else DeckSection.MAIN, n ?: 1)
@@ -442,10 +445,11 @@ class LookupCommands(
     /** Runs one page; [announce] names the deck's filters above it (a new search, not a page turn). */
     private fun showPage(query: SearchQuery, page: Int, filters: List<String>, announce: Boolean = false, inPlace: Boolean = false) {
         // A limited deck's pool is one page, laid out in groups, unless the search asks for an order of its own.
+        // Any other search is laid out page by page in the database, unless it orders itself (CardSearch.page).
         val pool = scope?.fromPool == true && query.order.isEmpty()
         val result = try {
-            lookup.search.page(query, page = if (pool) 1 else page, pageSize = if (pool) POOL_PAGE else PAGE_SIZE, filters = filters)
-                .let { r -> if (!pool) r else poolSort.arrange(r.rows).let { (rows, groups) -> r.copy(rows = rows, arrangement = PoolArrangement(poolSort, groups)) } }
+            lookup.search.page(query, page = if (pool) 1 else page, pageSize = if (pool) POOL_PAGE else PAGE_SIZE, filters = filters, sort = searchSort.takeIf { !pool })
+                .let { r -> if (!pool) r else poolSort.arrange(r.rows).let { (rows, groups) -> r.copy(rows = rows, arrangement = SortArrangement(poolSort, groups)) } }
         } catch (e: SearchError) {
             return searchError(e)
         }
@@ -465,20 +469,44 @@ class LookupCommands(
     }
 
     /** How a limited deck's pool is laid out now. */
-    var poolSort: PoolSort = poolSort
+    var poolSort: CardSort = poolSort
         private set
 
-    /** `sort colour type mv`: the pool's layout, one to three layers (`-` for none), the first naming the groups. */
-    private fun sortPool(arg: String) {
-        if (arg.isBlank()) return say("sort: ${poolSort.command.removePrefix("sort ")}. Change it with `sort <layers>`: colour, type, mv, one to three of them, the first naming the groups.", Tone.DIM)
-        if (scope?.fromPool != true) return say("sort lays out a limited deck's pool: open one first")
-        layOutPool(PoolSort.parse(arg.trim().split(Regex("\\s+"))) ?: return say("usage: sort <layers>, one to three of colour, type, mv (`-` for none), none twice: e.g. `sort colour type mv`"))
+    /** How any other search is laid out now; null, in name order. */
+    var searchSort: CardSort? = searchSort
+        private set
+
+    /**
+     * `sort colour type mv`: how searches are laid out, one to three layers
+     * (`-` for none), the first naming the groups. In a limited deck it is
+     * its pool's layout, which is kept apart.
+     */
+    private fun sort(arg: String) {
+        val pool = scope?.fromPool == true
+        val current = if (pool) poolSort else searchSort
+        val whose = if (pool) "the pool" else "searches"
+        if (arg.isBlank()) return say("sort ($whose): ${current?.command?.removePrefix("sort ") ?: "by name"}. Change it with `sort <layers>`: colour, type, mv, one to three of them, the first naming the groups.", Tone.DIM)
+        val sort = CardSort.parse(arg.trim().split(Regex("\\s+"))) ?: return say("usage: sort <layers>, one to three of colour, type, mv (`-` for none), none twice: e.g. `sort colour type mv`")
+        if (pool) layOutPool(sort) else layOutSearch(sort)
     }
 
-    private fun layOutPool(sort: PoolSort) {
+    private fun layOutSearch(sort: CardSort) {
+        searchSort = sort
+        keepSearchSort(sort)
+        showSorted()
+    }
+
+    /** The last search laid out anew on a clean pane: the lists before it are gone, and the new order starts at its first page. */
+    private fun showSorted() {
+        val s = lastSearch ?: return
+        output.clear()
+        showPage(s.query, 1, s.filters, announce = true)
+    }
+
+    private fun layOutPool(sort: CardSort) {
         poolSort = sort
         keepPoolSort(sort)
-        lastSearch?.let { s -> showPage(s.query, s.page, s.filters, inPlace = true) }
+        showSorted()
     }
 
     private fun searchError(e: SearchError) {

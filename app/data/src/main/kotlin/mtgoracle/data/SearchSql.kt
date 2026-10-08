@@ -7,6 +7,8 @@ import mtgoracle.core.lookup.SearchFields
 import mtgoracle.core.lookup.closest
 import mtgoracle.core.lookup.SearchNode
 import mtgoracle.core.lookup.SortKey
+import mtgoracle.core.lookup.SortLayer
+import mtgoracle.core.lookup.CardTypes
 
 /** A WHERE fragment over `cards c` and its parameters, in order. */
 data class Sql(val text: String, val params: List<Any> = emptyList())
@@ -197,6 +199,21 @@ class SearchSql(
         val n = value.toIntOrNull() ?: throw SearchError("expected integer for $column $op comparison, got '$value'")
         val sqlOp = NUMERIC_OPS[op]?.takeIf { op != ":" && op != "=" } ?: throw SearchError("unsupported op '$op' on $column")
         return Sql("(${integerOnly(column)} AND CAST(c.$column AS INTEGER) $sqlOp ?)", listOf(n))
+    }
+
+    /** ORDER BY for a search laid out in [layers] (CardSort), each ranked as `SortLayer.rank` ranks a row, then the name. */
+    fun sortLayers(layers: List<SortLayer>): Sql =
+        Sql((layers.map(::rankOf) + "c.name COLLATE NOCASE ASC").joinToString(", "))
+
+    /** [layer]'s rank of a card as SQL: what `SortLayer.rank` says of its row, case for case. */
+    fun rankOf(layer: SortLayer): String = when (layer) {
+        SortLayer.COLOUR -> "(CASE WHEN COALESCE(c.colors, '') = '' THEN ${SortLayer.COLOURLESS} " +
+            "WHEN instr(c.colors, ',') > 0 THEN ${SortLayer.MULTICOLOUR} ELSE instr('${SortLayer.WUBRG.joinToString("")}', c.colors) - 1 END)"
+        // The first of the kinds, in their order, that the front face's type line holds.
+        SortLayer.TYPE -> CardTypes.ORDER.withIndex().joinToString(" ", "(CASE ", " ELSE ${CardTypes.ORDER.size} END)") { (i, kind) ->
+            "WHEN instr($FRONT_TYPE, '$kind') > 0 THEN $i"
+        }
+        SortLayer.MV -> "COALESCE(CAST(c.mana_value AS INTEGER), ${SortLayer.NO_MV})"
     }
 
     /**

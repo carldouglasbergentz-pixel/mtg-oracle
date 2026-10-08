@@ -58,6 +58,29 @@ class LookupCommandsTest {
     private fun links(): List<OutputLink> = commands.output.entries.flatMap { it.rendering.lines(100) }.flatMap { it.spans }.map { it.link }
 
     @Test
+    fun `a search is laid out by a sort of its own, which sort and the header's slots change, and which is kept`() {
+        val kept = mutableListOf<mtgoracle.core.lookup.CardSort>()
+        commands = LookupCommands(lookup, decks = { library.decks() }, faceOf = { null },
+            searchSort = mtgoracle.core.lookup.CardSort.DEFAULT, keepSearchSort = { kept += it })
+        val out = run("t:creature c:g")
+        assertTrue("sort: [colour] › [type] › [mv]" in out && "── Green (" in out, out)
+        run("card lightning bolt")
+        run("sort type mv")
+        assertEquals("sort type mv -", kept.last().command)
+        assertEquals(1, commands.output.entries.size, "a new order starts on a clean pane: the re-sorted list alone")
+        assertEquals("Creature", assertNotNull(commands.output.latestSearch?.page?.arrangement).groups.first().first, "laid out anew, in place")
+        val slot = links().filterIsInstance<OutputLink.Sort>().last()
+        assertTrue(!slot.pool, "the search's own slots, not a pool's")
+        commands.open(slot)
+        assertEquals(slot.sort, kept.last())
+        run("sort").let { assertTrue("sort (searches): ${slot.sort.command.removePrefix("sort ")}." in it, it) }
+        assertTrue("sort:" !in run("llanowar"), "a search of words keeps their relevance")
+        assertTrue("sort:" !in LookupCommands(lookup, decks = { library.decks() }, faceOf = { null }).let { cli ->
+            cli.submit("t:creature c:g"); cli.output.entries.flatMap { it.rendering.lines(100) }.joinToString("\n") { it.text }
+        }, "the command line's searches stay in name order")
+    }
+
+    @Test
     fun `card shows the profile, tolerantly, and says when nothing matches`() {
         val out = run("card lightning bolt")
         assertTrue(out.startsWith("> card lightning bolt"), out)
