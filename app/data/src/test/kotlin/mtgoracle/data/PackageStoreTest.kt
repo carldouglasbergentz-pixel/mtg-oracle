@@ -64,7 +64,10 @@ class PackageStoreTest {
         assertEquals(pkg.decks.size, result.decks.size)
         assertTrue(backups.listFiles()!!.single().name.matches(Regex("""mtg-.*-pre-import\.db""")), "a backup first")
         val again = store(target).export(PackageScope.Library, "test", "2026-10-05T12:00:00Z")
-        assertEquals(pkg.decks, again.decks, "every deck as it was: cards, printings, considering, substitutes, history")
+        // Its format by the format's key, which a package from before 0.6.0 may name by an alias (`canlander`).
+        val formats = Lookup(target).formats
+        val asStored = pkg.decks.map { it.copy(format = formats.canonical(it.format), folderFormat = formats.canonical(it.folderFormat)) }
+        assertEquals(asStored, again.decks, "every deck as it was: cards, printings, considering, substitutes, history")
         assertEquals(3, pkg.games.size)
         assertEquals(pkg.games.size, again.games.size)
         assertEquals(pkg.games.map { it.identity to (it.deck != null) }, again.games.map { it.identity to (it.deck != null) }, "each game on its deck")

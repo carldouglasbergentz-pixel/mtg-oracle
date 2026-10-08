@@ -117,6 +117,16 @@ class FormatCatalog(custom: List<CustomFormat>) {
         custom.forEach { f -> f.aliases.forEach { putIfAbsent(Formats.fold(it), f) } }
     }
 
+    /**
+     * [raw] as a deck or a folder stores it: a format this catalog knows by
+     * its key (`canlander` and `CHL` are `canadianhighlander`, `EDH` is
+     * `commander`), any other as typed, a label no rule reads; null for none.
+     */
+    fun canonical(raw: String?): String? {
+        val typed = raw?.trim()?.ifEmpty { null } ?: return null
+        return resolve(typed)?.key ?: typed
+    }
+
     /** Whether [raw] carries a one-copy rule: its definition says so, else the community list (queries.is_singleton_format). */
     fun isSingleton(raw: String?): Boolean {
         if (raw.isNullOrBlank()) return false

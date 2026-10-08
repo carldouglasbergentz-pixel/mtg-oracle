@@ -358,6 +358,8 @@ class AppController(private val paths: AppPaths) {
             val created = !paths.db.exists()
             val db = if (created) MtgDb.create(paths.db) else MtgDb(paths.db)
             val migrated = db.migrate(paths.backups)
+            // Formats were stored as typed before 0.6.0: each by its key now, once, after a backup.
+            LibraryWriter(db).canonicalFormats(paths.backups).takeIf { it.isNotEmpty() }?.let { Log.info("formats stored by their key: ${it.joinToString("; ")}") }
             if (migrated.changed) {
                 Log.info("schema v${migrated.from} -> v${migrated.to}: ${migrated.lines.joinToString("; ")}")
                 notice = "database schema updated to version ${migrated.to}" + (migrated.backup?.let { "; backup in ${it.name}" } ?: "")

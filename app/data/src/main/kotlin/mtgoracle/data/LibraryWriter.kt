@@ -1,5 +1,6 @@
 package mtgoracle.data
 
+import mtgoracle.core.lookup.FormatCatalog
 import mtgoracle.core.deck.DeckRefusal
 import mtgoracle.core.deck.DeckRefusal.Kind
 import java.sql.Connection
@@ -53,7 +54,7 @@ class LibraryWriter(private val db: MtgDb) {
      */
     fun setFolderFormat(folderId: Int, format: String?, applyToDecks: Boolean = false): Int = db.write { conn ->
         folderName(conn, folderId)
-        val fmt = format?.trim()?.ifEmpty { null }
+        val fmt = conn.canonicalFormat(format)
         conn.update("UPDATE deck_folders SET format = ? WHERE id = ?", fmt, folderId)
         if (applyToDecks && fmt != null) conn.update("UPDATE decks SET format = ?, updated_at = ? WHERE folder_id = ? AND (format IS NULL OR format = '')", fmt, now(), folderId)
         else 0
@@ -102,12 +103,38 @@ class LibraryWriter(private val db: MtgDb) {
     }
 
     /**
-     * A deck's format, stored as typed (null or blank clears it). Free text
-     * on purpose: a name no rule knows is still a label (decks.set_deck_format).
+     * A deck's format (null or blank clears it): a format the catalog knows
+     * by its key, any other as typed. Free text on purpose: a name no rule
+     * knows is still a label (decks.set_deck_format).
      */
     fun setDeckFormat(deckId: Int, format: String?) = db.write { conn ->
         deckFolder(conn, deckId)
-        conn.update("UPDATE decks SET format = ?, updated_at = ? WHERE id = ?", format?.trim()?.ifEmpty { null }, now(), deckId)
+        conn.update("UPDATE decks SET format = ?, updated_at = ? WHERE id = ?", conn.canonicalFormat(format), now(), deckId)
+    }
+
+    /**
+     * Every deck's and folder's format as [setDeckFormat] stores it, after a
+     * backup in [backups] when one changes (`mtg-…-pre-formats.db`). Formats
+     * were stored as typed before 0.6.0, so a folder's `canlander` and a
+     * deck's `canadianhighlander` named one format two ways. Returns what changed.
+     */
+    fun canonicalFormats(backups: java.io.File?): List<String> {
+        data class Row(val table: String, val id: Int, val name: String, val format: String, val canonical: String)
+        fun pending(conn: Connection): List<Row> {
+            val catalog = FormatCatalog(conn.customFormats())
+            return listOf("deck_folders" to "folder", "decks" to "deck").flatMap { (table, kind) ->
+                conn.query("SELECT id, name, format FROM $table WHERE format IS NOT NULL") { Triple(getInt(1), getString(2), getString(3)) }
+                    .mapNotNull { (id, name, format) -> catalog.canonical(format)?.takeIf { it != format }?.let { Row(table, id, "$kind '$name'", format, it) } }
+            }
+        }
+        if (db.read(::pending).isEmpty()) return emptyList()
+        backups?.let { dir -> db.read { conn -> Backups.take(conn, dir, "formats") } }
+        return db.write { conn ->
+            pending(conn).map { r ->
+                conn.update("UPDATE ${r.table} SET format = ? WHERE id = ?", r.canonical, r.id)
+                "${r.name}: ${r.format} -> ${r.canonical}"
+            }
+        }
     }
 
     private fun folderName(conn: Connection, folderId: Int): String =
@@ -149,8 +176,8 @@ class LibraryWriter(private val db: MtgDb) {
             if (folderId != null && conn.query("SELECT 1 FROM deck_folders WHERE id = ?", folderId) { 1 }.isEmpty()) throw DeckRefusal(Kind.NO_SUCH_DECK, "folder not found: #$folderId")
             assertDeckNameFree(conn, n, folderId)
             // A deck dropped into a folder gets its default: the whole point of the folder's format.
-            val fmt = format?.trim()?.ifEmpty { null }
-                ?: folderId?.let { conn.query("SELECT format FROM deck_folders WHERE id = ?", it) { getString(1) }.firstOrNull()?.ifEmpty { null } }
+            val fmt = conn.canonicalFormat(format
+                ?.takeIf { it.isNotBlank() } ?: folderId?.let { conn.query("SELECT format FROM deck_folders WHERE id = ?", it) { getString(1) }.firstOrNull() })
             return conn.insert("INSERT INTO decks (folder_id, name, format, description, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?)", folderId, n, fmt, now(), now()).toInt()
         }
     }

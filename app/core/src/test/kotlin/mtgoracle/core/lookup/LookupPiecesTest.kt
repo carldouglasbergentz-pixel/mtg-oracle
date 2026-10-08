@@ -55,6 +55,19 @@ class LookupPiecesTest {
     ))
 
     @Test
+    fun `a format is stored by its key when the catalog knows it, as typed when not`() {
+        assertEquals("canadianhighlander", catalog.canonical("canlander"))
+        assertEquals("canadianhighlander", catalog.canonical(" Canadian Highlander "))
+        assertEquals("commander", catalog.canonical("EDH"))
+        assertEquals("duel", catalog.canonical("1v1 commander"))
+        assertEquals("premodern", catalog.canonical("Premodern"))
+        assertEquals("Kitchen Table", catalog.canonical(" Kitchen Table "), "a label no rule knows stays as typed")
+        assertEquals("highlander", catalog.canonical("highlander"))
+        assertEquals(null, catalog.canonical("  "))
+        assertEquals(null, catalog.canonical(null))
+    }
+
+    @Test
     fun `a custom format resolves through its aliases to the pool it inherits`() {
         val info = catalog.resolve("Canlander")!!
         assertEquals(FormatInfo("canadianhighlander", "Canadian Highlander", "vintage", 10, singleton = true, custom = true), info)

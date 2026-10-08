@@ -172,7 +172,7 @@ class PackageStore(private val db: MtgDb, private val names: CardNames, private 
         val name = deck.folder ?: return null
         conn.query("SELECT id FROM deck_folders WHERE name = ? COLLATE NOCASE", name) { getInt(1) }.firstOrNull()?.let { return it }
         LibraryWriter.assertValidName(name, "folder")
-        return conn.insert("INSERT INTO deck_folders (name, created_at, format) VALUES (?, ?, ?)", name, LibraryWriter.now(), deck.folderFormat).toInt()
+        return conn.insert("INSERT INTO deck_folders (name, created_at, format) VALUES (?, ?, ?)", name, LibraryWriter.now(), conn.canonicalFormat(deck.folderFormat)).toInt()
     }
 
     private fun writeDeck(conn: Connection, p: DeckPlan, folderId: Int?): Int {
@@ -180,7 +180,7 @@ class PackageStore(private val db: MtgDb, private val names: CardNames, private 
         val id = LibraryWriter.createDeckRow(conn, p.name, folderId, d.format)
         // As it was: its own format (none too, not the folder's default), its description and dates.
         val now = LibraryWriter.now()
-        conn.update("UPDATE decks SET format = ?, description = ?, created_at = ?, updated_at = ? WHERE id = ?", d.format, d.description, d.createdAt ?: now, d.updatedAt ?: now, id)
+        conn.update("UPDATE decks SET format = ?, description = ?, created_at = ?, updated_at = ? WHERE id = ?", conn.canonicalFormat(d.format), d.description, d.createdAt ?: now, d.updatedAt ?: now, id)
         for (c in d.cards) {
             conn.update(
                 "INSERT INTO deck_cards (deck_id, card_name, quantity, category, is_commander, is_sideboard, added_at, set_code, collector_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",

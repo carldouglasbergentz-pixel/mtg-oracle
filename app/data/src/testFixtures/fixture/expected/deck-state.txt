@@ -64,7 +64,7 @@ move|Lightning Bolt: main -> sideboard|Lightning Bolt|sideboard|0|1||tst
 move|Lightning Bolt: sideboard -> main|Lightning Bolt|main|1|2|tst|tst
 move|Lightning Bolt: sideboard -> main|Lightning Bolt|sideboard|1|0|tst|
 
-# __parity_can__ (canlander in (unsorted))
+# __parity_can__ (canadianhighlander in (unsorted))
 Ancestral Recall|1|0|0|||
 Mana Drain|1|0|0|||
 Sol Ring|1|0|1|||

@@ -91,28 +91,7 @@ class Lookup(val db: MtgDb) {
         DeckScope(deckId, name, commanderIdentity(conn, deckId), formats.resolve(format), fromPool = pool)
     }
 
-    private fun readCustomFormats(): List<CustomFormat> = db.read { conn ->
-        conn.prepareStatement(
-            """
-            SELECT format, name, derives_from, points_budget, singleton,
-                   CASE WHEN json_valid(aliases) AND json_type(aliases) = 'array'
-                        THEN (SELECT GROUP_CONCAT(value, char(31)) FROM json_each(custom_formats.aliases)) END AS alias_list
-            FROM custom_formats
-            """.trimIndent(),
-        ).use { st ->
-            st.executeQuery().use { rs ->
-                rs.rows {
-                    CustomFormat(
-                        key = getString("format"), name = getString("name"),
-                        aliases = getString("alias_list")?.split('\u001F').orEmpty(),
-                        derivesFrom = getString("derives_from"),
-                        pointsBudget = getInt("points_budget").takeIf { !wasNull() },
-                        singleton = getInt("singleton") != 0,
-                    )
-                }
-            }
-        }
-    }
+    private fun readCustomFormats(): List<CustomFormat> = db.read { it.customFormats() }
 }
 
 /** Scryfall's formats played only on MTG Arena: a card with a row in any of them is on Arena. */
