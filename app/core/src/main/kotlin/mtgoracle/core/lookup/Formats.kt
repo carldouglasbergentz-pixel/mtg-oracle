@@ -50,7 +50,11 @@ object Formats {
         "tinyleadersreborn" to "tlr",
         "dc" to "duel", // what players call Duel Commander
         "chl" to "canadianhighlander",
+        "limited" to "sealed",
     )
+
+    /** Limited formats: a deck built from opened packs (core/limited), forty cards, any number of each. */
+    val LIMITED: Set<String> = setOf("sealed")
 
     /** In these, `restricted` means "not as your commander", not "one copy". */
     val RESTRICTED_MEANS_NO_COMMANDER: Set<String> = setOf("duel", "tlr")

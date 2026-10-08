@@ -35,6 +35,28 @@ undo|undo of #88 (printing)|Sol Ring|main|1|1|c21|c18
 considering:
 history:
 
+# __p_sealed__ (sealed in (unsorted))
+Counterspell|1|0|0||tst|
+Forest|8|0|0|||
+Forest|1|0|1||tst|
+Lightning Bolt|2|0|0||tst|
+considering:
+Counterspell|1
+history:
+import||Counterspell|sideboard|0|1||tst
+import||Forest|sideboard|0|1||tst
+import||Lightning Bolt|sideboard|0|2||tst
+move|Lightning Bolt: sideboard -> main|Lightning Bolt|main|0|2||tst
+move|Lightning Bolt: sideboard -> main|Lightning Bolt|sideboard|2|0|tst|
+add|Forest|Forest|main|0|8||
+add|Counterspell|Counterspell|main|0|1||
+remove|Lightning Bolt|Lightning Bolt|main|2|1|tst|tst
+add|Lightning Bolt|Lightning Bolt|main|1|2|tst|tst
+move|Counterspell: main -> considering|Counterspell|main|1|0||
+move|Counterspell: main -> considering|Counterspell|considering|0|1||
+move|Counterspell: sideboard -> main|Counterspell|main|0|1||tst
+move|Counterspell: sideboard -> main|Counterspell|sideboard|1|0|tst|
+
 # __parity_can__ (canlander in (unsorted))
 Ancestral Recall|1|0|0|||
 Mana Drain|1|0|0|||

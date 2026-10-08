@@ -70,9 +70,9 @@ class SchemaTest {
         assertTrue(report.lines.any { it.startsWith("adopted") } && report.lines.any { it == "v2: forge_matches dropped (it was empty; simulations are rows in games now)" }, report.lines.toString())
         assertTrue(report.lines.any { it.startsWith("v3: printings") }, report.lines.toString())
         val after = shape(file)
-        val added = setOf("printings", "printing_sets")
+        val added = setOf("printings", "printing_sets", "limited_pools", "limited_pool_cards")
         assertEquals(before.tables - "forge_matches" + added, after.tables, "nothing but the migrations changed")
-        assertEquals(before.columns.filterKeys { !it.startsWith("forge_matches.") }, after.columns.filterKeys { it.substringBefore('.') !in added })
+        assertEquals(before.columns.filterKeys { !it.startsWith("forge_matches.") }, after.columns.filterKeys { it.substringBefore('.') !in added && it != "decks.pool_id" })
 
         val backup = report.backup!!
         assertTrue(backup.parentFile == backups && backup.name.matches(Regex("""mtg-.*-pre-v2\.db""")), backup.name)
@@ -107,6 +107,22 @@ class SchemaTest {
             c.createStatement().use { st -> st.executeQuery("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'games' ORDER BY name").use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } } }
         }
         assertEquals(listOf("idx_games_deck", "idx_games_match", "idx_games_opponent_deck"), indexes)
+        MtgDb(file).checkSchema()
+    }
+
+    @Test
+    fun `version 5 adds limited pools, and a deck keeps its rows and gains no pool`() {
+        val file = python()
+        sql(file, "INSERT INTO decks (name, created_at, updated_at) VALUES ('Jori En', 'x', 'x')")
+        val report = MtgDb(file).migrate(File(dir, "backups"))
+        assertContains(report.lines, "v5: limited_pools and limited_pool_cards created, decks.pool_id added")
+        val pool = DriverManager.getConnection("jdbc:sqlite:${file.path}").use { c ->
+            c.createStatement().use { st -> st.executeQuery("SELECT name, pool_id FROM decks").use { rs -> rs.next(); rs.getString(1) to rs.getObject(2) } }
+        }
+        assertEquals("Jori En" to null, pool)
+        assertFailsWith<java.sql.SQLException>("only sealed, until another product is built") {
+            sql(file, "INSERT INTO limited_pools (set_code, scryfall_code, set_name, product, packs, seed, opened_by, created_at) VALUES ('BLB', 'blb', 'Bloomburrow', 'draft', 3, 1, 'me', 'x')")
+        }
         MtgDb(file).checkSchema()
     }
 

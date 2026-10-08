@@ -60,17 +60,20 @@ data class Deck(
     val substitutions: List<Substitution> = emptyList(),
     /** The considering list (deck_considering): weighed for the deck, not in it — never counted, exported or played. */
     val considering: List<DeckCard> = emptyList(),
+    /** The pool it is built from (limited_pools), whose cards it may hold no more of than were opened (PoolRule); null for none. */
+    val poolId: Int? = null,
 ) {
     /**
      * A commander row makes a commander game: Forge can't run one without it, whatever `format` says.
      * The format then picks which: `duel` (or any alias of it) is Duel Commander, anything else Commander.
+     * Without one, a limited format (`sealed`) is a limited game: forty cards, any number of each.
      */
     val gameType: GameType get() = when {
-        cards.none { it.isCommander } -> GameType.CONSTRUCTED
+        cards.none { it.isCommander } -> if (format != null && Formats.fold(format) in Formats.LIMITED) GameType.LIMITED else GameType.CONSTRUCTED
         format != null && Formats.fold(format) == "duel" -> GameType.DUEL_COMMANDER
         else -> GameType.COMMANDER
     }
     val mainCount: Int get() = cards.filter { it.section == Section.MAIN }.sumOf { it.quantity }
 }
 
-enum class GameType(val label: String) { CONSTRUCTED("constructed"), COMMANDER("Commander"), DUEL_COMMANDER("Duel Commander") }
+enum class GameType(val label: String) { CONSTRUCTED("constructed"), COMMANDER("Commander"), DUEL_COMMANDER("Duel Commander"), LIMITED("limited") }

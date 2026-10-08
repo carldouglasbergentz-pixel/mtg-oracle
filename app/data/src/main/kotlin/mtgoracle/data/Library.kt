@@ -43,10 +43,10 @@ class Library(private val db: MtgDb) {
     /** The deck with its cards (plus what `cards` knows about each) and its AI substitutions; null if gone. */
     fun deck(id: Int): Deck? = db.read { conn ->
         val head = conn.prepareStatement(
-            "SELECT d.id, d.name, d.format, f.name AS folder_name FROM decks d LEFT JOIN deck_folders f ON f.id = d.folder_id WHERE d.id = ?",
+            "SELECT d.id, d.name, d.format, d.pool_id, f.name AS folder_name FROM decks d LEFT JOIN deck_folders f ON f.id = d.folder_id WHERE d.id = ?",
         ).use { st ->
             st.setInt(1, id)
-            st.executeQuery().use { rs -> if (rs.next()) Triple(rs.getString("name"), rs.getString("format"), rs.getString("folder_name")) else null }
+            st.executeQuery().use { rs -> if (rs.next()) Head(rs.getString("name"), rs.getString("format"), rs.getString("folder_name"), rs.getObject("pool_id")?.let { (it as Number).toInt() }) else null }
         } ?: return@read null
         val cards = conn.prepareStatement(
             """
@@ -95,8 +95,10 @@ class Library(private val db: MtgDb) {
                 }
             }
         }
-        Deck(id, head.first, head.second, head.third, cards, subs, considering)
+        Deck(id, head.name, head.format, head.folder, cards, subs, considering, head.poolId)
     }
+
+    private data class Head(val name: String, val format: String?, val folder: String?, val poolId: Int?)
 }
 
 internal inline fun <T> ResultSet.rows(read: ResultSet.() -> T): List<T> = buildList { while (next()) add(read()) }

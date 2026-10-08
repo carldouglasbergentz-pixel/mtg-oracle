@@ -33,6 +33,8 @@ object Prune {
     private val USER_NAMES = listOf(
         "deck_cards" to "card_name", "deck_considering" to "card_name",
         "forge_substitutions" to "card_name", "forge_substitutions" to "substitute", "user_combo_cards" to "card_name",
+        // A pool is what was opened, the AI's included, which no deck holds.
+        "limited_pool_cards" to "card_name",
     )
 
     /** Anything near the whole table means the premise is wrong, not that the table is junk. */

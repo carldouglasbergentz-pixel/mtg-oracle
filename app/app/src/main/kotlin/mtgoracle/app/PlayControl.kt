@@ -5,6 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import mtgoracle.core.deck.Deck
 import mtgoracle.core.deck.DeckSummary
+import mtgoracle.core.deck.PlayDeck
+import mtgoracle.core.lookup.Formats
 import mtgoracle.core.play.GameMode
 import mtgoracle.data.GameStore
 import mtgoracle.forge.Log
@@ -28,7 +30,25 @@ class PlayControl(
     private val forgeReady: () -> Boolean,
     private val show: (Screen) -> Unit,
     private val say: (String?) -> Unit,
+    private val limitedControl: () -> LimitedControl? = { null },
 ) {
+    /** The lobby's tab: limited (decks built from opened packs, against the AI's own pool) or constructed. */
+    var limited by mutableStateOf(settings.lobbyLimited)
+        private set
+
+    fun toggleTab() {
+        limited = !limited
+        settings.lobbyLimited = limited
+        val ids = tabDecks().map { it.id }
+        if (lobbyMeId !in ids) lobbyMeId = ids.firstOrNull()
+        chooseOpponent(opponentId)
+    }
+
+    /** The decks the lobby's tab offers as yours: limited decks on the limited tab, every other deck on the constructed one. */
+    fun tabDecks(): List<DeckSummary> = decks().filter { isLimited(it) == limited }
+
+    private fun isLimited(deck: DeckSummary) = deck.format?.let { Formats.fold(it) in Formats.LIMITED } == true
+
     var opponentId by mutableStateOf<Int?>(null)
     /** Your deck in the lobby: its own choice, not what the library has selected. */
     var lobbyMeId by mutableStateOf<Int?>(null)
@@ -48,8 +68,10 @@ class PlayControl(
      * it played, when it can face yours.
      */
     fun openLobby(me: Int?) {
-        val ids = decks().map { it.id }.toSet()
-        lobbyMeId = listOf(me, settings.lobbyMe).firstOrNull { it != null && it in ids } ?: decks().firstOrNull()?.id
+        // A limited deck opens the limited tab, any other deck the constructed one.
+        decks().firstOrNull { it.id == me }?.let { if (isLimited(it) != limited) toggleTab() }
+        val ids = tabDecks().map { it.id }.toSet()
+        lobbyMeId = listOf(me, settings.lobbyMe).firstOrNull { it != null && it in ids } ?: tabDecks().firstOrNull()?.id
         show(Screen.Lobby)
         chooseOpponent(settings.lobbyOpponent)
     }
@@ -73,6 +95,7 @@ class PlayControl(
     }
 
     fun opponents(): List<OpponentChoice> {
+        if (limited) return emptyList()
         val me = lobbyMe ?: return emptyList()
         val records = records(me)
         return decks().mapNotNull { d ->
@@ -106,9 +129,30 @@ class PlayControl(
     fun prepared(): Prepared? {
         if (!forgeReady()) return null
         val me = lobbyMe ?: return null
+        if (limited) return preparedLimited(me)
         val opp = opponentId?.let(deckById) ?: return null
         return sessions().prepare(me, opp, useAiCopy)
     }
+
+    /** Your limited deck against the deck the AI builds from its own pool; null for a deck with no AI pool. */
+    private fun preparedLimited(me: Deck): Prepared? {
+        if (simulating || match != null) return null
+        val control = limitedControl() ?: return null
+        val key = me.id to me.poolId
+        val ai = aiDeck?.takeIf { it.first == key }?.second ?: try {
+            control.opponentFor(me)
+        } catch (e: Exception) {
+            Log.error("the AI could not build its sealed deck", e)
+            null
+        }.also { aiDeck = key to it }
+        ai ?: return null
+        return sessions().prepareLimited(me, ai, control.excess(me))
+    }
+    /** The AI's sealed deck for (deck, pool): Forge builds it in a fraction of a second, and the lobby asks for it on every frame. */
+    private var aiDeck: Pair<Pair<Int, Int?>, PlayDeck?>? = null
+
+    /** The AI's side of the limited match, as the lobby names it. */
+    fun limitedOpponent(): String? = if (limited) aiDeck?.takeIf { it.first == lobbyMe?.let { d -> d.id to d.poolId } }?.second?.name else null
 
     /** Best of 1, 3 or 5, remembered for the next match. */
     var format by mutableStateOf(settings.matchFormat)
@@ -141,6 +185,7 @@ class PlayControl(
     fun simulate() {
         if (simulating) return
         if (match != null) { say("a game is on: finish it before simulating"); return }
+        if (limited) { say("simulating is for constructed decks; a limited deck plays the AI's pool"); return }
         val me = lobbyMe ?: return
         val opp = opponentId?.let(deckById) ?: return
         if (!forgeReady()) { say("Forge is still loading"); return }

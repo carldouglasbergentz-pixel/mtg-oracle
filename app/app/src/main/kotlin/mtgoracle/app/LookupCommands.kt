@@ -69,6 +69,8 @@ class LookupCommands(
     private val onQuit: () -> Unit = {},
     /** `guide`: the getting-started checklist, opened in the library. */
     private val onGuide: () -> Unit = {},
+    /** `sealed <set>`: a sealed pool opened, for you and the AI; what to say of it. Forge opens packs, so only the window has it. */
+    private val onSealed: (String) -> String = { "sealed opens packs with Forge: run it in the window" },
     /** The deck engine; null leaves the workspace read-only (tests of lookup alone). */
     writer: DeckWriter? = null,
     /** Deck [id] changed: re-read it for the screen. */
@@ -238,6 +240,7 @@ class LookupCommands(
             "clear" -> output.clear()
             "quit", "exit" -> onQuit()
             "guide" -> { onGuide(); say("(the getting-started checklist, in the library's middle column)", Tone.DIM) }
+            "sealed" -> say(onSealed(arg))
             "add" -> deckCommand(arg, "add [--sb] [--force] <card> [N]") { card, n, flags ->
                 EditAction.Add(card, if ("--sb" in flags || "--sideboard" in flags) DeckSection.SIDEBOARD else DeckSection.MAIN, n ?: 1)
             }

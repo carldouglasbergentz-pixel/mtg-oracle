@@ -5,6 +5,9 @@ import mtgoracle.core.deck.DeckParser
 import mtgoracle.core.deck.DeckRefusal
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.core.deck.Printing
+import mtgoracle.core.limited.LimitedSet
+import mtgoracle.core.limited.OpenedPool
+import mtgoracle.core.limited.PoolCard
 import java.io.File
 import java.sql.DriverManager
 import kotlin.test.Test
@@ -19,6 +22,8 @@ import kotlin.test.assertEquals
  * here and its expected lines with them. The sequence walks each rule: identity,
  * singleton (basics, any number, up to N), banned, points, restricted,
  * banned as commander, promote and demote, moves, removals, undo and redo.
+ * The last ops, a limited deck held to its pool, are the app's own rule:
+ * their expected lines were written here, not recorded from Python.
  */
 class DeckParityTest {
 
@@ -168,6 +173,18 @@ class DeckParityTest {
         rmdir __pf__ 1
         delete __p_imp__
         delete __p_imp__
+        pooldeck __p_sealed__ Lightning Bolt;Lightning Bolt;Counterspell;Forest
+        add __p_sealed__ Lightning Bolt|1|0|0
+        move __p_sealed__ Lightning Bolt|sideboard|main|2|0
+        add __p_sealed__ Forest|8|0|0
+        add __p_sealed__ Counterspell|1|0|0
+        add __p_sealed__ Counterspell|1|0|1
+        remove __p_sealed__ Lightning Bolt|1|main
+        add __p_sealed__ Lightning Bolt|1|0|0
+        add __p_sealed__ Sol Ring|1|1|0
+        move __p_sealed__ Counterspell|main|considering|1|0
+        move __p_sealed__ Counterspell|considering|main|1|0
+        move __p_sealed__ Counterspell|sideboard|main|1|0
     """.trimIndent().lines()
 
     /** The first word is the op, the second the deck; the rest, split on `|`, its arguments. */
@@ -202,6 +219,12 @@ class DeckParityTest {
             "swaps" -> {
                 val pairs = op.args.joinToString("|").split(';').map { it.substringBefore('>') to it.substringAfter('>') }
                 return "SWAPS " + writer.checkSwaps(deck(), pairs).joinToString(";") { "${it.first}>${it.second}" }
+            }
+            // A limited deck made from a pool of these cards (one pack), the AI's pool beside it: the pool rule's ops follow. Ours, not Python's.
+            "pooldeck" -> {
+                val set = LimitedSet("TST", "tst", "Test set", "")
+                fun pool(cards: List<String>) = OpenedPool(set, 1, listOf(cards.map { PoolCard(it, "tst", null) }))
+                writer.createFromPool(op.deck, null, "sealed", "sealed", pool(op.args.joinToString("|").split(';')), pool(listOf("Island")), "ai", null)
             }
             "export" -> {
                 val d = Library(db).deck(deck())!!

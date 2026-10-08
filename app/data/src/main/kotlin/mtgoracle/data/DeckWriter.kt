@@ -8,6 +8,8 @@ import mtgoracle.core.deck.DeckRevision
 import mtgoracle.core.deck.DeckRules
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.core.deck.Printing
+import mtgoracle.core.limited.OpenedPool
+import mtgoracle.core.limited.PoolRule
 import mtgoracle.core.lookup.FormatCatalog
 import mtgoracle.core.lookup.FormatInfo
 import mtgoracle.core.lookup.Formats
@@ -276,6 +278,25 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         id to loadRows(conn, id, rows, force = true, action = "import")
     }
 
+    /**
+     * A new limited deck and the pool it is built from, in one transaction:
+     * [mine] stored as the user's, [rival] (the AI's, or the other person's)
+     * as opened by [rivalOpenedBy] and linked to it, and the deck holding the
+     * whole pool in its sideboard, each card in the printing it came in, as
+     * one `import` revision. Building it is moving cards to the main deck.
+     * Returns the deck's id.
+     */
+    fun createFromPool(name: String, folderId: Int?, format: String, product: String, mine: OpenedPool, rival: OpenedPool?, rivalOpenedBy: String, forgeVersion: String?): Int = db.write { conn ->
+        val rivalId = rival?.let { PoolStore.insert(conn, it, product, rivalOpenedBy, forgeVersion, rivalPoolId = null) }
+        val poolId = PoolStore.insert(conn, mine, product, "me", forgeVersion, rivalId)
+        val id = LibraryWriter.createDeckRow(conn, name, folderId, format)
+        conn.update("UPDATE decks SET pool_id = ? WHERE id = ?", poolId, id)
+        val rows = mine.cards.map { ParsedRow(it.name, 1, "sideboard", it.setCode, it.collectorNumber) }
+        val loaded = loadRows(conn, id, rows, force = true, action = "import")
+        if (loaded.unresolved.isNotEmpty()) throw DeckRefusal(Kind.UNRESOLVED_CARDS, "the pool holds cards the database lacks: ${loaded.unresolved.distinct().joinToString(", ")}")
+        id
+    }
+
     private fun loadRows(conn: Connection, deckId: Int, rows: List<ParsedRow>, force: Boolean, action: String): LoadResult {
         val before = snapshot(conn, deckId)
         var added = 0
@@ -476,6 +497,7 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
             }
         }
         if (!force) assertPointsFit(conn, deckId, canonical, info, quantity, sideboard)
+        if (!force) assertOpened(conn, deckId, canonical, quantity, meta?.second)
         val existing = conn.query(
             "SELECT id, quantity FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE AND is_commander = ? AND is_sideboard = ?",
             deckId, canonical, if (commander) 1 else 0, if (sideboard) 1 else 0,
@@ -532,6 +554,17 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
         val already = pointsSpent(conn, deckId, info.key)
         if (already + cost * quantity > budget) {
             throw DeckRefusal(Kind.POINTS, "'$canonical' costs $cost point(s) in ${info.label}; the deck is at $already/$budget and would go to ${already + cost * quantity}")
+        }
+    }
+
+    /** A deck built from a pool holds no more of a card, main and sideboard together, than the pool opened (PoolRule). */
+    private fun assertOpened(conn: Connection, deckId: Int, canonical: String, quantity: Int, typeLine: String?) {
+        val poolId = conn.query("SELECT pool_id FROM decks WHERE id = ?", deckId) { getObject(1)?.let { (it as Number).toInt() } }.single() ?: return
+        val opened = conn.query("SELECT COUNT(*) FROM limited_pool_cards WHERE pool_id = ? AND card_name = ? COLLATE NOCASE", poolId, canonical) { getInt(1) }.single()
+        val held = conn.query("SELECT COALESCE(SUM(quantity), 0) FROM deck_cards WHERE deck_id = ? AND card_name = ? COLLATE NOCASE", deckId, canonical) { getInt(1) }.single()
+        val excess = PoolRule.excess(mapOf(canonical to opened), mapOf(canonical to held + quantity)) { DeckRules.isBasicLand(typeLine) }
+        if (excess.isNotEmpty()) {
+            throw DeckRefusal(Kind.NOT_OPENED, "'$canonical': the pool opened $opened and the deck would hold ${held + quantity} (basic lands are free)")
         }
     }
 

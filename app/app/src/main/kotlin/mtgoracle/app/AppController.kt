@@ -14,6 +14,11 @@ import mtgoracle.data.Substitutions
 import mtgoracle.data.GameStore
 import mtgoracle.data.Library
 import mtgoracle.data.DeckWriter
+import mtgoracle.data.PoolStore
+import mtgoracle.core.limited.LimitedSet
+import mtgoracle.forge.ForgeLimited
+import mtgoracle.ui.library.LobbyLimited
+import mtgoracle.ui.lookup.renderPool
 import mtgoracle.data.LibraryWriter
 import mtgoracle.forge.ForgeCards
 import mtgoracle.data.Lookup
@@ -80,6 +85,7 @@ class AppController(private val paths: AppPaths) {
         )
     }
     private var currentLookup: Lookup? = null
+    private var currentWriter: DeckWriter? = null
     /** The library's packages (export, import), with the lookup they read the card names from. */
     private var packages: PackageActions? = null
     /** The games played, read with the lookup: the lobby's records. */
@@ -132,12 +138,14 @@ class AppController(private val paths: AppPaths) {
         val lookup = Lookup(db)
         Log.info("lookup ready in ${(System.nanoTime() - started) / 1_000_000} ms (${lookup.names.sorted.size} card names)")
         val writer = DeckWriter(db, lookup.names, lookup.formats)
+        currentWriter = writer
         val lookupCommands = LookupCommands(
             lookup, decks = { decks }, faceOf = { zoomFace(lookup, it) }, onEnterDeck = ::select,
             copyToClipboard = ::copyToClipboard, onQuit = { quitRequested = true },
             writer = writer, onDeckChanged = ::deckChanged, notify = { notice = it },
             selectedDeck = { selectedId }, sync = { force, only -> sync.run(force, only) }, autoSync = sync::setting, update = updates::install,
             onGuide = ::openGuide,
+            onSealed = ::sealedCommand,
             onCardsChanged = { commands?.let { current -> buildLookup(db, carry = current) } },
             output = carry?.output ?: mtgoracle.ui.lookup.OutputLog(), command = carry?.ui?.command ?: mtgoracle.ui.lookup.CommandLineState(),
         )
@@ -172,6 +180,7 @@ class AppController(private val paths: AppPaths) {
                 mtgoracle.data.PackageStore(db, lookup.names, writer), lookupCommands.ui, say = { notice = it }, refresh = ::refreshLibrary,
                 app = System.getProperty("mtgoracle.version") ?: "dev build", exports = paths.exports, imports = paths.imports, backups = paths.backups,
             ).also { packages = it },
+            suggestBuild = { id -> if (forgeReady) deckById(id)?.let(limited::suggestion) else null },
         )
         lookupUi = lookupCommands.ui.apply {
             grid = carry?.ui?.grid ?: settings.resultsGrid
@@ -184,7 +193,80 @@ class AppController(private val paths: AppPaths) {
 
     /** The lobby, the match on, the simulation running, and each game written as it ends. */
     val play = PlayControl(settings, sessions = { sessions }, decks = { decks }, deckById = ::deckById, games = { lookupGames },
-        forgeReady = { forgeReady }, show = { screen = it; if (it == Screen.Playing) anyGames = true }, say = { notice = it })
+        forgeReady = { forgeReady }, show = { screen = it; if (it == Screen.Playing) anyGames = true }, say = { notice = it },
+        limitedControl = { limited.takeIf { db != null && forgeReady } })
+
+    /** Sealed against the AI: opening a pool, and the AI's deck built from its own. */
+    val limited = LimitedControl(
+        library = { library }, libraryWriter = { LibraryWriter(db!!) }, writer = { currentWriter }, names = { currentLookup?.names }, pools = { PoolStore(db!!) },
+    )
+    /** The set the lobby's limited tab has chosen (Forge's code), kept for the next start. */
+    var limitedSet by mutableStateOf(settings.limitedSet)
+        private set
+    /** Packs are being opened: the lobby's Open sealed waits. */
+    var opening by mutableStateOf(false)
+        private set
+
+    /** The lobby's limited tab, when it is the one shown. */
+    fun lobbyLimited(): LobbyLimited? {
+        if (!play.limited) return null
+        val sets = if (forgeReady) ForgeLimited.sets else emptyList()
+        val chosen = limitedSet?.takeIf { code -> sets.any { it.code == code } } ?: sets.firstOrNull()?.code
+        return LobbyLimited(sets, chosen, play.limitedOpponent(), opening)
+    }
+
+    /** A limited deck's pool for its title; read once per change of the deck, not per frame. */
+    fun poolNote(deck: Deck): String? = if (db == null) null else try { limited.poolNote(deck) } catch (e: Exception) { Log.error("could not read the pool of ${deck.name}", e); "pool unreadable!" }
+
+    fun chooseSet(code: String) {
+        limitedSet = code
+        settings.limitedSet = code
+    }
+
+    /**
+     * Opens a sealed pool of the chosen set, for you and the AI, off the
+     * window's thread; then your new deck opens in the workspace with the
+     * packs in the output, its whole pool in the sideboard.
+     */
+    fun openSealed() {
+        lobbyLimited()?.let { tab -> tab.sets.firstOrNull { it.code == tab.chosenSet } }?.let(::openSealed)
+    }
+
+    /** `sealed <set>`: the set by Forge's code or Scryfall's, opened as the lobby's Open sealed does. */
+    private fun sealedCommand(arg: String): String {
+        if (!forgeReady) return "Forge is still starting: it opens the packs"
+        if (arg.isBlank()) return "usage: sealed <set>, e.g. sealed BLB (the lobby's limited tab lists the ${ForgeLimited.sets.size} sets)"
+        val set = ForgeLimited.set(arg.trim()) ?: return "no set '$arg' that Forge opens packs of (the lobby's limited tab lists them)"
+        chooseSet(set.code)
+        openSealed(set)
+        return "opening six packs of ${set.name}, and six for the AI"
+    }
+
+    private fun openSealed(set: LimitedSet) {
+        if (opening) return
+        if (play.match != null || play.simulating) { notice = "a game or a simulation is on: packs are opened between games"; return }
+        opening = true
+        notice = "opening six packs of ${set.name}, and six for the AI"
+        thread(name = "open-sealed", isDaemon = true) {
+            val event = try {
+                limited.openSealed(set)
+            } catch (e: Exception) {
+                Log.error("could not open a sealed pool of ${set.code}", e)
+                java.awt.EventQueue.invokeLater { opening = false; notice = "could not open ${set.name}: ${e.message}" }
+                return@thread
+            }
+            java.awt.EventQueue.invokeLater {
+                opening = false
+                refreshLibrary()
+                play.chooseMe(event.deckId)
+                select(event.deckId)
+                backToLibrary()
+                commands?.let { it.enterDeck(event.deckId); it.output.add(renderPool("${event.name}: your sealed pool", event.pool)) }
+                lookupUi?.showOutput = true
+                notice = "${event.name}: build it from the sideboard, then play it in the lobby's limited tab"
+            }
+        }
+    }
 
     /** The sync, by hand and daily; its report builds the lookup again and goes to the output. */
     val sync = SyncControl(paths, settings, db = { db }, busy = { play.match != null || play.simulation != null || net.busy }, say = { notice = it },
@@ -393,7 +475,7 @@ class AppController(private val paths: AppPaths) {
     fun deckById(id: Int): Deck? = deckCache.getOrPut(id) { library.deck(id) ?: return null }
 
     /** Deck [id] was changed (in the workspace): read it again, and the library's counts. */
-    private fun deckChanged(id: Int) {
+    internal fun deckChanged(id: Int) {
         deckCache.remove(id)
         insightCache.remove(id)
         decks = library.decks()

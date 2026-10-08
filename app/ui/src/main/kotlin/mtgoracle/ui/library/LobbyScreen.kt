@@ -28,6 +28,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import kotlinx.coroutines.delay
 import mtgoracle.core.deck.DeckSummary
+import mtgoracle.core.limited.LimitedSet
 import mtgoracle.ui.kit.BigButton
 import mtgoracle.ui.kit.BoxPane
 import mtgoracle.ui.kit.ClickTarget
@@ -41,6 +42,13 @@ import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.region
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
+
+/**
+ * The lobby's limited tab: the sets Forge opens packs of, the one chosen,
+ * the AI's side of the match (its deck, built from its own pool), and whether
+ * packs are being opened.
+ */
+data class LobbyLimited(val sets: List<LimitedSet>, val chosenSet: String?, val opponent: String?, val opening: Boolean = false)
 
 /** A simulation as the lobby shows it: its status line, and whether it is still going. */
 data class SimLine(val line: String, val running: Boolean)
@@ -100,6 +108,11 @@ fun LobbyScreen(
     /** A question open over the lobby (your name at a network table). */
     ask: mtgoracle.ui.lookup.Ask? = null,
     onAskClosed: () -> Unit = {},
+    /** The limited tab when it is the one shown; null is the constructed tab. [decks] are the tab's own. */
+    limited: LobbyLimited? = null,
+    onToggleTab: () -> Unit = {},
+    onChooseSet: (String) -> Unit = {},
+    onOpenSealed: () -> Unit = {},
 ) {
     val simRunning = simulation?.running == true
     val focus = remember { FocusRequester() }
@@ -118,6 +131,9 @@ fun LobbyScreen(
             name == "simulate" -> if (simRunning) onStopSimulation() else if (canStart) onSimulate()
             name == "sim-games" -> onCycleSimGames()
             name == "library" -> onLibrary()
+            name == "tab" -> onToggleTab()
+            name.startsWith("set:") -> { list = 1; onChooseSet(name.removePrefix("set:")) }
+            name == "open-sealed" -> if (limited?.opening == false && forgeReady) onOpenSealed()
         }
     }
     fun move(by: Int) {
@@ -125,6 +141,10 @@ fun LobbyScreen(
             if (decks.isEmpty()) return
             val at = decks.indexOfFirst { it.id == meId }.coerceAtLeast(0)
             onSelectMe(decks[(at + by).coerceIn(0, decks.lastIndex)].id)
+        } else if (limited != null) {
+            if (limited.sets.isEmpty()) return
+            val at = limited.sets.indexOfFirst { it.code == limited.chosenSet }.coerceAtLeast(0)
+            onChooseSet(limited.sets[(at + by).coerceIn(0, limited.sets.lastIndex)].code)
         } else {
             if (opponents.isEmpty()) return
             val at = opponents.indexOfFirst { it.deck.id == selectedId }.coerceAtLeast(0)
@@ -138,11 +158,13 @@ fun LobbyScreen(
                 Key.DirectionUp -> move(-1)
                 Key.DirectionDown -> move(+1)
                 Key.Tab -> list = 1 - list
-                Key.A -> onToggleAiCopy()
+                Key.L -> onToggleTab()
+                Key.O -> if (limited?.opening == false && forgeReady) onOpenSealed() else return@onPreviewKeyEvent false
+                Key.A -> if (limited == null) onToggleAiCopy() else return@onPreviewKeyEvent false
                 Key.W -> onToggleWatch()
                 Key.B -> onCycleFormat()
-                Key.N -> onCycleSimGames()
-                Key.S -> if (simRunning) onStopSimulation() else if (canStart) onSimulate()
+                Key.N -> if (limited == null) onCycleSimGames() else return@onPreviewKeyEvent false
+                Key.S -> if (limited != null) return@onPreviewKeyEvent false else if (simRunning) onStopSimulation() else if (canStart) onSimulate()
                 Key.Enter -> if (canStart && !simRunning) onStart()
                 Key.Escape -> onLibrary()
                 else -> return@onPreviewKeyEvent false
@@ -155,6 +177,7 @@ fun LobbyScreen(
         Column(Modifier.fillMaxSize()) {
             // The library's toolbar, as on every screen: Library is where Esc goes, and Theme comes with it.
             Toolbar(listOf("library" to "Library"), onClick)
+            Tabs(limited != null, onClick)
             // The decks on the left, the match on the right: the right pane is where options are added.
             Row(Modifier.weight(1f).fillMaxWidth()) {
                 BoxPane("decks", Modifier.weight(1f).fillMaxHeight(), right = "Tab switches the list") {
@@ -162,13 +185,17 @@ fun LobbyScreen(
                         val inner = LocalCells.current.cols(constraints.maxWidth.toFloat())
                         Column(Modifier.fillMaxSize()) {
                             DeckList(inner, "your deck", list == 0, Modifier.weight(1f).region("lobby-me")) {
-                                if (decks.isEmpty()) FitText("  no decks yet: make or import one in the library", color = Palette.dim)
+                                if (decks.isEmpty()) FitText(
+                                    if (limited != null) "  no limited deck yet: choose a set below and open a sealed pool" else "  no decks yet: make or import one in the library",
+                                    color = Palette.dim,
+                                )
                                 decks.groupBy { it.folderName ?: "(no folder)" }.forEach { (folder, inFolder) ->
                                     FitText("  $folder", color = Palette.dim)
                                     inFolder.forEach { d -> DeckLine("me:${d.id}", "    ${d.name}  (${d.format ?: "-"}, ${d.cardCount})", d.id == meId, onClick) }
                                 }
                             }
-                            DeckList(inner, "opponent (the AI)", list == 1, Modifier.weight(1f).region("lobby-opponent")) {
+                            if (limited != null) SetList(inner, limited, list == 1, Modifier.weight(1f).region("lobby-sets"), onClick)
+                            else DeckList(inner, "opponent (the AI)", list == 1, Modifier.weight(1f).region("lobby-opponent")) {
                                 if (me == null) FitText("  choose your deck first", color = Palette.dim)
                                 else if (opponents.isEmpty()) FitText("  no deck of the same game type as ${me.name}", color = Palette.accent)
                                 opponents.forEach { o ->
@@ -182,7 +209,8 @@ fun LobbyScreen(
                 }
                 BoxPane("the match", Modifier.weight(1f).fillMaxHeight()) {
                     // Every line takes the pane's measured width: facts are cut where the pane ends, instructions wrap.
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick)
+                    else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         FitText("  ${me?.name ?: "your deck"}  vs  ${opponent?.deck?.name ?: "-"}", bold = true)
                         GridText("")
                         val subs = opponent?.substitutions ?: 0
@@ -213,11 +241,95 @@ fun LobbyScreen(
                 }
             }
             ask?.let { mtgoracle.ui.lookup.AskBar(it) { onAskClosed(); focus.requestFocus() } }
-            StatusLine(listOf("Tab" to "your deck / opponent", "↑↓" to "choose", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
-                "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library"), null, cols)
+            StatusLine(
+                if (limited != null) listOf("L" to "constructed", "Tab" to "your deck / set", "↑↓" to "choose", "O" to "open sealed", "W" to "watch", "B" to "best of",
+                    "Enter" to "start", "Esc" to "library")
+                else listOf("L" to "limited", "Tab" to "your deck / opponent", "↑↓" to "choose", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
+                    "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library"),
+                null, cols,
+            )
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }
+}
+
+/** Constructed or limited, the one shown inverted; L switches. */
+@Composable
+private fun Tabs(limited: Boolean, onClick: (ClickTarget) -> Unit) {
+    Row(Modifier.fillMaxWidth().region("lobby-tabs").clickTarget(ClickTarget.Control("tab"), onClick)) {
+        GridText("  ")
+        Tab("constructed", !limited)
+        GridText("  ")
+        Tab("limited", limited)
+        GridText("   (L)", color = Palette.dim)
+    }
+}
+
+@Composable
+private fun Tab(label: String, chosen: Boolean) =
+    GridText(" $label ", color = if (chosen) Palette.background else Palette.dim, background = if (chosen) Palette.foreground else Color.Unspecified, bold = chosen)
+
+/** The sets to open packs of, newest first; the chosen one is kept in sight. */
+@Composable
+private fun SetList(cols: Int, limited: LobbyLimited, active: Boolean, modifier: Modifier, onClick: (ClickTarget) -> Unit) {
+    val scroll = rememberScrollState()
+    val line = LocalCells.current.height
+    val at = limited.sets.indexOfFirst { it.code == limited.chosenSet }
+    LaunchedEffect(at) {
+        if (at < 0) return@LaunchedEffect
+        val top = (at * line).toInt()
+        val bottom = top + line.toInt()
+        if (top < scroll.value) scroll.scrollTo(top) else if (bottom > scroll.value + scroll.viewportSize) scroll.scrollTo(bottom - scroll.viewportSize)
+    }
+    Column(modifier.fillMaxWidth()) {
+        RuleLine(cols, label = "open a sealed pool: the set", heavy = active, color = if (active) Palette.accent else Palette.dim, bold = active)
+        Column(Modifier.fillMaxWidth().verticalScroll(scroll)) {
+            if (limited.sets.isEmpty()) FitText("  the sets come once Forge is up", color = Palette.dim)
+            limited.sets.forEach { set ->
+                DeckLine("set:${set.code}", "    ${set.code.padEnd(5)} ${set.name}  ${set.released.take(4)}", set.code == limited.chosenSet, onClick)
+            }
+        }
+    }
+}
+
+/**
+ * The limited match: your deck against the deck Forge's AI builds from its
+ * own pool of the same set, the match's options, and opening a new pool.
+ */
+@Composable
+private fun LimitedMatch(
+    me: DeckSummary?, limited: LobbyLimited, watch: Boolean, format: String, notes: List<String>, canStart: Boolean,
+    forgeReady: Boolean, forgeStartedAt: Long?, forgeExpectedMillis: Long?, onClick: (ClickTarget) -> Unit,
+) {
+    val set = limited.sets.firstOrNull { it.code == limited.chosenSet }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        FitText("  ${me?.name ?: "your limited deck"}  vs  ${limited.opponent ?: "-"}", bold = true)
+        WrapText(
+            "  The AI opened its own six packs of the same set when you opened yours, and builds its deck from them as the match starts. " +
+                "Your deck holds its whole pool in the sideboard: open it in the library and move cards to the main deck, forty or more. Basic lands are free.",
+            color = Palette.dim, hang = 2,
+        )
+        GridText("")
+        Option("watch", "[${if (watch) "x" else " "}] watch  (W)", "an AI plays ${me?.name ?: "your deck"} too, and you watch", onClick)
+        Option("format", "match: ${if (watch) "best of 1 (watching)" else format}  (B)",
+            "best of 1 / 3 / 5; between games the rest of your pool is your sideboard, with basic lands to swap in", onClick)
+        notes.forEach { WrapText("  $it", color = Palette.accent, hang = 2) }
+        GridText("")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GridText(" ")
+            BigButton("Start", ClickTarget.Control("start"), canStart, onClick)
+        }
+        if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis)
+        GridText("")
+        GridText("")
+        FitText("  a new sealed pool", bold = true)
+        WrapText("  Six packs of ${set?.name ?: "the set chosen on the left"}, as its own booster holds them, and a new deck in the Limited folder.", color = Palette.dim, hang = 2)
+        GridText("")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GridText(" ")
+            BigButton(if (limited.opening) "Opening…" else "Open sealed", ClickTarget.Control("open-sealed"), set != null && forgeReady && !limited.opening, onClick)
+        }
+    }
 }
 
 /** Forge's start, counted while it runs: it takes ten seconds or so, and Start waits on it. */

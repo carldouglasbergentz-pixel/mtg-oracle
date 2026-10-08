@@ -40,7 +40,12 @@ data class PlayDeck(
     /** (card, substitute) actually applied. */
     val applied: List<Substitution>,
     val notes: List<String>,
-)
+) {
+    companion object {
+        /** The [deckId] of a deck with no row in `decks`: the one the AI builds from its sealed pool. Recorded with no deck id. */
+        const val UNSTORED = 0
+    }
+}
 
 object AiCopy {
 

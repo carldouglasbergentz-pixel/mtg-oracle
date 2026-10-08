@@ -105,6 +105,8 @@ fun DeckWorkspace(
     onColumnsChange: (SideColumns) -> Unit = {},
     /** Cards Forge's AI won't play or Forge lacks: flagged red beside them. */
     aiFlags: Map<String, mtgoracle.core.deck.AiFlag> = emptyMap(),
+    /** A limited deck's pool, as its title says it (`pool 84`, `2 beyond the pool!`); null for a deck with none. */
+    pool: String? = null,
 ) {
     var kept by remember(deckMode) { mutableStateOf(columns) }
     // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
@@ -145,6 +147,7 @@ fun DeckWorkspace(
             "import" -> deck?.let { lookup.intent(LibraryIntent.ImportInto(it.id)) }
             "export" -> deck?.let { lookup.intent(LibraryIntent.Export(it.id)) }
             "format" -> deck?.let { lookup.intent(LibraryIntent.DeckFormat(it.id)) }
+            "suggest" -> deck?.let { lookup.intent(LibraryIntent.SuggestBuild(it.id)) }
         }
     }
     BoxWithConstraints(
@@ -201,15 +204,16 @@ fun DeckWorkspace(
         val middle = cols - left - side
         perRow[0] = gridColumns(middle - 2)
         Column(Modifier.fillMaxSize()) {
-            Toolbar(listOf(
+            Toolbar(listOfNotNull(
                 "library" to "Library", "play" to "Play", "import" to "Import", "export" to "Export", "format" to "Format",
+                ("suggest" to "Suggest a build").takeIf { deck?.poolId != null },
                 "results" to if (lookup.grid) "Results as lines" else "Results as grid",
                 "deck-mode" to if (deckMode == CardMode.TEXT) "Deck as frames" else "Deck as lines",
             ), onClick)
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
                 val spent = deck?.cards?.filter { !it.isSideboard }?.sumOf { c -> (lookup.pointsOf(c.name) ?: 0) * c.quantity }
                 val right = deck?.let { d ->
-                    listOfNotNull(d.format?.let(mtgoracle.core.lookup.Formats::shortName), "${d.mainCount} cards", lookup.pointsBudget?.let { b -> "$spent/$b pts" + if ((spent ?: 0) > b) "!" else "" }).joinToString(" · ")
+                    listOfNotNull(d.format?.let(mtgoracle.core.lookup.Formats::shortName), "${d.mainCount} cards", lookup.pointsBudget?.let { b -> "$spent/$b pts" + if ((spent ?: 0) > b) "!" else "" }, pool).joinToString(" · ")
                 }
                 Box(Modifier.cellWidth(left).fillMaxHeight()) {
                     BoxPane(deck?.name ?: "deck", Modifier.fillMaxSize().region("workspace-deck"), right = right) {

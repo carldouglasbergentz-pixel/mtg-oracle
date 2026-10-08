@@ -263,11 +263,16 @@ object ForgeMatch {
         DeckGameType.CONSTRUCTED -> GameType.Constructed
         DeckGameType.COMMANDER -> GameType.Commander
         DeckGameType.DUEL_COMMANDER -> GameType.DuelCommander
+        DeckGameType.LIMITED -> GameType.Sealed
     }
 
     /** What Forge's own lobby would say against [deck] in Duel Commander (deck size, bans, commanders, companion); null when it has nothing. */
     fun duelCommanderProblem(deck: PlayDeck): String? =
         GameType.DuelCommander.deckFormat.getDeckConformanceProblem(ForgeCards.toForgeDeck(deck))
+
+    /** What Forge's own lobby would say against a limited [deck] (fewer than forty cards); null when it has nothing. */
+    fun limitedProblem(deck: PlayDeck): String? =
+        GameType.Sealed.deckFormat.getDeckConformanceProblem(ForgeCards.toForgeDeck(deck))
 
     /** As Forge's own lobby registers its players: Commander at 40 life, Duel Commander at the base 20. */
     private fun registered(deck: PlayDeck, type: GameType): RegisteredPlayer {

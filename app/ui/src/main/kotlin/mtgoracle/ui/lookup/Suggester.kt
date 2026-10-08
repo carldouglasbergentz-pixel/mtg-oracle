@@ -12,7 +12,7 @@ val COMMANDS = listOf(
     // Analysis.
     "profile", "compare",
     // Games.
-    "results",
+    "results", "sealed",
     // The data.
     "sync", "autosync", "prune", "update",
 )
@@ -22,6 +22,7 @@ val COMMAND_WORDS: Set<String> = COMMANDS.toSet() + setOf("rulings", "correction
 
 /** One line per command, for the hint under the command line while it is typed. */
 val COMMAND_HINTS: Map<String, String> = mapOf(
+    "sealed" to "sealed <set>: open six packs of the set (BLB, dom) for you and the AI, and a deck to build from them",
     "card" to "card <name>: the full profile · card <N>: row N of the last search",
     "ruling" to "ruling <name>: the card's rulings", "rulings" to "rulings <name>: the card's rulings",
     "combo" to "combo <card>: combos with that card · combo add <card>; <card>: your own · combo remove <user-NNN>",

@@ -45,9 +45,12 @@ class MaintenanceTest {
     }
 
     @Test
-    fun `prune keeps a card the user's considering list, AI substitutes or combos name`() {
+    fun `prune keeps a card the user's considering list, AI substitutes, combos or limited pools name`() {
         sql(
             card("Sol Ring"), card("Considered", ci = null), card("Swapped Out", ci = null), card("Swapped In", ci = null), card("In A Combo", ci = null), card("Nobody Else", ci = null),
+            card("Opened By The AI", ci = null),
+            "INSERT INTO limited_pools (id, set_code, scryfall_code, set_name, product, packs, seed, opened_by, created_at) VALUES (1, 'TST', 'tst', 'Test', 'sealed', 1, 1, 'ai', 'now')",
+            "INSERT INTO limited_pool_cards (pool_id, pack_no, card_name) VALUES (1, 1, 'Opened By The AI')",
             "INSERT INTO decks (name, format, created_at, updated_at) VALUES ('Mine', NULL, 'now', 'now')",
             "INSERT INTO deck_considering (deck_id, card_name, quantity, added_at) VALUES (1, 'Considered', 1, 'now')",
             "INSERT INTO forge_substitutions (deck_id, card_name, substitute, added_at) VALUES (1, 'Swapped Out', 'Swapped In', 'now')",
@@ -56,8 +59,8 @@ class MaintenanceTest {
         )
         val r = Prune.run(db, delete = true)
         assertEquals(listOf("Nobody Else"), r.prunable)
-        assertEquals(listOf("Considered", "In A Combo", "Swapped In", "Swapped Out"), r.kept)
-        assertEquals(5, count("SELECT COUNT(*) FROM cards"), "Sol Ring and the four the user names")
+        assertEquals(listOf("Considered", "In A Combo", "Opened By The AI", "Swapped In", "Swapped Out"), r.kept)
+        assertEquals(6, count("SELECT COUNT(*) FROM cards"), "Sol Ring and the five the user's data names")
     }
 
     @Test

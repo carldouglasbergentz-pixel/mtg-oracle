@@ -15,6 +15,8 @@ class DeckRefusal(val kind: Kind, message: String) : IllegalStateException(messa
     enum class Kind {
         CARD_NOT_FOUND, QUANTITY, NO_SUCH_DECK,
         COLOR_IDENTITY, BANNED, NOT_IN_POOL, BANNED_AS_COMMANDER, RESTRICTED, SINGLETON, POINTS,
+        // A limited deck holding more of a card than its pool opened (PoolRule).
+        NOT_OPENED,
         COMMANDER_COPIES, ALREADY_COMMANDER, ALREADY_IN_MAIN,
         NOT_IN_DECK, NOT_A_COMMANDER, BAD_MOVE, NOTHING_TO_UNDO, UNDO_DRIFT,
         // An AI copy's substitution: for itself, or one Forge can't play.
@@ -28,7 +30,7 @@ class DeckRefusal(val kind: Kind, message: String) : IllegalStateException(messa
     private companion object {
         val FORCEABLE = setOf(
             Kind.COLOR_IDENTITY, Kind.BANNED, Kind.NOT_IN_POOL, Kind.BANNED_AS_COMMANDER, Kind.RESTRICTED,
-            Kind.SINGLETON, Kind.POINTS, Kind.COMMANDER_COPIES, Kind.ALREADY_COMMANDER, Kind.ALREADY_IN_MAIN,
+            Kind.SINGLETON, Kind.POINTS, Kind.NOT_OPENED, Kind.COMMANDER_COPIES, Kind.ALREADY_COMMANDER, Kind.ALREADY_IN_MAIN,
         )
     }
 }

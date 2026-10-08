@@ -142,6 +142,44 @@ object Schema {
             check(conn.count("SELECT COUNT(*) FROM games") == kept) { "games lost rows in the rebuild: nothing was changed" }
             "games rebuilt to take two people's games ($kept kept)"
         },
+        Migration(5, "limited_pools: the packs a limited deck is built from") { conn ->
+            conn.createStatement().use { st ->
+                st.executeUpdate(
+                    """
+                    CREATE TABLE limited_pools (
+                        id            INTEGER PRIMARY KEY,
+                        set_code      TEXT NOT NULL,
+                        scryfall_code TEXT NOT NULL,
+                        set_name      TEXT NOT NULL,
+                        product       TEXT NOT NULL CHECK (product IN ('sealed')),
+                        packs         INTEGER NOT NULL,
+                        seed          INTEGER NOT NULL,
+                        opened_by     TEXT NOT NULL,
+                        rival_pool_id INTEGER REFERENCES limited_pools(id) ON DELETE SET NULL,
+                        forge_version TEXT,
+                        created_at    TEXT NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                st.executeUpdate(
+                    """
+                    CREATE TABLE limited_pool_cards (
+                        id               INTEGER PRIMARY KEY,
+                        pool_id          INTEGER NOT NULL REFERENCES limited_pools(id) ON DELETE CASCADE,
+                        pack_no          INTEGER NOT NULL,
+                        card_name        TEXT NOT NULL REFERENCES cards(name),
+                        set_code         TEXT,
+                        collector_number TEXT,
+                        foil             INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent(),
+                )
+                st.executeUpdate("CREATE INDEX idx_limited_pool_cards_pool ON limited_pool_cards(pool_id)")
+                st.executeUpdate("CREATE INDEX idx_limited_pool_cards_card_nocase ON limited_pool_cards(card_name COLLATE NOCASE)")
+                st.executeUpdate("ALTER TABLE decks ADD COLUMN pool_id INTEGER REFERENCES limited_pools(id) ON DELETE SET NULL")
+            }
+            "limited_pools and limited_pool_cards created, decks.pool_id added"
+        },
     )
 
     /** The shape a database at [version] must have: version 1 built in memory, and the migrations up to it applied. */

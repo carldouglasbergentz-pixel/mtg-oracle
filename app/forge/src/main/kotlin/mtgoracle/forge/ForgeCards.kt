@@ -45,7 +45,7 @@ object ForgeCards {
     }
 
     // getScryfallCode() lowercases a field that is null for editions without one.
-    private fun scryfallCode(edition: CardEdition): String =
+    internal fun scryfallCode(edition: CardEdition): String =
         (runCatching { edition.scryfallCode }.getOrNull()?.takeIf { it.isNotBlank() } ?: edition.code).lowercase()
 
     /** Forge editions for a Scryfall set code, in the order the printing rule tries them. */

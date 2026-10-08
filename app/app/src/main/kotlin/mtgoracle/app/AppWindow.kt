@@ -101,6 +101,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 onPlay = { app.play.openLobby(open.deckId) }, onQuit = onQuit,
                 columns = app.settings.workspaceColumns(app.deckPaneMode),
                 onColumnsChange = { app.settings.keepWorkspaceColumns(app.deckPaneMode, it) },
+                pool = app.deckById(open.deckId)?.let { d -> remember(d) { app.poolNote(d) } },
             )
         } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
@@ -126,7 +127,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
         Screen.Lobby -> {
             val prepared = app.play.prepared()
             LobbyScreen(
-                decks = app.decks, meId = app.play.lobbyMeId, opponents = app.play.opponents(), selectedId = app.play.opponentId, useAiCopy = app.play.useAiCopy, watch = app.play.watch,
+                decks = app.play.tabDecks(), meId = app.play.lobbyMeId, opponents = app.play.opponents(), selectedId = app.play.opponentId, useAiCopy = app.play.useAiCopy, watch = app.play.watch,
                 notes = prepared?.notes.orEmpty(), forgeReady = app.forgeReady, canStart = prepared != null && !prepared.blocked && app.net.idle,
                 onSelectMe = app.play::chooseMe, onSelect = { app.play.opponentId = it },
                 forgeStartedAt = app.forgeStartedAt, forgeExpectedMillis = app.settings.forgeStartMillis,
@@ -136,6 +137,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 simGames = app.play.simGames, onCycleSimGames = app.play::cycleSimGames, simulation = app.play.simulation?.let { mtgoracle.ui.library.SimLine(it.line(), it.running) },
                 onSimulate = app.play::simulate, onStopSimulation = app.play::stopSimulation,
                 network = app.net.lobby(), onNet = app.net::act, ask = app.net.ask, onAskClosed = { app.net.ask = null },
+                limited = app.lobbyLimited(), onToggleTab = app.play::toggleTab, onChooseSet = app::chooseSet, onOpenSealed = app::openSealed,
             )
         }
         Screen.Guest -> {

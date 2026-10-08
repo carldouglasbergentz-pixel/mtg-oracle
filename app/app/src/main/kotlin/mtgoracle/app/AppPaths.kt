@@ -219,6 +219,15 @@ class Settings(private val file: File) {
     val playerNamed: Boolean get() = !props.getProperty("net.name").isNullOrBlank()
 
     /** Your playmat goes to the other side of a network table (as pixels). */
+    /** The lobby's tab: limited (true) or constructed. */
+    var lobbyLimited: Boolean
+        get() = props.getProperty("lobby.tab") == "limited"
+        set(value) { props.setProperty("lobby.tab", if (value) "limited" else "constructed"); save() }
+    /** The set last chosen to open packs of (Forge's code). */
+    var limitedSet: String?
+        get() = props.getProperty("limited.set")
+        set(value) { if (value == null) props.remove("limited.set") else props.setProperty("limited.set", value); save() }
+
     var shareMat: Boolean
         get() = props.getProperty("net.shareMat") != "false"
         set(value) { props.setProperty("net.shareMat", value.toString()); save() }

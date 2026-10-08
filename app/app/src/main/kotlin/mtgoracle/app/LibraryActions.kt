@@ -74,6 +74,8 @@ class LibraryActions(
     private val forgeSupport: (String) -> ForgeSupport? = { null },
     /** `.mtgoracle` packages: exports, and an Import whose clipboard names one. */
     private val packages: PackageActions? = null,
+    /** A limited deck as Forge's AI would build its pool, as rows to replace it with; null before Forge is up. */
+    private val suggestBuild: (Int) -> List<mtgoracle.core.deck.ParsedRow>? = { null },
 ) {
     fun handle(intent: LibraryIntent) {
         try {
@@ -131,6 +133,10 @@ class LibraryActions(
                 is LibraryIntent.Import -> packages?.packageNamedBy(readClipboard())?.let { packages.offer(it) }
                     ?: inFolder(intent.folderId, intent.askFolder, "Import a deck into") { importNew(it) }
                 is LibraryIntent.ImportInto -> importInto(intent.deckId)
+                is LibraryIntent.SuggestBuild -> {
+                    val rows = suggestBuild(intent.deckId) ?: return say("Forge is still starting: it builds the suggestion")
+                    previewReplace(intent.deckId, rows, source = "the build Forge's AI makes of its pool")
+                }
                 is LibraryIntent.Export -> ui.ask = Ask.Buttons("Export ${deckName(intent.deckId)} to the clipboard", listOf(
                     "Full names" to { export(intent.deckId, frontFace = false) },
                     "Front faces only" to { export(intent.deckId, frontFace = true) },
@@ -298,21 +304,21 @@ class LibraryActions(
         ))
     }
 
-    /** The replace run dry first: its changes in the output, then the question. */
-    private fun previewReplace(deckId: Int, rows: List<mtgoracle.core.deck.ParsedRow>) {
+    /** The replace run dry first: its changes in the output, then the question. [source] is what replaces it. */
+    private fun previewReplace(deckId: Int, rows: List<mtgoracle.core.deck.ParsedRow>, source: String = "the clipboard") {
         val unknown = rows.filter { lookup.names.resolve(it.name) == null }.map { it.name }
         val dry = try { writer.replace(deckId, rows, force = true, dryRun = true) } catch (e: DeckRefusal) { return say("refused: ${e.message}") }
-        show(diffRendering(deckName(deckId), dry.changes, dry.considering, dry.commandersKept))
+        show(diffRendering(deckName(deckId), source, dry.changes, dry.considering, dry.commandersKept))
         val counts = "+${dry.changes.count { it.before == 0 }} -${dry.changes.count { it.after == 0 }} ~${dry.changes.count { it.before > 0 && it.after > 0 }}"
-        val title = "Replace ${deckName(deckId)} with the clipboard ($counts, listed in the output)" + (if (unknown.isNotEmpty()) "; ${unknown.size} name(s) not found are left out" else "") + unknownPrintings(rows) + "?"
+        val title = "Replace ${deckName(deckId)} with $source ($counts, listed in the output)" + (if (unknown.isNotEmpty()) "; ${unknown.size} name(s) not found are left out" else "") + unknownPrintings(rows) + "?"
         ui.ask = Ask.Buttons(title, listOf("Replace" to {
             act { val r = writer.replace(deckId, rows, force = unknown.isNotEmpty()); deckChanged(deckId); "replaced: $counts" + (r.revisionId?.let { "" } ?: " (nothing changed)") }
         }))
     }
 
-    private fun diffRendering(deck: String, changes: List<DeckChange>, considering: Boolean, commandersKept: List<String> = emptyList()): Rendering {
+    private fun diffRendering(deck: String, source: String, changes: List<DeckChange>, considering: Boolean, commandersKept: List<String> = emptyList()): Rendering {
         val lines = buildList {
-            add("replace $deck with the clipboard would change:")
+            add("replace $deck with $source would change:")
             if (changes.isEmpty()) add("  nothing: the deck is the list already")
             changes.forEach { c ->
                 val what = when { c.before == 0 -> "+${c.after}"; c.after == 0 -> "-${c.before}"; c.before != c.after -> "${c.before} -> ${c.after}"; else -> "printing" }
