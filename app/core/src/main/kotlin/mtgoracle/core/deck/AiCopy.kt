@@ -41,6 +41,9 @@ data class PlayDeck(
     val applied: List<Substitution>,
     val notes: List<String>,
 ) {
+    /** The deck's row in `decks`, or null for one with none (the AI's sealed deck): what a game is recorded against. */
+    val storedId: Int? get() = deckId.takeIf { it != UNSTORED }
+
     companion object {
         /** The [deckId] of a deck with no row in `decks`: the one the AI builds from its sealed pool. Recorded with no deck id. */
         const val UNSTORED = 0

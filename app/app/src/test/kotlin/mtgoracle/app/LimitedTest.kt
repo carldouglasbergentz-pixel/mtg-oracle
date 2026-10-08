@@ -176,10 +176,22 @@ class LimitedTest {
         val row = rows.single().take(6)
         assertEquals(listOf<Any?>("human_vs_ai", deck.id, deck.name, null, "AI (BLB sealed)", "me"), row)
 
+        // A simulation, as in the constructed tab: the AI plays the deck against the AI's, recorded with no deck id for the AI's.
+        waitFor(what = "the match left") { app.play.match?.over != false }
+        app.play.backToLobby()
+        app.play.simGames = 1
+        app.play.simulate()
+        waitFor(millis = 240_000, what = "the simulated game") { app.play.simulation?.running == false }
+        val simulated = sql("SELECT deck_id, opponent_deck_id, opponent_name FROM games WHERE mode = 'ai_vs_ai'") { listOf(getObject(1), getObject(2), getString(3)) }
+        assertEquals(listOf<Any?>(deck.id, null, "AI (BLB sealed)"), simulated.single())
+        // The match's title says the record against the AI's pool: the game played, and the one simulated.
+        val title = assertNotNull(app.play.limitedOpponent())
+        assertTrue(title.startsWith("AI (BLB sealed) · you 1–0 · AI "), title)
+
         // Deleted, the deck takes its packs with it, its own and the AI's; the game keeps its names.
         mtgoracle.data.LibraryWriter(MtgDb(db())).deleteDeck(deck.id)
         assertEquals(listOf(0, 0), listOf("limited_pools WHERE id IN (${mine.id}, ${ai.id})", "limited_pool_cards WHERE pool_id IN (${mine.id}, ${ai.id})")
             .map { sql("SELECT COUNT(*) FROM $it") { getInt(1) }.single() })
-        assertEquals(listOf<Any?>(null, deck.name), sql("SELECT deck_id, deck_name FROM games") { listOf(getObject(1), getString(2)) }.single())
+        assertEquals(setOf<Any?>(listOf(null, deck.name)), sql("SELECT deck_id, deck_name FROM games") { listOf(getObject(1), getString(2)) }.toSet())
     }
 }

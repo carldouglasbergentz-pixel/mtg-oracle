@@ -151,8 +151,24 @@ class PlayControl(
     /** The AI's sealed deck for (deck, pool): Forge builds it in a fraction of a second, and the lobby asks for it on every frame. */
     private var aiDeck: Pair<Pair<Int, Int?>, PlayDeck?>? = null
 
-    /** The AI's side of the limited match, as the lobby names it. */
-    fun limitedOpponent(): String? = if (limited) aiDeck?.takeIf { it.first == lobbyMe?.let { d -> d.id to d.poolId } }?.second?.name else null
+    /** The AI's side of the limited match, as the lobby names it, with the deck's record against it: `AI (BLB sealed) · you 2–1 · AI 3–7`. */
+    fun limitedOpponent(): String? {
+        if (!limited) return null
+        val me = lobbyMe ?: return null
+        val ai = aiDeck?.takeIf { it.first == (me.id to me.poolId) }?.second?.name ?: return null
+        return listOfNotNull(ai, recordAgainst(me, ai)).joinToString(" · ")
+    }
+
+    /** [me]'s record against the deck named [opponent] with no id of its own (the AI's sealed deck), played and simulated; null before a game. */
+    private fun recordAgainst(me: Deck, opponent: String): String? {
+        val played = try { games()?.played() } catch (e: Exception) { Log.error("could not read the games", e); null } ?: return null
+        val m = mtgoracle.core.play.Records.of(mtgoracle.core.play.DeckKey(me.id, me.name), played)
+            .firstOrNull { it.opponent.id == null && it.opponent.name.equals(opponent, ignoreCase = true) } ?: return null
+        return listOfNotNull(
+            m.played.takeIf { it.games > 0 }?.let { "you ${it.score()}" },
+            m.simulated.takeIf { it.games > 0 }?.let { "AI ${it.score()}" },
+        ).joinToString(" · ").ifEmpty { null }
+    }
 
     /** Best of 1, 3 or 5, remembered for the next match. */
     var format by mutableStateOf(settings.matchFormat)
@@ -185,11 +201,11 @@ class PlayControl(
     fun simulate() {
         if (simulating) return
         if (match != null) { say("a game is on: finish it before simulating"); return }
-        if (limited) { say("simulating is for constructed decks; a limited deck plays the AI's pool"); return }
         val me = lobbyMe ?: return
-        val opp = opponentId?.let(deckById) ?: return
         if (!forgeReady()) { say("Forge is still loading"); return }
-        val ready = sessions().prepare(me, opp, useAiCopy, seatAiCopy = useAiCopy)
+        // Limited: the deck against the deck the AI builds from its own pool, as a match is; constructed: the chosen pairing, on AI copies.
+        val ready = if (limited) preparedLimited(me) ?: return say("this deck has no AI pool to simulate against: open a sealed pool")
+        else sessions().prepare(me, opponentId?.let(deckById) ?: return, useAiCopy, seatAiCopy = useAiCopy)
         if (ready.blocked) { say(ready.notes.firstOrNull() ?: "these decks can't play each other"); return }
         keepPairing()
         val run = Simulation(sessions(), ready, simGames, onProgress = { p -> gamesRecorded++; simulation = p; say(p.line()) })

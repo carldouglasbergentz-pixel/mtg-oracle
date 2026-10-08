@@ -143,7 +143,8 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         val spec = match.spec
         val row = GameRecord(
             playedAt = match.gameStartedAt.truncatedTo(ChronoUnit.SECONDS), mode = spec.mode,
-            deckId = spec.seat.deckId, deckName = spec.seat.name, opponentDeckId = spec.opponent.deckId, opponentName = spec.opponent.name,
+            deckId = spec.seat.storedId, deckName = spec.seat.name,
+            opponentDeckId = spec.opponent.storedId, opponentName = spec.opponent.name,
             opponentAiVariant = spec.opponent.isAiCopy, seed = spec.seed, winner = null, turns = turns,
             durationMs = java.time.Duration.between(match.gameStartedAt, java.time.Instant.now()).toMillis(),
             forgeVersion = ForgeRuntime.version, logPath = spec.logFile.absolutePath,
@@ -163,7 +164,8 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         val spec = match.spec
         val row = GameRecord(
             playedAt = (result.startedAt ?: match.startedAt).truncatedTo(ChronoUnit.SECONDS), mode = GameMode.AI_VS_AI,
-            deckId = spec.seat.deckId, deckName = spec.seat.name, opponentDeckId = spec.opponent.deckId, opponentName = spec.opponent.name,
+            deckId = spec.seat.storedId, deckName = spec.seat.name,
+            opponentDeckId = spec.opponent.storedId, opponentName = spec.opponent.name,
             opponentAiVariant = spec.opponent.isAiCopy, seed = spec.seed, winner = result.winner, turns = result.turns,
             durationMs = result.durationMs, forgeVersion = ForgeRuntime.version, logPath = spec.logFile.absolutePath,
             matchId = simId, gameNo = gameNo, matchFormat = null, conceded = false, deckAiVariant = spec.seat.isAiCopy,
@@ -194,9 +196,9 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         val row = GameRecord(
             playedAt = (result.startedAt ?: match.startedAt).truncatedTo(ChronoUnit.SECONDS),
             mode = spec.mode,
-            deckId = spec.seat.deckId.takeIf { it != PlayDeck.UNSTORED },
+            deckId = spec.seat.storedId,
             deckName = spec.seat.name,
-            opponentDeckId = spec.opponent.deckId.takeIf { it != PlayDeck.UNSTORED },
+            opponentDeckId = spec.opponent.storedId,
             opponentName = spec.opponent.name,
             opponentAiVariant = spec.opponent.isAiCopy,
             seed = spec.seed,

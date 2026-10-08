@@ -40,6 +40,7 @@ import mtgoracle.ui.kit.FitText
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.RuleLine
 import mtgoracle.ui.kit.StatusLine
+import mtgoracle.ui.kit.TabButton
 import mtgoracle.ui.kit.Toolbar
 import mtgoracle.ui.kit.WrapText
 import mtgoracle.ui.kit.clickTarget
@@ -138,7 +139,8 @@ fun LobbyScreen(
             name == "simulate" -> if (simRunning) onStopSimulation() else if (canStart) onSimulate()
             name == "sim-games" -> onCycleSimGames()
             name == "library" -> onLibrary()
-            name == "tab" -> onToggleTab()
+            name == "tab:constructed" -> if (limited != null) onToggleTab()
+            name == "tab:limited" -> if (limited == null) onToggleTab()
             name.startsWith("set:") -> { list = 1; onChooseSet(name.removePrefix("set:")) }
             name == "open-sealed" -> if (limited?.opening == false && forgeReady) onOpenSealed()
             name == "limited-build" -> meId?.let(onBuild)
@@ -174,8 +176,8 @@ fun LobbyScreen(
                 Key.A -> if (limited == null) onToggleAiCopy() else return@onPreviewKeyEvent false
                 Key.W -> onToggleWatch()
                 Key.B -> onCycleFormat()
-                Key.N -> if (limited == null) onCycleSimGames() else return@onPreviewKeyEvent false
-                Key.S -> if (limited != null) return@onPreviewKeyEvent false else if (simRunning) onStopSimulation() else if (canStart) onSimulate()
+                Key.N -> onCycleSimGames()
+                Key.S -> if (simRunning) onStopSimulation() else if (canStart) onSimulate()
                 Key.Enter -> if (canStart && !simRunning) onStart()
                 Key.Escape -> onLibrary()
                 else -> return@onPreviewKeyEvent false
@@ -220,7 +222,8 @@ fun LobbyScreen(
                 }
                 BoxPane("the match", Modifier.weight(1f).fillMaxHeight()) {
                     // Every line takes the pane's measured width: facts are cut where the pane ends, instructions wrap.
-                    if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick) {
+                    if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick,
+                        simGames = simGames, simulation = simulation) {
                         // As under the constructed tab's match: network play, then the playmats.
                         network?.let { GridText(""); NetworkSection(it, canPlay = forgeReady && !simRunning && limited.chosenSet != null, onNet,
                             sealedSet = limited.sets.firstOrNull { s -> s.code == limited.chosenSet }?.name) }
@@ -259,7 +262,7 @@ fun LobbyScreen(
             ask?.let { mtgoracle.ui.lookup.AskBar(it) { onAskClosed(); focus.requestFocus() } }
             StatusLine(
                 if (limited != null) listOf("L" to "constructed", "Tab" to "your deck / set", "↑↓" to "choose", "E" to "build", "Del" to "delete", "O" to "open sealed",
-                    "W" to "watch", "B" to "best of", "Enter" to "start", "Esc" to "library")
+                    "W" to "watch", "B" to "best of", "Enter" to "start", "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library")
                 else listOf("L" to "limited", "Tab" to "your deck / opponent", "↑↓" to "choose", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
                     "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library"),
                 null, cols,
@@ -270,28 +273,25 @@ fun LobbyScreen(
 }
 
 /**
- * Constructed or limited, the one shown inverted; L switches. A row of its own
- * between the toolbar and the panes, a blank row on each side, so the inverted
- * tab never touches a button; its text starts in the panes' title column.
+ * Constructed or limited, each a tab of its own (the deck pane's kind: the
+ * chosen one inverted, or raised in a drawn look), clicked by itself; L
+ * switches. A row between the toolbar and the panes with a blank row on each
+ * side; its text starts in the panes' title column.
  */
 @Composable
 private fun Tabs(limited: Boolean, onClick: (ClickTarget) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         GridText("")
-        Row(Modifier.fillMaxWidth().region("lobby-tabs").clickTarget(ClickTarget.Control("tab"), onClick)) {
+        Row(Modifier.region("lobby-tabs")) {
             GridText("  ")
-            Tab("constructed", !limited)
-            GridText("  ")
-            Tab("limited", limited)
+            TabButton(if (!limited) "[constructed]" else " constructed ", ClickTarget.Control("tab:constructed"), !limited, onClick)
+            GridText(" ")
+            TabButton(if (limited) "[limited]" else " limited ", ClickTarget.Control("tab:limited"), limited, onClick)
             GridText("   (L switches)", color = Palette.dim)
         }
         GridText("")
     }
 }
-
-@Composable
-private fun Tab(label: String, chosen: Boolean) =
-    GridText(" $label ", color = if (chosen) Palette.background else Palette.dim, background = if (chosen) Palette.foreground else Color.Unspecified, bold = chosen)
 
 /** The sets to open packs of, newest first; the chosen one is kept in sight. */
 @Composable
@@ -324,6 +324,9 @@ private fun SetList(cols: Int, limited: LobbyLimited, active: Boolean, modifier:
 private fun LimitedMatch(
     me: DeckSummary?, limited: LobbyLimited, watch: Boolean, format: String, notes: List<String>, canStart: Boolean,
     forgeReady: Boolean, forgeStartedAt: Long?, forgeExpectedMillis: Long?, onClick: (ClickTarget) -> Unit,
+    /** How many games Simulate plays (N cycles it), and the simulation running or the last one. */
+    simGames: Int = 10,
+    simulation: SimLine? = null,
     /** Under the rest, as under the constructed tab's match: network play (a sealed table hosted or joined) and the playmats. */
     network: @Composable () -> Unit = {},
 ) {
@@ -345,11 +348,18 @@ private fun LimitedMatch(
         Option("watch", "[${if (watch) "x" else " "}] watch  (W)", "an AI plays ${me?.name ?: "your deck"} too, and you watch", onClick)
         Option("format", "match: ${if (watch) "best of 1 (watching)" else format}  (B)",
             "best of 1 / 3 / 5; between games the rest of your pool is your sideboard, with basic lands to swap in", onClick)
+        Option("sim-games", "simulate: $simGames games  (N, S)",
+            "an AI plays your deck against the AI's, with no board: a build tried out. N cycles 1 / 5 / 10 / 20 / 50, S starts and stops; " +
+                "each game is recorded as it ends.", onClick)
+        val simRunning = simulation?.running == true
+        simulation?.let { WrapText("  ${it.line}", color = if (it.running) Palette.foreground else Palette.dim, hang = 4) }
         notes.forEach { WrapText("  $it", color = Palette.accent, hang = 2) }
         GridText("")
         Row(verticalAlignment = Alignment.CenterVertically) {
             GridText(" ")
-            BigButton("Start", ClickTarget.Control("start"), canStart, onClick)
+            BigButton("Start", ClickTarget.Control("start"), canStart && !simRunning, onClick)
+            GridText(" ")
+            BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
         }
         if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis)
         GridText("")

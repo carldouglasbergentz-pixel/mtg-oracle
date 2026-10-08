@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **The limited tab simulates, and says the record.** Simulate (S, N for how many) has an AI play your limited deck against the deck the AI builds from its own pool, as the constructed tab does with a pairing: a build tried out, each game recorded as it ends. The match's title says the deck's record against the AI's pool, played and simulated (`AI (BLB sealed) · you 2–1 · AI 6–4`). `LimitedTest`.
+
+### Changed
+- **The toolbar's buttons have room above and below them** (a third of a row), so they don't sit on the panes' edge. **The lobby's constructed and limited are tabs of their own**, as the deck pane's are: each clicked by itself, the one shown inverted (raised in a drawn look), where the whole row lit up under the mouse. `LimitedTabTest`.
+
 ### Fixed
+- **A game against the AI's sealed deck is recorded however it ends.** Only a finished game left out the AI's deck id, which has no row in `decks`; a simulated, broken-off or abandoned one named it and failed on the foreign key. (`PlayDeck.storedId`.)
 - **The limited tab has the playmats**, as the constructed tab has under its match: each side's mat, its dim, place and zoom, chosen there as well. `LimitedTabTest`.
 - **A sealed game's achievements are shown.** Forge counts them in its own Sealed collection, which the achievements view didn't read: it shows it beside Constructed's now. `AchievementsViewTest`.
 
