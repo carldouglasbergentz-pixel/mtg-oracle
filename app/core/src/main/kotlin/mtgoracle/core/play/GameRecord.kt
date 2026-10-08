@@ -61,4 +61,6 @@ data class MatchResult(
     val matchOver: Boolean = true,
     /** When this game began: its `played_at`. */
     val startedAt: Instant? = null,
+    /** Ended for no one's choice at the table (the other person's link went, the app broke): no winner is recorded. */
+    val brokenOff: Boolean = false,
 )

@@ -86,6 +86,15 @@ class TwoPeopleTest {
         val log = match.recorder.file.readText()
         assertFalse("UNHANDLED" in log, log.lines().filter { "UNHANDLED" in it }.joinToString("\n"))
         assertTrue("[Alice] PROMPT" in log && "[Bob] PROMPT" in log, "the log says whose each prompt was")
+        // Each seat writes its own draws and moves: shared, every line came twice, and one draw read "draws 2 cards".
+        for (seat in listOf(alice, bob)) {
+            val log = seat.board.value!!.log
+            val lines = log.map { it.text }
+            assertTrue(lines.any { "draws a card" in it }, "the draws are there")
+            assertTrue(lines.none { "draws 2 cards" in it }, "nobody in these decks draws two: ${lines.filter { "draws" in it }.take(5)}")
+            val doubled = log.zipWithNext().filter { (a, b) -> a.kind == mtgoracle.core.model.LogKind.DRAW && a.kind == b.kind && a.text == b.text }
+            assertEquals(emptyList(), doubled.map { it.first.text }.take(5), "no draw said twice")
+        }
         assertFalse(ForgeRuntime.busy, "Forge is free again")
     }
 

@@ -167,7 +167,7 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         val row = GameRecord(
             playedAt = startedAt.truncatedTo(ChronoUnit.SECONDS), mode = GameMode.HUMAN_VS_HUMAN,
             deckId = deck.deckId, deckName = deck.name, opponentDeckId = null, opponentName = "$hostDeck ($host)",
-            opponentAiVariant = false, seed = null, winner = outcome.winner, turns = outcome.turns,
+            opponentAiVariant = false, seed = null, winner = outcome.winner.takeIf { !outcome.unfinished }, turns = outcome.turns,
             durationMs = java.time.Duration.between(startedAt, java.time.Instant.now()).toMillis(),
             forgeVersion = null, logPath = null, matchId = matchId, gameNo = outcome.gameNo, matchFormat = format, conceded = false,
         )
@@ -186,7 +186,8 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
             opponentName = spec.opponent.name,
             opponentAiVariant = spec.opponent.isAiCopy,
             seed = spec.seed,
-            winner = result.winner,
+            // Broken off (the other person's link went, the app broke): the game happened, and nobody won it.
+            winner = result.winner.takeIf { !result.brokenOff },
             turns = result.turns,
             durationMs = result.durationMs,
             forgeVersion = ForgeRuntime.version,

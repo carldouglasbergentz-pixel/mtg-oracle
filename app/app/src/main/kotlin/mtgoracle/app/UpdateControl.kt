@@ -10,7 +10,7 @@ import kotlin.concurrent.thread
  * A release's updates from GitHub: asked at start and daily ([check]), and
  * installed by `update` ([install]), which closes the app for the swap.
  * Nothing at all when the app doesn't run from a release package (the repo's
- * snapshot, a test). [busy] is a game or simulation on, which an update
+ * snapshot, a test). [busy] is a game, a simulation or a network table on, which an update
  * would close; [shutdown] records what is on before the app exits.
  */
 class UpdateControl(

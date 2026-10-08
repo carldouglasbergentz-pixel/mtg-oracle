@@ -30,17 +30,20 @@ object Door {
         val guest = try { Wire.guest(line) } catch (e: WireError) { return refuse(link, "That was no message this table understands (${e.message}).") }
         if (guest !is GuestMessage.Hello) return refuse(link, "The first message must be a hello.")
         (Handshake.refusal(guest) ?: judge(guest))?.let { return refuse(link, it) }
-        link.bound(TcpLink.MAX_LINE, 0)
+        // In, and from now on pinged ([Wire.PING_MILLIS]): silence this long means the link died without a word.
+        link.bound(TcpLink.MAX_LINE, Wire.SILENCE_MILLIS)
         return Outcome.Admitted(guest.copy(name = Handshake.cleanName(guest.name)))
     }
 
     /** Seats the admitted guest under [name], as the table shows it. */
     fun seat(link: Link, name: String): Boolean = link.send(Wire.encode(HostMessage.Accepted(name)))
 
-    private fun refuse(link: Link, reason: String): Outcome {
+    private fun refuse(link: Link, reason: String): Outcome = turnAway(link, reason).let { Outcome.Refused(reason) }
+
+    /** Tells a guest at the door, or one let in but not yet seated, why they can't sit down, and closes their link. */
+    fun turnAway(link: Link, reason: String) {
         link.send(Wire.encode(HostMessage.Refused(reason)))
         link.close()
-        return Outcome.Refused(reason)
     }
 
     private fun stranger(link: Link, why: String): Outcome {

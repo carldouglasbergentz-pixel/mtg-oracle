@@ -40,6 +40,7 @@ sealed interface NetAction {
     data object CopyInvite : NetAction
     /** Join the room whose invite is on the clipboard. */
     data object Join : NetAction
+    data object CancelJoin : NetAction
     data object ToggleShareMat : NetAction
     data object ToggleShowTheirMat : NetAction
 }
@@ -85,7 +86,10 @@ internal fun NetworkSection(net: LobbyNetwork, canPlay: Boolean, onNet: (NetActi
                     if (state is NetState.Failed) WrapText("  ${state.reason}", color = Palette.accent, hang = 2)
                 }
                 NetState.Opening -> FitText("  asking your router to open a port…", color = Palette.dim)
-                NetState.Joining -> FitText("  knocking on your friend's room…", color = Palette.dim)
+                NetState.Joining -> Row {
+                    GridText("  knocking on your friend's room…  ", color = Palette.dim)
+                    LinkButton("[ Cancel ]", ClickTarget.Control("net:cancel-join")) { onNet(NetAction.CancelJoin) }
+                }
                 is NetState.Hosting -> {
                     FitText("  invite: ${state.invite}", color = Palette.accent, bold = true)
                     Row {

@@ -8,9 +8,15 @@ package mtgoracle.net
 object Handshake {
     const val MAX_NAME = 24
 
-    /** The guest's name as the table shows it: trimmed, no control characters, at most [MAX_NAME] characters; "Guest" when nothing is left. */
+    /**
+     * The guest's name as the table shows it: trimmed, at most [MAX_NAME] characters, "Guest" when nothing is left.
+     * No control characters, and none of Unicode's invisible ones (zero-width, direction overrides, line separators),
+     * with which a name could pass for the host's own.
+     */
     fun cleanName(raw: String): String =
-        raw.filterNot { it.isISOControl() }.trim().take(MAX_NAME).trim().ifEmpty { "Guest" }
+        raw.filterNot { it.isISOControl() || Character.getType(it).toByte() in INVISIBLE }.trim().take(MAX_NAME).trim().ifEmpty { "Guest" }
+
+    private val INVISIBLE = setOf(Character.FORMAT, Character.LINE_SEPARATOR, Character.PARAGRAPH_SEPARATOR)
 
     /** Why the host turns [hello] away, or null when it may sit down. */
     fun refusal(hello: GuestMessage.Hello): String? =

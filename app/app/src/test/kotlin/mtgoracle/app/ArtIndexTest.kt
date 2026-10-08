@@ -7,6 +7,7 @@ import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Before Forge is up, the window draws what an earlier run's answers say is
@@ -50,6 +51,33 @@ class ArtIndexTest {
 
         crop.delete()
         assertNull(nextRun.file(key, ArtKind.ART_CROP), "a file gone from the cache is not offered")
+    }
+
+    @Test
+    fun `a key from across a network table can't write lines of its own, or name a file outside the app's folders`() {
+        val indexFile = File(dir, "guarded.tsv")
+        val index = ArtIndex(indexFile, roots = listOf(dir))
+        // A host's board can carry any key: one with a carriage return would start a line of its own on reading.
+        val forged = "c:Lightning Bolt|M10|1|x\rF\tc:Sol Ring|C18|1\tART_CROP\t\\\\attacker\\s\\a.jpg\r"
+        index.rememberArtist(forged, "Christopher Moeller")
+        index.rememberFile(forged, ArtKind.ART_CROP, crop)
+        index.rememberKey("Sol Ring", "c18", "1", "c:Sol Ring|C18|1")
+        index.flush()
+        val text = indexFile.readText()
+        assertTrue("attacker" !in text && '\r' !in text, "nothing of the forged key was written: $text")
+        val next = ArtIndex(indexFile, roots = listOf(dir))
+        assertNull(next.fileOf("c:Sol Ring|C18|1", ArtKind.ART_CROP))
+        assertEquals("c:Sol Ring|C18|1", next.keyOf("Sol Ring", "c18", "1"), "an ordinary key still is")
+
+        // A file the index points outside its roots is not served.
+        val outside = Files.createTempDirectory("art-outside-").toFile().also { it.deleteOnExit() }
+        val elsewhere = File(outside, "x.jpg").apply { writeText("jpeg") }
+        val loose = ArtIndex(File(dir, "loose.tsv"), roots = listOf(dir))
+        loose.rememberFile("c:Sol Ring|C18|1", ArtKind.ART_CROP, elsewhere)
+        assertNull(loose.fileOf("c:Sol Ring|C18|1", ArtKind.ART_CROP))
+        loose.rememberFile("c:Sol Ring|C18|1", ArtKind.ART_CROP, crop)
+        assertEquals(crop, loose.fileOf("c:Sol Ring|C18|1", ArtKind.ART_CROP))
+        outside.deleteRecursively()
     }
 
     @Test

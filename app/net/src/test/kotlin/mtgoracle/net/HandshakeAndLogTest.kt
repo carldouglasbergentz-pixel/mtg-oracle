@@ -31,6 +31,10 @@ class HandshakeAndLogTest {
         assertEquals("Guest", Handshake.cleanName(" \u0007 "))
         assertEquals("A".repeat(Handshake.MAX_NAME), Handshake.cleanName("A".repeat(40)))
         assertEquals("Ann-Sofie", Handshake.cleanName("Ann\u0000-Sofie"))
+        // Invisible characters with which a name could pass for another: zero-width, a direction override, a line separator.
+        assertEquals("Alice", Handshake.cleanName("Al\u200Bice"))
+        assertEquals("Alice", Handshake.cleanName("\u202EAlice"))
+        assertEquals("AliceBob", Handshake.cleanName("Alice\u2028Bob"))
     }
 
     private fun line(seq: Long, text: String = "line $seq") = LogLine(seq, LogKind.OTHER, text)

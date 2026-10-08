@@ -15,7 +15,7 @@ import forge.game.event.GameEvent
  * card has moved, so the count is compared on the event after. The line
  * says how many, never which: the log pane is public (HiddenInfoTest).
  */
-internal class DrawLog(private val recorder: GameRecorder) {
+internal class DrawLog(private val recorder: GameRecorder, private val seenBy: () -> Set<Int>? = { null }) {
     @Volatile private var game: Game? = null
     /** Each player's draws this turn as last seen. */
     private val seen = HashMap<Int, Int>()
@@ -33,7 +33,7 @@ internal class DrawLog(private val recorder: GameRecorder) {
         for (player in players) {
             val now = player.numDrawnThisTurn
             val before = synchronized(this) { seen.put(player.id, now) } ?: 0
-            if (now > before) recorder.play("Draw", LogKind.DRAW, line(player.name, now - before), merge = ::merged)
+            if (now > before) recorder.play("Draw", LogKind.DRAW, line(player.name, now - before), merge = ::merged, seenBy = seenBy())
         }
     }
 

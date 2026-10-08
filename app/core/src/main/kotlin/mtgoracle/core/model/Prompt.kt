@@ -134,10 +134,12 @@ data class DistributePrompt(
 ) : Prompt {
     /** Why [amounts] can't be the answer (the total, at least one each, lethal first), or null when they can. */
     fun problem(amounts: List<Int>): String? {
-        val sum = amounts.sum()
+        // Summed as Long, and every amount within 0..total: an answer can come from across a network table, and
+        // Int.MAX twice wraps around to a small sum.
+        val sum = amounts.sumOf { it.toLong() }
         fun short(i: Int) = targets[i].lethal?.let { amounts.getOrElse(i) { 0 } < it } == true
         return when {
-            amounts.size != targets.size || sum != total -> "assigned $sum of $total"
+            amounts.size != targets.size || amounts.any { it < 0 || it > total } || sum != total.toLong() -> "assigned $sum of $total"
             atLeastOne && amounts.any { it < 1 } -> "every target takes at least 1"
             targets.indices.any { i -> targets[i].max?.let { amounts[i] > it } == true } ->
                 targets.indices.first { i -> targets[i].max?.let { amounts[i] > it } == true }.let { "${targets[it].label} takes at most ${targets[it].max}" }

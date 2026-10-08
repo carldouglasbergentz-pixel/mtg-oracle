@@ -187,7 +187,7 @@ class AppController(private val paths: AppPaths) {
         forgeReady = { forgeReady }, show = { screen = it; if (it == Screen.Playing) anyGames = true }, say = { notice = it })
 
     /** The sync, by hand and daily; its report builds the lookup again and goes to the output. */
-    val sync = SyncControl(paths, settings, db = { db }, busy = { play.match != null || play.simulation != null }, say = { notice = it },
+    val sync = SyncControl(paths, settings, db = { db }, busy = { play.match != null || play.simulation != null || net.busy }, say = { notice = it },
         onDone = { report, auto ->
             commands?.let { current ->
                 // Always: a points change (4 to 3) keeps the row count, so the report can't tell; a rebuild is ~130 ms.
@@ -218,7 +218,7 @@ class AppController(private val paths: AppPaths) {
     }
 
     /** A release's updates from GitHub, checked daily and installed by `update`. */
-    val updates = UpdateControl(settings, clock = { sync.clock() }, busy = { play.match != null || play.simulation != null }, say = { notice = it }, shutdown = ::shutdown)
+    val updates = UpdateControl(settings, clock = { sync.clock() }, busy = { play.match != null || play.simulation != null || net.busy }, say = { notice = it }, shutdown = ::shutdown)
 
     /** Opens the database (migrating it to this build's schema first), then brings Forge up in the background. */
     fun boot() {
@@ -461,7 +461,7 @@ class AppController(private val paths: AppPaths) {
     val art: PrintingArt by lazy { PrintingArt(ForgeRuntime.images, { currentLookup?.printings }, paths.home.resolve("scryfall")) }
 
     /** What the window draws with: [art] once Forge is up, and before that the images the index knows are on disk. */
-    val shownArt: IndexedArt by lazy { IndexedArt(ArtIndex(paths.home.resolve("art-index.tsv"))) { if (forgeReady) art else null } }
+    val shownArt: IndexedArt by lazy { IndexedArt(ArtIndex(paths.home.resolve("art-index.tsv"), roots = listOf(paths.home, paths.forge.home))) { if (forgeReady) art else null } }
 
     /** What the zoom pane shows of a card named in the output: its default printing's art, and its text. */
     private val zoomInfo = object : LinkedHashMap<String, Pair<String, mtgoracle.core.deck.CardInfo>?>(64, 0.75f, true) {
@@ -570,6 +570,7 @@ class AppController(private val paths: AppPaths) {
         if (where == "window") {
             // Only a broken window breaks the game off; after an error elsewhere it plays on, and leaving it is the player's choice.
             crashed = play.match
+            atTable = net.guest != null
             crash = line
             screen = Screen.Crashed
             windowEpoch++
@@ -582,13 +583,19 @@ class AppController(private val paths: AppPaths) {
     fun leaveAfterCrash() {
         crash = null
         val running = play.match
+        // At a network table nobody chose the end: a guest's link just closes, a host's match is broken off, no winner either side.
+        net.breakOffAfterCrash(running)
         if (running != null) {
             play.stopRecording(running, unfinished = true)
             if (!running.over) running.leave()
             running.recorder.close()
         }
+        atTable = false
         backToLibrary()
     }
+
+    /** The window broke at someone else's network table: retry goes back to it, leave breaks it off. */
+    @Volatile private var atTable = false
 
     /** Where the app log is, for the crash screen. */
     val appLogPath: String get() = paths.appLog.absolutePath
@@ -597,7 +604,11 @@ class AppController(private val paths: AppPaths) {
     fun retryBoard() {
         crash = null
         crashed = null
-        screen = if (play.match != null) Screen.Playing else Screen.Library
+        screen = when {
+            play.match != null -> Screen.Playing
+            atTable && net.guest != null -> Screen.Guest
+            else -> Screen.Library
+        }
     }
 
     /** The theme to start in: the one picked here, else the TUI's (the user runs rose-pine there), else the house one. */

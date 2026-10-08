@@ -63,6 +63,7 @@ class SecureRoomTest {
         val code = Invite.create(InetAddress.getByName("81.230.4.17"), 51234).code
         listOf("", "MTG-", "hello there", code.dropLast(5), code + "AAAA", code.replaceRange(4, 5, "1"), "MTG-" + Base32.encode(byteArrayOf(9, 4) + ByteArray(22)))
             .forEach { text -> assertFailsWith<InviteError>(text) { Invite.parse(text) } }
+        assertTrue("longer than any invite" in assertFailsWith<InviteError> { Invite.parse(code + " ".repeat(10) + "x".repeat(10_000)) }.message!!, "a clipboard full of other things")
         assertTrue("another version" in assertFailsWith<InviteError> { Invite.parse("MTG-" + Base32.encode(byteArrayOf(9, 4) + ByteArray(22))) }.message!!)
     }
 

@@ -22,6 +22,15 @@ class DistributeRuleTest {
     }
 
     @Test
+    fun `an answer from across a network table can't deal more than there is`() {
+        val trample = prompt(5, excess = 2, targets = bears + player)
+        // Int.MAX twice and 5 sums to 3 in Int: each blocker would have taken 2^31 - 1.
+        assertNotNull(trample.problem(listOf(Int.MAX_VALUE, Int.MAX_VALUE, 5)))
+        assertNotNull(prompt(3, targets = bears + player).problem(listOf(-100, 0, 103)), "a negative amount pays for more elsewhere")
+        assertNotNull(prompt(4).problem(listOf(5, -1)))
+    }
+
+    @Test
     fun `a trampler's excess reaches the player only once every blocker has lethal`() {
         val trample = prompt(6, excess = 2, targets = bears + player)
         assertNotNull(trample.problem(listOf(1, 1, 4)), "short of lethal on both Bears")

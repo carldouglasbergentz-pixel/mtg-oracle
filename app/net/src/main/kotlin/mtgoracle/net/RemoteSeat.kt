@@ -67,7 +67,15 @@ class RemoteSeat(
     private var lastBoard: BoardState? = null
 
     fun start(): RemoteSeat {
+        // A host that accepted the connection must say hello soon; seated, the pings keep the link from going quiet.
+        link.bound(TcpLink.MAX_LINE, Wire.SILENCE_MILLIS / 3)
         thread(name = "remote-seat-reader", isDaemon = true) { read() }
+        thread(name = "remote-seat-ping", isDaemon = true) {
+            while (seatingFlow.value.let { it is Seating.Knocking || it is Seating.Seated }) {
+                Thread.sleep(Wire.PING_MILLIS)
+                if (seatingFlow.value is Seating.Seated) send(GuestMessage.Ping)
+            }
+        }
         return this
     }
 
@@ -100,6 +108,7 @@ class RemoteSeat(
                     send(GuestMessage.Hello(PROTOCOL_VERSION, app, name, deck))
                 }
                 is HostMessage.Accepted -> {
+                    link.bound(TcpLink.MAX_LINE, Wire.SILENCE_MILLIS)
                     seatingFlow.value = Seating.Seated(message.name)
                     send(GuestMessage.SetStops(stopsFlow.value))
                     mat?.let { send(GuestMessage.Mat(it)) }
@@ -121,6 +130,7 @@ class RemoteSeat(
                 is HostMessage.Match -> matchFlow.value = message
                 is HostMessage.Result -> outcomeFlow.value = message.outcome
                 is HostMessage.Mat -> theirMatFlow.value = message.mat
+                HostMessage.Ping -> Unit
             }
         }
         settle(Seating.Lost("the connection to the host was lost"))

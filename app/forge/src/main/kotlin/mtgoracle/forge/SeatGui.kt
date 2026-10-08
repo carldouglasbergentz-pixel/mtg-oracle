@@ -60,6 +60,7 @@ import mtgoracle.core.model.Step
 import mtgoracle.core.model.DeckEntry
 import mtgoracle.core.model.SideboardPrompt
 import java.util.concurrent.CompletableFuture
+import kotlin.concurrent.thread
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -150,11 +151,14 @@ class SeatGui(
     private val seesCard: (CardView) -> Boolean = { cv -> visible(cv) && (!cv.isFaceDown || peek(cv)) }
     private val trail = Trail(named = seesCard, onChange = { dirty = true })
     private val floatingMana = FloatingMana(recorder)
-    private val drawLog = DrawLog(recorder)
-    private val zoneLog = ZoneLog(recorder)
+    private val drawLog = DrawLog(recorder, seenBy = ::ownLines)
+    private val zoneLog = ZoneLog(recorder, seenBy = ::ownLines)
     private val knownInHand = KnownInHand(isViewer = { it in seatPlayerIds })
     private val countered = Countered(named = seesCard, onCountered = ::reportCountered)
-    private val finishWatch = GameFinishWatch(onFinished = { edt.later { finishGame() } })
+    private val finishWatch = GameFinishWatch(
+        onDecided = { edt.later { seatController?.inputQueue?.onGameOver(true) } },
+        onFinished = { edt.later { finishGame() } },
+    )
     /** The trail's seq when the seat last decided something: what came after is "just happened". */
     @Volatile private var decisionSeq = 0L
     private val promptIds = AtomicLong()
@@ -163,7 +167,9 @@ class SeatGui(
     // A handler of ours that failed inside Forge (HandlerFailures): said in the game's log and on the board.
     private val failureHook: AutoCloseable = HandlerFailures.listen { summary ->
         recorder.note("ERROR a handler failed: $summary")
-        warningFlow.value = "Something in the app's handling of this game failed ($summary). The game may be off from here; the trace is in app.log."
+        // At a network table the other person's board gets it too: what failed stays in the host's logs.
+        val what = if (logName == null) " ($summary)" else ""
+        warningFlow.value = "Something in the app's handling of this game failed$what. The game may be off from here; the trace is in app.log."
     }
 
     @Volatile private var seatController: PlayerControllerHuman? = null
@@ -207,7 +213,7 @@ class SeatGui(
     override fun answer(promptId: Long, action: SeatAction) {
         val current = promptFlow.value
         if (current == null || current.id != promptId) {
-            Log.warn("stale answer $action for prompt #$promptId (current ${current?.id})")
+            Log.warn("stale answer ${Log.oneLine(action)} for prompt #$promptId (current ${current?.id})")
             return
         }
         seatLog("ANSWER #$promptId $action${describe(action, current)}")
@@ -273,8 +279,40 @@ class SeatGui(
     fun concedeNow() {
         conceded = true
         val controller = seatController
-        if (controller != null) edt.later { controller.concede() } else endAsDraw()
+        seatLog("CONCEDE (${if (controller == null) "no controller" else "controller"}, ${if (underWay) "under way" else "not under way"})")
+        when {
+            controller != null && underWay -> concedeWhenParked(controller)
+            controller == null && gameView?.game != null -> endAsDraw() // watching AI vs AI
+            // A seat whose game isn't under way yet (the other person left the moment they sat down): conceded at its
+            // first question, when Forge waits on it. Conceded while Forge was still setting the game up, the end
+            // went by unheard and the game stood still.
+            else -> concedeWhenSeated = true
+        }
     }
+
+    /** Whether Forge's game thread waits on this seat now: an Input on its queue, or a question of ours open. */
+    internal val holdsTheGame: Boolean
+        get() = seatController?.inputQueue?.input.let { it != null && it !is InputLockUI } || synchronized(dialogs) { dialogs.isNotEmpty() }
+
+    /**
+     * [controller]'s concession, made on the EDT while Forge's game thread waits on a person. A concession
+     * changes the game, and at a table of two the game thread can be mid-step on the other person's turn: it
+     * threw ConcurrentModificationException there and died, the game never ending. Against the AI the
+     * person concedes as before, at once. Ten seconds at most, then at once all the same.
+     */
+    private fun concedeWhenParked(controller: PlayerControllerHuman, tries: Int = 0) {
+        val parked = logName == null || ForgeRuntime.guiBase.seats.any { it.holdsTheGame }
+        if (parked || tries >= 200) { edt.later { controller.concede() }; return }
+        thread(name = "concede-wait", isDaemon = true) { Thread.sleep(50); edt.later { concedeWhenParked(controller, tries + 1) } }
+    }
+
+    /** [concedeNow] came before this seat's game was under way: done at its first question ([publishInputPrompt]). */
+    @Volatile private var concedeWhenSeated = false
+    /**
+     * This game has asked this seat an Input (a mulligan, a priority): Forge waits on it, and a concession now
+     * is taken. Its view opens before Forge sets the game up, and a concession during that went unheard.
+     */
+    @Volatile private var underWay = false
 
     /**
      * The game is ending for something at the table, not for an answer here (the other person
@@ -374,6 +412,13 @@ class SeatGui(
         val current = promptFlow.value
         if (top == null || top !== shownInput || top is InputLockUI || finished) {
             if (current is InputPrompt) promptFlow.value = null
+            return
+        }
+        underWay = true
+        if (concedeWhenSeated) {
+            concedeWhenSeated = false
+            seatLog("CONCEDED at its first question: the game is under way now")
+            controller.concede() // on the EDT, and Forge waits on this very question
             return
         }
         val candidate = InputPrompt(
@@ -484,7 +529,7 @@ class SeatGui(
         val picked = (action as? SeatAction.Choose)?.indices?.distinct()?.filter { it in items.indices }
         if (picked == null || picked.size < min || picked.size > max) {
             if (stoodDown) return pickable.take(min).map { items[it] }
-            autoAnswered("choice", "invalid answer $action for '$message' (min=$min max=$max); took the first $min")
+            autoAnswered("choice", "invalid answer ${Log.oneLine(action)} for '$message' (min=$min max=$max); took the first $min")
             return pickable.take(min).map { items[it] }
         }
         return picked.map { items[it] }
@@ -558,7 +603,7 @@ class SeatGui(
      */
     private fun reportCountered(report: Countered.Report) {
         trail.note(report.actorId, report.text, report.card)
-        recorder.play(report.kind, LogKind.COUNTERED, "${report.text}.", names = listOfNotNull(report.by, report.what))
+        recorder.play(report.kind, LogKind.COUNTERED, "${report.text}.", names = listOfNotNull(report.by, report.what), seenBy = ownLines())
         if (report.controllerId in seatPlayerIds) warningFlow.value = "${report.text}."
     }
 
@@ -589,6 +634,7 @@ class SeatGui(
         skippingTurn = null
         gameView?.game?.let { recorder.attach(it); trail.attach(it); floatingMana.attach(it); failedCasts.attach(it); drawLog.attach(it); zoneLog.attach(it); knownInHand.attach(it); countered.attach(it); finishWatch.attach(it) }
         dirty = true
+        underWay = false
     }
 
     override fun setOriginalGameController(player: PlayerView, gameController: IGameController) {
@@ -618,6 +664,7 @@ class SeatGui(
 
     override fun afterGameEnd() {
         super.afterGameEnd()
+        underWay = false
         finished = true
         dirty = true
     }
@@ -743,8 +790,15 @@ class SeatGui(
         val text = listOfNotNull(title?.takeIf { it.isNotBlank() }, message?.takeIf { it.isNotBlank() }).joinToString(": ").replace(Regex("""\s*\n\s*"""), " ").trim()
         if (text.isEmpty() || !isHumanSeat) return
         warningFlow.value = text
-        recorder.play(null, LogKind.OTHER, text)
+        recorder.play(null, LogKind.OTHER, text, seenBy = ownLines())
     }
+
+    /**
+     * Whom the lines this seat writes for itself are for. Against the AI, everyone: one person reads the log. At a
+     * table of two each seat writes its own (its draws, its zone moves, Forge's messages to it, under its own
+     * visibility), and each person reads only theirs: shared, every line came twice ("draws 2 cards" for one).
+     */
+    private fun ownLines(): Set<Int>? = if (logName != null) seatPlayerIds else null
 
     override fun showConfirmDialog(message: String, title: String?, yesButtonText: String, noButtonText: String, defaultYes: Boolean): Boolean {
         val action = awaitDialog({ ConfirmPrompt(it, listOfNotNull(title, message).joinToString(": "), yesButtonText, noButtonText) },
@@ -1011,7 +1065,7 @@ class SeatGui(
         // The board holds back Done on the same rule; this is the last line before Forge, which trusts the dialog.
         val valid = amounts != null && prompt(0).problem(amounts) == null
         if (!valid) {
-            autoAnswered("split", "invalid answer $action for '$message'; used Forge's $suggested")
+            autoAnswered("split", "invalid answer ${Log.oneLine(action)} for '$message'; used Forge's $suggested")
             return suggested
         }
         return amounts
@@ -1033,7 +1087,7 @@ class SeatGui(
         val wanted = (action as? SeatAction.Sideboard)?.main ?: return null
         // The same card objects Forge gave us, re-dealt: every copy of a name is interchangeable.
         val pool = (mainCards + sideCards).groupBy { it.name }.mapValues { it.value.toMutableList() }
-        val chosen = wanted.flatMap { (name, n) -> List(n) { pool[name]?.removeFirstOrNull() }.filterNotNull() }
+        val chosen = wanted.flatMap { (name, n) -> List(n.coerceIn(0, pool[name]?.size ?: 0)) { pool[name]?.removeFirstOrNull() }.filterNotNull() }
         seatLog("SIDEBOARD main ${chosen.size}, sideboard ${mainCards.size + sideCards.size - chosen.size}")
         return chosen.toMutableList()
     }

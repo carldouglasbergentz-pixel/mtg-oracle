@@ -20,6 +20,12 @@ Two constraints came from the user: no install beyond the app (no Tailscale or s
 
 Only the host needs a router that lets a guest in, since the guest connects outward, which every network allows. So the host's router opens a port over UPnP (`PortMapper`, `Room.public`), the invite carries the router's address outside, and the room says plainly when that can't work (no UPnP, double NAT, CGNAT). There is no server, no cost and no third party. The relay stays the fallback for two players who both can't host, and it is never deployed without its cost guard. What the relay design gave, the link keeps: every line is sealed (`SecureLink`), with keys of its own per connection, from the invite's secret and both sides' random bytes.
 
+## Trust (2026-10-08, decided with the user)
+
+**The host is trusted.** The host runs Forge and so holds the whole game; network play is for friends. The host's game log (`data/game_logs/`) keeps everything, both seats' prompts, answers and draws included, so a match can be gone through afterwards (the stack, the triggers): it is the record of a network game, since the guest runs no engine. What is filtered is what crosses the wire to the guest.
+
+**Known limit:** a face-down permanent (a morph, a manifest) carries its real Forge card id to the other seat, and Forge numbers cards in decklist order, so a client changed to read the ids could tell which card it is. The board never shows an id; with trusted friends this is the same trust as the host's log, and was left (giving face-down cards stand-in ids per viewer touches prompts, targets, combat and the log).
+
 ## Alternatives considered
 
 - **Tailscale or a similar private network.** No server, but every friend installs and joins it. The user ruled it out.

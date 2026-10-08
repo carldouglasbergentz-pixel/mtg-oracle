@@ -57,6 +57,8 @@ class ForgeImages(private val edt: ForgeEdt) : CardArt {
         runCatching { ImageUtil.getPaperCardFromImageKey(key)?.artist }.getOrNull()?.takeIf { it.isNotBlank() }
 
     override fun request(key: String, kind: ArtKind, onReady: () -> Unit) {
+        // Forge builds the download's file name from a token key too: a key that file() refuses is never fetched.
+        if (key.startsWith(ImageKeys.TOKEN_PREFIX) && !safeToken(key)) return
         if (file(key, kind) != null) { onReady(); return }
         edt.later {
             // Forge's fetcher reads the art format from the global preference, on
@@ -131,9 +133,11 @@ class ForgeImages(private val edt: ForgeEdt) : CardArt {
         return false
     }
 
-    /** Whether [file] lies inside Forge's cache: a key from a network peer must never name a place outside it. */
-    private fun insideCache(file: File): Boolean =
-        file.canonicalFile.toPath().startsWith(File(ForgeConstants.CACHE_DIR).canonicalFile.toPath())
+    /** Whether [file] lies in Forge's card or token pictures: a key from a network peer must never name a place outside them. */
+    private fun insideCache(file: File): Boolean {
+        val path = file.canonicalFile.toPath()
+        return listOf(ForgeConstants.CACHE_CARD_PICS_DIR, ForgeConstants.CACHE_TOKEN_PICS_DIR).any { path.startsWith(File(it).canonicalFile.toPath()) }
+    }
 
     internal companion object {
         /**

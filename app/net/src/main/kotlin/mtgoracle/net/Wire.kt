@@ -71,11 +71,19 @@ sealed interface HostMessage {
     /** The host's playmat, or none: pixels only ([MatPicture]). */
     @Serializable @SerialName("mat")
     data class Mat(val mat: MatPicture?) : HostMessage
+
+    /** Still here: sent every [Wire.PING_MILLIS], so a link that died without a word is noticed. */
+    @Serializable @SerialName("ping")
+    data object Ping : HostMessage
 }
 
 /** A finished game from one side of the table: who won as that side sees it, the match so far, and the table's words for it. */
 @Serializable
-data class GameOutcome(val winner: Winner, val gameNo: Int, val wins: Int, val losses: Int, val matchOver: Boolean, val summary: String, val turns: Int? = null)
+data class GameOutcome(
+    val winner: Winner, val gameNo: Int, val wins: Int, val losses: Int, val matchOver: Boolean, val summary: String, val turns: Int? = null,
+    /** Broken off (a link went, an app broke): recorded with no winner. */
+    val unfinished: Boolean = false,
+)
 
 /** What a remote seat sends the host: its hello, then the [mtgoracle.core.model.GameSeat] calls its person makes. */
 @Serializable
@@ -104,6 +112,10 @@ sealed interface GuestMessage {
     /** The guest's playmat, or none: pixels only ([MatPicture]). */
     @Serializable @SerialName("mat")
     data class Mat(val mat: MatPicture?) : GuestMessage
+
+    /** Still here ([HostMessage.Ping]). */
+    @Serializable @SerialName("ping")
+    data object Ping : GuestMessage
 }
 
 /** A line that is no message of this protocol: malformed, cut off, or from another version. */
@@ -111,6 +123,11 @@ class WireError(message: String, cause: Throwable? = null) : Exception(message, 
 
 /** One message per line of JSON, both ways. */
 object Wire {
+    /** How often each side says it is still here. */
+    const val PING_MILLIS = 15_000L
+    /** How long a side waits to hear anything before it takes the link for dead: three pings missed. */
+    const val SILENCE_MILLIS = 45_000
+
     private val json = Json {
         classDiscriminator = "type"
         // A board is mostly defaults (untapped, no counters, not hidden): leaving them out halves it.

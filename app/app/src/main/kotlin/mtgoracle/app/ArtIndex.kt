@@ -18,8 +18,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * Only a cache: a missing or stale line costs a wait for Forge, never a
  * wrong answer once Forge is up (IndexedArt then asks Forge and Scryfall).
+ *
+ * A key can come from the other side of a network table, so nothing with a
+ * control character is written (a `\r` would start a line of its own), and a
+ * file is served only from under [roots], the app's own folders.
  */
-class ArtIndex(private val file: File) {
+class ArtIndex(private val file: File, private val roots: List<File> = emptyList()) {
     private val keys = ConcurrentHashMap<String, String>()
     private val files = ConcurrentHashMap<String, String>()
     private val artists = ConcurrentHashMap<String, String>()
@@ -32,15 +36,24 @@ class ArtIndex(private val file: File) {
     private fun fileId(key: String, kind: ArtKind) = "$key\t${kind.name}"
 
     fun keyOf(name: String, setCode: String?, collectorNumber: String?): String? = keys[row(name, setCode, collectorNumber)]
-    fun fileOf(key: String, kind: ArtKind): File? = files[fileId(key, kind)]?.let(::File)
+    fun fileOf(key: String, kind: ArtKind): File? = files[fileId(key, kind)]?.let(::File)?.takeIf(::underRoots)
+
+    /** Whether [file] lies under one of [roots] (no roots: anywhere, for the tests that keep files in their own folder). */
+    private fun underRoots(file: File): Boolean = roots.isEmpty() || runCatching {
+        val path = file.canonicalFile.toPath()
+        roots.any { path.startsWith(it.canonicalFile.toPath()) }
+    }.getOrDefault(false)
     fun artistOf(key: String): String? = artists[key]
 
-    fun rememberKey(name: String, setCode: String?, collectorNumber: String?, key: String) = put(keys, row(name, setCode, collectorNumber), key)
-    fun rememberFile(key: String, kind: ArtKind, file: File) = put(files, fileId(key, kind), file.path)
-    fun rememberArtist(key: String, artist: String) = put(artists, key, artist)
+    fun rememberKey(name: String, setCode: String?, collectorNumber: String?, key: String) =
+        if (listOf(name, setCode.orEmpty(), collectorNumber.orEmpty(), key).all(::plain)) put(keys, row(name, setCode, collectorNumber), key) else Unit
+    fun rememberFile(key: String, kind: ArtKind, file: File) = if (plain(key) && plain(file.path)) put(files, fileId(key, kind), file.path) else Unit
+    fun rememberArtist(key: String, artist: String) = if (plain(key) && plain(artist)) put(artists, key, artist) else Unit
+
+    /** A field that can be written as part of one line: no tab, no line break, no control character of any kind. */
+    private fun plain(field: String) = field.none { it.isISOControl() }
 
     private fun put(map: ConcurrentHashMap<String, String>, id: String, value: String) {
-        if (id.contains('\n') || value.contains('\t') || value.contains('\n')) return // can't be written as a line
         if (map.put(id, value) == value) return
         // A deck opening resolves a hundred cards at once: one write for all of them.
         if (dirty.compareAndSet(false, true)) saver.schedule(::write, 3, TimeUnit.SECONDS)

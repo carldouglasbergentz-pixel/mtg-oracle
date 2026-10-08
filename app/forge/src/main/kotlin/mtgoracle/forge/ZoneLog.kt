@@ -14,7 +14,7 @@ import mtgoracle.core.model.LogKind
  * was in plain sight where it was, so every viewer may read its name: the
  * log pane is public (HiddenInfoTest). A face-down card is never named.
  */
-internal class ZoneLog(private val recorder: GameRecorder) {
+internal class ZoneLog(private val recorder: GameRecorder, private val seenBy: () -> Set<Int>? = { null }) {
     @Volatile private var game: Game? = null
 
     fun attach(game: Game) {
@@ -33,7 +33,7 @@ internal class ZoneLog(private val recorder: GameRecorder) {
         // Forge calls the human seat "You" (ForgeMatch).
         val owner = to.player()?.name?.let { if (it == "You") "your " else "$it's " }.orEmpty()
         recorder.play("Zone Change", LogKind.ZONE, "$what: ${from.zoneType().name.lowercase()} → $owner${to.zoneType().name.lowercase()}.",
-            names = if (card.isFaceDown) emptyList() else listOf(what))
+            names = if (card.isFaceDown) emptyList() else listOf(what), seenBy = seenBy())
     }
 
     private companion object {

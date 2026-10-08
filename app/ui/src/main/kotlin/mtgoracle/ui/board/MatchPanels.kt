@@ -106,7 +106,7 @@ fun ResultPanel(status: MatchStatus, onClick: (ClickTarget) -> Unit, modifier: M
             GridText("")
             Row {
                 if (status.over) GridButton("Back to the lobby", MatchTargets.LOBBY, true, onClick)
-                else if (status.waitingForHost) GridButton("Waiting for the host", MatchTargets.CONTINUE, false, onClick)
+                else if (status.waitingForHost) { GridButton("Waiting for the host", MatchTargets.CONTINUE, false, onClick); GridText("  "); GridButton("Leave the table", MatchTargets.LOBBY, true, onClick) }
                 else GridButton("Continue to game ${last.gameNo + 1}", MatchTargets.CONTINUE, true, onClick)
             }
             GridText(fit(when {

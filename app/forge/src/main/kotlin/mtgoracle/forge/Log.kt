@@ -32,6 +32,13 @@ object Log {
     fun trace(error: Throwable): String = StringWriter().also { error.printStackTrace(PrintWriter(it)) }.toString().trimEnd()
 
     @Synchronized
+    /**
+     * [value] as one line of at most [max] characters, control characters shown as `·`: for text a network peer
+     * chose (an answer, a name), which must not start lines of its own in a log.
+     */
+    fun oneLine(value: Any?, max: Int = 300): String =
+        value.toString().take(max).map { if (it.isISOControl()) '·' else it }.joinToString("")
+
     private fun emit(level: String, message: String) {
         val line = "${LocalDateTime.now().format(clock)} $level [${Thread.currentThread().name}] $message"
         System.err.println(line)

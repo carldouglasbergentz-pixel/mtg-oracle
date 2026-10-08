@@ -65,6 +65,7 @@ class SeatHost(private val seat: GameSeat, private val link: Link, private val o
             }
         }
         thread(name = "seat-host-reader", isDaemon = true) { read() }
+        scope.launch { while (true) { kotlinx.coroutines.delay(Wire.PING_MILLIS); send(HostMessage.Ping) } }
         return this
     }
 
@@ -82,6 +83,7 @@ class SeatHost(private val seat: GameSeat, private val link: Link, private val o
                 GuestMessage.Leave -> { closing = true; onGuest(GuestEvent.Left); close(); return }
                 is GuestMessage.Hello -> Unit // said once, at the door
                 is GuestMessage.Mat -> guestMatFlow.value = message.mat
+                GuestMessage.Ping -> Unit
             }
         }
         lost("the connection to the guest was lost")

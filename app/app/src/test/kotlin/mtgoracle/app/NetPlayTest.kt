@@ -36,16 +36,98 @@ import kotlin.test.assertTrue
 class NetPlayTest {
     private val assets = File(System.getProperty("mtgoracle.forgeAssets"))
     private val dirs = mutableListOf<File>()
+    private val apps = mutableListOf<AppController>()
     @AfterTest fun clean() {
         // The games' logs are kept where a failure can be read.
         val keep = File(Scenario.home, "netplay-logs").also { it.deleteRecursively(); it.mkdirs() }
         dirs.forEachIndexed { i, dir -> File(dir, "game_logs").listFiles()?.forEach { it.copyTo(File(keep, "${if (i == 0) "host" else "guest"}-${it.name}"), overwrite = true) } }
+        // Each app's network side closes before its database goes: a leave or a recording still on its way would write to nothing.
+        apps.forEach { runCatching { it.net.close() } }
+        Thread.sleep(500)
         dirs.forEach { it.deleteRecursively() }
     }
 
     private fun waitFor(what: String, timeoutMillis: Long = 60_000, state: () -> String = { "" }, condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMillis
         while (!condition()) { check(System.currentTimeMillis() < deadline) { "timed out waiting for $what ${state()}" }; Thread.sleep(20) }
+    }
+
+    /** Two apps on copies of the database, the host's room on loopback, the guest seated at it from the invite. */
+    private fun seated(): Triple<AppController, AppController, mtgoracle.forge.RunningMatch> {
+        assumeTrue(DbFixture.available, "needs data/mtg.db")
+        Scenario.startForge()
+        var clipboard = ""
+        fun app(name: String) = AppController(AppPaths(DbFixture.copy().parentFile.also { dirs += it }, assets, forgeHome = Scenario.home)).apply {
+            writeClipboard = { clipboard = it }
+            readClipboard = { clipboard }
+            openRoom = { Opening.Opened(Room.local()) }
+            boot()
+            settings.playerName = name
+        }.also { apps += it }
+        val host = app("Alice")
+        val guest = app("Bob")
+        waitFor("Forge") { host.forgeReady && guest.forgeReady }
+        host.play.openLobby(host.decks.first { it.name == "Jori En" }.id)
+        host.play.format = MatchFormat.BO1
+        guest.play.openLobby(guest.decks.first { it.name == "Phelia Doggo" }.id)
+        host.net.act(NetAction.Host)
+        waitFor("the room") { host.net.state is NetState.Hosting }
+        guest.net.act(NetAction.Join)
+        waitFor("the match") { host.play.match != null && guest.net.guest?.seating?.value is Seating.Seated && guest.screen == Screen.Guest }
+        return Triple(host, guest, host.play.match!!)
+    }
+
+    private fun games(app: AppController, index: Int) =
+        GameStore(MtgDb(File(dirs[index], "mtg.db"))).played().filter { it.mode == GameMode.HUMAN_VS_HUMAN }
+
+    /** Both seats play until turn [turn]. */
+    private fun playTo(match: mtgoracle.forge.RunningMatch, remote: mtgoracle.net.RemoteSeat, turn: Int) {
+        listOf(match.seat, remote).map { seat -> thread { ScriptedSeat(seat, retryAfterMillis = 1500).play(timeoutMillis = 120_000) { match.over || (seat.board.value?.turn ?: 0) > turn } } }
+            .forEach { it.join() }
+    }
+
+    @Test
+    fun `a guest who leaves mid-game loses it, on both sides, and the room closes`() {
+        val (host, guest, match) = seated()
+        val remote = guest.net.guest!!
+        playTo(match, remote, 3)
+        assumeTrue(!match.over, "the game ended by itself before the guest could leave")
+        guest.net.leaveTable()
+        assertEquals(Screen.Lobby, guest.screen)
+        waitFor("the match over") { match.over }
+        waitFor("the host's row") { games(host, 0).isNotEmpty() }
+        waitFor("the guest's row") { games(guest, 1).isNotEmpty() }
+        assertEquals(Winner.ME, games(host, 0).single().winner, "the guest's leaving is their loss, not a draw or a break")
+        assertEquals(Winner.OPPONENT, games(guest, 1).single().winner, "and the guest records it as theirs")
+        waitFor("the host free again") { host.net.idle }
+    }
+
+    @Test
+    fun `a guest whose link goes is broken off with no winner, and a guest gone at once still ends the match`() {
+        val (host, guest, match) = seated()
+        val remote = guest.net.guest!!
+        playTo(match, remote, 2)
+        assumeTrue(!match.over, "the game ended by itself first")
+        guest.net.breakOffAfterCrash(null) // the guest's app broke: the link just closes
+        waitFor("the match over") { match.over }
+        waitFor("the host's row") { games(host, 0).isNotEmpty() }
+        assertEquals(null, games(host, 0).single().winner, "nobody chose the end: no winner")
+        waitFor("the host free again") { host.net.idle }
+        host.play.backToLobby()
+
+        // Again, the guest gone the moment it sat down: the match's end must still be heard, and the room closed.
+        host.net.act(NetAction.Host)
+        waitFor("the room") { host.net.state is NetState.Hosting }
+        guest.play.openLobby(guest.decks.first { it.name == "Phelia Doggo" }.id)
+        guest.net.act(NetAction.Join)
+        waitFor("seated again") { guest.net.guest?.seating?.value is Seating.Seated }
+        guest.net.breakOffAfterCrash(null)
+        // The host answers what Forge still asks (play or draw, a mulligan); the guest's seat concedes at its first question.
+        val second = host.play.match!!
+        thread(isDaemon = true) { ScriptedSeat(second.seat, retryAfterMillis = 1500).play(timeoutMillis = 60_000) { second.over } }
+        waitFor("the second match over", 60_000) { second.over }
+        assertEquals(null, games(host, 0).last().winner, "broken off: no winner")
+        waitFor("the host free again") { host.net.idle }
     }
 
     @Test
@@ -59,7 +141,7 @@ class NetPlayTest {
             openRoom = { Opening.Opened(Room.local()) }
             boot()
             settings.playerName = name
-        }
+        }.also { apps += it }
         val host = app("Alice")
         val guest = app("Bob")
         waitFor("Forge") { host.forgeReady && guest.forgeReady }

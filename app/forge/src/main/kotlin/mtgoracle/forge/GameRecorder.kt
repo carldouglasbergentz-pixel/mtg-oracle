@@ -143,7 +143,8 @@ class GameRecorder(val file: File) : Closeable {
     private fun write(kind: String, line: String) {
         if (closed) return // the engine can still be winding down after the report is written
         val ms = (System.nanoTime() - started) / 1_000_000
-        out.write("%8d %-5s %s".format(ms, kind, line.replace("\n", " | ")))
+        // One line per entry: a line break reads as " | ", any other control character (a peer's name, say) as "·".
+        out.write("%8d %-5s %s".format(ms, kind, line.replace("\n", " | ").map { if (it.isISOControl()) '·' else it }.joinToString("")))
         out.newLine()
         out.flush()
     }

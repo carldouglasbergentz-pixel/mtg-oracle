@@ -171,6 +171,18 @@ class RemoteSeatTest {
     }
 
     @Test
+    fun `a host that takes the connection and says nothing is given up on`() {
+        val listener = TcpLink.listenLocal().also { closing += it }
+        val guest = RemoteSeat(TcpLink.connectLocal(listener.port), "Bob", deck, "test").also { closing += it }.start()
+        listener.accept(5_000).also { closing += it } // accepted, and then silence: a frozen app
+        val started = System.currentTimeMillis()
+        val deadline = started + Wire.SILENCE_MILLIS
+        while (guest.seating.value !is Seating.Lost && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        assertIs<Seating.Lost>(guest.seating.value, "not knocking for ever")
+        assertTrue(System.currentTimeMillis() - started in (Wire.SILENCE_MILLIS / 3 - 2_000L)..(Wire.SILENCE_MILLIS / 3 + 5_000L))
+    }
+
+    @Test
     fun `a line past the limit closes the link instead of filling memory`() {
         val listener = TcpLink.listenLocal().also { closing += it }
         val sender = TcpLink.connectLocal(listener.port).also { closing += it }

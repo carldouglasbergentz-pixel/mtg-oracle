@@ -41,6 +41,8 @@ class Invite(val address: InetAddress, val port: Int, val secret: ByteArray) {
 
         /** An invite as a friend pasted it: case, spaces and the dashes don't matter. */
         fun parse(text: String): Invite {
+            // An invite is some sixty characters: whatever else the clipboard holds is not read through.
+            if (text.length > 200) throw InviteError("That is longer than any invite: copy just the invite your friend sent.")
             val plain = text.trim().uppercase().removePrefix("MTG").filter { it.isLetterOrDigit() }
             if (plain.isEmpty()) throw InviteError("That is no invite: an invite starts with MTG- and is groups of four letters and digits.")
             val bytes = Base32.decode(plain) ?: throw InviteError("That invite has a character no invite uses: check that it was copied whole.")

@@ -108,21 +108,36 @@ class RunningMatch internal constructor(
     fun leave() {
         leaving = true
         val last = resultFlow.value
-        if (last == null) gui.concedeNow()
+        // The other person's open question would hold Forge's game thread, and the concession behind it.
+        if (last == null) { guestGui?.standDown(); gui.concedeNow() }
+        else if (!last.matchOver) finishWith(last.copy(matchOver = true), replaceLast = true)
+    }
+
+    /**
+     * The second person leaves the match: the game on is theirs to lose, as a concession (unless they
+     * conceded it already), and no game follows. Between games, the match simply ends here.
+     */
+    fun guestLeaves() {
+        val guest = guestGui ?: return
+        leaving = true
+        val last = resultFlow.value
+        if (last == null) { if (!guest.conceded) { gui.standDown(); guest.concedeNow() } }
         else if (!last.matchOver) finishWith(last.copy(matchOver = true), replaceLast = true)
     }
 
     /**
      * Ends the match for a reason no one at the table chose: the other
-     * person's connection went. The game on stops with no winner, never as a
-     * concession, and no game follows.
+     * person's connection went, or an app broke. The game on stops, and is
+     * recorded with no winner and as no one's concession; no game follows.
      */
     fun breakOff(reason: String) {
         recorder.note("BROKEN OFF: $reason")
         brokenOff = reason
         leaving = true
         val last = resultFlow.value
-        if (last == null) { guestGui?.standDown(); gui.standDown(); gui.endAsDraw() }
+        // The game ends by the absent side's concession, which Forge takes at any moment (a draw set from outside
+        // did nothing before the game had begun); broken off, it is recorded with no winner all the same.
+        if (last == null) { guestGui?.standDown(); gui.standDown(); (guestGui ?: gui).concedeNow() }
         else if (!last.matchOver) finishWith(last.copy(matchOver = true), replaceLast = true)
     }
 
@@ -133,7 +148,8 @@ class RunningMatch internal constructor(
         val needed = spec.format.games / 2 + 1
         val over = leaving || hosted.isMatchOver || wins >= needed || losses >= needed || so.size + 1 >= spec.format.games
         val summary = brokenOff?.let { "broken off: $it" } ?: result.summary
-        finishWith(result.copy(gameNo = so.size + 1, conceded = gui.conceded, wins = wins, losses = losses, matchOver = over, summary = summary), replaceLast = false)
+        val broken = brokenOff != null
+        finishWith(result.copy(gameNo = so.size + 1, conceded = gui.conceded && !broken, wins = wins, losses = losses, matchOver = over, summary = summary, brokenOff = broken), replaceLast = false)
     }
 
     private fun finishWith(result: MatchResult, replaceLast: Boolean) {

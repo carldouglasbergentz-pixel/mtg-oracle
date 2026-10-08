@@ -36,16 +36,20 @@ internal object Addresses {
  */
 internal class Mapping(private val mapper: PortMapper, private val gateway: PortMapper.Gateway, val port: Int, private val leaseSeconds: Int) : AutoCloseable {
     @Volatile private var open = true
+    // A renewal already on its way to the router must not land after the close: it would open the port again for a lease.
+    private val lock = Any()
     private val renewer = if (leaseSeconds <= 0) null else thread(name = "upnp-lease-$port", isDaemon = true) {
         while (open) {
             try { Thread.sleep(leaseSeconds * 500L) } catch (e: InterruptedException) { break }
-            if (open) runCatching { mapper.open(gateway, port, leaseSeconds, Room.MAPPING_NAME) }
+            synchronized(lock) { if (open) runCatching { mapper.open(gateway, port, leaseSeconds, Room.MAPPING_NAME) } }
         }
     }
 
     override fun close() {
-        if (!open) return
-        open = false
+        synchronized(lock) {
+            if (!open) return
+            open = false
+        }
         renewer?.interrupt()
         runCatching { mapper.close(gateway, port) }
     }
