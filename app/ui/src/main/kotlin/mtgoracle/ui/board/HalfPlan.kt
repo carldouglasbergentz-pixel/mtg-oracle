@@ -115,8 +115,9 @@ fun planTable(
 }
 
 /**
- * The fewest bands that show every one of [zones]' cards at full width —
- * nothing overlapped, nothing scrolled — as planHalf would pack them, with
+ * The fewest bands that show every one of [zones]' cards, each overlapped
+ * no further than to two thirds of it and nothing scrolled, as planHalf
+ * would pack them, with
  * the back row on bands of its own: creatures stand in front of it. Sized by
  * its own cards, a sparse half got one band's rows, and its creatures and
  * lands shared it. An empty half needs one.
@@ -126,10 +127,16 @@ fun bandsNeeded(zones: List<ZoneContent>, cols: Int, most: Int = 6): Int {
         val plan = planHalf(zones, cols, b)
         val backBands = plan.slots.filter { it.zone in BACK_ROW }.map { it.band }.toSet()
         val mixed = plan.slots.any { it.zone !in BACK_ROW && it.band in backBands }
-        if (plan.bands <= b && !mixed && plan.scrolls.isEmpty() && plan.slots.all { s -> s.visible == zones.first { it.kind == s.zone }.widths[s.index] }) return b
+        // Stacked a little, as MTGO lays a long row, before a row of its own: the twelfth land took the whole table down a size.
+        val shown = plan.slots.all { s -> s.visible * VISIBLE_SHARE_OF >= zones.first { it.kind == s.zone }.widths[s.index] * VISIBLE_SHARE }
+        if (plan.bands <= b && !mixed && plan.scrolls.isEmpty() && shown) return b
     }
     return most
 }
+
+/** The least of a card an overlapped row may leave showing, as a fraction ([VISIBLE_SHARE] / [VISIBLE_SHARE_OF]): its name and most of its art. */
+const val VISIBLE_SHARE = 2
+const val VISIBLE_SHARE_OF = 3
 
 /** The fewest columns an overlapped card keeps showing: enough for its name's start. */
 const val MIN_VISIBLE_COLS = 7
@@ -157,14 +164,8 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int, centred: Boolea
     fun bandsOf(i: Int) = minOf(need(groups[i]), caps[i])
     val limit = maxOf(1, maxBands)
     while (groups.indices.sumOf { bandsOf(it) } > limit) {
-        // First: let neighbours share a band where they fit side by side (the middle zones before lands or creatures).
-        val merge = (0 until groups.size - 1)
-            .filter { need(groups[it] + groups[it + 1]) <= bandsOf(it) + bandsOf(it + 1) - 1 }
-            .minByOrNull { i -> if (groups[i].any { it.kind == ZoneKind.LANDS } || groups[i + 1].any { it.kind == ZoneKind.LANDS }) 1 else 0 }
-        if (merge != null) {
-            groups[merge].addAll(groups.removeAt(merge + 1)); caps[merge] = Int.MAX_VALUE; caps.removeAt(merge + 1); continue
-        }
-        // Then: take a band from the zone with the most, overlapping its cards instead.
+        // First: take a band from the row with the most, overlapping its cards instead. The creatures and the back
+        // row share a band only when each is down to one and there are still too many.
         val widest = groups.indices.maxBy { bandsOf(it) }
         if (bandsOf(widest) > 1) { caps[widest] = bandsOf(widest) - 1; continue }
         // Every group on one band and still too many: neighbours share and overlap.

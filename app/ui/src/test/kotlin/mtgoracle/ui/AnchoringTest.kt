@@ -82,7 +82,9 @@ class AnchoringTest {
             assertTrue(kotlin.math.abs(near.height - far.height) <= 20f, "a straight 50/50: $near, $far")
             val mine = d.registry[ClickTarget.Card(100)]!!
             // One frame for every card on the table: a creature, an enchantment and a land the same size.
-            for (id in listOf(111, 120)) assertEquals(mine.width, d.registry[ClickTarget.Card(id)]!!.width, 1f, "card $id is the creature's size")
+            // An overlapped card is clicked by its strip; the last of a row lies whole.
+            for (id in listOf(111, 128)) assertEquals(mine.width, d.registry[ClickTarget.Card(id)]!!.width, 1f, "card $id is the creature's size")
+            for (id in 120..128) assertEquals(mine.height, d.registry[ClickTarget.Card(id)]!!.height, 1f, "land $id is the creature's height")
             val held = d.registry.targets.filterIsInstance<ClickTarget.Card>().filter { it.id in listOf(20, 21, 22) }.mapNotNull { d.registry[it] }
             assertTrue(held.isNotEmpty() && held.all { it.height <= mine.height + 1f }, "no card in hand drawn larger than yours on the table: $mine vs $held")
             val ninth = d.registry[ClickTarget.Card(128)]
