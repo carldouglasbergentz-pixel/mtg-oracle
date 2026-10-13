@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-13
+
+Tokens pile, and the floating boxes keep out of the way. From 0.7.0, `update` installs it. Network play needs this version on both sides.
+
 ### Changed
+- **The choice box steps aside** from the cards a question is about (the creatures to choose between, the card clicked), tried right of the card, left, above, below and then mid-table, as the stack box steps aside. `ChoiceBoxTest`.
+- **A graveyard or exile panel opens where it covers no card**, along the table's sides, the graveyard from the left and exile from the right; one you placed stays where you put it. `ZonePanelTest`.
+- **A land is `new` only on its controller's turn**: on yours, the one the opponent played on theirs is no news, and piles with the others. `NewLandTest`.
+- **The hand has a floor**: no larger than your side's cards, but never smaller than the normal frames where the window has room for them, so a crowded table no longer shrinks the cards you hold to the compact ones. `HalfPlanTest`.
 - **Tokens alike pile once there are five**, as lands do: `Angel Token ×13` where thirteen Angels took a row of their own. Fewer lie one by one, one that differs (tapped, sick, a counter) lies apart, and while attackers or blockers are declared, or in combat, every token is its own card to pick or to block. `TokenPileTest`.
 
 ## [0.7.0] - 2026-10-13
