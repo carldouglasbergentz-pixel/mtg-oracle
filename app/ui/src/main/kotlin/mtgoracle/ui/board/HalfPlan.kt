@@ -52,22 +52,27 @@ data class HalfPlan(
 
 /**
  * A zone column's rows: the fixed parts (library, the two list headers, the
- * hand, the life block with its pool) always; then the graveyard and exile
- * lists get what is left, up to what they hold (the whole of either pops out
- * in a panel). Nothing is ever drawn over anything: a column shorter than
- * even the minimum scrolls instead. The stops are on the phase bar.
+ * hand, the life block with its pool) always; the stop ladder whole when
+ * there is room, else one line; then the graveyard and exile lists get what
+ * is left, up to what they hold (the whole of either pops out in a panel).
+ * Nothing is ever drawn over anything: a column shorter than even the
+ * minimum scrolls instead.
  */
-data class ZoneColumnPlan(val graveyardRows: Int, val exileRows: Int, val spare: Int)
+data class ZoneColumnPlan(val ladderRows: Int, val graveyardRows: Int, val exileRows: Int, val spare: Int)
+
+const val LADDER_FULL = 7
 /** Library, the graveyard and exile headers, the hand line (revealed cards on it too), the life block with its pool. */
 const val ZONE_FIXED_ROWS = 1 + 1 + 1 + 1 + 4
 const val MAX_GRAVEYARD_ROWS = 12
 const val MAX_EXILE_ROWS = 6
 
-fun planZoneColumn(rows: Int, graveyard: Int, exile: Int): ZoneColumnPlan {
-    var left = rows - ZONE_FIXED_ROWS - 1 - 1 // one line each, at least: graveyard, exile
+fun planZoneColumn(rows: Int, graveyard: Int, exile: Int, ladderWanted: Boolean): ZoneColumnPlan {
+    var left = rows - ZONE_FIXED_ROWS - 1 - 1 - 1 // one line each, at least: ladder, graveyard, exile
+    var ladder = 1
+    if (ladderWanted && left >= LADDER_FULL - 1) { ladder = LADDER_FULL; left -= LADDER_FULL - 1 }
     val g = 1 + maxOf(0, minOf(left, minOf(graveyard, MAX_GRAVEYARD_ROWS) - 1)).also { left -= it }
     val e = 1 + maxOf(0, minOf(left, minOf(exile, MAX_EXILE_ROWS) - 1)).also { left -= it }
-    return ZoneColumnPlan(g, e, maxOf(0, left))
+    return ZoneColumnPlan(ladder, g, e, maxOf(0, left))
 }
 
 /** How the table is sized: each half's frame tier and rows, and the hand pane's tier and rows. */

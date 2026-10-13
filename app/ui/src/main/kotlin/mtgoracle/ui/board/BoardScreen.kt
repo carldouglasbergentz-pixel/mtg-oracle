@@ -286,7 +286,7 @@ fun BoardScreen(
                                     bandsNeeded(zoneContents(Lanes(p.battlefield, looks), t), fieldCols - 2) * bandRows(t, attach(p)) + 2 + emblemRows(p) +
                                         if (handLane) FrameSize.rows(t) else 0
                                 val tiers = if (mode == CardMode.ART) FrameTier.entries else listOf(FrameTier.TEXT)
-                                planTable(rows - MIDLINE_ROWS - PHASE_BAR_ROWS, tiers, handRows = { FrameSize.rows(it) + 2 },
+                                planTable(rows - MIDLINE_ROWS, tiers, handRows = { FrameSize.rows(it) + 2 },
                                     farWants = { wants(far, it, handLane = showAllHands) }, nearWants = { wants(near, it, handLane = false) },
                                     halfFloor = ZONE_COLUMN_MIN_ROWS, previous = lastPlan[0]).also { lastPlan[0] = it }
                             }
@@ -297,9 +297,10 @@ fun BoardScreen(
                                         if (onTable && plan != null) {
                                             val (far, near) = sides!!
                                             val farZones = plan.farRows.coerceAtMost(rows - PROMPT_ROWS - ZONE_COLUMN_MIN_ROWS).coerceAtLeast(ZONE_COLUMN_MIN_ROWS)
-                                            PlayerZones(far, b!!, far = true, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().cellHeight(farZones))
+                                            val seatStops = if (b!!.seat != null) stops else null
+                                            PlayerZones(far, b, far = true, stops = seatStops, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().cellHeight(farZones))
                                             promptBox()
-                                            PlayerZones(near, b, far = false, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().weight(1f))
+                                            PlayerZones(near, b, far = false, stops = seatStops, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().weight(1f))
                                         } else promptBox()
                                     }
                                     // Its right border is the handle.
@@ -323,8 +324,6 @@ fun BoardScreen(
                                             MidRule(fieldCols, Modifier.region("midline").onGloballyPositioned { val r = it.boundsInWindow(); if (r != midline) midline = r })
                                             PlayerField(near, far = false, showHand = false, looks = nearLooks, modifier = Modifier.fillMaxWidth().cellHeight(plan.nearRows), mat = myMat)
                                         }
-                                        // The turn's steps and your stops, between the table and your hand, as MTGO's phase bar.
-                                        PhaseBar(if (b.seat != null) stops else null, b, near.id, fieldCols, onClick)
                                         val showNearHand = b.seat != null || showAllHands
                                         BoxPane(if (showNearHand) "hand (${near.handCount})" else "hand ${near.handCount} (hidden: H shows)",
                                             Modifier.fillMaxWidth().weight(1f).region("hand")) {
