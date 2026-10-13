@@ -142,7 +142,9 @@ data class Slot(val cards: List<CardState>, val attached: List<CardState>) {
  * or how the current prompt treats it — so a card that must be picked on its
  * own is on its own.
  */
-class Lanes(battlefield: List<CardState>, looks: Looks) {
+class Lanes(cards: List<CardState>, looks: Looks, ownTurn: Boolean = true) {
+    // A land is new only on its controller's turn: on yours, the one they played on theirs is no news, and piles as any.
+    private val battlefield = if (ownTurn) cards else cards.map { if (it.isLand && !it.isCreature && it.summoningSick) it.copy(summoningSick = false) else it }
     private val ids = battlefield.map { it.id }.toSet()
     private val onHosts = battlefield.filter { it.attachedToId != null && it.attachedToId in ids }
     private val loose = battlefield - onHosts.toSet()
@@ -215,8 +217,8 @@ fun PlayerZones(player: PlayerState, board: BoardState, far: Boolean, stops: Pha
 
 /** One player's battlefield, the far one mirrored. [mat] is the player's playmat under it; null for the plain table. */
 @Composable
-fun PlayerField(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier = Modifier, mat: Playmat? = null) {
-    Battlefield(player, far, showHand, looks, modifier.region("${if (far) "far" else "near"}-field"), mat)
+fun PlayerField(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier = Modifier, mat: Playmat? = null, ownTurn: Boolean = true) {
+    Battlefield(player, far, showHand, looks, modifier.region("${if (far) "far" else "near"}-field"), mat, ownTurn)
 }
 
 /** Rows of one band of a half: its label line, then a lane of cards. */
@@ -248,8 +250,8 @@ const val ZONE_COLUMN_MIN_ROWS = ZONE_FIXED_ROWS + 3 + 2
  * only a card arriving or leaving can re-plan its band.
  */
 @Composable
-private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier, mat: Playmat? = null) {
-    val lanes = Lanes(player.battlefield, looks)
+private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier, mat: Playmat? = null, ownTurn: Boolean = true) {
+    val lanes = Lanes(player.battlefield, looks, ownTurn)
     // No frame of its own: the midline and the zone column bound it, and a border here only took a row each side (a
     // drawn look made it an empty title bar). Clipped, so a scrolled half stops at its edge.
     Box(modifier.background(Palette.background).clipToBounds()) {

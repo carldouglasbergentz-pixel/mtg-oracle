@@ -287,7 +287,7 @@ fun BoardScreen(
                                 val (far, near) = sides!!
                                 val attach = { p: mtgoracle.core.model.PlayerState -> p.battlefield.any { it.attachedToId != null } }
                                 fun wants(p: mtgoracle.core.model.PlayerState, t: FrameTier, handLane: Boolean): Int =
-                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks), t), fieldCols) * bandRows(t, attach(p)) + emblemRows(p) +
+                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks, ownTurn = p.id == b?.activePlayerId), t), fieldCols) * bandRows(t, attach(p)) + emblemRows(p) +
                                         if (handLane) FrameSize.rows(t) else 0
                                 val tiers = if (mode == CardMode.ART) FrameTier.entries else listOf(FrameTier.TEXT)
                                 planTable(rows - MIDLINE_ROWS, tiers, handRows = { FrameSize.rows(it) + 2 },
@@ -324,9 +324,11 @@ fun BoardScreen(
                                         val farLooks = looks.sized(plan.farTier, attach(far))
                                         val nearLooks = looks.sized(plan.nearTier, attach(near))
                                         Column(Modifier.fillMaxWidth().cellHeight(plan.farRows + MIDLINE_ROWS + plan.nearRows).onGloballyPositioned { val r = it.boundsInWindow(); if (r != table) table = r }) {
-                                            PlayerField(far, far = true, showHand = showAllHands, looks = farLooks, modifier = Modifier.fillMaxWidth().cellHeight(plan.farRows), mat = theirMat)
+                                            PlayerField(far, far = true, showHand = showAllHands, looks = farLooks, modifier = Modifier.fillMaxWidth().cellHeight(plan.farRows), mat = theirMat,
+                                                ownTurn = far.id == b.activePlayerId)
                                             MidRule(fieldCols, Modifier.region("midline").onGloballyPositioned { val r = it.boundsInWindow(); if (r != midline) midline = r })
-                                            PlayerField(near, far = false, showHand = false, looks = nearLooks, modifier = Modifier.fillMaxWidth().cellHeight(plan.nearRows), mat = myMat)
+                                            PlayerField(near, far = false, showHand = false, looks = nearLooks, modifier = Modifier.fillMaxWidth().cellHeight(plan.nearRows), mat = myMat,
+                                                ownTurn = near.id == b.activePlayerId)
                                         }
                                         val showNearHand = b.seat != null || showAllHands
                                         BoxPane(if (showNearHand) "hand (${near.handCount})" else "hand ${near.handCount} (hidden: H shows)",

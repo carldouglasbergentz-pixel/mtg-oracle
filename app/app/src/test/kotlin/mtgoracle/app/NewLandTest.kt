@@ -43,6 +43,9 @@ class NewLandTest {
             assertEquals(2, piles.size, "two piles, not one of two: $piles")
             assertTrue("new" in piles.single { it.card.summoningSick }.card.face().stats.split(' '), "the new one says so")
             assertTrue("new" !in piles.single { !it.card.summoningSick }.card.face().stats.split(' '))
+            // On the opponent's turn (as the board draws it then) the land is no news, and piles with the other.
+            val theirTurn = Lanes(s.board.seat!!.battlefield, Looks(null, emptySet(), CardMode.ART, {}, {}), ownTurn = false).lands.filter { it.card.name == "Mishra's Factory" }
+            assertEquals(listOf(2), theirTurn.map { it.cards.size }, "one pile of two, neither new: $theirTurn")
             // Forge keeps the flag on a card in any zone: a land still in hand is not new on the table.
             val island = s.board.seat!!.hand.single { it.name == "Island" }
             assertTrue(!island.summoningSick && "new" !in island.face().stats.split(' '), "a land in hand says nothing: $island")
