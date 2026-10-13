@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-13
+
+The table, rebuilt after MTGO and Arena: the prompt in a column on the left with each player's zones, the hand under the table alone, two rows a side (creatures at the midline, the lands and other permanents at the edge) centred and of one card size, halves a straight 50/50. A question floats in a box beside the card it is about, a graveyard or exile pops out as a cascade, a land played this turn says `new`, and Space passes. From 0.6.0, `update` installs it. Network play needs this version on both sides.
+
 ### Added
 - **A question floats in a box beside what it is about.** A pick from a list (a planeswalker's abilities, a spell's modes, a land from a fetch), damage divided, a number, an order or a yes-or-no is answered in a box over the table: next to the card you just clicked, else in the middle, dragged by its top edge. A choice among cards shows their frames. The left column says the question and where it is answered; priority, targets on the table, paying mana and sideboarding stay there. `ChoiceBoxTest`.
 - **A graveyard or exile pops out over the table.** Click its header in the zone column (`graveyard 2 ▸`) and the zone floats in a panel of its own, a cascade down as MTGO draws one: each card over the one before with its name showing, the last put there whole at the bottom (it opens there when it scrolls): hover one to see it in the zoom pane, click it to answer a prompt that wants a card from there. Drag the panel by its top edge (the place is kept), close it with its `×` or the header. Both players' graveyards and exiles can be open at once; a face-down exiled card stays a back. `ZonePanelTest`.
