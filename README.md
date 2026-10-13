@@ -32,11 +32,12 @@ The command line (`:` or Ctrl+K) does the lookups; `help` lists every command an
 | | |
 |---|---|
 | Lookup | `card`, `ruling`, `rule`, `search-rules`, `correction` |
-| Search | `search <query>`, or any line that is no command; `next` / `prev` / `page N` |
+| Search | `search <query>`, or any line that is no command; `next` / `prev` / `page N`; `sort <layers>` |
 | Combos | `combo <card>`, `combos A; B`, `combo-info <id>`, `combo add` / `combo remove` |
 | Decks | `cd`, `add [--sb] [--force]`, `remove`, `consider`, `commander`, `undo`, `history` |
 | Analysis | `profile [<deck>\|<folder>]`, `compare <deck>\|<folder>` |
 | Games | `results [<deck>]` |
+| Limited | `sealed <set>` |
 | The app | `sync`, `update`, `guide`, `prune` |
 
 A card name in any output opens its profile when clicked, and shows the card in the zoom pane on hover. Card names are forgiving: `lim-duls vault`, `thassas oracle` and `fire/ice` all resolve.
@@ -49,9 +50,10 @@ kw:flying (c:w or c:u) -t:artifact
 ci<=BG t:creature order:asc_mv
 f:canlander t:land order:desc_mv
 otag:removal c:w mv<=2
+like:"llanowar elves" f:premodern
 ```
 
-Free text matches the name, type line or oracle text; fields are `o:` `t:` `n:` `n=` `kw:` `c:` `c=` `ci:` `mv:` `pow:` `tou:` `r:` `m:` `layout:` `otag:` `is:` `f:` `banned:` `restricted:` `game:`, with comparisons, `or`, `-`, parentheses and `order:`. Inside a deck, a search finds only what the deck can play.
+Free text matches the name, type line or oracle text; fields are `o:` `t:` `n:` `n=` `kw:` `c:` `c=` `ci:` `mv:` `pow:` `tou:` `r:` `m:` `layout:` `otag:` `is:` `f:` `banned:` `restricted:` `game:`, with comparisons, `or`, `-`, parentheses and `order:`. `like:<card>` finds the cards most like one, by what they do (Scryfall Tagger's tags), then kind, words, mana value and colours; a deck row's menu has "find similar". Results are laid out by colour, then type, then mana value (click the header's slots, or `sort type mv`), one search at a time. Inside a deck, a search finds only what the deck can play, `like:` included.
 
 ### Analysis
 
@@ -63,9 +65,13 @@ The **lobby** pairs your deck with an opponent of the same game type and sets th
 
 - **Against Forge's AI.** The AI plays its *AI copy* of a deck when it has one: cards it can't play swapped for substitutes. In the deck builder, a card the AI won't play or Forge lacks is flagged, and its `[!]` goes straight to choosing a substitute.
 - **Watch** the AI play your deck, or **simulate** a number of AI-vs-AI games without a board, each recorded.
-- **The board** is a table of type zones in the app's own style, with card art and a zoom pane, a floating stack, phase stops (F2 pass, F4 end turn, F6 skip the turn), a game log of the whole match, and nothing hidden shown to you that a real table wouldn't.
+- **The board** is laid out as MTGO's: a column on the left with each player's zones and stops and the prompt between them, the table to its right, your hand under it. Each side has two rows, the creatures at the midline and the lands with the other permanents at the edge, centred, in one card size; tokens alike pile. A question about a card (a planeswalker's abilities, a land from a fetch, damage to divide) floats in a box beside it; a graveyard or exile pops out as a cascade. A floating stack, a zoom pane, a game log of the whole match, and nothing hidden shown to you that a real table wouldn't. **Space** passes (F2 pass, F4 end turn, F6 skip the turn).
 - **Results.** Every game is recorded; `results` and the lobby show your record against each deck, played and simulated apart.
 - **Achievements.** Forge's achievements, earned as you play, in a view of their own.
+
+### Sealed
+
+The lobby's **limited** tab opens a sealed pool: six packs of a set Forge has boosters for, for you and for the AI, each its own. Build forty cards from yours (the deck's search is what is left of the pool, laid out by colour, type and mana value), and play the deck the AI builds from its own, or simulate games against it; the tab keeps your record. A friend can join a sealed table over the network: each side opens its own pool from a seed neither steers, and both check it.
 
 ### Playing a friend
 
@@ -157,8 +163,8 @@ Play from a snapshot, not `gradlew :app:run`: a build replaces the class files u
 ### A release
 
 ```bat
-gradlew :app:packageRelease -PreleaseVersion=0.5.1
-gh release create v0.5.1 <zip> <zip>.sha256
+gradlew :app:packageRelease -PreleaseVersion=x.y.z
+gh release create vx.y.z <zip> <zip>.sha256
 ```
 
 This builds `app\app\build\release\MTG Oracle\` and its zip (about 150 MB) with a `.sha256` beside it: `MTG Oracle.exe` (the window), `mtg.exe` (the command line), `runtime\` (a Java of its own), `app\` (the jars, Forge's assets, the points lists), and `LICENSE.txt`, `NOTICE.txt` and `FORGE-SOURCE.txt` (the Forge commit inside, whose source the GPL says goes with it: it must be pushed to the fork). A release is built from a clean tree (`-PallowDirty` for a trial), versioned `0.5.1+<commit>`, and published from a pushed tag; without its `.sha256` it can't be installed by `update`.
