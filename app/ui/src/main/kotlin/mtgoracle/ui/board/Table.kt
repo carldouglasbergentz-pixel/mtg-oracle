@@ -23,6 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.PaneDrag
@@ -222,7 +224,9 @@ const val ZONE_COLUMN_MIN_ROWS = ZONE_FIXED_ROWS + 3 + 2
 @Composable
 private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier, mat: Playmat? = null) {
     val lanes = Lanes(player.battlefield, looks)
-    BoxPane(null, modifier) {
+    // No frame of its own: the midline and the zone column bound it, and a border here only took a row each side (a
+    // drawn look made it an empty title bar). Clipped, so a scrolled half stops at its edge.
+    Box(modifier.background(Palette.background).clipToBounds()) {
         // The mat under everything on the battlefield; the cards' frames keep their own background over it.
         mat?.let { PlaymatLayer(it) }
         BoxWithConstraints(Modifier.fillMaxSize()) {

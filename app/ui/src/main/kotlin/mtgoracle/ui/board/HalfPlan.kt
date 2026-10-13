@@ -85,44 +85,29 @@ private const val HAND_SHARE = 4
  * The frame sizes and heights for the table, out of [rows] (the halves and
  * the hand pane). [tiers] runs from the largest frames to the smallest.
  *
- * The halves share the rows: both take the largest frames that show their
- * cards together, then the one that still has room grows larger (yours, the
- * near half, first), and the rows left over are split evenly. A half with few
- * cards lends the rest: three lands opposite need not cost your creatures
- * their size. Each half keeps at least [halfFloor] rows (its zone column).
+ * The halves are always the same size, a straight 50/50, and only the cards
+ * shrink: each half takes the largest frames that show its own cards in its
+ * half, so one side's cards can be larger than the other's, and nothing
+ * moves as cards come and go. Each half keeps at least [halfFloor] rows.
  *
  * The hand takes the largest frames that leave it at most a quarter of the
  * table, and never larger than your half's: the cards you hold are not
  * drawn bigger than the ones you play. When no frames fit, the smallest
  * overlap.
  *
- * [previous] is the plan the table has now. While the same frames still fit
- * in its halves, its midline stays where it is: it moves when a half's
- * frames change size, not with every card that comes or goes.
- *
- * [farWants] / [nearWants] are the rows a half needs at a tier, border
- * included; [handRows] the hand pane's.
+ * [farWants] / [nearWants] are the rows a half needs at a tier; [handRows]
+ * the hand pane's.
  */
 fun planTable(
     rows: Int, tiers: List<FrameTier>, handRows: (FrameTier) -> Int,
     farWants: (FrameTier) -> Int, nearWants: (FrameTier) -> Int, halfFloor: Int,
-    previous: TablePlan? = null,
 ): TablePlan {
     fun halves(hand: FrameTier): TablePlan {
         val handRowsHere = handRows(hand)
-        val field = rows - handRowsHere
-        fun fits(far: FrameTier, near: FrameTier) =
-            farWants(far) + nearWants(near) <= field && farWants(far) <= field - halfFloor && nearWants(near) <= field - halfFloor
-        val both = tiers.firstOrNull { fits(it, it) }
-            ?: return TablePlan(tiers.last(), tiers.last(), hand, handRowsHere, field / 2, field - field / 2)
-        val near = tiers.first { fits(both, it) }
-        val far = tiers.first { fits(it, near) }
-        val kept = previous?.takeIf {
-            it.farTier == far && it.nearTier == near && it.farRows + it.nearRows == field &&
-                it.farRows >= maxOf(halfFloor, farWants(far)) && it.nearRows >= maxOf(halfFloor, nearWants(near))
-        }
-        val farRows = kept?.farRows ?: (farWants(far) + (field - farWants(far) - nearWants(near)) / 2).coerceIn(halfFloor, field - halfFloor)
-        return TablePlan(near, far, hand, handRowsHere, farRows, field - farRows)
+        val far = (rows - handRowsHere) / 2
+        val near = rows - handRowsHere - far
+        fun tierFor(rowsHere: Int, wants: (FrameTier) -> Int) = tiers.firstOrNull { wants(it) <= rowsHere } ?: tiers.last()
+        return TablePlan(tierFor(near, nearWants), tierFor(far, farWants), hand, handRowsHere, far, near)
     }
     val hands = tiers.filter { handRows(it) * HAND_SHARE <= rows && (rows - handRows(it)) / 2 >= halfFloor }.ifEmpty { listOf(tiers.last()) }
     // The largest hand no larger than the near half's frames; a smaller hand leaves the halves more rows, so look on down.

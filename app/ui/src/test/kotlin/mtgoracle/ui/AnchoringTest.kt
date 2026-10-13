@@ -17,8 +17,8 @@ import kotlin.test.assertTrue
 /**
  * A physical table, built from the middle out: each player's lands in an
  * area of their own at their edge, the other permanents from the midline,
- * the free rows between, and every row centred across. The halves share
- * the rows: a crowded side takes what a sparse one doesn't need.
+ * the free rows between, and every row centred across. The halves are
+ * even: a straight 50/50.
  */
 class AnchoringTest {
     private val art = ArtImages(FakeArt(File(pngDir, "fake-art")))
@@ -66,7 +66,7 @@ class AnchoringTest {
     }
 
     @Test
-    fun `a crowded side takes the rows a sparse one doesn't need - frames no smaller than the hand's`() {
+    fun `a crowded side against a sparse one - even halves, every card on the board, the hand no larger`() {
         // As at the office (2230 x 1351 at 125 %): three creatures, a planeswalker, an enchantment and nine lands of yours, three lands of theirs.
         val creatures = (0 until 3).map { card(100 + it, "Human Token $it", creature = true) }
         val others = listOf(card(110, "Teferi, Hero of Dominaria", type = "Legendary Planeswalker - Teferi", cost = "{3}{W}{U}"),
@@ -79,7 +79,7 @@ class AnchoringTest {
             d.settle(5)
             val near = d.registry[ClickTarget.Control("region:near-field")]!!
             val far = d.registry[ClickTarget.Control("region:far-field")]!!
-            assertTrue(near.height > far.height, "your crowded half has more of the table than their three lands: $near, $far")
+            assertTrue(kotlin.math.abs(near.height - far.height) <= 20f, "a straight 50/50: $near, $far")
             val mine = d.registry[ClickTarget.Card(100)]!!
             val held = d.registry.targets.filterIsInstance<ClickTarget.Card>().filter { it.id in listOf(20, 21, 22) }.mapNotNull { d.registry[it] }
             assertTrue(held.isNotEmpty() && held.all { it.height <= mine.height + 1f }, "no card in hand drawn larger than yours on the table: $mine vs $held")

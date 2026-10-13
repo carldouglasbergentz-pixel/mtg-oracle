@@ -134,8 +134,6 @@ fun BoardScreen(
     var arrangement by remember { mutableStateOf(layout) }
     // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
     val lastTotal = remember { intArrayOf(Int.MAX_VALUE) }
-    // The table plan the board has now: the next one keeps its midline while the same frames still fit (planTable).
-    val lastPlan = remember { arrayOfNulls<TablePlan>(1) }
     val focus = remember { FocusRequester() }
     // The stack box needs to know where the cards are even in the real window, where nobody else asks.
     val registry = LocalClickRegistry.current ?: remember { ClickRegistry() }
@@ -277,18 +275,18 @@ fun BoardScreen(
                         }
                         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                             val rows = cells.rows(constraints.maxHeight.toFloat())
-                            // The frame sizes of both halves and the hand (planTable): the halves share the rows, the
-                            // hand no larger than your half's frames, and the midline where it was while the frames fit.
+                            // The frame sizes of both halves and the hand (planTable): even halves, each with the largest
+                            // frames that show its own cards, and the hand no larger than your half's.
                             val plan = if (!onTable) null else {
                                 val (far, near) = sides!!
                                 val attach = { p: mtgoracle.core.model.PlayerState -> p.battlefield.any { it.attachedToId != null } }
                                 fun wants(p: mtgoracle.core.model.PlayerState, t: FrameTier, handLane: Boolean): Int =
-                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks), t), fieldCols - 2) * bandRows(t, attach(p)) + 2 + emblemRows(p) +
+                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks), t), fieldCols) * bandRows(t, attach(p)) + emblemRows(p) +
                                         if (handLane) FrameSize.rows(t) else 0
                                 val tiers = if (mode == CardMode.ART) FrameTier.entries else listOf(FrameTier.TEXT)
                                 planTable(rows - MIDLINE_ROWS, tiers, handRows = { FrameSize.rows(it) + 2 },
                                     farWants = { wants(far, it, handLane = showAllHands) }, nearWants = { wants(near, it, handLane = false) },
-                                    halfFloor = ZONE_COLUMN_MIN_ROWS, previous = lastPlan[0]).also { lastPlan[0] = it }
+                                    halfFloor = ZONE_COLUMN_MIN_ROWS)
                             }
                             Row(Modifier.fillMaxSize()) {
                                 // MTGO's left column: the opponent's zones level with their half, the prompt, your zones down to the bottom.
