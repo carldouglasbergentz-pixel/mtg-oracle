@@ -39,10 +39,14 @@ class SettingsTest {
     }
 
     @Test
-    fun `the board's arrangement - stack box, fold, pane widths - survives a restart`() {
-        val layout = BoardLayout(stackCol = 12, stackRow = 30, stackCollapsed = true, zoneCols = 36, sideCols = 58, rotateTapped = false)
+    fun `the board's arrangement - stack box, fold, pane widths, zone panels - survives a restart`() {
+        val layout = BoardLayout(stackCol = 12, stackRow = 30, stackCollapsed = true, zoneCols = 36, sideCols = 58, rotateTapped = false,
+            panels = mapOf("near-graveyard" to (40 to 20), "far-exile" to (3 to 5)))
         Settings(paths.settings).boardLayout = layout
         assertEquals(layout, Settings(paths.settings).boardLayout)
+        // A panel no longer in the layout leaves no key behind in the file.
+        Settings(paths.settings).boardLayout = layout.copy(panels = mapOf("far-exile" to (3 to 5)))
+        assertEquals(mapOf("far-exile" to (3 to 5)), Settings(paths.settings).boardLayout.panels)
         assertEquals(BoardLayout(), Settings(File(data, "missing.properties")).boardLayout, "no file: the defaults")
     }
 

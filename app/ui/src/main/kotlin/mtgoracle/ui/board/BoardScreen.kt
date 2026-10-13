@@ -158,11 +158,17 @@ fun BoardScreen(
         out.command?.let { seat?.command(it) }
     }
     var menuOpen by remember { mutableStateOf(false) }
+    // The graveyard and exile panels popped out over the table (ZonePanel), opened by their zone column's header.
+    var openPanels by remember { mutableStateOf(listOf<ZonePanelKey>()) }
+    val panelKeys = listOf(false, true).flatMap { far -> PileZone.entries.map { ZonePanelKey(far, it) } }
     val showResult = match != null && match.betweenGames && prompt !is SideboardPrompt
     val onClick: (ClickTarget) -> Unit = { target ->
         when {
             target is ClickTarget.Stop -> seat?.setStops(stops.toggled(target.seatsTurn, target.step))
             target == ClickTarget.Control("stack-bar") -> openStack()
+            // The last opened is drawn on top.
+            panelKeys.any { it.toggle == target } -> panelKeys.first { it.toggle == target }.let { k -> openPanels = if (k in openPanels) openPanels - k else openPanels + k }
+            panelKeys.any { it.close == target } -> openPanels = openPanels - panelKeys.first { it.close == target }
             target == MatchTargets.OPEN_MENU -> menuOpen = matchControls != null
             target == MatchTargets.CANCEL -> menuOpen = false
             target == MatchTargets.CONCEDE_GAME -> { menuOpen = false; matchControls?.onConcedeGame?.invoke() }
@@ -324,6 +330,11 @@ fun BoardScreen(
                 StackLayer(b, sides.first.id, prompt, mode, cells, registry, arrangement, ::arrange, midline, header, table, leftCols, totalCols, totalRows, onClick, onHover,
                     forceOpen = stackOpenFor != null && stackOpenFor == prompt?.id, onAutoFolded = { stackAutoFolded = it })
             } else if (stackAutoFolded) SideEffect { stackAutoFolded = false }
+            if (b != null && sides != null && table != Rect.Zero && prompt !is SideboardPrompt) {
+                for (key in openPanels) {
+                    ZonePanelLayer(key, if (key.far) sides.first else sides.second, looks, cells, arrangement, ::arrange, midline, table, panes.zoneCols, totalCols, totalRows)
+                }
+            }
             // A first game's tips, at the top of the table, out of the cards' way as far as it can be.
             if (tips.isNotEmpty() && !showResult && !menuOpen) {
                 BoardTips(tips, onTipsDone, Modifier.align(Alignment.TopCenter).offset { IntOffset(0, (3 * cells.height).roundToInt()) })
@@ -397,6 +408,40 @@ private fun StackLayer(
             arrange(arrangement.copy(stackCol = c, stackRow = r))
         },
         modifier = Modifier.offset { IntOffset((col * cells.width + drag.x).roundToInt(), (shownRow * cells.height + drag.y).roundToInt()) },
+    )
+}
+
+/**
+ * A graveyard or exile panel, floating. Where the viewer put it, or beside
+ * its zone column at its player's edge of the table; dragged by its top
+ * edge, the new place the viewer's, persisted, and kept inside the window.
+ */
+@Composable
+private fun ZonePanelLayer(
+    key: ZonePanelKey, player: mtgoracle.core.model.PlayerState, looks: Looks, cells: Cells, arrangement: BoardLayout, arrange: (BoardLayout) -> Unit,
+    midline: Rect, table: Rect, zoneCols: Int, totalCols: Int, totalRows: Int,
+) {
+    var drag by remember(key) { mutableStateOf(Offset.Zero) }
+    val count = panelCards(player, key.zone).size
+    val cols = zonePanelCols(count, looks.mode)
+    // At most the player's half of the table, then it scrolls.
+    val half = if (key.far) midline.top - table.top else table.bottom - midline.bottom
+    val rows = zonePanelRows(count, looks.mode, maxRows = maxOf(5, cells.rows(half)))
+    val defaultRow = if (key.far) cells.rows(table.top) else cells.rows(table.bottom) - rows
+    val defaultCol = zoneCols + if (key.zone == PileZone.GRAVEYARD) 1 else 3
+    val (wantCol, wantRow) = arrangement.panels[key.id] ?: (defaultCol to defaultRow)
+    val col = clampCells(wantCol, cols, totalCols)
+    val row = clampCells(wantRow, rows, totalRows)
+    ZonePanel(
+        key, player, looks, rows,
+        onDrag = { drag += it },
+        onDragEnd = {
+            val c = clampCells(((col * cells.width + drag.x) / cells.width).roundToInt(), cols, totalCols)
+            val r = clampCells(((row * cells.height + drag.y) / cells.height).roundToInt(), rows, totalRows)
+            drag = Offset.Zero
+            arrange(arrangement.copy(panels = arrangement.panels + (key.id to (c to r))))
+        },
+        modifier = Modifier.offset { IntOffset((col * cells.width + drag.x).roundToInt(), (row * cells.height + drag.y).roundToInt()) },
     )
 }
 

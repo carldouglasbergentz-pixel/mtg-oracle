@@ -421,8 +421,8 @@ private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, sto
                 // At the midline: hand, phase stops, life.
                 val zones = listOf<@Composable () -> Unit>(
                     { GridText(fit("library ${player.libraryCount}", inner)) },
-                    { ZoneList("graveyard ${player.graveyard.size}", player.graveyard.asReversed(), inner, plan.graveyardRows, looks) }, // top card first
-                    { ZoneList(exileTitle(player), player.command + player.exile, inner, plan.exileRows, looks) },
+                    { ZoneList("graveyard ${player.graveyard.size}", panelCards(player, PileZone.GRAVEYARD), inner, plan.graveyardRows, looks, ZonePanelKey(far, PileZone.GRAVEYARD)) }, // top card first
+                    { ZoneList(exileTitle(player), panelCards(player, PileZone.EXILE), inner, plan.exileRows, looks, ZonePanelKey(far, PileZone.EXILE)) },
                 )
                 val self = listOf<@Composable () -> Unit>(
                     { HandCount(player, inner, looks) },
@@ -515,8 +515,9 @@ private fun HandCount(player: PlayerState, inner: Int, looks: Looks) {
 
 /** A titled list of [rows] fixed rows; it scrolls inside when longer. */
 @Composable
-private fun ZoneList(title: String, cards: List<CardState>, inner: Int, rows: Int, looks: Looks) {
-    GridText(fit(title, inner), color = Palette.dim, bold = true)
+private fun ZoneList(title: String, cards: List<CardState>, inner: Int, rows: Int, looks: Looks, panel: ZonePanelKey) {
+    // The header opens the zone in a panel of its own, every card in its frame (ZonePanel).
+    GridText(fit("$title ▸", inner), Modifier.clickTarget(panel.toggle, looks.onClick).region("zone-header-${panel.id}"), color = Palette.dim, bold = true)
     Box(Modifier.cells(inner, rows)) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             cards.forEach { card -> CardChip(card.face(), looks.emphasis(card), ClickTarget.Card(card.id), looks.onClick, looks.onHover, looks.mark(card)) }

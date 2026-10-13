@@ -99,6 +99,10 @@ class Settings(private val file: File) {
                 sideCols = props.getProperty("pane.sideCols")?.toIntOrNull() ?: d.sideCols,
                 rotateTapped = props.getProperty("board.rotateTapped")?.let { it == "true" } ?: d.rotateTapped,
                 logSteps = props.getProperty("board.logSteps")?.let { it == "true" } ?: d.logSteps,
+                panels = props.stringPropertyNames().filter { it.startsWith("zonePanel.") }.mapNotNull { k ->
+                    val (c, r) = props.getProperty(k).split(',').map { it.trim().toIntOrNull() }.let { it.getOrNull(0) to it.getOrNull(1) }
+                    if (c == null || r == null) null else k.removePrefix("zonePanel.") to (c to r)
+                }.toMap(),
             )
         }
         set(value) {
@@ -106,6 +110,8 @@ class Settings(private val file: File) {
             put("stackBox.col", value.stackCol); put("stackBox.row", value.stackRow); put("stackBox.folded", value.stackCollapsed)
             put("pane.zoneCols", value.zoneCols); put("pane.sideCols", value.sideCols); put("board.rotateTapped", value.rotateTapped)
             put("board.logSteps", value.logSteps)
+            props.stringPropertyNames().filter { it.startsWith("zonePanel.") }.forEach { props.remove(it) }
+            value.panels.forEach { (id, at) -> put("zonePanel.$id", "${at.first},${at.second}") }
             save()
         }
 

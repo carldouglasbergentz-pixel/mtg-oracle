@@ -21,6 +21,8 @@ data class BoardLayout(
     val rotateTapped: Boolean = true,
     /** The log pane shows each step of a turn (L); off, only what happened: most of a game's lines are steps. */
     val logSteps: Boolean = true,
+    /** Where each graveyard and exile panel was dragged, in cells from the window's corner, by ZonePanelKey.id; absent: beside its zone column. */
+    val panels: Map<String, Pair<Int, Int>> = emptyMap(),
 )
 
 /** [pos] kept inside a window of [total] cells for something [size] cells long. */
