@@ -78,6 +78,9 @@ fun planZoneColumn(rows: Int, graveyard: Int, exile: Int, ladderWanted: Boolean)
 /** How the table is sized: each half's frame tier and rows, and the hand pane's tier and rows. */
 data class TablePlan(val nearTier: FrameTier, val farTier: FrameTier, val handTier: FrameTier, val handRows: Int, val farRows: Int, val nearRows: Int)
 
+/** The smallest frames the hand steps down to with a crowded table: the cards you hold stay readable. */
+val HAND_FLOOR = FrameTier.FULL
+
 /** The most of the table the hand pane takes: a quarter. */
 private const val HAND_SHARE = 4
 
@@ -92,7 +95,9 @@ private const val HAND_SHARE = 4
  *
  * The hand takes the largest frames that leave it at most a quarter of the
  * table, and never larger than your half's: the cards you hold are not
- * drawn bigger than the ones you play. When no frames fit, the smallest
+ * drawn bigger than the ones you play. But never smaller than [HAND_FLOOR]
+ * either, where the window has room for it: a crowded table took the hand
+ * down to the compact frames with it. When no frames fit, the smallest
  * overlap.
  *
  * [farWants] / [nearWants] are the rows a half needs at a tier; [handRows]
@@ -110,8 +115,9 @@ fun planTable(
         return TablePlan(tierFor(near, nearWants), tierFor(far, farWants), hand, handRowsHere, far, near)
     }
     val hands = tiers.filter { handRows(it) * HAND_SHARE <= rows && (rows - handRows(it)) / 2 >= halfFloor }.ifEmpty { listOf(tiers.last()) }
-    // The largest hand no larger than the near half's frames; a smaller hand leaves the halves more rows, so look on down.
-    return hands.map(::halves).firstOrNull { tiers.indexOf(it.handTier) >= tiers.indexOf(it.nearTier) } ?: halves(hands.last())
+    // The largest hand no larger than the near half's frames, or the floor; a smaller hand leaves the halves more rows, so look on down.
+    val floor = tiers.indexOf(HAND_FLOOR).takeIf { it >= 0 } ?: tiers.lastIndex
+    return hands.map(::halves).firstOrNull { tiers.indexOf(it.handTier) >= minOf(tiers.indexOf(it.nearTier), floor) } ?: halves(hands.last())
 }
 
 /**

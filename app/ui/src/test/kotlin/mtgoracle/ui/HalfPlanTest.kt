@@ -62,7 +62,8 @@ class HalfPlanTest {
                 assertTrue(kotlin.math.abs(p.farRows - p.nearRows) <= 1, "the halves are even at $total rows: $p")
                 assertEquals(total, p.handRows + p.farRows + p.nearRows)
                 assertTrue(p.handRows * 4 <= total || p.handTier == tiers.last(), "the hand takes at most a quarter at $total: $p")
-                assertTrue(tiers.indexOf(p.handTier) >= tiers.indexOf(p.nearTier), "the hand is no larger than your half at $total: $p")
+                val floor = tiers.indexOf(mtgoracle.ui.board.HAND_FLOOR)
+                assertTrue(tiers.indexOf(p.handTier) >= minOf(tiers.indexOf(p.nearTier), floor), "the hand is no larger than your half, or the floor, at $total: $p")
             }
             // The hand follows your half's frames, so an edge moves only when those change size, never with a card that doesn't.
             if (sparse.nearTier == crowded.nearTier) assertEquals(sparse.farRows, crowded.farRows, "no edge moved, at $total rows")
@@ -71,6 +72,10 @@ class HalfPlanTest {
         // 80 rows: one band large or bigger, three bands smaller, the halves the same.
         val roomy = table(80, 1, 3)
         assertTrue(roomy.farTier.ordinal < roomy.nearTier.ordinal, "the opponent's single band takes larger frames: $roomy")
+        // A crowded half of compact frames: the hand keeps the normal ones, where the window has room for them.
+        val crowdedHand = table(60, 1, 3)
+        assertTrue(crowdedHand.nearTier.ordinal > mtgoracle.ui.kit.FrameTier.FULL.ordinal, "the half is crowded: $crowdedHand")
+        assertEquals(mtgoracle.ui.kit.FrameTier.FULL, crowdedHand.handTier, "the hand stops at the floor: $crowdedHand")
         // Too small for any: the smallest frames, and overlap takes the rest.
         assertEquals(mtgoracle.ui.kit.FrameTier.TEXT, table(20, 1, 3).nearTier)
     }
