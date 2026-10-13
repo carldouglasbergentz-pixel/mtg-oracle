@@ -89,9 +89,11 @@ private const val HAND_SHARE = 4
  * the hand pane). [tiers] runs from the largest frames to the smallest.
  *
  * The halves are always the same size, a straight 50/50, and only the cards
- * shrink: each half takes the largest frames that show its own cards in its
- * half, so one side's cards can be larger than the other's, and nothing
- * moves as cards come and go. Each half keeps at least [halfFloor] rows.
+ * shrink: the whole table takes the largest frames that show both halves'
+ * cards, each in its own half, so a card is the same size on either side.
+ * Picked half by half, a side of one row was drawn large and overlapped
+ * while the other side's two rows went compact. Each half keeps at least
+ * [halfFloor] rows.
  *
  * The hand takes the largest frames that leave it at most a quarter of the
  * table, and never larger than your half's: the cards you hold are not
@@ -112,7 +114,9 @@ fun planTable(
         val far = (rows - handRowsHere) / 2
         val near = rows - handRowsHere - far
         fun tierFor(rowsHere: Int, wants: (FrameTier) -> Int) = tiers.firstOrNull { wants(it) <= rowsHere } ?: tiers.last()
-        return TablePlan(tierFor(near, nearWants), tierFor(far, farWants), hand, handRowsHere, far, near)
+        // One size for the table: the smaller of what each half fits.
+        val table = tiers[maxOf(tiers.indexOf(tierFor(near, nearWants)), tiers.indexOf(tierFor(far, farWants)))]
+        return TablePlan(table, table, hand, handRowsHere, far, near)
     }
     val hands = tiers.filter { handRows(it) * HAND_SHARE <= rows && (rows - handRows(it)) / 2 >= halfFloor }.ifEmpty { listOf(tiers.last()) }
     // The largest hand no larger than the near half's frames, or the floor; a smaller hand leaves the halves more rows, so look on down.

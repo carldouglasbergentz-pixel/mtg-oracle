@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **A card is the same size on either side of the table**: the whole table takes the largest frames both halves fit. Picked half by half, a side of one row was drawn large and overlapped while the other side's two rows went compact. `AnchoringTest`, `HalfPlanTest`.
+
 ## [0.7.1] - 2026-10-13
 
 Tokens pile, and the floating boxes keep out of the way. From 0.7.0, `update` installs it. Network play needs this version on both sides.

@@ -94,6 +94,23 @@ class AnchoringTest {
     }
 
     @Test
+    fun `a card is the same size on either side - one row of yours, two of theirs`() {
+        // As in game 1 against Ellie & Ellie: your lands, Chandra and Teferi; their lands and two creatures.
+        val mine = listOf("Tundra", "Otawara, Soaring City", "Island", "Plains", "Meticulous Archive").mapIndexed { i, n -> card(400 + i, n, land = true, tapped = i > 0) } +
+            listOf(card(410, "Chandra, Chill of Compliance", type = "Legendary Planeswalker - Chandra"), card(411, "Teferi, Time Raveler", type = "Legendary Planeswalker - Teferi"))
+        val theirs = listOf("Swamp", "Blackcleave Cliffs", "Mountain", "Snow-Covered Swamp", "Blood Crypt").mapIndexed { i, n -> card(420 + i, n, land = true, tapped = true) } +
+            listOf(card(430, "Emperor of Bones", creature = true), card(431, "Wriggling Grub", creature = true))
+        val seat = FakeSeat(board(mine, theirs), null)
+        OffscreenDriver(1700, 1020) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
+            d.settle(5)
+            val myLand = d.registry[ClickTarget.Card(400)]!!
+            val theirCreature = d.registry[ClickTarget.Card(430)]!!
+            assertEquals(myLand.height, theirCreature.height, 1f, "one size for the table: $myLand, $theirCreature")
+            d.savePng(File(pngDir, "anchoring-one-size.png"))
+        }
+    }
+
+    @Test
     fun `the right column is the zoom pane and the log - the stack lives in its box, with the full text on hover`() {
         val seat = FakeSeat(board(myLands + myCreatures, theirLands + theirCreatures, withStack = true), null)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->

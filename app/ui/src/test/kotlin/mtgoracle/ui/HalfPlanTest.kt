@@ -69,9 +69,10 @@ class HalfPlanTest {
             if (sparse.nearTier == crowded.nearTier) assertEquals(sparse.farRows, crowded.farRows, "no edge moved, at $total rows")
             assertTrue(half(3)(sparse.nearTier) <= sparse.nearRows || sparse.nearTier == tiers.last(), "the crowded half's cards fit its half: $sparse")
         }
-        // 80 rows: one band large or bigger, three bands smaller, the halves the same.
+        // 80 rows: one band of theirs, three of yours: one size for the table, the one your three bands fit.
         val roomy = table(80, 1, 3)
-        assertTrue(roomy.farTier.ordinal < roomy.nearTier.ordinal, "the opponent's single band takes larger frames: $roomy")
+        assertEquals(roomy.nearTier, roomy.farTier, "a card is the same size on either side: $roomy")
+        assertTrue(half(3)(roomy.nearTier) <= roomy.nearRows, "the size the crowded half fits: $roomy")
         // A crowded half of compact frames: the hand keeps the normal ones, where the window has room for them.
         val crowdedHand = table(60, 1, 3)
         assertTrue(crowdedHand.nearTier.ordinal > mtgoracle.ui.kit.FrameTier.FULL.ordinal, "the half is crowded: $crowdedHand")
