@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **A back row of two lines is laid in blocks.** The lands keep the edge line (overlapping on it, two thirds of each showing, rather than spilling over), and the artifacts and planeswalkers grow inwards in a block of their own beside them, or, with no room beside them, together on the line above, each under its label. A spilled-over Elminster lay alone in a row with a label of its own, its fellow planeswalkers down at the edge. `HalfPlanTest`, `AnchoringTest`.
 - **A card is the same size on either side of the table**: the whole table takes the largest frames both halves fit. Picked half by half, a side of one row was drawn large and overlapped while the other side's two rows went compact. `AnchoringTest`, `HalfPlanTest`.
 
 ## [0.7.1] - 2026-10-13

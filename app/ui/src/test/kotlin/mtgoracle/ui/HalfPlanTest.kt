@@ -112,6 +112,24 @@ class HalfPlanTest {
     }
 
     @Test
+    fun `a back row of two lines is laid in blocks - the planeswalkers grow inwards in their own, the lands stay on the edge`() {
+        // Eight land piles, Shorikai, and four planeswalkers (Elminster, a Jace token, Chandra, Teferi): one line is too wide.
+        val zones = listOf(ZoneContent(ZoneKind.CREATURES, List(6) { land }), ZoneContent(ZoneKind.LANDS, List(8) { land }),
+            ZoneContent(ZoneKind.PERMANENTS, List(1) { land }), ZoneContent(ZoneKind.WALKERS, List(4) { land }))
+        val plan = planHalf(zones, cols = 220, maxBands = 3, centred = true)
+        val edge = plan.bands - 1
+        assertTrue(plan.slots.filter { it.zone == ZoneKind.LANDS }.all { it.band == edge }, "the lands on the edge line: $plan")
+        val walkers = plan.slots.filter { it.zone == ZoneKind.WALKERS }
+        assertEquals(setOf(edge, edge - 1), walkers.map { it.band }.toSet(), "the planeswalkers on two lines: $walkers")
+        val left = walkers.minOf { it.x }
+        val right = walkers.maxOf { it.x + it.visible }
+        assertTrue(plan.slots.filter { it.zone != ZoneKind.WALKERS && it.band >= edge - 1 }.none { it.x + it.visible > left && it.x < right },
+            "in a block of their own, nothing else under or over them: $plan")
+        assertEquals(1, plan.segments.count { it.zone == ZoneKind.WALKERS }, "one label over the block")
+        assertTrue(plan.slots.all { it.visible == land }, "nothing overlapped")
+    }
+
+    @Test
     fun `tapping changes nothing - the plan depends only on the slots`() {
         assertEquals(planHalf(crowded(), 150, 2), planHalf(crowded(), 150, 2))
     }

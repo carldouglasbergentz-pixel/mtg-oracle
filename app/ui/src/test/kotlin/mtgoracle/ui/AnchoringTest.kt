@@ -111,6 +111,25 @@ class AnchoringTest {
     }
 
     @Test
+    fun `planeswalkers that spill over grow inwards in their own block, by the others`() {
+        // As the user's game: six creatures; eight lands, Shorikai and four planeswalkers in the back row.
+        val creatures = (0 until 6).map { card(500 + it, "Faerie Dragon $it", creature = true) }
+        val lands = (0 until 8).map { card(510 + it, "Land $it", land = true) }
+        val shorikai = card(520, "Shorikai, Genesis Engine", type = "Legendary Artifact - Vehicle")
+        val walkers = listOf("Elminster", "Jace Token", "Chandra, Chill of Compliance", "Teferi, Time Raveler").mapIndexed { i, n -> card(530 + i, n, type = "Legendary Planeswalker") }
+        val seat = FakeSeat(board(creatures + lands + shorikai + walkers, theirLands), null)
+        OffscreenDriver(1450, 1100) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
+            d.settle(5)
+            val at = walkers.map { d.registry[ClickTarget.Card(it.id)]!! }
+            val land = d.registry[ClickTarget.Card(510)]!!
+            assertTrue(at.map { it.top }.toSet().size <= 2, "the planeswalkers on at most two lines: $at")
+            assertTrue(at.all { it.left >= d.registry[ClickTarget.Card(520)]!!.right }, "all of them right of Shorikai, in one block: $at")
+            assertTrue(at.maxOf { it.bottom } - land.bottom < 4f, "the block's first line is the lands' line: $at, $land")
+            d.savePng(File(pngDir, "anchoring-walker-block.png"))
+        }
+    }
+
+    @Test
     fun `the right column is the zoom pane and the log - the stack lives in its box, with the full text on hover`() {
         val seat = FakeSeat(board(myLands + myCreatures, theirLands + theirCreatures, withStack = true), null)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->

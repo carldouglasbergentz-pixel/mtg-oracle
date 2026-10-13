@@ -200,7 +200,17 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int, centred: Boolea
     val slots = mutableListOf<SlotPlace>()
     val segments = mutableListOf<Segment>()
     val scrolls = mutableSetOf<Int>()
+    // The back row's bands when laid out as blocks (backBlocks), centred together on its edge band.
+    var blockBands = IntRange.EMPTY
     groups.forEachIndexed { g, group ->
+        if (g == backGroup && counts[g] > 1 && group.all { it.kind in BACK_ROW }) {
+            val edge = firstBand[g] + counts[g] - 1
+            backBlocks(group, counts[g], edge, cols)?.let { laid ->
+                slots += laid.slots; segments += laid.segments; scrolls += laid.scrolls
+                if (laid.joined) blockBands = firstBand[g]..edge
+                return@forEachIndexed
+            }
+        }
         // The group's slots in order, split over its bands as evenly as they go.
         val items = group.flatMap { zc -> zc.widths.mapIndexed { i, w -> Triple(zc.kind, i, w) } }
         val perBand = splitEvenly(items.map { it.third }, counts[g], cols)
@@ -218,14 +228,78 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int, centred: Boolea
     // Centred on the run without its split-off piles, so a pile that splits or merges keeps the run's start;
     // the run still ends inside the band.
     fun content(s: SlotPlace) = present.first { it.kind == s.zone }
-    val shift = (0 until bands).associateWith { b ->
+    fun shiftOf(b: Int): Int {
         val used = (slots.filter { it.band == b }.map { it.x + content(it).widths[it.index] } + segments.filter { it.band == b }.map { it.x + it.width }).maxOrNull() ?: cols
         val split = slots.filter { it.band == b && it.index in content(it).splits }.sumOf { content(it).widths[it.index] + SLOT_GAP }
-        if (b in scrolls) 0 else ((cols - (used - split)) / 2).coerceAtMost(cols - used).coerceAtLeast(0)
+        return if (b in scrolls) 0 else ((cols - (used - split)) / 2).coerceAtMost(cols - used).coerceAtLeast(0)
     }
+    // The back row's blocks move as one, by its edge band, which holds every block's first line.
+    val shift = (0 until bands).associateWith { b -> if (b in blockBands) shiftOf(blockBands.last) else shiftOf(b) }
     return HalfPlan(
         bands, slots.map { it.copy(x = it.x + shift.getValue(it.band)) }, segments.map { it.copy(x = it.x + shift.getValue(it.band)) }, scrolls, landsFrom,
     )
+}
+
+/**
+ * The back row over [lines] bands as blocks, a zone each, side by side: the
+ * lands on the edge line, and the other zones growing inwards in a block of
+ * their own, as a table is laid: Elminster above Chandra in the
+ * planeswalkers, not alone in a row with a label of its own. When the lands
+ * alone are too wide they overlap on their line, each showing two thirds of
+ * itself, rather than spill over. A zone's label sits over its block. Null
+ * when even that is wider than [cols] (then the row is laid as before).
+ */
+private class BackLayout(val slots: List<SlotPlace>, val segments: List<Segment>, val scrolls: Set<Int>, val joined: Boolean)
+
+private fun backBlocks(group: List<ZoneContent>, lines: Int, edgeBand: Int, cols: Int): BackLayout? {
+    val depth = group.associate { it.kind to 1 }.toMutableMap()
+    fun perLine(z: ZoneContent) = (z.widths.size + depth.getValue(z.kind) - 1) / depth.getValue(z.kind)
+    fun widthOf(z: ZoneContent) = z.widths.take(perLine(z)).sumOf { it + SLOT_GAP }
+    val lands = group.firstOrNull { it.kind == ZoneKind.LANDS }
+    val others = group.filter { it.kind != ZoneKind.LANDS }
+    val landFull = lands?.let(::widthOf) ?: 0
+    val landW = lands?.widths?.maxOrNull() ?: 0
+    // The narrowest the lands' line may be: the last whole, the others two thirds each.
+    val landLeast = lands?.widths?.size?.let { n -> landW + SLOT_GAP + (n - 1) * ((landW * VISIBLE_SHARE + VISIBLE_SHARE_OF - 1) / VISIBLE_SHARE_OF) } ?: 0
+    fun total(landsWidth: Int) = landsWidth + others.sumOf { widthOf(it) } - SLOT_GAP + ZONE_GAP * (group.size - 1)
+    while (total(landFull) > cols) {
+        // The other zones grow inwards, the widest first; the lands stay on the edge line.
+        val grow = others.filter { depth.getValue(it.kind) < lines && perLine(it) > 1 }.maxByOrNull { perLine(it) } ?: break
+        depth[grow.kind] = depth.getValue(grow.kind) + 1
+    }
+    val slots = mutableListOf<SlotPlace>()
+    val segments = mutableListOf<Segment>()
+    // The lands on the edge line, overlapped to [width] when they must be: the same step between each, the last whole.
+    fun layLands(z: ZoneContent, x: Int, width: Int) {
+        val step = if (width < landFull && z.widths.size > 1) (width - SLOT_GAP - landW) / (z.widths.size - 1) else null
+        z.widths.forEachIndexed { i, w ->
+            val at = if (step != null) x + i * step else x + z.widths.take(i).sumOf { it + SLOT_GAP }
+            slots += SlotPlace(z.kind, i, edgeBand, at, if (step != null && i < z.widths.lastIndex) step else w)
+        }
+        segments += Segment(z.kind, edgeBand, x, width, 0)
+    }
+    val landsWidth = minOf(landFull, cols - total(0))
+    if (lands != null && landsWidth < landLeast || lands == null && total(0) > cols) {
+        // No room for the blocks beside the lands: the lands alone on the edge line, the other zones on the line above,
+        // each under its label, each line centred by itself.
+        if (lands == null || landLeast > cols || others.isEmpty()) return null
+        layLands(lands, 0, minOf(landFull, cols))
+        val scrolls = mutableSetOf<Int>()
+        layBand(others.flatMap { zc -> zc.widths.mapIndexed { i, w -> Triple(zc.kind, i, w) } }, edgeBand - 1, cols, slots, segments, scrolls)
+        return BackLayout(slots, segments, scrolls, joined = false)
+    }
+    var x = 0
+    group.forEach { z ->
+        val width = if (z === lands) landsWidth else widthOf(z)
+        if (z === lands) layLands(z, x, width) else {
+            val per = perLine(z)
+            val used = (z.widths.size + per - 1) / per
+            z.widths.forEachIndexed { i, w -> slots += SlotPlace(z.kind, i, edgeBand - i / per, x + z.widths.take(i % per).sumOf { it + SLOT_GAP }, w) }
+            segments += Segment(z.kind, edgeBand - (used - 1), x, width, 0)
+        }
+        x += width - SLOT_GAP + ZONE_GAP
+    }
+    return BackLayout(slots, segments, emptySet(), joined = true)
 }
 
 /** How many of [widths] go on each of [bands] bands: fill each up to [cols], the last takes the rest. */
