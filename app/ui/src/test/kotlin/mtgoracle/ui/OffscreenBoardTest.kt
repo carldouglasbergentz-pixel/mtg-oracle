@@ -59,13 +59,16 @@ class OffscreenBoardTest {
     }
 
     @Test
-    fun `real key presses reach the board - F2 F3 F4 F6, Enter and Esc`() {
+    fun `real key presses reach the board - F2 F3 F4 F6, Space and Esc`() {
         val prompt = InputPrompt(1, "Priority", InputKind.PRIORITY, "InputPassPriority", 0, "OK", "End Turn", true, true, emptySet(), emptySet())
         val seat = FakeSeat(sampleBoard(), prompt)
         board(seat).use { d ->
             d.settle(5)
             listOf(Key.F2, Key.F3, Key.F4, Key.F6).forEach { d.key(it) }
+            // Space passes, as on Arena; Enter no longer does at priority (it is done in the choice box).
             d.key(Key.Enter, 10)
+            assertEquals(emptyList(), seat.answers, "Enter passes nothing at priority")
+            d.key(Key.Spacebar, ' '.code)
             d.key(Key.Escape)
             assertEquals(listOf(SeatCommand.PASS, SeatCommand.CANCEL_YIELDS, SeatCommand.END_TURN, SeatCommand.SKIP_TURN), seat.commands)
             assertEquals(listOf(SeatAction.Ok, SeatAction.Cancel), seat.answers.map { it.second })

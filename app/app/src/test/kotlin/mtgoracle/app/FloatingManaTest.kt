@@ -99,10 +99,10 @@ class FloatingManaTest {
             assertTrue(held.ai().battlefield.any { it.name == "Blood Moon" }, "after Blood Moon resolved")
             assertContains(s.logText(), "FLOATING MANA: the end-of-turn yield is held until the pool empties")
 
-            // Pass anyway: the warning, then the mana goes with the step, and F6 carries on.
-            s.key(Key.Enter)
+            // Pass anyway (Space, then Space again): the warning, then the mana goes with the step, and F6 carries on.
+            s.key(Key.Spacebar)
             assertContains(s.flatText(), "{W}{W} $warning")
-            s.key(Key.Enter)
+            s.key(Key.Spacebar)
             val stoppedInTheirTurn = mutableListOf<String>()
             s.waitFor(timeoutMillis = 60_000) {
                 val p = s.match.seat.prompt.value
@@ -132,7 +132,7 @@ class FloatingManaTest {
             val prompt = s.match.seat.prompt.value!!
             val before = s.layout()
 
-            s.key(Key.Enter) // OK: pass
+            s.key(Key.Spacebar) // OK: pass
             val asked = s.screenText()
             assertContains(s.flatText(), "{W} $warning")
             val lines = asked.lines().map { it.trim() }
@@ -146,13 +146,13 @@ class FloatingManaTest {
             assertEquals(prompt.id, s.match.seat.prompt.value?.id, "priority is still ours")
             assertEquals("W1", s.board.me().manaPool, "and so is the mana")
 
-            s.key(Key.Enter); s.key(Key.Enter) // pass, and pass anyway
+            s.key(Key.Spacebar); s.key(Key.Spacebar) // pass, and pass anyway
             s.waitFor { s.board.me().manaPool.isEmpty() && s.board.phaseKey != "MAIN1" }
 
             // MAIN2 is a stop; the pool is empty there, so a pass goes straight through.
             s.waitFor { s.priorityNow() && s.board.phaseKey == "MAIN2" }
             val main2 = s.match.seat.prompt.value!!.id
-            s.key(Key.Enter)
+            s.key(Key.Spacebar)
             assertFalse(warning in s.screenText(), "no warning with an empty pool")
             s.waitFor { s.match.seat.prompt.value?.id != main2 }
         }

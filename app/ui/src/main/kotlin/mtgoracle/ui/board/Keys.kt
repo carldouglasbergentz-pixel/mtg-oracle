@@ -5,6 +5,7 @@ import androidx.compose.ui.input.key.Key
 /** Compose's key to the board's; null for keys the board ignores. */
 fun Key.toUiKey(): UiKey? = when (this) {
     Key.Enter, Key.NumPadEnter -> UiKey.ENTER
+    Key.Spacebar -> UiKey.SPACE
     Key.Escape -> UiKey.ESCAPE
     Key.F2 -> UiKey.F2
     Key.F3 -> UiKey.F3

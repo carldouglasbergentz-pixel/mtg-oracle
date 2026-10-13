@@ -112,7 +112,7 @@ fun PromptBody(
             else if (answers) Buttons(prompt, state, onClick)
         }
         Row(Modifier.fillMaxWidth().cellHeight(1)) {
-            val hintText = if (pending != null) "Enter: pass, and the mana is lost · Esc: stay, with priority and the mana" else hint(prompt)
+            val hintText = if (pending != null) "Space: pass, and the mana is lost · Esc: stay, with priority and the mana" else hint(prompt)
             GridText(fit(hintText, cols - if (trailing != null) 14 else 0), color = Palette.dim)
             trailing?.invoke()
         }
@@ -313,13 +313,13 @@ private fun hint(prompt: Prompt?): String = when (prompt) {
         val what = when (prompt.kind) {
             InputKind.PRIORITY -> "click a card to play it · F2 pass · F4 end turn · F6 skip turn"
             InputKind.TARGET -> "click a highlighted card, or a player's name"
-            InputKind.PAY_MANA -> "click a land or source to tap it, or Enter for ${prompt.okLabel}"
-            InputKind.ATTACK -> "click your creatures to attack, Enter when done"
-            InputKind.BLOCK -> "click an attacker, then your creature to block it; Enter when done"
-            InputKind.SELECT_CARDS -> "click cards to pick them, Enter when done"
+            InputKind.PAY_MANA -> "click a land or source to tap it, or Space for ${prompt.okLabel}"
+            InputKind.ATTACK -> "click your creatures to attack, Space when done"
+            InputKind.BLOCK -> "click an attacker, then your creature to block it; Space when done"
+            InputKind.SELECT_CARDS -> "click cards to pick them, Space when done"
             else -> "click a card or a player"
         }
-        "$what · Enter ${prompt.okLabel.ifBlank { "-" }} · Esc ${prompt.cancelLabel.ifBlank { "-" }}"
+        "$what · Space ${prompt.okLabel.ifBlank { "-" }} · Esc ${prompt.cancelLabel.ifBlank { "-" }}"
     }
     is ConfirmPrompt -> "Enter ${prompt.yesLabel} · Esc ${prompt.noLabel}"
     is ChoicePrompt -> if (prompt.isReveal) "shown for information · Enter to continue"

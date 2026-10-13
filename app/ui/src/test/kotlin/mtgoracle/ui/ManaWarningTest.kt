@@ -46,7 +46,7 @@ class ManaWarningTest {
     @Test
     fun `every way of passing is held back, and Pass sends it`() {
         val passes = listOf(
-            UiEvent.Key(UiKey.ENTER) to (SeatAction.Ok to null),
+            UiEvent.Key(UiKey.SPACE) to (SeatAction.Ok to null),
             UiEvent.Click(ClickTarget.Ok) to (SeatAction.Ok to null),
             UiEvent.Key(UiKey.ESCAPE) to (SeatAction.Cancel to null), // End Turn
             UiEvent.Key(UiKey.F2) to (null to SeatCommand.PASS),
@@ -58,7 +58,7 @@ class ManaWarningTest {
             assertNull(held.action, "$event sends nothing yet"); assertNull(held.command, "$event sends nothing yet")
             val pending = assertNotNull(held.state.pendingPass, "$event is held")
             assertEquals("{W}{W} is floating and empties when this step ends — pass anyway?", pending.question())
-            for (confirm in listOf(UiEvent.Key(UiKey.ENTER), UiEvent.Click(ManaWarningTargets.PASS))) {
+            for (confirm in listOf(UiEvent.Key(UiKey.SPACE), UiEvent.Key(UiKey.ENTER), UiEvent.Click(ManaWarningTargets.PASS))) {
                 val out = reduce(held.state, priority, confirm, "{W}{W}")
                 assertEquals(sent, out.action to out.command, "$confirm after $event")
                 assertNull(out.state.pendingPass)
@@ -75,13 +75,13 @@ class ManaWarningTest {
             assertNull(out.state.pendingPass, "$event is not held behind the warning")
             assertEquals(SeatAction.Cancel, out.action, "$event undoes")
         }
-        val ok = reduce(Interaction.start(undo), undo, UiEvent.Key(UiKey.ENTER), "{C}")
+        val ok = reduce(Interaction.start(undo), undo, UiEvent.Key(UiKey.SPACE), "{C}")
         assertNotNull(ok.state.pendingPass, "OK still passes, so it still asks")
     }
 
     @Test
     fun `Stay keeps priority, and nothing else acts while the warning is up`() {
-        val held = reduce(Interaction.start(priority), priority, UiEvent.Key(UiKey.ENTER), "{W}").state
+        val held = reduce(Interaction.start(priority), priority, UiEvent.Key(UiKey.SPACE), "{W}").state
         for (stay in listOf(UiEvent.Key(UiKey.ESCAPE), UiEvent.Click(ManaWarningTargets.STAY))) {
             val out = reduce(held, priority, stay, "{W}")
             assertEquals(null to null, out.action to out.command)
@@ -96,14 +96,14 @@ class ManaWarningTest {
 
     @Test
     fun `with nothing at risk a pass goes straight through`() {
-        assertEquals(SeatAction.Ok, reduce(Interaction.start(priority), priority, UiEvent.Key(UiKey.ENTER), null).action)
+        assertEquals(SeatAction.Ok, reduce(Interaction.start(priority), priority, UiEvent.Key(UiKey.SPACE), null).action)
         assertEquals(SeatCommand.SKIP_TURN, reduce(Interaction.start(priority), priority, UiEvent.Key(UiKey.F6), null).command)
     }
 
     @Test
     fun `a new prompt drops the warning`() {
-        val held = reduce(Interaction.start(priority), priority, UiEvent.Key(UiKey.ENTER), "{W}").state
+        val held = reduce(Interaction.start(priority), priority, UiEvent.Key(UiKey.SPACE), "{W}").state
         val next = priority.copy(id = 2)
-        assertEquals(SeatAction.Ok, reduce(held, next, UiEvent.Key(UiKey.ENTER), null).action)
+        assertEquals(SeatAction.Ok, reduce(held, next, UiEvent.Key(UiKey.SPACE), null).action)
     }
 }

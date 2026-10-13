@@ -525,7 +525,8 @@ private fun legalRects(prompt: Prompt?, registry: ClickRegistry): List<Rect> {
 
 private fun hints(prompt: Prompt?): List<Pair<String, String>> = buildList {
     add("F2" to "pass"); add("F4" to "end turn"); add("F6" to "skip turn"); add("F3" to "cancel yields")
-    if (prompt != null) { add("Enter" to "ok"); add("Esc" to "cancel") }
+    if (prompt is InputPrompt) { add("Space" to "ok"); add("Esc" to "cancel") }
+    else if (prompt != null) { add("Enter" to "done"); add("Esc" to "cancel") }
     if (prompt is ChoicePrompt || prompt is OrderPrompt || prompt is DistributePrompt) add("1-9" to "choose")
 }
 

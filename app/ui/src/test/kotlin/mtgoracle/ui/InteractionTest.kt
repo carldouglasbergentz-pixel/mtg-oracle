@@ -37,10 +37,10 @@ class InteractionTest {
     private val priority = InputPrompt(1, "Priority", InputKind.PRIORITY, "InputPassPriority", 0, "OK", "End Turn", true, true, emptySet(), setOf(20))
 
     @Test
-    fun `an input prompt turns clicks into gestures and Enter or Esc into its buttons`() {
+    fun `an input prompt turns clicks into gestures and Space or Esc into its buttons`() {
         assertEquals(listOf(SeatAction.ClickCard(20), SeatAction.ClickPlayer(2), SeatAction.Ok, SeatAction.Cancel),
-            run(priority, click(ClickTarget.Card(20)), click(ClickTarget.Player(2)), key(UiKey.ENTER), key(UiKey.ESCAPE)))
-        assertEquals(emptyList(), run(priority.copy(okEnabled = false), key(UiKey.ENTER)), "a disabled button does nothing")
+            run(priority, click(ClickTarget.Card(20)), click(ClickTarget.Player(2)), key(UiKey.SPACE), key(UiKey.ESCAPE)))
+        assertEquals(emptyList(), run(priority.copy(okEnabled = false), key(UiKey.SPACE)), "a disabled button does nothing")
     }
 
     @Test

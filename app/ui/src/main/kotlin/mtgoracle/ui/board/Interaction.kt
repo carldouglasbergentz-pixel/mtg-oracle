@@ -15,7 +15,12 @@ import mtgoracle.core.model.SideboardPrompt
 import mtgoracle.ui.kit.ClickTarget
 
 /** The keys the board understands (docs/app-design.md "The game board"). */
-enum class UiKey { ENTER, ESCAPE, F2, F3, F4, F6, PLUS, MINUS, BACKSPACE, D1, D2, D3, D4, D5, D6, D7, D8, D9, D0 }
+/**
+ * The board's keys. SPACE passes and confirms in the left column's prompt
+ * (priority, attackers, blockers, paying), as on Arena; ENTER is done in the
+ * choice box (a pick, a number, an order, a yes-or-no) and between games.
+ */
+enum class UiKey { ENTER, SPACE, ESCAPE, F2, F3, F4, F6, PLUS, MINUS, BACKSPACE, D1, D2, D3, D4, D5, D6, D7, D8, D9, D0 }
 
 val UiKey.digit: Int? get() = when (this) {
     UiKey.D0 -> 0; UiKey.D1 -> 1; UiKey.D2 -> 2; UiKey.D3 -> 3; UiKey.D4 -> 4
@@ -138,7 +143,7 @@ private fun passOf(prompt: Prompt?, event: UiEvent): Pair<SeatAction?, SeatComma
             UiKey.F2 -> null to SeatCommand.PASS
             UiKey.F4 -> null to SeatCommand.END_TURN
             UiKey.F6 -> null to SeatCommand.SKIP_TURN
-            UiKey.ENTER -> (SeatAction.Ok to null).takeIf { priority?.okEnabled == true }
+            UiKey.SPACE -> (SeatAction.Ok to null).takeIf { priority?.okEnabled == true }
             UiKey.ESCAPE -> (SeatAction.Cancel to null).takeIf { cancelPasses }
             else -> null
         }
@@ -153,7 +158,8 @@ private fun passOf(prompt: Prompt?, event: UiEvent): Pair<SeatAction?, SeatComma
 /** The warning has the keyboard: Enter or [ Pass ] sends the held pass, Esc or [ Stay ] keeps priority. */
 private fun confirmPass(state: Interaction, pending: PendingPass, event: UiEvent): Outcome {
     val pass = when (event) {
-        is UiEvent.Key -> when (event.key) { UiKey.ENTER -> true; UiKey.ESCAPE -> false; else -> null }
+        // Space again (or Enter, the warning being a question) passes anyway.
+        is UiEvent.Key -> when (event.key) { UiKey.SPACE, UiKey.ENTER -> true; UiKey.ESCAPE -> false; else -> null }
         is UiEvent.Click -> when (event.target) { ManaWarningTargets.PASS -> true; ManaWarningTargets.STAY -> false; else -> null }
     } ?: return Outcome(state)
     val cleared = state.copy(pendingPass = null)
@@ -197,7 +203,7 @@ private fun input(state: Interaction, prompt: InputPrompt, event: UiEvent): Outc
             else -> null
         }
         is UiEvent.Key -> when (event.key) {
-            UiKey.ENTER -> SeatAction.Ok.takeIf { prompt.okEnabled }
+            UiKey.SPACE -> SeatAction.Ok.takeIf { prompt.okEnabled }
             UiKey.ESCAPE -> SeatAction.Cancel.takeIf { prompt.cancelEnabled }
             else -> null
         }
