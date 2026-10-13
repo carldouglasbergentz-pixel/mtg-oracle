@@ -101,7 +101,7 @@ class FloatingManaTest {
 
             // Pass anyway: the warning, then the mana goes with the step, and F6 carries on.
             s.key(Key.Enter)
-            assertContains(s.screenText(), "{W}{W} $warning")
+            assertContains(s.flatText(), "{W}{W} $warning")
             s.key(Key.Enter)
             val stoppedInTheirTurn = mutableListOf<String>()
             s.waitFor(timeoutMillis = 60_000) {
@@ -134,7 +134,7 @@ class FloatingManaTest {
 
             s.key(Key.Enter) // OK: pass
             val asked = s.screenText()
-            assertContains(asked, "{W} $warning")
+            assertContains(s.flatText(), "{W} $warning")
             val lines = asked.lines().map { it.trim() }
             assertTrue("Pass" in lines && "Stay" in lines, "the two buttons: $lines")
             assertEquals(before, s.layout(), "the warning takes the prompt's own rows; nothing moves")

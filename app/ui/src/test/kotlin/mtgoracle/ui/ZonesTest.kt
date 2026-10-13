@@ -80,13 +80,13 @@ class ZonesTest {
     }
 
     @Test
-    fun `the zone column plan - fixed parts always, the ladder when it fits, lists get the rest`() {
-        val roomy = planZoneColumn(30, graveyard = 17, exile = 5, ladderWanted = true)
-        assertEquals(7, roomy.ladderRows)
-        assertTrue(roomy.graveyardRows in 1..6 && roomy.exileRows in 1..3)
-        val tight = planZoneColumn(11, graveyard = 17, exile = 5, ladderWanted = true)
-        assertEquals(listOf(1, 1, 1), listOf(tight.ladderRows, tight.graveyardRows, tight.exileRows), "the ladder folds to its line first")
-        assertEquals(1, planZoneColumn(30, 0, 0, ladderWanted = true).graveyardRows, "an empty list keeps its one line")
+    fun `the zone column plan - fixed parts always, the lists get the rest, up to what they hold`() {
+        val roomy = planZoneColumn(40, graveyard = 17, exile = 5)
+        assertEquals(12, roomy.graveyardRows, "a long graveyard shows twelve lines; the rest is in its panel")
+        assertEquals(5, roomy.exileRows, "an exile of five shows all five")
+        val tight = planZoneColumn(10, graveyard = 17, exile = 5)
+        assertEquals(listOf(1, 1), listOf(tight.graveyardRows, tight.exileRows), "a short column: a line each")
+        assertEquals(1, planZoneColumn(30, 0, 0).graveyardRows, "an empty list keeps its one line")
     }
 
     @Test

@@ -42,7 +42,7 @@ class OpponentActionsTest {
             assertTrue(s.board.ai().graveyard.any { it.id == source.id }, "though it is already in the graveyard (sacrificed as a cost)")
             val text = s.screenText() // settles the scene first
             assertTrue(s.registered(stackBox), "the stack box floats over the table")
-            assertContains(text, "activated Polluted Delta — respond?")
+            assertContains(s.flatText(), "activated Polluted Delta — respond?")
             assertTrue("▲ AI · activated ability · top" in text || "^ AI · activated ability · top" in text,
                 "who and what kind, in the box: ${text.lines().filter { "ability" in it || "▲" in it }}")
             assertContains(text, "Pay 1 life")
@@ -69,7 +69,7 @@ class OpponentActionsTest {
             val bolt = s.board.stack.first()
             assertTrue(bolt.targets.isNotEmpty(), "Bolt names its target: ${bolt.targetNames}")
             val text = s.screenText()
-            assertContains(text, "cast Lightning Bolt targeting ${bolt.targetNames.first()} — respond?")
+            assertContains(s.flatText(), "cast Lightning Bolt targeting ${bolt.targetNames.first()} — respond?")
             when (val target = bolt.targets.first()) {
                 is BoardRef.Card -> assertTrue(text.lines().any { it.trim() == TARGET_MARK || it.trim() == "<" }, "the targeted card is marked")
                 is BoardRef.Player -> assertContains(text, "$TARGET_MARK target")
@@ -91,7 +91,7 @@ class OpponentActionsTest {
             s.waitFor { priority(s) && top(s)?.sourceName == "Soul Warden" }
             assertEquals(s.board.seat!!.id, s.board.activePlayerId, "still our turn: F4 was interrupted, not finished")
             assertEquals(StackKind.TRIGGERED, s.board.stack.first().kind)
-            assertContains(s.screenText(), "Soul Warden triggered — respond?")
+            assertContains(s.flatText(), "Soul Warden triggered — respond?")
         }
     }
 

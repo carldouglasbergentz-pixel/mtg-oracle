@@ -162,10 +162,11 @@ fun GridText(text: AnnotatedString, modifier: Modifier = Modifier) {
  * never on screen. Null, and free, in the window.
  */
 class TextRecorder {
-    private val live = java.util.concurrent.ConcurrentHashMap<Any, String>()
-    internal fun put(key: Any, text: String) { live[key] = text }
-    internal fun remove(key: Any) { live.remove(key) }
-    fun all(): String = live.values.joinToString(separator = "\n")
+    // In the order the texts were first drawn, so a question wrapped over lines reads in sequence (StagedGame.flatText).
+    private val live = LinkedHashMap<Any, String>()
+    internal fun put(key: Any, text: String) { synchronized(live) { live[key] = text } }
+    internal fun remove(key: Any) { synchronized(live) { live.remove(key) } }
+    fun all(): String = synchronized(live) { live.values.joinToString(separator = "\n") }
 }
 
 val LocalTextRecorder = androidx.compose.runtime.staticCompositionLocalOf<TextRecorder?> { null }

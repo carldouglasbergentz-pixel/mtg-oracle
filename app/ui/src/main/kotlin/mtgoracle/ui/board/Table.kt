@@ -183,23 +183,16 @@ class Lanes(battlefield: List<CardState>, looks: Looks) {
     }
 }
 
-/** One player's half: zone column on the left, their battlefield beside it, mirrored for the far side. */
+/** One player's zones, for the left column: library, graveyard, exile, hand and life, mirrored for the far side. */
 @Composable
-fun Half(
-    player: PlayerState, board: BoardState, far: Boolean, stops: PhaseStops?, showHand: Boolean, looks: Looks,
-    modifier: Modifier = Modifier, zoneCols: Int = ZONE_COLS, zoneDrag: PaneDrag? = null,
-    /** The player's playmat, under their battlefield; null for the plain table. */
-    mat: Playmat? = null,
-) {
-    val side = if (far) "far" else "near"
-    Row(modifier.fillMaxWidth()) {
-        Box(Modifier.cellWidth(zoneCols).fillMaxHeight()) {
-            ZoneColumn(player, board, far, stops, looks, zoneCols, Modifier.fillMaxSize().region("$side-zones"))
-            // Its right border is the handle.
-            if (zoneDrag != null) PaneEdge(zoneDrag, "$side-zones-edge", Modifier.align(Alignment.CenterEnd))
-        }
-        Battlefield(player, far, showHand, looks, Modifier.weight(1f).fillMaxHeight().region("$side-field"), mat)
-    }
+fun PlayerZones(player: PlayerState, board: BoardState, far: Boolean, looks: Looks, cols: Int, modifier: Modifier = Modifier) {
+    ZoneColumn(player, board, far, looks, cols, modifier.region("${if (far) "far" else "near"}-zones"))
+}
+
+/** One player's battlefield, the far one mirrored. [mat] is the player's playmat under it; null for the plain table. */
+@Composable
+fun PlayerField(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier = Modifier, mat: Playmat? = null) {
+    Battlefield(player, far, showHand, looks, modifier.region("${if (far) "far" else "near"}-field"), mat)
 }
 
 /** Rows of one band of a half: its label line, then a lane of cards. */
@@ -217,7 +210,7 @@ fun zoneContents(lanes: Lanes, tier: FrameTier) = ZoneKind.entries.map { k ->
 }
 
 /** The fewest rows a zone column needs, border included: see planZoneColumn. */
-const val ZONE_COLUMN_MIN_ROWS = ZONE_FIXED_ROWS + 3 + 2
+const val ZONE_COLUMN_MIN_ROWS = ZONE_FIXED_ROWS + 2 + 2
 
 /**
  * One player's battlefield, drawn from its plan (HalfPlan.kt): type zones in
@@ -411,20 +404,18 @@ private fun TrailStrip(board: BoardState, cols: Int) {
 
 /** A player's zone column, in playmat order, every section a fixed height; mirrored for the far side. */
 @Composable
-private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, stops: PhaseStops?, looks: Looks, cols: Int, modifier: Modifier) {
+private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, looks: Looks, cols: Int, modifier: Modifier) {
     val inner = cols - 2
     val role = if (player.isSeat) "you" else if (player.isAi) "AI" else "player"
-    var ladderOpen by remember { mutableStateOf(true) }
-    BoxPane(role, modifier, right = if (stops != null) "stops" else null) {
+    BoxPane(role, modifier) {
         BoxWithConstraints {
             val viewport = maxHeight
             // Every section a set number of rows, planned for the height there is (planZoneColumn).
-            val plan = planZoneColumn(LocalCells.current.rows(constraints.maxHeight.toFloat()), player.graveyard.size,
-                player.command.size + player.exile.size, ladderWanted = ladderOpen)
-            // Shorter than even the minimum: it scrolls, anchored at the midline, so life and stops stay in view.
+            val plan = planZoneColumn(LocalCells.current.rows(constraints.maxHeight.toFloat()), player.graveyard.size, player.command.size + player.exile.size)
+            // Shorter than even the minimum: it scrolls, anchored at the prompt's side, so life stays in view.
             Column(Modifier.verticalScroll(rememberScrollState(), reverseScrolling = far).heightIn(min = viewport), verticalArrangement = Arrangement.SpaceBetween) {
                 // At the player's edge: library (outermost), graveyard, exile and command zone.
-                // At the midline: hand, phase stops, life.
+                // Toward the prompt between the two columns: hand and life.
                 val zones = listOf<@Composable () -> Unit>(
                     { GridText(fit("library ${player.libraryCount}", inner)) },
                     { ZoneList("graveyard ${player.graveyard.size}", panelCards(player, PileZone.GRAVEYARD), inner, plan.graveyardRows, looks, ZonePanelKey(far, PileZone.GRAVEYARD)) }, // top card first
@@ -432,7 +423,6 @@ private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, sto
                 )
                 val self = listOf<@Composable () -> Unit>(
                     { HandCount(player, inner, looks) },
-                    { StopLadder(!far, stops, board, inner, looks.onClick, plan.ladderRows) { ladderOpen = !ladderOpen } },
                     { LifeBlock(player, board, inner, looks) },
                 )
                 if (far) {
@@ -527,53 +517,6 @@ private fun ZoneList(title: String, cards: List<CardState>, inner: Int, rows: In
     Box(Modifier.cells(inner, rows)) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             cards.forEach { card -> CardChip(card.face(), looks.emphasis(card), ClickTarget.Card(card.id), looks.onClick, looks.onHover, looks.mark(card)) }
-        }
-    }
-}
-
-/** Short step names, so the ladder fits two columns of the zone column. */
-private val SHORT = mapOf(
-    Step.UNTAP to "untap", Step.UPKEEP to "upkeep", Step.DRAW to "draw", Step.MAIN1 to "main 1",
-    Step.COMBAT_BEGIN to "combat", Step.COMBAT_DECLARE_ATTACKERS to "attackers", Step.COMBAT_DECLARE_BLOCKERS to "blockers",
-    Step.COMBAT_FIRST_STRIKE_DAMAGE to "1st strike", Step.COMBAT_DAMAGE to "damage", Step.COMBAT_END to "end combat",
-    Step.MAIN2 to "main 2", Step.END_OF_TURN to "end", Step.CLEANUP to "cleanup",
-)
-
-/**
- * This player's turn, step by step: where you stop with an empty stack on
- * their turn (your own ladder: your turn; theirs: their turn). Click a step to
- * toggle it; the step being played is lit on the active player's ladder.
- * Watching (no [stops]) it keeps its place, blank.
- */
-@Composable
-private fun StopLadder(seatsTurn: Boolean, stops: PhaseStops?, board: BoardState, inner: Int, onClick: (ClickTarget) -> Unit, rows: Int = LADDER_FULL, onToggle: () -> Unit = {}) {
-    val half = (Step.entries.size + 1) / 2
-    if (rows < half) {
-        // Too short for the ladder: one line naming the stops that are on; a click gives the ladder the room.
-        val on = Step.entries.filter { stops?.stopsAt(seatsTurn, it) == true }.joinToString(" ") { SHORT.getValue(it) }
-        GridText(fit(if (stops == null) "" else "stops: ${on.ifEmpty { "none" }} ▾", inner),
-            Modifier.clickTarget(ClickTarget.Control("ladder:${if (seatsTurn) "mine" else "theirs"}"), { onToggle() }), color = Palette.dim)
-        return
-    }
-    Box(Modifier.cells(inner, half)) {
-        if (stops == null) return@Box
-        val activeHere = (board.activePlayerId == board.seat?.id) == seatsTurn
-        val cell = inner / 2
-        Column {
-            for (row in 0 until half) {
-                Row {
-                    for (step in listOfNotNull(Step.entries.getOrNull(row), Step.entries.getOrNull(row + half))) {
-                        val on = stops.stopsAt(seatsTurn, step)
-                        val current = activeHere && board.step == step
-                        GridText(
-                            fit("${if (on) "[x]" else "[ ]"} ${SHORT[step]}", cell),
-                            Modifier.clickTarget(ClickTarget.Stop(seatsTurn, step), onClick),
-                            color = when { current -> Palette.background; on -> Palette.accent; else -> Palette.dim },
-                            background = if (current) Palette.foreground else Color.Unspecified,
-                        )
-                    }
-                }
-            }
         }
     }
 }

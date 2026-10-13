@@ -4,6 +4,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
@@ -40,11 +41,13 @@ import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 
 /**
- * The prompt pane's fixed rows: the scrolling content, then the buttons and one hint row.
- * The big buttons took their second row from the content, not from the table: the crowded board must still fit 1280x720 (ZonesTest).
+ * The prompt box's fixed rows, in the left column between the two players'
+ * zones (as MTGO puts it): the scrolling content, then two rows of buttons
+ * (they wrap when the column is narrow) and one hint row, in its border.
  */
-const val PROMPT_CONTENT_ROWS = 4
-const val PROMPT_ROWS = PROMPT_CONTENT_ROWS + BUTTON_ROWS + 1 + 2 // + buttons, hint, and the border
+const val PROMPT_CONTENT_ROWS = 8
+const val PROMPT_BUTTON_LINES = 2
+const val PROMPT_ROWS = PROMPT_CONTENT_ROWS + PROMPT_BUTTON_LINES * BUTTON_ROWS + 1 + 2 // + buttons, hint, and the border
 
 /** A prompt's button, a cell apart from the next; disabled ones are drawn dim and can't be clicked. */
 @Composable
@@ -55,9 +58,11 @@ fun GridButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (C
 
 /**
  * Everything the seat is being asked, in fixed rows: the question and its
- * options scroll inside [PROMPT_CONTENT_ROWS]; the buttons always sit on the
- * same row, and the hint on the one below — whatever the prompt.
+ * options scroll inside [PROMPT_CONTENT_ROWS]; the buttons always sit in the
+ * same rows (two lines of them, wrapping), and the hint on the one below —
+ * whatever the prompt.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun PromptBody(
     prompt: Prompt?,
@@ -79,7 +84,7 @@ fun PromptBody(
                 else Content(prompt, board, state, cols, onClick, onHover)
             }
         }
-        Row(Modifier.fillMaxWidth().cellHeight(BUTTON_ROWS).region("prompt-buttons")) {
+        FlowRow(Modifier.fillMaxWidth().cellHeight(PROMPT_BUTTON_LINES * BUTTON_ROWS).region("prompt-buttons")) {
             if (pending != null) { GridButton("Pass", ManaWarningTargets.PASS, true, onClick); GridButton("Stay", ManaWarningTargets.STAY, true, onClick) }
             else Buttons(prompt, state, onClick)
         }
@@ -105,11 +110,13 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
     }
     // MTGO's stop on an opponent's action says what they did, before Forge's own line.
     val action = opponentAction(prompt, board)
-    action?.let { GridText(fit(it, cols), color = Palette.accent, bold = true) }
+    // Wrapped in the narrow column, as the question is: cut, "AI activated Polluted Delta — respond?" lost its last words.
+    val actionLines = action?.let { wrap(it, cols) }.orEmpty()
+    actionLines.forEach { GridText(fit(it, cols), color = Palette.accent, bold = true) }
     val message = wrap(prompt.message.trim(), cols)
     message.forEach { GridText(fit(it, cols)) }
     // Options fill the rows left in columns, so a library search is seen at a glance; past that, it scrolls.
-    val rowsLeft = maxOf(1, PROMPT_CONTENT_ROWS - message.size - (if (action != null) 1 else 0))
+    val rowsLeft = maxOf(1, PROMPT_CONTENT_ROWS - message.size - actionLines.size)
     when (prompt) {
         is InputPrompt -> if (prompt.selectableElsewhere.isNotEmpty()) {
             // Cards the board doesn't draw (a library being searched, Future Sight's top card): as chips, hover for the card.
@@ -119,7 +126,7 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
             }
         }
         is ConfirmPrompt -> {}
-        is SideboardPrompt -> sideboardValidity(prompt, state.deck).let { (line, ok) -> GridText(fit(line, cols), color = if (ok) Palette.foreground else Palette.accent, bold = !ok) }
+        is SideboardPrompt -> sideboardValidity(prompt, state.deck).let { (line, ok) -> wrap(line, cols).forEach { GridText(fit(it, cols), color = if (ok) Palette.foreground else Palette.accent, bold = !ok) } }
         is ChoicePrompt -> if (prompt.searchable) SearchedOptions(prompt, state, cols, rowsLeft, onClick, onHover) else OptionGrid(prompt.labels, cols, rowsLeft) { i, width ->
             val mark = when {
                 prompt.isReveal -> "  "

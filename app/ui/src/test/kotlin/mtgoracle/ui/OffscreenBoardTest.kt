@@ -73,7 +73,7 @@ class OffscreenBoardTest {
     }
 
     @Test
-    fun `the zone columns - graveyard and exile hover into the zoom pane and click when legal, stop ladders toggle`() {
+    fun `the zone columns - graveyard and exile hover into the zoom pane and click when legal, the phase bar's stops toggle`() {
         val prompt = InputPrompt(1, "Priority", InputKind.PRIORITY, "InputPassPriority", 0, "OK", "End Turn", true, true, setOf(31), setOf(30))
         val seat = FakeSeat(sampleBoard(), prompt)
         board(seat).use { d ->
@@ -83,9 +83,9 @@ class OffscreenBoardTest {
             assertTrue("Test text for Thoughtseize." in d.text.all(), "the opponent's graveyard zooms")
             assertTrue(d.click(ClickTarget.Card(31)), "a legal pick in the graveyard")
             assertEquals(listOf(SeatAction.ClickCard(31)), seat.answers.map { it.second })
-            for (seatsTurn in listOf(true, false)) for (step in Step.entries) assertNotNull(d.registry[ClickTarget.Stop(seatsTurn, step)], "ladder $seatsTurn $step")
+            for (seatsTurn in listOf(true, false)) for (step in Step.entries) assertNotNull(d.registry[ClickTarget.Stop(seatsTurn, step)], "phase bar $seatsTurn $step")
             assertTrue(d.click(ClickTarget.Stop(false, Step.END_OF_TURN)))
-            assertTrue(!seat.stops.value.stopsAt(false, Step.END_OF_TURN), "their-turn ladder is in the opponent's column")
+            assertTrue(!seat.stops.value.stopsAt(false, Step.END_OF_TURN), "the their-turn row toggles their turn's stop")
         }
     }
 

@@ -36,7 +36,8 @@ class SideboardTest {
         val seat = FakeSeat(sampleBoard(), prompt)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.TEXT) } }.use { d ->
             d.settle(5)
-            assertTrue("main 100 (at least 60) · sideboard 1" in d.text.all())
+            // The prompt in the left column wraps the count rather than cut it.
+            assertTrue(d.text.all().let { "main 100 (at least 60)" in it && "sideboard 1" in it }, d.text.all())
             val want = main.associate { it.name to it.count } + ("Card 090" to 0) + ("Duress" to 1)
             assertNotNull(d.perform(prompt, SeatAction.Sideboard(want)))
             val answer = seat.answers.single().second as SeatAction.Sideboard

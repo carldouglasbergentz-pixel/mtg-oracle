@@ -27,7 +27,8 @@ class NumberPromptTest {
                 CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) }
             }.use { d ->
                 d.settle(5)
-                assertTrue("Choose X for Wrath of the Skies" in d.text.all())
+                // The prompt in the left column wraps the question.
+                assertTrue(d.text.all().let { "Choose X for" in it && "Wrath of the" in it && "Skies" in it }, d.text.all())
                 assertTrue(d.click(ClickTarget.More(0)))
                 assertTrue(d.click(ClickTarget.More(0)))
                 d.key(Key.Backspace); d.key(Key.Four, '4'.code); d.key(Key.Two, '2'.code)

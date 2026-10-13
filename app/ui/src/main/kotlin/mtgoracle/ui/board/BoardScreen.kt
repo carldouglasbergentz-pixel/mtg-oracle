@@ -262,52 +262,77 @@ fun BoardScreen(
                         // The news at the top, where its changes don't flicker in the middle of the table.
                         Header(title, b, leftCols, Modifier.region("header").onGloballyPositioned { val r = it.boundsInWindow(); if (r != header) header = r })
                         val sideboarding = prompt as? SideboardPrompt
-                        if (b == null || b.sides == null) {
-                            BoxPane("board", Modifier.weight(1f).fillMaxWidth()) { GridText(fit(if (b == null) "Starting Forge…" else "Waiting for both players…", leftCols - 2), color = Palette.dim) }
-                        } else if (sideboarding != null) {
-                            // Between games the table is the deck: sideboarding takes its place.
-                            val state = if (interaction.promptId == sideboarding.id) interaction else Interaction.start(sideboarding)
-                            SideboardView(sideboarding, state.deck, onClick, Modifier.weight(1f).fillMaxWidth())
-                        } else {
-                            // Across the table: the opponent (or, watching, player one) above the midline, you below.
-                            val (far, near) = b.sides!!
-                            val seatStops = if (b.seat != null) stops else null
-                            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                                // The frame sizes of both halves and the hand (planTable): the halves share the rows, the
-                                // hand no larger than your half's frames, and the midline where it was while the frames fit.
-                                val fieldCols = leftCols - panes.zoneCols - 2
+                        val sides = b?.sides
+                        val onTable = b != null && sides != null && sideboarding == null
+                        val fieldCols = leftCols - panes.zoneCols
+                        // The prompt, in the left column between the two players' zones, as MTGO puts it.
+                        val promptBox: @Composable () -> Unit = {
+                            BoxPane("prompt" + ((prompt as? InputPrompt)?.let { " · ${it.kind.name.lowercase()}" } ?: ""),
+                                Modifier.fillMaxWidth().cellHeight(PROMPT_ROWS).region("prompt"),
+                                border = if (prompt != null) Border.DOUBLE else Border.SINGLE,
+                                borderColor = if (prompt != null) Palette.accent else Palette.dim) {
+                                PromptBody(prompt, board, interaction, panes.zoneCols - 2, onClick, onHover,
+                                    trailing = if (matchControls != null && !showResult) ({ ControlButton("[ concede ]", MatchTargets.OPEN_MENU, true, onClick) }) else null)
+                            }
+                        }
+                        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                            val rows = cells.rows(constraints.maxHeight.toFloat())
+                            // The frame sizes of both halves and the hand (planTable): the halves share the rows, the
+                            // hand no larger than your half's frames, and the midline where it was while the frames fit.
+                            val plan = if (!onTable) null else {
+                                val (far, near) = sides!!
                                 val attach = { p: mtgoracle.core.model.PlayerState -> p.battlefield.any { it.attachedToId != null } }
                                 fun wants(p: mtgoracle.core.model.PlayerState, t: FrameTier, handLane: Boolean): Int =
-                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks), t), fieldCols) * bandRows(t, attach(p)) + 2 + emblemRows(p) +
+                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks), t), fieldCols - 2) * bandRows(t, attach(p)) + 2 + emblemRows(p) +
                                         if (handLane) FrameSize.rows(t) else 0
                                 val tiers = if (mode == CardMode.ART) FrameTier.entries else listOf(FrameTier.TEXT)
-                                val plan = planTable(cells.rows(constraints.maxHeight.toFloat()) - MIDLINE_ROWS, tiers, handRows = { FrameSize.rows(it) + 2 },
+                                planTable(rows - MIDLINE_ROWS - PHASE_BAR_ROWS, tiers, handRows = { FrameSize.rows(it) + 2 },
                                     farWants = { wants(far, it, handLane = showAllHands) }, nearWants = { wants(near, it, handLane = false) },
                                     halfFloor = ZONE_COLUMN_MIN_ROWS, previous = lastPlan[0]).also { lastPlan[0] = it }
-                                val farLooks = looks.sized(plan.farTier, attach(far))
-                                val nearLooks = looks.sized(plan.nearTier, attach(near))
-                                Column(Modifier.fillMaxSize()) {
-                                    Column(Modifier.fillMaxWidth().cellHeight(plan.farRows + MIDLINE_ROWS + plan.nearRows).onGloballyPositioned { val r = it.boundsInWindow(); if (r != table) table = r }) {
-                                        Half(far, b, far = true, stops = seatStops, showHand = showAllHands, looks = farLooks, modifier = Modifier.cellHeight(plan.farRows).region("far-half"),
-                                            zoneCols = panes.zoneCols, zoneDrag = zoneDrag, mat = theirMat)
-                                        MidRule(leftCols, Modifier.region("midline").onGloballyPositioned { val r = it.boundsInWindow(); if (r != midline) midline = r })
-                                        Half(near, b, far = false, stops = seatStops, showHand = false, looks = nearLooks, modifier = Modifier.cellHeight(plan.nearRows).region("near-half"),
-                                            zoneCols = panes.zoneCols, zoneDrag = zoneDrag, mat = myMat)
+                            }
+                            Row(Modifier.fillMaxSize()) {
+                                // MTGO's left column: the opponent's zones level with their half, the prompt, your zones down to the bottom.
+                                Box(Modifier.cellWidth(panes.zoneCols).fillMaxHeight()) {
+                                    Column(Modifier.fillMaxSize()) {
+                                        if (onTable && plan != null) {
+                                            val (far, near) = sides!!
+                                            val farZones = plan.farRows.coerceAtMost(rows - PROMPT_ROWS - ZONE_COLUMN_MIN_ROWS).coerceAtLeast(ZONE_COLUMN_MIN_ROWS)
+                                            PlayerZones(far, b!!, far = true, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().cellHeight(farZones))
+                                            promptBox()
+                                            PlayerZones(near, b, far = false, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().weight(1f))
+                                        } else promptBox()
                                     }
-                                    val showNearHand = b.seat != null || showAllHands
-                                    BoxPane(if (showNearHand) "hand (${near.handCount})" else "hand ${near.handCount} (hidden: H shows)",
-                                        Modifier.fillMaxWidth().weight(1f).region("hand")) {
-                                        if (showNearHand) HandLane(near, nearLooks.sized(plan.handTier, false))
+                                    // Its right border is the handle.
+                                    PaneEdge(zoneDrag, "zones-edge", Modifier.align(Alignment.CenterEnd))
+                                }
+                                Column(Modifier.weight(1f).fillMaxHeight()) {
+                                    if (b == null || sides == null) {
+                                        BoxPane("board", Modifier.weight(1f).fillMaxWidth()) { GridText(fit(if (b == null) "Starting Forge…" else "Waiting for both players…", fieldCols - 2), color = Palette.dim) }
+                                    } else if (sideboarding != null) {
+                                        // Between games the table is the deck: sideboarding takes its place.
+                                        val state = if (interaction.promptId == sideboarding.id) interaction else Interaction.start(sideboarding)
+                                        SideboardView(sideboarding, state.deck, onClick, Modifier.weight(1f).fillMaxWidth())
+                                    } else if (plan != null) {
+                                        // Across the table: the opponent (or, watching, player one) above the midline, you below.
+                                        val (far, near) = sides
+                                        val attach = { p: mtgoracle.core.model.PlayerState -> p.battlefield.any { it.attachedToId != null } }
+                                        val farLooks = looks.sized(plan.farTier, attach(far))
+                                        val nearLooks = looks.sized(plan.nearTier, attach(near))
+                                        Column(Modifier.fillMaxWidth().cellHeight(plan.farRows + MIDLINE_ROWS + plan.nearRows).onGloballyPositioned { val r = it.boundsInWindow(); if (r != table) table = r }) {
+                                            PlayerField(far, far = true, showHand = showAllHands, looks = farLooks, modifier = Modifier.fillMaxWidth().cellHeight(plan.farRows), mat = theirMat)
+                                            MidRule(fieldCols, Modifier.region("midline").onGloballyPositioned { val r = it.boundsInWindow(); if (r != midline) midline = r })
+                                            PlayerField(near, far = false, showHand = false, looks = nearLooks, modifier = Modifier.fillMaxWidth().cellHeight(plan.nearRows), mat = myMat)
+                                        }
+                                        // The turn's steps and your stops, between the table and your hand, as MTGO's phase bar.
+                                        PhaseBar(if (b.seat != null) stops else null, b, near.id, fieldCols, onClick)
+                                        val showNearHand = b.seat != null || showAllHands
+                                        BoxPane(if (showNearHand) "hand (${near.handCount})" else "hand ${near.handCount} (hidden: H shows)",
+                                            Modifier.fillMaxWidth().weight(1f).region("hand")) {
+                                            if (showNearHand) HandLane(near, nearLooks.sized(plan.handTier, false))
+                                        }
                                     }
                                 }
                             }
-                        }
-                        BoxPane("prompt" + ((prompt as? InputPrompt)?.let { " · ${it.kind.name.lowercase()}" } ?: ""),
-                            Modifier.fillMaxWidth().cellHeight(PROMPT_ROWS).region("prompt"),
-                            border = if (prompt != null) Border.DOUBLE else Border.SINGLE,
-                            borderColor = if (prompt != null) Palette.accent else Palette.dim) {
-                            PromptBody(prompt, board, interaction, leftCols - 2, onClick, onHover,
-                                trailing = if (matchControls != null && !showResult) ({ ControlButton("[ concede ]", MatchTargets.OPEN_MENU, true, onClick) }) else null)
                         }
                     }
                     Box(Modifier.cellWidth(sideCols).fillMaxHeight()) {

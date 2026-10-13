@@ -105,6 +105,8 @@ open class StagedGame(
 
     /** Everything drawn as text on the board right now, and the same without the log pane's lines. */
     fun screenText(): String { driver.settle(3); return driver.text.all() }
+    /** The same on one line, spaces evened out: a sentence the narrow prompt wrapped reads whole. */
+    fun flatText(): String = screenText().lines().joinToString(" ") { it.trim() }.replace(Regex(" +"), " ")
     fun tableText(): String {
         // A log row is a piece of its line's text, however the pane wrapped it.
         val log = board.log.map { it.text }
