@@ -8,11 +8,10 @@ import mtgoracle.ui.kit.FrameTier
  * so it can be tested and so nothing moves unless the plan changes.
  *
  * A half is a stack of *bands*, each one card lane high with a label line
- * above it. The type zones fill them from the midline out: creatures,
- * planeswalkers and battles, artifacts and enchantments, and lands at the
- * player's edge. Creatures are anchored to the midline and lands to the
- * edge, so neither moves when the other changes; the zones between follow
- * the creatures.
+ * above it. The type zones fill them from the midline out, as MTGO lays a
+ * table: creatures, planeswalkers and battles, artifacts and enchantments,
+ * and the lands right behind them; the rows to spare lie at the player's
+ * edge. A zone that needs another band moves the ones behind it back.
  *
  * Space goes where the cards are: a zone takes as many bands as its cards
  * need, the middle zones share a band when there aren't enough, and a band
@@ -33,11 +32,7 @@ data class SlotPlace(val zone: ZoneKind, val index: Int, val band: Int, val x: I
 /** A zone's run within a band: where its label goes, and how many of its cards are scrolled out of view. */
 data class Segment(val zone: ZoneKind, val band: Int, val x: Int, val width: Int, val hiddenRight: Int)
 
-data class HalfPlan(
-    val bands: Int, val slots: List<SlotPlace>, val segments: List<Segment>, val scrolls: Set<Int>,
-    /** The first band of the lands group (drawn from the player's edge inwards); [bands] when the half has no lands. */
-    val landsFrom: Int = bands,
-) {
+data class HalfPlan(val bands: Int, val slots: List<SlotPlace>, val segments: List<Segment>, val scrolls: Set<Int>) {
     fun place(zone: ZoneKind, index: Int): SlotPlace? = slots.firstOrNull { it.zone == zone && it.index == index }
 }
 
@@ -73,12 +68,22 @@ private const val HAND_SHARE = 4
 
 /**
  * The frame sizes and heights for the table, out of [rows] (the halves and
- * the hand pane). The halves are always the same size, and only the cards
- * shrink: each half takes the largest frames that show its own cards without
- * overlap in its half, so one side's cards can be larger than the other's.
- * The hand is sized by the window alone (the largest frames in a quarter of
- * the table, leaving each half at least [halfFloor] rows), so nothing moves
- * as cards come and go. When no frames fit a half, its smallest overlap.
+ * the hand pane). [tiers] runs from the largest frames to the smallest.
+ *
+ * The halves share the rows: both take the largest frames that show their
+ * cards together, then the one that still has room grows larger (yours, the
+ * near half, first), and the rows left over are split evenly. A half with few
+ * cards lends the rest: three lands opposite need not cost your creatures
+ * their size. Each half keeps at least [halfFloor] rows (its zone column).
+ *
+ * The hand takes the largest frames that leave it at most a quarter of the
+ * table, and never larger than your half's: the cards you hold are not
+ * drawn bigger than the ones you play. When no frames fit, the smallest
+ * overlap.
+ *
+ * [previous] is the plan the table has now. While the same frames still fit
+ * in its halves, its midline stays where it is: it moves when a half's
+ * frames change size, not with every card that comes or goes.
  *
  * [farWants] / [nearWants] are the rows a half needs at a tier, border
  * included; [handRows] the hand pane's.
@@ -86,13 +91,27 @@ private const val HAND_SHARE = 4
 fun planTable(
     rows: Int, tiers: List<FrameTier>, handRows: (FrameTier) -> Int,
     farWants: (FrameTier) -> Int, nearWants: (FrameTier) -> Int, halfFloor: Int,
+    previous: TablePlan? = null,
 ): TablePlan {
-    val handTier = tiers.firstOrNull { handRows(it) * HAND_SHARE <= rows && (rows - handRows(it)) / 2 >= halfFloor } ?: tiers.last()
-    val hand = handRows(handTier)
-    val far = (rows - hand) / 2
-    val near = rows - hand - far
-    fun tierFor(rowsHere: Int, wants: (FrameTier) -> Int) = tiers.firstOrNull { wants(it) <= rowsHere } ?: tiers.last()
-    return TablePlan(tierFor(near, nearWants), tierFor(far, farWants), handTier, hand, far, near)
+    fun halves(hand: FrameTier): TablePlan {
+        val handRowsHere = handRows(hand)
+        val field = rows - handRowsHere
+        fun fits(far: FrameTier, near: FrameTier) =
+            farWants(far) + nearWants(near) <= field && farWants(far) <= field - halfFloor && nearWants(near) <= field - halfFloor
+        val both = tiers.firstOrNull { fits(it, it) }
+            ?: return TablePlan(tiers.last(), tiers.last(), hand, handRowsHere, field / 2, field - field / 2)
+        val near = tiers.first { fits(both, it) }
+        val far = tiers.first { fits(it, near) }
+        val kept = previous?.takeIf {
+            it.farTier == far && it.nearTier == near && it.farRows + it.nearRows == field &&
+                it.farRows >= maxOf(halfFloor, farWants(far)) && it.nearRows >= maxOf(halfFloor, nearWants(near))
+        }
+        val farRows = kept?.farRows ?: (farWants(far) + (field - farWants(far) - nearWants(near)) / 2).coerceIn(halfFloor, field - halfFloor)
+        return TablePlan(near, far, hand, handRowsHere, farRows, field - farRows)
+    }
+    val hands = tiers.filter { handRows(it) * HAND_SHARE <= rows && (rows - handRows(it)) / 2 >= halfFloor }.ifEmpty { listOf(tiers.last()) }
+    // The largest hand no larger than the near half's frames; a smaller hand leaves the halves more rows, so look on down.
+    return hands.map(::halves).firstOrNull { tiers.indexOf(it.handTier) >= tiers.indexOf(it.nearTier) } ?: halves(hands.last())
 }
 
 /**
@@ -155,16 +174,13 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int): HalfPlan {
         break
     }
 
-    // Bands from the midline: the groups before lands go from 0 up; the lands group sits at the edge.
+    // Bands from the midline: each group's run of bands after the one before it, the lands last.
     val counts = groups.indices.map { bandsOf(it) }
     val total = maxOf(counts.sum(), 1)
     val firstBand = IntArray(groups.size)
     var next = 0
     groups.indices.forEach { i -> firstBand[i] = next; next += counts[i] }
-    // Nonland bands run on from the midline; the lands group comes last and is drawn from the player's
-    // edge inwards (landsFrom), so free rows lie between the two, never between the lands and the edge.
     val bands = total
-    val landsGroup = groups.indexOfLast { g -> g.any { it.kind == ZoneKind.LANDS } }
 
     val slots = mutableListOf<SlotPlace>()
     val segments = mutableListOf<Segment>()
@@ -181,9 +197,7 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int): HalfPlan {
             layBand(here, band, cols, slots, segments, scrolls)
         }
     }
-    // The lands group is the last one; when it shares its band with other zones (a crowded half), that band is at the edge too.
-    val landsFrom = if (landsGroup >= 0) firstBand[landsGroup] else bands
-    return HalfPlan(bands, slots, segments, scrolls, landsFrom)
+    return HalfPlan(bands, slots, segments, scrolls)
 }
 
 /** How many of [widths] go on each of [bands] bands: fill each up to [cols], the last takes the rest. */

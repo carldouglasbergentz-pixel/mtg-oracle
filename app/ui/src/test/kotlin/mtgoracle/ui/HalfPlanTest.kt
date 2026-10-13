@@ -41,36 +41,54 @@ class HalfPlanTest {
     @Test fun `the crowded side fits at 1280x720`() = assertOnBoard(cols = 104, maxBands = 1)
 
     @Test
-    fun `space goes where the cards are - no creatures, the lands still sit at the edge and get the room`() {
+    fun `space goes where the cards are - no creatures, the lands take the room`() {
         val plan = planHalf(listOf(ZoneContent(ZoneKind.LANDS, List(12) { land })), cols = 104, maxBands = 3)
         assertEquals(plan.bands, plan.slots.map { it.band }.toSet().size, "no empty band left between them")
         assertTrue(plan.slots.all { it.x + it.visible <= 104 }, "wrapping instead of overlapping, with the room")
     }
 
+    private val tiers = mtgoracle.ui.kit.FrameTier.entries
+    private fun frameRows(t: mtgoracle.ui.kit.FrameTier) = mtgoracle.ui.kit.FrameSize.rows(t)
+    private fun half(bands: Int) = { t: mtgoracle.ui.kit.FrameTier -> bands * (1 + frameRows(t)) + 2 }
+    private fun table(total: Int, far: Int, near: Int, previous: mtgoracle.ui.board.TablePlan? = null) =
+        mtgoracle.ui.board.planTable(total, tiers, { frameRows(it) + 2 }, half(far), half(near), 13, previous)
+
     @Test
-    fun `the table plan - even halves always, each with the largest frames its own cards fit`() {
-        val tiers = mtgoracle.ui.kit.FrameTier.entries
-        val rows = { t: mtgoracle.ui.kit.FrameTier -> mtgoracle.ui.kit.FrameSize.rows(t) }
-        fun half(bands: Int) = { t: mtgoracle.ui.kit.FrameTier -> bands * (1 + rows(t)) + 2 }
-        fun plan(total: Int, far: Int, near: Int) = mtgoracle.ui.board.planTable(total, tiers, { rows(it) + 2 }, half(far), half(near), 13)
+    fun `the table plan - the halves share the rows, and the hand is no larger than your half`() {
         for (total in listOf(120, 80, 60, 44, 20)) {
-            val sparse = plan(total, 1, 3)
-            val crowded = plan(total, 3, 1)
-            for (p in listOf(sparse, crowded)) {
-                assertTrue(kotlin.math.abs(p.farRows - p.nearRows) <= 1, "the halves are even at $total rows: $p")
-                assertEquals(total, p.handRows + p.farRows + p.nearRows)
+            for ((far, near) in listOf(1 to 3, 3 to 1, 2 to 2)) {
+                val p = table(total, far, near)
+                assertEquals(total, p.handRows + p.farRows + p.nearRows, "every row used at $total: $p")
+                assertTrue(p.farRows >= 13 && p.nearRows >= 13 || total < 3 * 13, "each half keeps its zone column at $total: $p")
+                assertTrue(p.handRows * 4 <= total || p.handTier == tiers.last(), "the hand takes at most a quarter at $total: $p")
+                assertTrue(tiers.indexOf(p.handTier) >= tiers.indexOf(p.nearTier), "the hand is no larger than your half at $total: $p")
+                if (p.nearTier != tiers.last()) assertTrue(half(near)(p.nearTier) <= p.nearRows, "your cards fit your half at $total: $p")
+                if (p.farTier != tiers.last()) assertTrue(half(far)(p.farTier) <= p.farRows, "theirs fit theirs at $total: $p")
             }
-            assertEquals(sparse.handRows to sparse.handTier, crowded.handRows to crowded.handTier, "the hand by the window alone, at $total rows")
-            assertEquals(sparse.farRows, crowded.farRows, "and the halves too: cards coming and going move no edge")
-            assertTrue(sparse.farTier.ordinal <= sparse.nearTier.ordinal, "the sparse half's frames are no smaller: $sparse")
-            assertTrue(half(3)(sparse.nearTier) <= sparse.nearRows || sparse.nearTier == tiers.last(), "the crowded half's cards fit its half: $sparse")
         }
-        // 80 rows: one band large or bigger, three bands smaller, the halves the same.
-        val roomy = plan(80, 1, 3)
-        assertTrue(roomy.farTier.ordinal < roomy.nearTier.ordinal, "the opponent's single band takes larger frames: $roomy")
-        assertTrue(roomy.handRows * 4 <= 80, "the hand takes at most a quarter")
+        // 80 rows, three bands of yours against one of theirs: your half takes the rows theirs doesn't need.
+        val lent = table(80, 1, 3)
+        assertTrue(lent.nearRows > lent.farRows, "the crowded half has more rows: $lent")
+        val even = (80 - lent.handRows) / 2
+        val evenTier = tiers.firstOrNull { half(3)(it) <= even } ?: tiers.last()
+        assertTrue(tiers.indexOf(lent.nearTier) <= tiers.indexOf(evenTier), "and frames no smaller than an even split gave it ($evenTier): $lent")
         // Too small for any: the smallest frames, and overlap takes the rest.
-        assertEquals(mtgoracle.ui.kit.FrameTier.TEXT, plan(20, 1, 3).nearTier)
+        assertEquals(mtgoracle.ui.kit.FrameTier.TEXT, table(20, 1, 3).nearTier)
+    }
+
+    @Test
+    fun `the midline stays while the same frames fit - a card more moves no edge`() {
+        val before = table(80, 1, 2)
+        // A creature arrives: their half needs another band, and its frames still fit in the rows it has.
+        val after = table(80, 1, 2, previous = before).let { table(80, 1, 2, previous = it) }
+        assertEquals(before.farRows to before.nearRows, after.farRows to after.nearRows)
+        val grown = table(80, 2, 2, previous = before)
+        if (grown.farTier == before.farTier && grown.nearTier == before.nearTier && half(2)(before.farTier) <= before.farRows) {
+            assertEquals(before.farRows, grown.farRows, "the same frames still fit: the midline stays: $before -> $grown")
+        }
+        // Frames that no longer fit do move it.
+        val crowded = table(80, 4, 1, previous = before)
+        assertTrue(half(4)(crowded.farTier) <= crowded.farRows || crowded.farTier == tiers.last(), "their cards fit their half again: $crowded")
     }
 
     @Test
