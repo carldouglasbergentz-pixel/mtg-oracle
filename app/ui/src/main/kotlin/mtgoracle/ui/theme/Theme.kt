@@ -247,8 +247,10 @@ val gridStyle: TextStyle
 
 /** One character cell of the grid, in pixels. Every pane and card frame is sized in cells. */
 data class Cells(val width: Float, val height: Float) {
-    fun cols(px: Float): Int = (px / width).toInt()
-    fun rows(px: Float): Int = (px / height).toInt()
+    // Whole cells in px, forgiving the half pixel Compose rounds a size to: 28 cells of 7.15 px are laid out
+    // 200 px wide, not 200.2, and counted as 27 the border was drawn a cell short, inside a frame's art.
+    fun cols(px: Float): Int = ((px + 0.5f) / width).toInt()
+    fun rows(px: Float): Int = ((px + 0.5f) / height).toInt()
 }
 
 val LocalCells = staticCompositionLocalOf { Cells(7f, 16f) }
