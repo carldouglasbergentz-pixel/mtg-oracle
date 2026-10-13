@@ -15,10 +15,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * A table built from the middle out, as MTGO lays one: each player's
- * permanents from the midline, the lands right behind them, the rows to
- * spare at the player's edge. The halves share the rows: a crowded side
- * takes what a sparse one doesn't need.
+ * A physical table, built from the middle out: each player's lands in an
+ * area of their own at their edge, the other permanents from the midline,
+ * the free rows between, and every row centred across. The halves share
+ * the rows: a crowded side takes what a sparse one doesn't need.
  */
 class AnchoringTest {
     private val art = ArtImages(FakeArt(File(pngDir, "fake-art")))
@@ -34,7 +34,7 @@ class AnchoringTest {
     private val theirCreatures = listOf(card(92, "Hill Giant", creature = true, cost = "{3}{R}"))
 
     @Test
-    fun `the cards sit at the midline, the lands right behind the creatures, the spare rows at the edge`() {
+    fun `lands sit at each player's edge, centred, and stay there when creatures arrive`() {
         val seat = FakeSeat(board(myLands, theirLands), null)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
             d.settle(5)
@@ -42,11 +42,12 @@ class AnchoringTest {
             val far = d.registry[ClickTarget.Control("region:far-field")]!!
             val mine = d.registry[ClickTarget.Card(80)]!!
             val theirs = d.registry[ClickTarget.Card(90)]!!
-            // A label line, the border and a little: within a couple of rows of the midline.
-            val rows = 3 * 16f
-            assertTrue(mine.top - near.top < rows, "lands alone sit at the midline: $mine in $near")
-            assertTrue(far.bottom - theirs.bottom < rows, "theirs too: $theirs in $far")
-            // And from the middle across: the lands' run is centred in the field.
+            // A frame and its turn shift, a label line and the border: within a band of the edge.
+            val band = 13 * 16f
+            assertTrue(near.bottom - mine.bottom < band, "my lands at my edge (the hand side): $mine in $near")
+            assertTrue(mine.top - near.top > band, "with the free rows between them and the midline: $mine in $near")
+            assertTrue(theirs.top - far.top < band, "their lands at their edge: $theirs in $far")
+            // From the middle across: the lands' run is centred in the field.
             val run = listOf(80, 81, 82).map { d.registry[ClickTarget.Card(it)]!! }
             val before = run.minOf { it.left } - near.left
             val after = near.right - run.maxOf { it.right }
@@ -55,13 +56,11 @@ class AnchoringTest {
 
             seat.board.value = board(myLands + myCreatures, theirLands + theirCreatures)
             d.settle(3)
+            assertEquals(mine, d.registry[ClickTarget.Card(80)], "my lands did not move when my creatures arrived")
+            assertEquals(theirs, d.registry[ClickTarget.Card(90)], "nor theirs")
             val bears = d.registry[ClickTarget.Card(83)]!!
-            val island = d.registry[ClickTarget.Card(80)]!!
-            assertTrue(bears.top - near.top < rows, "creatures at the midline: $bears")
-            assertTrue(island.top > bears.bottom && island.top - bears.bottom < rows, "the lands right behind them: $island after $bears")
-            val giant = d.registry[ClickTarget.Card(92)]!!
-            val swamp = d.registry[ClickTarget.Card(90)]!!
-            assertTrue(far.bottom - giant.bottom < rows && swamp.bottom < giant.top, "theirs mirrored: $giant, $swamp in $far")
+            assertTrue(bears.top - near.top < band, "creatures at the midline: $bears")
+            assertTrue(d.registry[ClickTarget.Card(92)]!!.bottom > far.bottom - band, "theirs too")
             d.savePng(File(pngDir, "anchoring-with-creatures.png"))
         }
     }

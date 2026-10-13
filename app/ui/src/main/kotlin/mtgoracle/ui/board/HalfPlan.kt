@@ -8,10 +8,12 @@ import mtgoracle.ui.kit.FrameTier
  * so it can be tested and so nothing moves unless the plan changes.
  *
  * A half is a stack of *bands*, each one card lane high with a label line
- * above it. The type zones fill them from the midline out, as MTGO lays a
- * table: creatures, planeswalkers and battles, artifacts and enchantments,
- * and the lands right behind them; the rows to spare lie at the player's
- * edge. A zone that needs another band moves the ones behind it back.
+ * above it, in two rows as MTGO and Arena lay a table: the creatures at the
+ * midline, and the back row at the player's own edge: the lands, then the
+ * artifacts and enchantments, then the planeswalkers and battles, building
+ * out to the right in the same row. The creatures are anchored to the
+ * midline and the back row to the edge, so neither moves when the other
+ * changes; the rows to spare lie between them.
  *
  * Space goes where the cards are: a zone takes as many bands as its cards
  * need, the middle zones share a band when there aren't enough, and a band
@@ -37,7 +39,14 @@ data class SlotPlace(val zone: ZoneKind, val index: Int, val band: Int, val x: I
 /** A zone's run within a band: where its label goes, and how many of its cards are scrolled out of view. */
 data class Segment(val zone: ZoneKind, val band: Int, val x: Int, val width: Int, val hiddenRight: Int)
 
-data class HalfPlan(val bands: Int, val slots: List<SlotPlace>, val segments: List<Segment>, val scrolls: Set<Int>) {
+/** The back row, in its order from the left: the lands, then the other noncreature permanents building out to the right. */
+val BACK_ROW = listOf(ZoneKind.LANDS, ZoneKind.PERMANENTS, ZoneKind.WALKERS)
+
+data class HalfPlan(
+    val bands: Int, val slots: List<SlotPlace>, val segments: List<Segment>, val scrolls: Set<Int>,
+    /** The first band of the back row (drawn from the player's edge inwards); [bands] when the half has none. */
+    val landsFrom: Int = bands,
+) {
     fun place(zone: ZoneKind, index: Int): SlotPlace? = slots.firstOrNull { it.zone == zone && it.index == index }
 }
 
@@ -121,17 +130,16 @@ fun planTable(
 
 /**
  * The fewest bands that show every one of [zones]' cards at full width —
- * nothing overlapped, nothing scrolled — as planHalf would pack them
- * (middle zones sharing a band where they fit), with the lands on bands of
- * their own: creatures stand in front of the lands. Sized by its own cards, a
- * sparse half got one band's rows, and its creatures and lands shared it. An
- * empty half needs one.
+ * nothing overlapped, nothing scrolled — as planHalf would pack them, with
+ * the back row on bands of its own: creatures stand in front of it. Sized by
+ * its own cards, a sparse half got one band's rows, and its creatures and
+ * lands shared it. An empty half needs one.
  */
 fun bandsNeeded(zones: List<ZoneContent>, cols: Int, most: Int = 6): Int {
     for (b in 1..most) {
         val plan = planHalf(zones, cols, b)
-        val landBands = plan.slots.filter { it.zone == ZoneKind.LANDS }.map { it.band }.toSet()
-        val mixed = plan.slots.any { it.zone != ZoneKind.LANDS && it.band in landBands }
+        val backBands = plan.slots.filter { it.zone in BACK_ROW }.map { it.band }.toSet()
+        val mixed = plan.slots.any { it.zone !in BACK_ROW && it.band in backBands }
         if (plan.bands <= b && !mixed && plan.scrolls.isEmpty() && plan.slots.all { s -> s.visible == zones.first { it.kind == s.zone }.widths[s.index] }) return b
     }
     return most
@@ -151,14 +159,14 @@ const val ZONE_GAP = 3
  * middle; otherwise from the left (the hand).
  */
 fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int, centred: Boolean = false): HalfPlan {
-    val order = ZoneKind.entries
-    val present = zones.filter { it.widths.isNotEmpty() }.sortedBy { order.indexOf(it.kind) }
+    val present = zones.filter { it.widths.isNotEmpty() }
     if (present.isEmpty() || cols <= 0) return HalfPlan(0, emptyList(), emptyList(), emptySet())
     fun widthOf(z: List<ZoneContent>) = z.sumOf { zc -> zc.widths.sumOf { it + SLOT_GAP } } + ZONE_GAP * (z.size - 1)
     fun need(z: List<ZoneContent>) = maxOf(1, ceil(widthOf(z) / cols.toDouble()).toInt())
 
-    // Groups share bands; start with each zone on its own.
-    val groups = present.map { mutableListOf(it) }.toMutableList()
+    // Two groups, as two rows: the creatures, and the back row in its order (lands first). Crowded, they share bands.
+    val groups = listOf(present.filter { it.kind !in BACK_ROW }, BACK_ROW.mapNotNull { k -> present.firstOrNull { it.kind == k } })
+        .filter { it.isNotEmpty() }.map { it.toMutableList() }.toMutableList()
     val caps = MutableList(groups.size) { Int.MAX_VALUE }
     fun bandsOf(i: Int) = minOf(need(groups[i]), caps[i])
     val limit = maxOf(1, maxBands)
@@ -181,13 +189,16 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int, centred: Boolea
         break
     }
 
-    // Bands from the midline: each group's run of bands after the one before it, the lands last.
+    // Bands from the midline: the creatures from 0 up; the back row, last, sits at the edge.
     val counts = groups.indices.map { bandsOf(it) }
     val total = maxOf(counts.sum(), 1)
     val firstBand = IntArray(groups.size)
     var next = 0
     groups.indices.forEach { i -> firstBand[i] = next; next += counts[i] }
     val bands = total
+    val backGroup = groups.indexOfLast { g -> g.any { it.kind in BACK_ROW } }
+    // The back row is drawn from the player's edge inwards (landsFrom); when it shares a band with the creatures (a crowded half), that band is at the edge too.
+    val landsFrom = if (backGroup >= 0) firstBand[backGroup] else bands
 
     val slots = mutableListOf<SlotPlace>()
     val segments = mutableListOf<Segment>()
@@ -198,13 +209,14 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int, centred: Boolea
         val perBand = splitEvenly(items.map { it.third }, counts[g], cols)
         var start = 0
         perBand.forEachIndexed { b, n ->
-            val band = firstBand[g] + b
+            // The back row fills from the player's edge in: its first cards, the lands, in the outermost band.
+            val band = if (g == backGroup && group.all { it.kind in BACK_ROW }) firstBand[g] + counts[g] - 1 - b else firstBand[g] + b
             val here = items.subList(start, start + n)
             start += n
             layBand(here, band, cols, slots, segments, scrolls)
         }
     }
-    if (!centred) return HalfPlan(bands, slots, segments, scrolls)
+    if (!centred) return HalfPlan(bands, slots, segments, scrolls, landsFrom)
     // Each band's run of cards moved to the middle; a band that overlaps or scrolls already takes the width.
     // Centred on the run without its split-off piles, so a pile that splits or merges keeps the run's start;
     // the run still ends inside the band.
@@ -215,7 +227,7 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int, centred: Boolea
         if (b in scrolls) 0 else ((cols - (used - split)) / 2).coerceAtMost(cols - used).coerceAtLeast(0)
     }
     return HalfPlan(
-        bands, slots.map { it.copy(x = it.x + shift.getValue(it.band)) }, segments.map { it.copy(x = it.x + shift.getValue(it.band)) }, scrolls,
+        bands, slots.map { it.copy(x = it.x + shift.getValue(it.band)) }, segments.map { it.copy(x = it.x + shift.getValue(it.band)) }, scrolls, landsFrom,
     )
 }
 

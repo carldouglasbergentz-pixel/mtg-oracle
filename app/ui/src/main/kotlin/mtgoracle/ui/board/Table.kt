@@ -221,10 +221,10 @@ const val ZONE_COLUMN_MIN_ROWS = ZONE_FIXED_ROWS + 3 + 2
 
 /**
  * One player's battlefield, drawn from its plan (HalfPlan.kt): type zones in
- * bands from the midline out, creatures nearest it and the lands right
- * behind, the rows to spare at the player's edge (mirrored for the far
- * side). Every card sits at a computed place, so a tap, a hover or a click
- * moves nothing; only a card arriving or leaving can re-plan its band.
+ * bands from the midline out, creatures nearest it, lands at the player's
+ * edge (mirrored for the far side), each band centred across. Every card
+ * sits at a computed place, so a tap, a hover or a click moves nothing;
+ * only a card arriving or leaving can re-plan its band.
  */
 @Composable
 private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, looks: Looks, modifier: Modifier, mat: Playmat? = null) {
@@ -252,8 +252,9 @@ private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, lo
                         EmblemRow(player, looks, if (far) "far" else "near")
                     }
                     for (b in 0 until plan.bands) {
-                        // Rows from the midline: every band packs outwards from it (band 0 touches it), so the rows to spare fall at the edge.
-                        val fromMidline = b * band
+                        // Rows from the midline: nonland bands pack outwards from it (band 0 touches it); the
+                        // lands bands pack inwards from the player's edge, so free rows fall between the two.
+                        val fromMidline = if (b < plan.landsFrom) b * band else contentRows - (plan.bands - b) * band
                         val y = if (far) handRows + contentRows - fromMidline - band else emblems + fromMidline
                         BandView(b, plan, lanes, looks, cols, if (far) "far" else "near", Modifier.offset(y = with(density) { (y * cells.height).toDp() }))
                     }

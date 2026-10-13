@@ -93,7 +93,7 @@ class HalfPlanTest {
 
     @Test
     fun `bands needed - the fewest that show every card with no overlap, middle zones sharing`() {
-        assertEquals(4, mtgoracle.ui.board.bandsNeeded(crowded(), 150), "creatures; walkers with artifacts; nine loose lands on two")
+        assertEquals(3, mtgoracle.ui.board.bandsNeeded(crowded(), 150), "creatures; the back row - nine lands, then artifacts and walkers - on two")
         assertEquals(1, mtgoracle.ui.board.bandsNeeded(emptyList(), 150))
         assertEquals(2, mtgoracle.ui.board.bandsNeeded(listOf(ZoneContent(ZoneKind.CREATURES, List(1) { creature }), ZoneContent(ZoneKind.LANDS, List(2) { land })), 150),
             "one creature and two lands fit in one band, but the creature stands in front of the lands")
