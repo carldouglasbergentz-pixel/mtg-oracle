@@ -152,8 +152,9 @@ class Lanes(battlefield: List<CardState>, looks: Looks) {
     /**
      * Lands in piles, in a stable order: names as they first appear on the
      * battlefield, and within a name the untapped pile first, the tapped one
-     * right after it, then any pile that differs otherwise. Tapping one card
-     * splits or merges that name's piles in place; no other pile moves.
+     * right after it, then any pile that differs otherwise (a land new this
+     * turn among them). Tapping one card splits or merges that name's piles
+     * in place; no other pile moves.
      */
     val lands: List<Slot> = run {
         val landCards = loose.filter { it.isLand && !it.isCreature }
@@ -162,14 +163,14 @@ class Lanes(battlefield: List<CardState>, looks: Looks) {
             .groupBy { land ->
                 val attached = attachedTo(land)
                 if (attached.isNotEmpty()) listOf(land.name, "attached", land.id) // never stack a land with something on it
-                else listOf(land.name, land.tapped, land.counters, land.chosen, land.damage, land.faceDown, looks.emphasis(land), looks.mark(land))
+                else listOf(land.name, land.tapped, land.summoningSick, land.counters, land.chosen, land.damage, land.faceDown, looks.emphasis(land), looks.mark(land))
             }
             .values.map { group -> Slot(group, attachedTo(group.first())) }
             .sortedWith(compareBy({ firstSeen.getValue(it.card.name) }, { variantRank(it, looks) }, { it.cards.minOf { c -> c.id } }))
     }
 
     private fun variantRank(slot: Slot, looks: Looks): Int = when {
-        slot.attached.isEmpty() && slot.card.counters.isEmpty() && slot.card.chosen.isEmpty() && slot.card.damage == 0 && looks.mark(slot.card) == null && looks.emphasis(slot.card) == Emphasis.NONE ->
+        slot.attached.isEmpty() && !slot.card.summoningSick && slot.card.counters.isEmpty() && slot.card.chosen.isEmpty() && slot.card.damage == 0 && looks.mark(slot.card) == null && looks.emphasis(slot.card) == Emphasis.NONE ->
             if (slot.card.tapped) 1 else 0
         else -> 2
     }

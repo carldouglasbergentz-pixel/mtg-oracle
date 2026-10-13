@@ -45,6 +45,8 @@ fun CardState.face(): CardFace = if (hidden) (if (faceDown) FACE_DOWN_FACE else 
         if (damage > 0) add("dmg $damage")
         if (tapped) add("TAPPED")
         if (summoningSick && isCreature) add("sick")
+        // A land played this turn: of two Mishra's Factories, the one that can be animated and attack is the other.
+        else if (summoningSick && isLand) add("new")
         if (attacking) add("ATK")
         if (blocking) add("BLK")
         if (isToken) add("token")

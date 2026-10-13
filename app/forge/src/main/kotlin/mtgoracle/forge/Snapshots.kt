@@ -178,7 +178,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             isLand = state.isLand,
             isCreature = creature,
             tapped = cv.isTapped,
-            summoningSick = cv.isSick,
+            summoningSick = cv.hasSickness(),
             attacking = cv.isAttacking,
             blocking = cv.isBlocking,
             damage = cv.damage,
@@ -209,7 +209,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
         return CardState(
             id = cv.id, name = "Face-down", manaCost = "", typeLine = if (state.isCreature) "Creature" else "",
             power = if (state.isCreature) state.power else null, toughness = if (state.isCreature) state.toughness else null,
-            loyalty = null, isLand = false, isCreature = state.isCreature, tapped = cv.isTapped, summoningSick = cv.isSick,
+            loyalty = null, isLand = false, isCreature = state.isCreature, tapped = cv.isTapped, summoningSick = cv.hasSickness(),
             attacking = cv.isAttacking, blocking = cv.isBlocking, damage = cv.damage, isToken = false,
             attachedToId = cv.attachedTo?.id, text = "", imageKey = null, counters = counters(cv), faceDown = true,
         )

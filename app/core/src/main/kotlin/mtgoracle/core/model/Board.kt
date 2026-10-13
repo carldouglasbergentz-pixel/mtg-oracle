@@ -22,6 +22,11 @@ data class CardState(
     val isLand: Boolean,
     val isCreature: Boolean,
     val tapped: Boolean,
+    /**
+     * Came under its controller's control this turn, without haste (CR 302.6):
+     * a creature can't attack or use {T}; a land is new, and an animated
+     * manland is a creature that can't. Any permanent, not only creatures.
+     */
     val summoningSick: Boolean,
     val attacking: Boolean,
     val blocking: Boolean,
