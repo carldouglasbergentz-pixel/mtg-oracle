@@ -209,7 +209,12 @@ fun bandRows(tier: FrameTier, attach: Boolean = true) = 1 + laneRows(tier, attac
 fun slotCols(tier: FrameTier, land: Boolean) = FrameSize.cols(tier, land) + 1
 
 /** A battlefield's zones as the planner sees them: slot widths per type zone. */
-fun zoneContents(lanes: Lanes, tier: FrameTier) = ZoneKind.entries.map { k -> ZoneContent(k, lanes.zone(k).map { slotCols(tier, k == ZoneKind.LANDS) }) }
+fun zoneContents(lanes: Lanes, tier: FrameTier) = ZoneKind.entries.map { k ->
+    val slots = lanes.zone(k)
+    // A pile of a name already on the row split off from it (tapped, picked, new): the centring leaves it out.
+    val splits = slots.indices.filter { i -> k == ZoneKind.LANDS && slots.take(i).any { it.card.name == slots[i].card.name } }.toSet()
+    ZoneContent(k, slots.map { slotCols(tier, k == ZoneKind.LANDS) }, splits)
+}
 
 /** The fewest rows a zone column needs, border included: see planZoneColumn. */
 const val ZONE_COLUMN_MIN_ROWS = ZONE_FIXED_ROWS + 3 + 2
@@ -237,7 +242,7 @@ private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, lo
             val emblems = emblemRows(player)
             val rows = cells.rows(constraints.maxHeight.toFloat()) - handRows - emblems
             val band = bandRows(looks.tier, looks.attach)
-            val plan = planHalf(zoneContents(lanes, looks.tier), cols, maxOf(1, rows / band))
+            val plan = planHalf(zoneContents(lanes, looks.tier), cols, maxOf(1, rows / band), centred = true)
             // More bands than rows is the last resort: then the half scrolls. Otherwise it fits exactly.
             val contentRows = maxOf(rows, plan.bands * band)
             Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {

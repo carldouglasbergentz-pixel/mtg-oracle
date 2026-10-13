@@ -102,6 +102,26 @@ class HalfPlanTest {
     }
 
     @Test
+    fun `centred, a band's cards sit in the middle and grow outwards both ways`() {
+        val zones = listOf(ZoneContent(ZoneKind.CREATURES, List(3) { creature }), ZoneContent(ZoneKind.LANDS, List(2) { land }))
+        val left = planHalf(zones, cols = 150, maxBands = 3)
+        val centred = planHalf(zones, cols = 150, maxBands = 3, centred = true)
+        assertEquals(left.bands, centred.bands)
+        for (band in 0 until centred.bands) {
+            val places = centred.slots.filter { it.band == band }
+            val width = { s: mtgoracle.ui.board.SlotPlace -> zones.first { it.kind == s.zone }.widths[s.index] }
+            val before = places.minOf { it.x }
+            val after = 150 - places.maxOf { it.x + width(it) }
+            assertTrue(kotlin.math.abs(before - after) <= mtgoracle.ui.board.SLOT_GAP + 1, "band $band in the middle: $before cols before it, $after after")
+            assertEquals(left.slots.filter { it.band == band }.map { it.x + before - left.slots.filter { s -> s.band == band }.minOf { s -> s.x } }, places.map { it.x },
+                "the same run, moved")
+        }
+        // A band that scrolls takes the width as it is.
+        val many = planHalf(listOf(ZoneContent(ZoneKind.CREATURES, List(30) { creature })), cols = 104, maxBands = 1, centred = true)
+        assertEquals(0, many.slots.minOf { it.x })
+    }
+
+    @Test
     fun `tapping changes nothing - the plan depends only on the slots`() {
         assertEquals(planHalf(crowded(), 150, 2), planHalf(crowded(), 150, 2))
     }

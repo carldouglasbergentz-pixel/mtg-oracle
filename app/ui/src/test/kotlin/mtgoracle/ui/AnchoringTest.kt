@@ -46,6 +46,11 @@ class AnchoringTest {
             val rows = 3 * 16f
             assertTrue(mine.top - near.top < rows, "lands alone sit at the midline: $mine in $near")
             assertTrue(far.bottom - theirs.bottom < rows, "theirs too: $theirs in $far")
+            // And from the middle across: the lands' run is centred in the field.
+            val run = listOf(80, 81, 82).map { d.registry[ClickTarget.Card(it)]!! }
+            val before = run.minOf { it.left } - near.left
+            val after = near.right - run.maxOf { it.right }
+            assertTrue(kotlin.math.abs(before - after) < 3 * 16f, "my lands in the middle of the table: $before px before them, $after after")
             d.savePng(File(pngDir, "anchoring-lands-only.png"))
 
             seat.board.value = board(myLands + myCreatures, theirLands + theirCreatures)

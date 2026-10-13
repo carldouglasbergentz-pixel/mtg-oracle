@@ -23,8 +23,13 @@ enum class ZoneKind(val label: String) {
     CREATURES("creatures"), WALKERS("planeswalkers · battles"), PERMANENTS("artifacts · enchantments"), LANDS("lands")
 }
 
-/** What a zone holds: its slots, each [widthCols] wide (a frame plus its turn shift). */
-data class ZoneContent(val kind: ZoneKind, val widths: List<Int>)
+/**
+ * What a zone holds: its slots, each so many columns wide (a frame plus its
+ * turn shift). [splits] are the slots split off an earlier one's pile (a
+ * tapped Island beside the untapped ones, a picked one): not counted when a
+ * band is centred, so tapping or picking one moves nothing else.
+ */
+data class ZoneContent(val kind: ZoneKind, val widths: List<Int>, val splits: Set<Int> = emptySet())
 
 /** A slot's place in its band: column [x], and the columns of it left showing (all of it unless overlapped). */
 data class SlotPlace(val zone: ZoneKind, val index: Int, val band: Int, val x: Int, val visible: Int)
@@ -141,9 +146,11 @@ const val ZONE_GAP = 3
 /**
  * Plans [zones] (any order; empty ones take no space) into a half [cols]
  * wide with room for [maxBands] bands. Bands are numbered from the midline
- * (0) to the player's edge.
+ * (0) to the player's edge. [centred], each band's cards sit in the middle
+ * of its width and grow outwards both ways, as the table is built from the
+ * middle; otherwise from the left (the hand).
  */
-fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int): HalfPlan {
+fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int, centred: Boolean = false): HalfPlan {
     val order = ZoneKind.entries
     val present = zones.filter { it.widths.isNotEmpty() }.sortedBy { order.indexOf(it.kind) }
     if (present.isEmpty() || cols <= 0) return HalfPlan(0, emptyList(), emptyList(), emptySet())
@@ -197,7 +204,19 @@ fun planHalf(zones: List<ZoneContent>, cols: Int, maxBands: Int): HalfPlan {
             layBand(here, band, cols, slots, segments, scrolls)
         }
     }
-    return HalfPlan(bands, slots, segments, scrolls)
+    if (!centred) return HalfPlan(bands, slots, segments, scrolls)
+    // Each band's run of cards moved to the middle; a band that overlaps or scrolls already takes the width.
+    // Centred on the run without its split-off piles, so a pile that splits or merges keeps the run's start;
+    // the run still ends inside the band.
+    fun content(s: SlotPlace) = present.first { it.kind == s.zone }
+    val shift = (0 until bands).associateWith { b ->
+        val used = (slots.filter { it.band == b }.map { it.x + content(it).widths[it.index] } + segments.filter { it.band == b }.map { it.x + it.width }).maxOrNull() ?: cols
+        val split = slots.filter { it.band == b && it.index in content(it).splits }.sumOf { content(it).widths[it.index] + SLOT_GAP }
+        if (b in scrolls) 0 else ((cols - (used - split)) / 2).coerceAtMost(cols - used).coerceAtLeast(0)
+    }
+    return HalfPlan(
+        bands, slots.map { it.copy(x = it.x + shift.getValue(it.band)) }, segments.map { it.copy(x = it.x + shift.getValue(it.band)) }, scrolls,
+    )
 }
 
 /** How many of [widths] go on each of [bands] bands: fill each up to [cols], the last takes the rest. */
