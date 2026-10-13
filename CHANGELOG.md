@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Tokens alike pile once there are five**, as lands do: `Angel Token ×13` where thirteen Angels took a row of their own. Fewer lie one by one, one that differs (tapped, sick, a counter) lies apart, and while attackers or blockers are declared, or in combat, every token is its own card to pick or to block. `TokenPileTest`.
+
 ## [0.7.0] - 2026-10-13
 
 The table, rebuilt after MTGO and Arena: the prompt in a column on the left with each player's zones, the hand under the table alone, two rows a side (creatures at the midline, the lands and other permanents at the edge) centred and of one card size, halves a straight 50/50. A question floats in a box beside the card it is about, a graveyard or exile pops out as a cascade, a land played this turn says `new`, and Space passes. From 0.6.0, `update` installs it. Network play needs this version on both sides.

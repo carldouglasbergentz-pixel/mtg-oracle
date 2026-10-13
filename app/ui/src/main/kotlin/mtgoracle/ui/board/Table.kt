@@ -125,6 +125,9 @@ class Looks(
     }
 }
 
+/** How many tokens alike make a pile (Lanes.creatures); fewer lie one by one. */
+const val TOKEN_PILE_FROM = 5
+
 /**
  * One slot on the table: a card (or a stack of identical ones) and what is
  * attached to it. [cards] share everything visible; the slot clicks as its first.
@@ -146,8 +149,27 @@ class Lanes(battlefield: List<CardState>, looks: Looks) {
     private fun attachedTo(card: CardState) = onHosts.filter { it.attachedToId == card.id }
     private fun single(cards: List<CardState>) = cards.map { Slot(listOf(it), attachedTo(it)) }
 
-    /** Animated manlands and artifact creatures included: a creature is a creature. */
-    val creatures: List<Slot> = single(loose.filter { it.isCreature })
+    /**
+     * Animated manlands and artifact creatures included: a creature is a
+     * creature. Tokens alike (name and everything visible) pile once there
+     * are [TOKEN_PILE_FROM] of them, as lands do, at the place of the first:
+     * thirteen Angels were a row of their own. Never while attackers or
+     * blockers are being declared, and never one in combat: each is then a
+     * card to pick, or to block.
+     */
+    val creatures: List<Slot> = run {
+        val all = loose.filter { it.isCreature }
+        val declaring = (looks.prompt as? InputPrompt)?.kind.let { it == InputKind.ATTACK || it == InputKind.BLOCK }
+        val piles = if (declaring) emptyList() else all
+            .filter { it.isToken && !it.attacking && !it.blocking && attachedTo(it).isEmpty() }
+            .groupBy { listOf(it.name, it.tapped, it.summoningSick, it.power, it.toughness, it.counters, it.chosen, it.damage, looks.emphasis(it), looks.mark(it)) }
+            .values.filter { it.size >= TOKEN_PILE_FROM }
+        val pileOf = piles.flatMap { pile -> pile.map { it.id to pile } }.toMap()
+        all.mapNotNull { card ->
+            val pile = pileOf[card.id] ?: return@mapNotNull Slot(listOf(card), attachedTo(card))
+            if (pile.first().id == card.id) Slot(pile, emptyList()) else null
+        }
+    }
     val walkers: List<Slot> = single(loose.filter { !it.isCreature && !it.isLand && (it.typeLine.contains("Planeswalker") || it.typeLine.contains("Battle")) })
     val permanents: List<Slot> = single(loose.filter { !it.isCreature && !it.isLand && !it.typeLine.contains("Planeswalker") && !it.typeLine.contains("Battle") })
 
