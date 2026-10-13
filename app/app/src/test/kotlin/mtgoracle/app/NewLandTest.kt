@@ -25,7 +25,7 @@ class NewLandTest {
     fun `a manland played this turn is new, and piled apart from the one that was there`() {
         val state = listOf(
             "turn=3", "activeplayer=human", "activephase=MAIN1", "removesummoningsickness=true", "humanlife=20", "ailife=20",
-            "humanhand=Mishra's Factory", "humanbattlefield=Mishra's Factory", "humanlibrary=" + List(20) { "Island" }.joinToString(";"),
+            "humanhand=Mishra's Factory;Island", "humanbattlefield=Mishra's Factory", "humanlibrary=" + List(20) { "Island" }.joinToString(";"),
             "aihand=", "aibattlefield=", "ailibrary=" + List(20) { "Swamp" }.joinToString(";"),
         )
         var played = false
@@ -43,6 +43,9 @@ class NewLandTest {
             assertEquals(2, piles.size, "two piles, not one of two: $piles")
             assertTrue("new" in piles.single { it.card.summoningSick }.card.face().stats.split(' '), "the new one says so")
             assertTrue("new" !in piles.single { !it.card.summoningSick }.card.face().stats.split(' '))
+            // Forge keeps the flag on a card in any zone: a land still in hand is not new on the table.
+            val island = s.board.seat!!.hand.single { it.name == "Island" }
+            assertTrue(!island.summoningSick && "new" !in island.face().stats.split(' '), "a land in hand says nothing: $island")
         }
     }
 }
