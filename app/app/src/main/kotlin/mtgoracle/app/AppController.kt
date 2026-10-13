@@ -404,6 +404,8 @@ class AppController(private val paths: AppPaths) {
                 ForgeRuntime.onForgeError { title, text -> onCrash("Forge", RuntimeException("$title: ${text.lineSequence().firstOrNull().orEmpty()}")) }
                 forgeStartedAt?.let { settings.forgeStartMillis = (System.nanoTime() - it) / 1_000_000 }
                 forgeReady = true
+                // A Start pressed while Forge loaded starts now, on the window's thread.
+                java.awt.EventQueue.invokeLater { play.forgeIsReady() }
             } catch (e: Exception) {
                 Log.error("Forge did not start", e)
                 notice = "Forge did not start: ${e.message}"
@@ -814,6 +816,7 @@ class AppController(private val paths: AppPaths) {
     fun cardFace(name: String): CardFace? = currentLookup?.let { zoomFace(it, name) }
 
     fun backToLibrary() {
+        play.cancelWaitingStart()
         play.match = null
         notice = null
         screen = Screen.Library

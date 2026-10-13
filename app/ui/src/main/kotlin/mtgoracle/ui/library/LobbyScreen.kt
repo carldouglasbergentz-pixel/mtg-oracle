@@ -91,6 +91,8 @@ fun LobbyScreen(
     onToggleWatch: () -> Unit,
     onStart: () -> Unit,
     onLibrary: () -> Unit,
+    /** Start was pressed while Forge was starting: the game starts when it is ready. */
+    startWaiting: Boolean = false,
     /** "best of 3"; B cycles it (watching is always one game). */
     format: String = "best of 1",
     onCycleFormat: () -> Unit = {},
@@ -222,8 +224,8 @@ fun LobbyScreen(
                 }
                 BoxPane("the match", Modifier.weight(1f).fillMaxHeight()) {
                     // Every line takes the pane's measured width: facts are cut where the pane ends, instructions wrap.
-                    if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick,
-                        simGames = simGames, simulation = simulation) {
+                    if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart && !startWaiting, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick,
+                        startWaiting = startWaiting, simGames = simGames, simulation = simulation) {
                         // As under the constructed tab's match: network play, then the playmats.
                         network?.let { GridText(""); NetworkSection(it, canPlay = forgeReady && !simRunning && limited.chosenSet != null, onNet,
                             sealedSet = limited.sets.firstOrNull { s -> s.code == limited.chosenSet }?.name) }
@@ -247,13 +249,14 @@ fun LobbyScreen(
                         notes.forEach { WrapText("  $it", color = Palette.accent, hang = 2) }
                         GridText("")
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            val startable = canStart && !simRunning
+                            val startable = canStart && !simRunning && !startWaiting
                             GridText(" ")
-                            BigButton("Start", ClickTarget.Control("start"), startable, onClick)
+                            BigButton(if (startWaiting) "Starting…" else "Start", ClickTarget.Control("start"), startable, onClick)
                             GridText(" ")
-                            BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
+                            // A simulation can't wait for Forge: it needs it to judge the decks.
+                            BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart && forgeReady || simRunning, onClick)
                         }
-                        if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis)
+                        if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis, startWaiting)
                         network?.let { GridText(""); NetworkSection(it, canPlay = me != null && forgeReady && !simRunning, onNet) }
                         mats?.let { GridText(""); MatsSection(it, onMat) }
                     }
@@ -323,7 +326,7 @@ private fun SetList(cols: Int, limited: LobbyLimited, active: Boolean, modifier:
 @Composable
 private fun LimitedMatch(
     me: DeckSummary?, limited: LobbyLimited, watch: Boolean, format: String, notes: List<String>, canStart: Boolean,
-    forgeReady: Boolean, forgeStartedAt: Long?, forgeExpectedMillis: Long?, onClick: (ClickTarget) -> Unit,
+    forgeReady: Boolean, forgeStartedAt: Long?, forgeExpectedMillis: Long?, onClick: (ClickTarget) -> Unit, startWaiting: Boolean,
     /** How many games Simulate plays (N cycles it), and the simulation running or the last one. */
     simGames: Int = 10,
     simulation: SimLine? = null,
@@ -357,11 +360,11 @@ private fun LimitedMatch(
         GridText("")
         Row(verticalAlignment = Alignment.CenterVertically) {
             GridText(" ")
-            BigButton("Start", ClickTarget.Control("start"), canStart && !simRunning, onClick)
+            BigButton(if (startWaiting) "Starting…" else "Start", ClickTarget.Control("start"), canStart && !simRunning, onClick)
             GridText(" ")
-            BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart || simRunning, onClick)
+            BigButton(if (simRunning) "Stop simulation" else "Simulate $simGames", ClickTarget.Control("simulate"), canStart && forgeReady || simRunning, onClick)
         }
-        if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis)
+        if (!forgeReady) ForgeStarting(forgeStartedAt, forgeExpectedMillis, startWaiting)
         GridText("")
         GridText("")
         FitText("  a new sealed pool", bold = true)
@@ -377,12 +380,13 @@ private fun LimitedMatch(
 
 /** Forge's start, counted while it runs: it takes ten seconds or so, and Start waits on it. */
 @Composable
-private fun ForgeStarting(startedAt: Long?, expectedMillis: Long?) {
+private fun ForgeStarting(startedAt: Long?, expectedMillis: Long?, waiting: Boolean = false) {
     var now by remember { mutableStateOf(System.nanoTime()) }
     LaunchedEffect(Unit) { while (true) { delay(500); now = System.nanoTime() } }
     val seconds = startedAt?.let { (now - it) / 1_000_000_000 }
     val of = expectedMillis?.let { " of about ${(it + 999) / 1000} s" }.orEmpty()
-    FitText("  Forge is starting" + (seconds?.let { ": $it s$of" } ?: "…") + "; Start waits for it", color = Palette.dim)
+    FitText("  Forge is starting" + (seconds?.let { ": $it s$of" } ?: "…") + if (waiting) "; the game starts as soon as it is ready" else "; Start waits for it",
+        color = if (waiting) Palette.foreground else Palette.dim)
 }
 
 /** One of the lobby's two lists, under a rule that is bright while ↑↓ moves in it; it scrolls by itself. */

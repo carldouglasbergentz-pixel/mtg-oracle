@@ -224,13 +224,37 @@ class PlayControl(
         run.start()
     }
 
+    /** Forge is up: a Start pressed while it loaded is kept now, unless the pairing can't play after all. */
+    fun forgeIsReady() {
+        if (!startWaiting) return
+        startWaiting = false
+        val ready = prepared()
+        if (ready == null || ready.blocked) say(ready?.notes?.firstOrNull() ?: "Forge is ready: choose the decks and press Start") else start()
+    }
+
+    /** Leaving the lobby takes back a Start that was waiting for Forge. */
+    fun cancelWaitingStart() { startWaiting = false }
+
     fun stopSimulation() {
         sim?.takeIf { simulating }?.stop()
     }
 
-    /** Starts the chosen match; [startState] (a Forge GameState, every game) is for the tests' exact situations. */
+    /** Start was pressed while Forge was still starting: the match starts as soon as it is ready (forgeIsReady). */
+    var startWaiting by mutableStateOf(false)
+        private set
+
+    /**
+     * Starts the chosen match; [startState] (a Forge GameState, every game)
+     * is for the tests' exact situations. Pressed while Forge is still
+     * starting, it waits for it, as the lobby says.
+     */
     fun start(startState: List<String>? = null) {
         if (simulating) { say("a simulation is running (${simulation?.line()}): stop it first"); return }
+        if (!forgeReady()) {
+            if (lobbyMeId != null) { startWaiting = true; say("Forge is still starting: the game starts as soon as it is ready") }
+            return
+        }
+        startWaiting = false
         val ready = prepared()?.takeIf { !it.blocked } ?: return
         keepPairing()
         val running = sessions().start(ready, mode = if (watch) GameMode.AI_VS_AI else GameMode.HUMAN_VS_AI, stops = settings.stops, format = format, startState = startState)

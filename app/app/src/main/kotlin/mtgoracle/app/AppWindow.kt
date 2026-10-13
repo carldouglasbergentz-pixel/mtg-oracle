@@ -128,7 +128,10 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
             val prepared = app.play.prepared()
             LobbyScreen(
                 decks = app.play.tabDecks(), meId = app.play.lobbyMeId, opponents = app.play.opponents(), selectedId = app.play.opponentId, useAiCopy = app.play.useAiCopy, watch = app.play.watch,
-                notes = prepared?.notes.orEmpty(), forgeReady = app.forgeReady, canStart = prepared != null && !prepared.blocked && app.net.idle,
+                notes = prepared?.notes.orEmpty(), forgeReady = app.forgeReady,
+                // While Forge starts there is nothing to prepare yet, but Start can be pressed: it waits for Forge.
+                canStart = (prepared != null && !prepared.blocked || !app.forgeReady && app.play.lobbyMeId != null) && app.net.idle,
+                startWaiting = app.play.startWaiting,
                 onSelectMe = app.play::chooseMe, onSelect = { app.play.opponentId = it },
                 forgeStartedAt = app.forgeStartedAt, forgeExpectedMillis = app.settings.forgeStartMillis,
                 mats = app.mats.lobby(), onMat = { action -> app.mats.act(action)?.let { app.notice = it } }, onToggleAiCopy = { app.play.useAiCopy = !app.play.useAiCopy }, onToggleWatch = { app.play.watch = !app.play.watch },
