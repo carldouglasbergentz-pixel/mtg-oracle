@@ -200,15 +200,19 @@ fun PlayerField(player: PlayerState, far: Boolean, showHand: Boolean, looks: Loo
 /** Rows of one band of a half: its label line, then a lane of cards. */
 fun bandRows(tier: FrameTier, attach: Boolean = true) = 1 + laneRows(tier, attach)
 
-/** Columns a slot takes: its frame, and the cell a tapped card turns into. */
-fun slotCols(tier: FrameTier, land: Boolean) = FrameSize.cols(tier, land) + 1
+/**
+ * Columns a slot takes: its frame, and the cell a tapped card turns into.
+ * Every card on the table has the same frame, the narrow one lands had,
+ * shaped as a card is: a creature beside a land is the same size as it.
+ */
+fun slotCols(tier: FrameTier) = FrameSize.cols(tier, land = true) + 1
 
 /** A battlefield's zones as the planner sees them: slot widths per type zone. */
 fun zoneContents(lanes: Lanes, tier: FrameTier) = ZoneKind.entries.map { k ->
     val slots = lanes.zone(k)
     // A pile of a name already on the row split off from it (tapped, picked, new): the centring leaves it out.
     val splits = slots.indices.filter { i -> k == ZoneKind.LANDS && slots.take(i).any { it.card.name == slots[i].card.name } }.toSet()
-    ZoneContent(k, slots.map { slotCols(tier, k == ZoneKind.LANDS) }, splits)
+    ZoneContent(k, slots.map { slotCols(tier) }, splits)
 }
 
 /** The fewest rows a zone column needs, border included: see planZoneColumn. */
@@ -269,7 +273,7 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
     fun dx(c: Int) = with(density) { (c * cells.width).toDp() }
     val places = plan.slots.filter { it.band == band }
     val segments = plan.segments.filter { it.band == band }
-    val contentCols = maxOf(cols, places.maxOfOrNull { it.x + slotCols(looks.tier, it.zone == ZoneKind.LANDS) } ?: 0)
+    val contentCols = maxOf(cols, places.maxOfOrNull { it.x + slotCols(looks.tier) } ?: 0)
     var hovered by remember { mutableStateOf<Int?>(null) }
     var pointed by remember { mutableStateOf<Int?>(null) } // the overlapped card whose strip the mouse is on
     Box(modifier.cells(cols, bandRows(looks.tier, looks.attach)).region("$side-band-$band")) {
@@ -280,12 +284,11 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
                 }
                 places.forEachIndexed { order, place ->
                     val slot = lanes.zone(place.zone)[place.index]
-                    val land = place.zone == ZoneKind.LANDS
-                    val overlapped = place.visible < slotCols(looks.tier, land)
+                    val overlapped = place.visible < slotCols(looks.tier)
                     val onHover: (ClickTarget?) -> Unit = { hovered = slot.card.id; looks.onHover(it) }
                     // Later cards lie over earlier ones; the one under the mouse comes to the top.
                     Box(Modifier.offset(x = dx(place.x), y = with(density) { cells.height.toDp() }).zIndex(if (hovered == slot.card.id) 1000f else order.toFloat())) {
-                        SlotView(slot, land, looks, clickable = !overlapped, onHover = onHover, pointed = pointed == slot.card.id)
+                        SlotView(slot, looks, clickable = !overlapped, onHover = onHover, pointed = pointed == slot.card.id)
                     }
                     // An overlapped card is clicked by the strip of it still showing: never the card on top of it.
                     // The strip lies over the frame, so the frame shows the hover, never the strip (that would tint the art).
@@ -305,11 +308,11 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
 }
 
 @Composable
-private fun SlotView(slot: Slot, land: Boolean, looks: Looks, clickable: Boolean = true, onHover: (ClickTarget?) -> Unit = looks.onHover, pointed: Boolean = false) {
-    val cols = slotCols(looks.tier, land)
+private fun SlotView(slot: Slot, looks: Looks, clickable: Boolean = true, onHover: (ClickTarget?) -> Unit = looks.onHover, pointed: Boolean = false) {
+    val cols = slotCols(looks.tier)
     Column(Modifier.cells(cols, laneRows(looks.tier, looks.attach))) {
         CardFrame(slot.card.face(), looks.mode, looks.emphasis(slot.card), if (clickable) ClickTarget.Card(slot.card.id) else null, looks.onClick, onHover,
-            turnable = true, land = land, stack = slot.cards.size, mark = looks.mark(slot.card), rotate = looks.rotate, tier = looks.tier, hovered = pointed)
+            turnable = true, land = true, stack = slot.cards.size, mark = looks.mark(slot.card), rotate = looks.rotate, tier = looks.tier, hovered = pointed)
         // The attachment line, when this half keeps one (a card of it has something attached): the same
         // under every card, so an aura moving between creatures moves nothing.
         if (looks.attach) Row(Modifier.cells(cols, 1).horizontalScroll(rememberScrollState())) {
