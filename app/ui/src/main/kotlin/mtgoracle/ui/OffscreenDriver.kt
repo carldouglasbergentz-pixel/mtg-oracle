@@ -111,9 +111,9 @@ class OffscreenDriver(
         do {
             frame()
             var rect = registry[target]
-            // Laid out but clipped away (a long option list): scroll the prompt, as a mouse wheel would.
+            // Laid out but clipped away (a long option list): scroll the choice box (or the prompt), as a mouse wheel would.
             while (rect != null && (rect.width <= 0f || rect.height <= 0f) && scrolls < 40) {
-                val pane = registry[ClickTarget.Control("region:prompt-content")] ?: break
+                val pane = registry[ClickTarget.Control("region:choice-content")] ?: registry[ClickTarget.Control("region:prompt-content")] ?: break
                 scene.sendPointerEvent(PointerEventType.Scroll, pane.center, scrollDelta = Offset(0f, 1f))
                 scrolls++
                 frame()

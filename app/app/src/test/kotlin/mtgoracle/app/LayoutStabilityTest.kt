@@ -29,8 +29,8 @@ class LayoutStabilityTest {
     private fun BoardState.ai() = players.first { !it.isSeat }
     private fun BoardState.inHand(name: String) = seat!!.hand.firstOrNull { it.name == name }
 
-    /** The floating stack box and its bar come and go by design; they are not the board's layout. */
-    private fun regions(s: Shot) = s.rects.filterKeys { it is ClickTarget.Control && !it.name.startsWith("region:stack-b") }
+    /** The floating stack box and its bar, and the choice box, come and go by design; they are not the board's layout. */
+    private fun regions(s: Shot) = s.rects.filterKeys { it is ClickTarget.Control && !it.name.startsWith("region:stack-b") && !it.name.startsWith("region:choice") }
     private fun cards(s: Shot) = s.rects.filterKeys { it is ClickTarget.Card }.mapKeys { (it.key as ClickTarget.Card).id }
 
     private fun compare(a: Shot, b: Shot) {

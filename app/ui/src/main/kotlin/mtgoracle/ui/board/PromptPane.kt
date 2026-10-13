@@ -2,6 +2,12 @@ package mtgoracle.ui.board
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import mtgoracle.ui.kit.FrameSize
+import mtgoracle.ui.kit.CardMode
+import mtgoracle.ui.kit.CardFrame
+import mtgoracle.ui.kit.CardFace
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -58,9 +64,16 @@ fun GridButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (C
 
 /**
  * Everything the seat is being asked, in fixed rows: the question and its
- * options scroll inside [PROMPT_CONTENT_ROWS]; the buttons always sit in the
- * same rows (two lines of them, wrapping), and the hint on the one below —
+ * options scroll inside [contentRows]; the buttons always sit in the same
+ * rows (two lines of them, wrapping), and the hint on the one below —
  * whatever the prompt.
+ *
+ * Drawn twice for a question the choice box answers (Prompt.boxed): in the
+ * box, which [answers] it, and in the left column, which only says it and
+ * where to answer, so no option or button is clickable in two places.
+ * [regionPrefix] names its regions (`prompt-content`, `choice-content`).
+ * [cardOptions]: a choice among cards shows their frames ([cardMode]), and
+ * [onCardHover] hears the one under the mouse.
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -73,20 +86,30 @@ fun PromptBody(
     onHover: (ClickTarget?) -> Unit,
     /** Drawn at the right end of the hint row (the board's `[ concede ]`). */
     trailing: (@Composable () -> Unit)? = null,
+    answers: Boolean = true,
+    contentRows: Int = PROMPT_CONTENT_ROWS,
+    regionPrefix: String = "prompt",
+    cardOptions: Boolean = false,
+    cardMode: CardMode = CardMode.ART,
+    onCardHover: (CardFace) -> Unit = {},
 ) {
     val state = if (prompt != null && interaction.promptId == prompt.id) interaction else Interaction.start(prompt)
     Column(Modifier.fillMaxWidth()) {
         // The floating-mana warning takes the prompt's own rows, so nothing around it moves.
         val pending = state.pendingPass
-        Box(Modifier.fillMaxWidth().cellHeight(PROMPT_CONTENT_ROWS).region("prompt-content")) {
+        Box(Modifier.fillMaxWidth().cellHeight(contentRows).region("$regionPrefix-content")) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 if (pending != null) wrap(pending.question(), cols).forEach { GridText(fit(it, cols), color = Palette.accent, bold = true) }
-                else Content(prompt, board, state, cols, onClick, onHover)
+                else if (!answers && prompt != null) {
+                    wrap(prompt.message.trim(), cols).forEach { GridText(fit(it, cols)) }
+                    GridText(fit("answer in the box", cols), color = Palette.accent)
+                }
+                else Content(prompt, board, state, cols, contentRows, onClick, onHover, if (cardOptions) cardMode else null, onCardHover)
             }
         }
-        FlowRow(Modifier.fillMaxWidth().cellHeight(PROMPT_BUTTON_LINES * BUTTON_ROWS).region("prompt-buttons")) {
+        FlowRow(Modifier.fillMaxWidth().cellHeight(PROMPT_BUTTON_LINES * BUTTON_ROWS).region("$regionPrefix-buttons")) {
             if (pending != null) { GridButton("Pass", ManaWarningTargets.PASS, true, onClick); GridButton("Stay", ManaWarningTargets.STAY, true, onClick) }
-            else Buttons(prompt, state, onClick)
+            else if (answers) Buttons(prompt, state, onClick)
         }
         Row(Modifier.fillMaxWidth().cellHeight(1)) {
             val hintText = if (pending != null) "Enter: pass, and the mana is lost · Esc: stay, with priority and the mana" else hint(prompt)
@@ -97,7 +120,11 @@ fun PromptBody(
 }
 
 @Composable
-private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, cols: Int, onClick: (ClickTarget) -> Unit, onHover: (ClickTarget?) -> Unit) {
+private fun Content(
+    prompt: Prompt?, board: BoardState?, state: Interaction, cols: Int, contentRows: Int, onClick: (ClickTarget) -> Unit, onHover: (ClickTarget?) -> Unit,
+    /** Cards among the options are drawn in frames of this mode; null, by name. */
+    cardMode: CardMode? = null, onCardHover: (CardFace) -> Unit = {},
+) {
     if (prompt == null) {
         val text = when {
             board == null -> "Starting the game…"
@@ -116,7 +143,7 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
     val message = wrap(prompt.message.trim(), cols)
     message.forEach { GridText(fit(it, cols)) }
     // Options fill the rows left in columns, so a library search is seen at a glance; past that, it scrolls.
-    val rowsLeft = maxOf(1, PROMPT_CONTENT_ROWS - message.size - actionLines.size)
+    val rowsLeft = maxOf(1, contentRows - message.size - actionLines.size)
     when (prompt) {
         is InputPrompt -> if (prompt.selectableElsewhere.isNotEmpty()) {
             // Cards the board doesn't draw (a library being searched, Future Sight's top card): as chips, hover for the card.
@@ -127,7 +154,8 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
         }
         is ConfirmPrompt -> {}
         is SideboardPrompt -> sideboardValidity(prompt, state.deck).let { (line, ok) -> wrap(line, cols).forEach { GridText(fit(it, cols), color = if (ok) Palette.foreground else Palette.accent, bold = !ok) } }
-        is ChoicePrompt -> if (prompt.searchable) SearchedOptions(prompt, state, cols, rowsLeft, onClick, onHover) else OptionGrid(prompt.labels, cols, rowsLeft) { i, width ->
+        is ChoicePrompt -> if (cardMode != null && prompt.options.any { it.card != null }) CardOptions(prompt, state, cardMode, onClick, onCardHover)
+        else if (prompt.searchable) SearchedOptions(prompt, state, cols, rowsLeft, onClick, onHover) else OptionGrid(prompt.labels, cols, rowsLeft) { i, width ->
             val mark = when {
                 prompt.isReveal -> "  "
                 prompt.max > 1 -> if (i in state.picks) "[x]" else "[ ]"
@@ -164,6 +192,28 @@ private fun Content(prompt: Prompt?, board: BoardState?, state: Interaction, col
             GridText(" %4s ".format(state.digits.ifEmpty { prompt.default().toString() }), bold = true)
             ControlButton("[+]", ClickTarget.More(0), true, onClick)
             GridText("   ${prompt.min}–${if (prompt.max == Int.MAX_VALUE) "any" else prompt.max}" + (prompt.note?.let { " · $it" } ?: ""), color = Palette.dim)
+        }
+    }
+}
+
+/**
+ * A choice among cards (a land from a fetch, a card from a library), in
+ * their frames: a click picks one, as its row would; a picked one is marked
+ * `√`. An option that is no card is its name.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun CardOptions(prompt: ChoicePrompt, state: Interaction, mode: CardMode, onClick: (ClickTarget) -> Unit, onCardHover: (CardFace) -> Unit) {
+    val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
+        prompt.options.forEachIndexed { i, option ->
+            val card = option.card
+            if (card == null) GridText(" ${i + 1}. ${option.label} ", Modifier.clickTarget(ClickTarget.Option(i), onClick), color = if (i in state.picks) Palette.accent else Palette.foreground)
+            else {
+                val face = card.face()
+                CardFrame(face, mode, Emphasis.SELECTABLE, ClickTarget.Option(i), onClick, { onCardHover(face) },
+                    mark = PICKED_MARK.takeIf { i in state.picks }, tier = FrameSize.tierOf(mode))
+            }
         }
     }
 }

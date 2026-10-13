@@ -131,6 +131,7 @@ fun BoardScreen(
     val showAllHands by (seat?.showAllHands ?: noHands).collectAsState()
     var interaction by remember { mutableStateOf(Interaction()) }
     var zoom by remember { mutableStateOf<CardFace?>(null) }
+    var lastCardClicked by remember { mutableStateOf<ClickTarget.Card?>(null) }
     var arrangement by remember { mutableStateOf(layout) }
     // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
     val lastTotal = remember { intArrayOf(Int.MAX_VALUE) }
@@ -173,7 +174,11 @@ fun BoardScreen(
             target == MatchTargets.LEAVE -> { menuOpen = false; matchControls?.onLeaveMatch?.invoke() }
             target == MatchTargets.CONTINUE -> matchControls?.onContinue?.invoke()
             target == MatchTargets.LOBBY -> matchControls?.onBackToLobby?.invoke()
-            else -> send(UiEvent.Click(target))
+            else -> {
+                // The card clicked last: a question it raises (a planeswalker's abilities) floats beside it.
+                if (target is ClickTarget.Card) lastCardClicked = target
+                send(UiEvent.Click(target))
+            }
         }
     }
     /** The keys of the match panels, before the board's own: true when one was used. */
@@ -269,7 +274,8 @@ fun BoardScreen(
                                 Modifier.fillMaxWidth().cellHeight(PROMPT_ROWS).region("prompt"),
                                 border = if (prompt != null) Border.DOUBLE else Border.SINGLE,
                                 borderColor = if (prompt != null) Palette.accent else Palette.dim) {
-                                PromptBody(prompt, board, interaction, panes.zoneCols - 2, onClick, onHover,
+                                // A question the choice box answers is only said here, with where to answer it.
+                                PromptBody(prompt, board, interaction, panes.zoneCols - 2, onClick, onHover, answers = prompt?.boxed() != true,
                                     trailing = if (matchControls != null && !showResult) ({ ControlButton("[ concede ]", MatchTargets.OPEN_MENU, true, onClick) }) else null)
                             }
                         }
@@ -364,6 +370,11 @@ fun BoardScreen(
             // Cards shown to you, drawn over the table until you have seen them.
             (prompt as? ChoicePrompt)?.takeIf { it.isReveal && it.options.any { o -> o.card != null } && !showResult && !menuOpen }?.let { p ->
                 RevealPanel(p, onClick, onHover = { face -> zoom = face }, modifier = Modifier.align(Alignment.Center))
+            }
+            // A pick, a division, a number, an order or a yes-or-no: in a box over the table, by what it is about.
+            prompt?.takeIf { it.boxed() && b != null && table != Rect.Zero && !showResult && !menuOpen }?.let { p ->
+                ChoiceLayer(p, b, interaction, mode, cells, registry, lastCardClicked, table, panes.zoneCols, leftCols, totalCols, totalRows,
+                    onClick, onHover, onCardHover = { face -> zoom = face })
             }
             // Over everything: the result between games, and the way out of the game.
             if (showResult) ResultPanel(match!!, onClick, Modifier.align(Alignment.Center))
@@ -464,6 +475,40 @@ private fun ZonePanelLayer(
             arrange(arrangement.copy(panels = arrangement.panels + (key.id to (c to r))))
         },
         modifier = Modifier.offset { IntOffset((col * cells.width + drag.x).roundToInt(), (row * cells.height + drag.y).roundToInt()) },
+    )
+}
+
+/**
+ * The choice box, floating: beside the card clicked last when it is on the
+ * table (a planeswalker's abilities next to it), else in the middle of the
+ * table; dragged by its top edge for as long as the question is asked.
+ */
+@Composable
+private fun ChoiceLayer(
+    prompt: Prompt, board: BoardState?, interaction: Interaction, mode: CardMode, cells: Cells, registry: ClickRegistry, lastCardClicked: ClickTarget.Card?,
+    table: Rect, zoneCols: Int, leftCols: Int, totalCols: Int, totalRows: Int,
+    onClick: (ClickTarget) -> Unit, onHover: (ClickTarget?) -> Unit, onCardHover: (CardFace) -> Unit,
+) {
+    val cols = choiceBoxCols(prompt, mode)
+    val rows = choiceBoxRows(prompt, mode, maxRows = maxOf(12, cells.rows(table.height)))
+    // Where it opens is settled when the question comes: the card it is about may move while it is asked.
+    val opening = remember(prompt.id) {
+        val beside = lastCardClicked?.let { registry[it] }?.takeIf { table.overlaps(it) }
+        if (beside != null) {
+            val right = cells.cols(beside.right) + 1
+            val col = if (right + cols <= leftCols) right else cells.cols(beside.left) - cols - 1
+            col to cells.rows(beside.center.y) - rows / 2
+        } else (zoneCols + (leftCols - zoneCols - cols) / 2) to (cells.rows(table.top) + (cells.rows(table.height) - rows) / 2)
+    }
+    var moved by remember(prompt.id) { mutableStateOf(Offset.Zero) }
+    var drag by remember(prompt.id) { mutableStateOf(Offset.Zero) }
+    val col = clampCells(opening.first, cols, totalCols)
+    val row = clampCells(opening.second, rows, totalRows)
+    ChoiceBox(
+        prompt, board, interaction, mode, rows, onClick, onHover, onCardHover,
+        onDrag = { drag += it },
+        onDragEnd = { moved += drag; drag = Offset.Zero },
+        modifier = Modifier.offset { IntOffset((col * cells.width + moved.x + drag.x).roundToInt(), (row * cells.height + moved.y + drag.y).roundToInt()) },
     )
 }
 
