@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **A graveyard or exile pops out over the table.** Click its header in the zone column (`graveyard 2 ▸`) and the zone floats in a panel of its own, every card in its frame: hover one to see it in the zoom pane, click it to answer a prompt that wants a card from there. Drag the panel by its top edge (the place is kept), close it with its `×` or the header. Both players' graveyards and exiles can be open at once; a face-down exiled card stays a back. `ZonePanelTest`.
+- **A graveyard or exile pops out over the table.** Click its header in the zone column (`graveyard 2 ▸`) and the zone floats in a panel of its own, a cascade down as MTGO draws one: each card over the one before with its name showing, the last put there whole at the bottom (it opens there when it scrolls): hover one to see it in the zoom pane, click it to answer a prompt that wants a card from there. Drag the panel by its top edge (the place is kept), close it with its `×` or the header. Both players' graveyards and exiles can be open at once; a face-down exiled card stays a back. `ZonePanelTest`.
 
 ### Changed
 - **Every card on the table has the same frame**, the card-shaped one lands had: a creature or an artifact was drawn wider than the land beside it. `AnchoringTest` measures a creature, an enchantment and a land.

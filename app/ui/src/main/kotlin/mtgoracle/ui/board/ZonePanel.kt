@@ -3,18 +3,16 @@ package mtgoracle.ui.board
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -46,30 +44,30 @@ data class ZonePanelKey(val far: Boolean, val zone: PileZone) {
     val close: ClickTarget get() = ClickTarget.Control("zone-panel-close:$id")
 }
 
-/** A panel's cards, in the zone column's order: the graveyard's top card first; the command zone, then exile. */
+/** A zone's cards as its zone column lists them: the graveyard's top card first; the command zone, then exile. */
 fun panelCards(player: PlayerState, zone: PileZone): List<CardState> = when (zone) {
     PileZone.GRAVEYARD -> player.graveyard.asReversed()
     PileZone.EXILE -> player.command + player.exile
 }
 
-/** The most frames a panel lays side by side. */
-const val PANEL_PER_ROW = 4
+/** A panel's cards from the top of its cascade down: the graveyard's oldest first, so the card put there last lies whole at the bottom. */
+fun cascadeCards(player: PlayerState, zone: PileZone): List<CardState> = panelCards(player, zone).let { if (zone == PileZone.GRAVEYARD) it.asReversed() else it }
 
-/** A panel's width in cells for [count] cards: one frame a card up to [PANEL_PER_ROW], the border, a cell between. */
-fun zonePanelCols(count: Int, mode: CardMode): Int {
-    val across = count.coerceIn(1, PANEL_PER_ROW)
-    return 2 + across * (FrameSize.cols(mode) + 1) - 1
-}
+/** Rows of a card the next one leaves showing: its top edge, where its name is. */
+const val CASCADE_STRIP = 1
 
-/** A panel's height in cells: its rows of frames and the border, at most [maxRows] (then it scrolls). */
-fun zonePanelRows(count: Int, mode: CardMode, maxRows: Int): Int {
-    val lines = maxOf(1, (count + PANEL_PER_ROW - 1) / PANEL_PER_ROW)
-    return minOf(maxRows, 2 + lines * FrameSize.rows(mode)).coerceAtLeast(3)
-}
+/** A panel's width in cells: one card, in the table's card-shaped frame, and the border. */
+fun zonePanelCols(mode: CardMode): Int = 2 + FrameSize.cols(FrameSize.tierOf(mode), land = true)
+
+/** A panel's height in cells: the cascade (a strip a card, the last whole) and the border, at most [maxRows] (then it scrolls). */
+fun zonePanelRows(count: Int, mode: CardMode, maxRows: Int): Int =
+    minOf(maxRows, 2 + maxOf(0, count - 1) * CASCADE_STRIP + FrameSize.rows(mode)).coerceAtLeast(3)
 
 /**
- * A player's graveyard or exile, popped out over the table: every card in
- * its frame, as the zone column only names them. It floats like the stack
+ * A player's graveyard or exile, popped out over the table as MTGO does:
+ * a cascade down, each card over the one before with its name showing, the
+ * last put there whole at the bottom. A name is hovered and clicked as the
+ * card. It floats like the stack
  * box (takes no layout space), is dragged by its top edge and closed by the
  * `×` at its right end, or by the zone column's header that opened it. A
  * card in it clicks and hovers as on the table, so a prompt that wants a
@@ -88,13 +86,14 @@ fun ZonePanel(
 ) {
     val cells = LocalCells.current
     val density = LocalDensity.current
-    val cards = panelCards(player, key.zone)
-    val cols = zonePanelCols(cards.size, looks.mode)
+    val cards = cascadeCards(player, key.zone)
+    val cols = zonePanelCols(looks.mode)
     val inner = cols - 2
-    val who = if (player.isSeat) "your" else "${player.name.substringBefore(" (")}'s"
+    // One card wide: the zone and its count, and whose when it is not yours; the whole top edge but the × is the handle.
+    val title = "${key.zone.word} ${cards.size}" + if (player.isSeat) "" else " · ${player.name.substringBefore(" (")}"
     Box(
         modifier.cells(cols, rows).chromeShape().background(Palette.background)
-            .boxBorder("$who ${key.zone.word} · ${cards.size}", right = "drag · ×", border = Border.DOUBLE, color = Palette.accent)
+            .boxBorder(title, right = "×", border = Border.DOUBLE, color = Palette.accent)
             // Solid to the pointer as well as the eye: a click on the panel never reaches the card beneath.
             .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
             .region("zone-panel-${key.id}"),
@@ -108,16 +107,27 @@ fun ZonePanel(
         Box(Modifier.offset(x = with(density) { ((cols - 4) * cells.width).toDp() }).cells(4, 1).clickTarget(key.close, looks.onClick))
         Box(Modifier.padding(with(density) { cells.width.toDp() }, with(density) { cells.height.toDp() }).cells(inner, rows - 2)) {
             if (cards.isEmpty()) GridText("(empty)", color = Palette.dim)
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                cards.chunked(PANEL_PER_ROW).forEach { line ->
-                    Row {
-                        line.forEachIndexed { i, card ->
-                            if (i > 0) Spacer(Modifier.width(with(density) { cells.width.toDp() }))
+            val tier = FrameSize.tierOf(looks.mode)
+            val frameRows = FrameSize.rows(tier)
+            // Opened at the bottom, where the card put there last lies whole.
+            val scroll = rememberScrollState()
+            LaunchedEffect(cards.size) { scroll.scrollTo(scroll.maxValue) }
+            Box(Modifier.verticalScroll(scroll)) {
+                Box(Modifier.cells(inner, maxOf(0, cards.size - 1) * CASCADE_STRIP + frameRows)) {
+                    cards.forEachIndexed { i, card ->
+                        val last = i == cards.lastIndex
+                        val y = with(density) { (i * CASCADE_STRIP * cells.height).toDp() }
+                        // Each card over the one before; only the last is clicked by its frame, the others by their strip.
+                        Box(Modifier.offset(y = y).zIndex(i.toFloat())) {
                             CardFrame(
-                                card.face(), looks.mode, looks.emphasis(card), ClickTarget.Card(card.id), looks.onClick, looks.onHover,
-                                mark = looks.mark(card), tier = FrameSize.tierOf(looks.mode),
+                                card.face(), looks.mode, looks.emphasis(card), if (last) ClickTarget.Card(card.id) else null, looks.onClick, looks.onHover,
+                                land = true, mark = looks.mark(card), tier = tier,
                             )
                         }
+                        if (!last) Box(
+                            Modifier.offset(y = y).zIndex(1000f + i).cells(inner, CASCADE_STRIP)
+                                .clickTarget(ClickTarget.Card(card.id), looks.onClick, looks.onHover),
+                        )
                     }
                 }
             }

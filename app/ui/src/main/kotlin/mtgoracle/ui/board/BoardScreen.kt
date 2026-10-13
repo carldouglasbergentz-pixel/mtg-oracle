@@ -445,7 +445,7 @@ private fun ZonePanelLayer(
 ) {
     var drag by remember(key) { mutableStateOf(Offset.Zero) }
     val count = panelCards(player, key.zone).size
-    val cols = zonePanelCols(count, looks.mode)
+    val cols = zonePanelCols(looks.mode)
     // At most the player's half of the table, then it scrolls.
     val half = if (key.far) midline.top - table.top else table.bottom - midline.bottom
     val rows = zonePanelRows(count, looks.mode, maxRows = maxOf(5, cells.rows(half)))

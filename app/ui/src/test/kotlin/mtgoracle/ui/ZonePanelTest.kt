@@ -44,7 +44,7 @@ class ZonePanelTest {
                 val at = d.registry.targets.filterIsInstance<ClickTarget.Card>().filter { it.id == card.id }.mapNotNull { d.registry[it] }
                 assertTrue(at.any { panel.contains(it.center) }, "${card.name} is in the panel, in its frame: $at in $panel")
             }
-            assertTrue("your graveyard · ${me.graveyard.size}" in d.text.all(), d.text.all())
+            assertTrue("graveyard ${me.graveyard.size}" in d.text.all(), d.text.all())
             d.savePng(File(pngDir, "zone-panel-graveyard.png"))
 
             assertTrue(d.drag(ClickTarget.Control("region:zone-panel-near-graveyard-handle"), Offset(140f, -160f)))
