@@ -51,6 +51,25 @@ class ChoiceBoxTest {
     }
 
     @Test
+    fun `the box steps aside from the cards the question is about`() {
+        val seat = FakeSeat(sampleBoard(), priority)
+        OffscreenDriver(1800, 1200) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
+            d.settle(5)
+            assertTrue(d.click(ClickTarget.Card(16)))
+            // Two creatures on the table to choose between, by the card clicked.
+            seat.prompt.value = ChoicePrompt(5, "Choose a creature", listOf(
+                ChoiceOption("Grizzly Bears", mtgoracle.core.model.BoardRef.Card(12)), ChoiceOption("Serra Angel", mtgoracle.core.model.BoardRef.Card(14))), 1, 1)
+            d.settle(4)
+            val box = assertNotNull(d.registry[ClickTarget.Control("region:choice-box")])
+            for (id in listOf(12, 14, 16)) {
+                val card = assertNotNull(d.registry[ClickTarget.Card(id)])
+                assertTrue(!card.overlaps(box), "card $id is not under the box: $card, $box")
+            }
+            d.savePng(File(pngDir, "choice-box-aside.png"))
+        }
+    }
+
+    @Test
     fun `a choice among cards shows their frames`() {
         val lands = listOf(card(200, "Volcanic Island", land = true), card(201, "Plateau", land = true), card(202, "Badlands", land = true))
         val seat = FakeSeat(sampleBoard(), ChoicePrompt(3, "Search your library for a Mountain or Island card", lands.map { ChoiceOption(it.name, card = it) }, 0, 1))

@@ -362,7 +362,7 @@ fun BoardScreen(
             } else if (stackAutoFolded) SideEffect { stackAutoFolded = false }
             if (b != null && sides != null && table != Rect.Zero && prompt !is SideboardPrompt) {
                 for (key in openPanels) {
-                    ZonePanelLayer(key, if (key.far) sides.first else sides.second, looks, cells, arrangement, ::arrange, midline, table, panes.zoneCols, totalCols, totalRows)
+                    ZonePanelLayer(key, if (key.far) sides.first else sides.second, looks, cells, registry, arrangement, ::arrange, midline, table, panes.zoneCols, leftCols, totalCols, totalRows)
                 }
             }
             // A first game's tips, at the top of the table, out of the cards' way as far as it can be.
@@ -453,8 +453,8 @@ private fun StackLayer(
  */
 @Composable
 private fun ZonePanelLayer(
-    key: ZonePanelKey, player: mtgoracle.core.model.PlayerState, looks: Looks, cells: Cells, arrangement: BoardLayout, arrange: (BoardLayout) -> Unit,
-    midline: Rect, table: Rect, zoneCols: Int, totalCols: Int, totalRows: Int,
+    key: ZonePanelKey, player: mtgoracle.core.model.PlayerState, looks: Looks, cells: Cells, registry: ClickRegistry, arrangement: BoardLayout, arrange: (BoardLayout) -> Unit,
+    midline: Rect, table: Rect, zoneCols: Int, leftCols: Int, totalCols: Int, totalRows: Int,
 ) {
     var drag by remember(key) { mutableStateOf(Offset.Zero) }
     val count = panelCards(player, key.zone).size
@@ -462,9 +462,18 @@ private fun ZonePanelLayer(
     // At most the player's half of the table, then it scrolls.
     val half = if (key.far) midline.top - table.top else table.bottom - midline.bottom
     val rows = zonePanelRows(count, looks.mode, maxRows = maxOf(5, cells.rows(half)))
-    val defaultRow = if (key.far) cells.rows(table.top) else cells.rows(table.bottom) - rows
-    val defaultCol = zoneCols + if (key.zone == PileZone.GRAVEYARD) 1 else 3
-    val (wantCol, wantRow) = arrangement.panels[key.id] ?: (defaultCol to defaultRow)
+    // Not placed by the viewer: where it covers no card, tried along the table's sides (the graveyard from the left,
+    // exile from the right, so two open panels part), the player's edge before the midline. Settled when it opens.
+    val opening = remember(key) {
+        val edge = if (key.far) cells.rows(table.top) else cells.rows(table.bottom) - rows
+        val mid = if (key.far) cells.rows(midline.top) - rows else cells.rows(midline.bottom)
+        val sides = listOf(zoneCols + 1, leftCols - cols - 1).let { if (key.zone == PileZone.GRAVEYARD) it else it.reversed() }
+        val tries = listOf(edge, mid).flatMap { r -> sides.map { c -> c to r } }
+        val cards = registry.targets.filterIsInstance<ClickTarget.Card>().mapNotNull { registry[it] }
+        fun at(c: Int, r: Int) = Rect(c * cells.width, r * cells.height, (c + cols) * cells.width, (r + rows) * cells.height)
+        tries.firstOrNull { (c, r) -> cards.none { it.overlaps(at(c, r)) } } ?: tries.first()
+    }
+    val (wantCol, wantRow) = arrangement.panels[key.id] ?: opening
     val col = clampCells(wantCol, cols, totalCols)
     val row = clampCells(wantRow, rows, totalRows)
     ZonePanel(
@@ -493,19 +502,32 @@ private fun ChoiceLayer(
 ) {
     val cols = choiceBoxCols(prompt, mode)
     val rows = choiceBoxRows(prompt, mode, maxRows = maxOf(12, cells.rows(table.height)))
-    // Where it opens is settled when the question comes: the card it is about may move while it is asked.
+    // Where it opens is settled when the question comes: the card it is about may move while it is asked. Tried in
+    // turn: right of that card, left of it, above, below, mid-table, the table's top and bottom; the first that covers
+    // neither the card nor one the question wants clicked on the table (its options' cards), as the stack box steps aside.
     val opening = remember(prompt.id) {
         val beside = lastCardClicked?.let { registry[it] }?.takeIf { table.overlaps(it) }
-        if (beside != null) {
-            val right = cells.cols(beside.right) + 1
-            val col = if (right + cols <= leftCols) right else cells.cols(beside.left) - cols - 1
-            col to cells.rows(beside.center.y) - rows / 2
-        } else (zoneCols + (leftCols - zoneCols - cols) / 2) to (cells.rows(table.top) + (cells.rows(table.height) - rows) / 2)
+        val legal = legalRects(prompt, registry) + listOfNotNull(beside)
+        val middle = zoneCols + (leftCols - zoneCols - cols) / 2
+        val tries = buildList {
+            if (beside != null) {
+                val level = cells.rows(beside.center.y) - rows / 2
+                val across = cells.cols(beside.center.x) - cols / 2
+                add(cells.cols(beside.right) + 1 to level)
+                add(cells.cols(beside.left) - cols - 1 to level)
+                add(across to cells.rows(beside.top) - rows)
+                add(across to cells.rows(beside.bottom) + 1)
+            }
+            add(middle to cells.rows(table.top) + (cells.rows(table.height) - rows) / 2)
+            add(middle to cells.rows(table.top))
+            add(middle to cells.rows(table.bottom) - rows)
+        }.map { (c, r) -> clampCells(c, cols, minOf(totalCols, leftCols)) to clampCells(r, rows, totalRows) }
+        fun at(c: Int, r: Int) = Rect(c * cells.width, r * cells.height, (c + cols) * cells.width, (r + rows) * cells.height)
+        tries.firstOrNull { (c, r) -> legal.none { it.overlaps(at(c, r)) } } ?: tries.first()
     }
     var moved by remember(prompt.id) { mutableStateOf(Offset.Zero) }
     var drag by remember(prompt.id) { mutableStateOf(Offset.Zero) }
-    val col = clampCells(opening.first, cols, totalCols)
-    val row = clampCells(opening.second, rows, totalRows)
+    val (col, row) = opening
     ChoiceBox(
         prompt, board, interaction, mode, rows, onClick, onHover, onCardHover,
         onDrag = { drag += it },

@@ -40,6 +40,10 @@ class ZonePanelTest {
             assertTrue(d.click(ClickTarget.Control("zone-panel:near-graveyard")), "the header opens it")
             d.settle(3)
             val panel = assertNotNull(d.registry[ClickTarget.Control("region:zone-panel-near-graveyard")], "the panel is up")
+            for (card in board.players.flatMap { it.battlefield }) {
+                val at = d.registry[ClickTarget.Card(card.id)] ?: continue
+                assertTrue(!at.overlaps(panel), "it opens where it covers no card on the table: ${card.name} at $at, the panel $panel")
+            }
             for (card in me.graveyard) {
                 val at = d.registry.targets.filterIsInstance<ClickTarget.Card>().filter { it.id == card.id }.mapNotNull { d.registry[it] }
                 assertTrue(at.any { panel.contains(it.center) }, "${card.name} is in the panel, in its frame: $at in $panel")
