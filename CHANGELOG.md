@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A card's art stays inside its frame.** A frame's border counted its whole cells from a width Compose had rounded to the pixel (28 cells of 7.15 px laid out at 200 px, not 200.2), so it lost a cell and drew its right side inside the art of the large land frames. A width or height now forgives that half pixel (`Cells.cols`). `FrameArtTest` measures the pixels at three densities.
+- **A land played this turn says so, and has a pile of its own.** Forge's summoning sickness on the snapshot was for creatures only, so two Mishra's Factories (one just played) read alike and stacked as one: there was no telling which could be animated and attack. A permanent now carries it whatever it is (`hasSickness`), a land shows `new`, and a new land is not stacked with the old ones. `NewLandTest` plays one.
+
 ## [0.6.0] - 2026-10-08
 
 Searching grows: `like:` finds the cards most like a card, and every search is laid out by colour, type and mana value, one at a time. The limited tab simulates and keeps your record, choose printing can be searched, and the lobby pairs decks of one format. From 0.5.1, `update` installs it; at its first start the library's formats are stored by their key, after a backup. Network play needs this version on both sides.

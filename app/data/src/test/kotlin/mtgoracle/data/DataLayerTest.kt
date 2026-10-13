@@ -45,7 +45,7 @@ class DataLayerTest {
     @Test
     fun `folders and decks read, unsorted decks last`() {
         val folders = Library(db).folders()
-        assertTrue(folders.any { it.name == "Canadian Highlander" && it.format == "canlander" })
+        assertTrue(folders.any { it.name == "Canadian Highlander" && it.format == "canadianhighlander" }, "by its key (FormatCatalog.canonical): ${folders.map { it.name to it.format }}")
         val decks = Library(db).decks()
         assertTrue(decks.isNotEmpty())
         val firstUnsorted = decks.indexOfFirst { it.folderId == null }
