@@ -78,6 +78,7 @@ class PlaymatsTest {
             assertTrue(d.click(ClickTarget.Control("mat:me:reset")))
             assertEquals(Triple(0.5f, 0.5f, 1f), app.mats.mat(app.mats.mine)!!.let { Triple(it.x, it.y, it.zoom) })
             d.settle(3)
+            d.pointerAway() // Reset, clicked last, would be drawn lit
             d.savePng(File(Scenario.pngDir, "playmats-lobby.png"))
         }
     }

@@ -43,15 +43,19 @@ class ArtImages(val art: CardArt, private val capacity: Int = 400, private val d
             if (requested.add(id)) art.request(key, kind) { arrive() }
             return null
         }
-        if (decoding.add(id)) decoder.execute {
-            try {
-                val bitmap = runCatching { Image.makeFromEncoded(file.readBytes()).toComposeImageBitmap() }.getOrNull()
-                if (bitmap != null) {
-                    synchronized(decoded) { decoded[id] = bitmap }
-                    arrive()
+        if (decoding.add(id)) {
+            IN_FLIGHT.incrementAndGet()
+            decoder.execute {
+                try {
+                    val bitmap = runCatching { Image.makeFromEncoded(file.readBytes()).toComposeImageBitmap() }.getOrNull()
+                    if (bitmap != null) {
+                        synchronized(decoded) { decoded[id] = bitmap }
+                        arrive()
+                    }
+                } finally {
+                    decoding.remove(id)
+                    IN_FLIGHT.decrementAndGet()
                 }
-            } finally {
-                decoding.remove(id)
             }
         }
         return synchronized(decoded) { decoded[id] } // a direct executor has it already
@@ -62,6 +66,10 @@ class ArtImages(val art: CardArt, private val capacity: Int = 400, private val d
     companion object {
         /** Two threads: decoding is CPU-bound, and the game and Forge's own work need the rest. */
         private val DECODER: Executor = Executors.newFixedThreadPool(2) { r -> Thread(r, "art-decode").apply { isDaemon = true } }
+        private val IN_FLIGHT = AtomicInteger()
+
+        /** Images being decoded, in every [ArtImages]: a test waits for none before it takes its picture. */
+        val decodingNow: Int get() = IN_FLIGHT.get()
     }
 }
 

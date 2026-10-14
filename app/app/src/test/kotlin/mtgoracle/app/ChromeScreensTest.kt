@@ -34,13 +34,14 @@ class ChromeScreensTest {
     private fun layout(app: AppController, theme: Theme, screen: String): Map<ClickTarget, Rect> {
         Palette.theme = theme
         return OffscreenDriver(1800, 1100) { AppContent(app) {} }.use { d ->
-            d.settle(5)
+            // Each look's picture with its art: after a fixed count of frames, one look showed text frames where the others had art.
+            d.settleArt()
             if (screen == "workspace") {
                 d.key(Key.Semicolon, char = ':'.code)
                 app.lookupUi!!.command.set("t:creature")
                 d.frame()
                 d.key(Key.Enter)
-                d.settle(5)
+                d.settleArt()
             }
             d.savePng(File(Scenario.pngDir, "chrome-$screen-${theme.key}.png"))
             d.registry.targets.associateWith { d.registry[it]!! }

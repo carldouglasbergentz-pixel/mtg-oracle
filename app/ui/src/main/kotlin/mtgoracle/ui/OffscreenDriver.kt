@@ -101,6 +101,23 @@ class OffscreenDriver(
     fun settle(frames: Int = 3) = repeat(frames) { frame() }
 
     /**
+     * Frames until no card art is being decoded (or [waitMillis] has passed), then a few to draw it: a picture
+     * taken after a fixed count of frames showed text frames in one look and art in the next.
+     */
+    fun settleArt(waitMillis: Long = 10_000) {
+        settle()
+        val deadline = System.currentTimeMillis() + waitMillis
+        while (mtgoracle.ui.kit.ArtImages.decodingNow > 0 && System.currentTimeMillis() < deadline) { Thread.sleep(10); frame() }
+        settle()
+    }
+
+    /** The mouse off the scene, so a hover a click left behind is not drawn into a picture. */
+    fun pointerAway() {
+        scene.sendPointerEvent(PointerEventType.Move, Offset(-1f, -1f))
+        frame()
+    }
+
+    /**
      * Clicks [target] where it is drawn; false when nothing on screen is that
      * target within [waitMillis] (a new prompt can land a moment before the
      * scene has composed it, so this waits in wall-clock time, not frames).
