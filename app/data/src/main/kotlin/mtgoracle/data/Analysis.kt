@@ -12,6 +12,7 @@ import mtgoracle.core.analysis.CardFace
 import mtgoracle.core.analysis.CardFacts
 import mtgoracle.core.analysis.CardPool
 import mtgoracle.core.analysis.DeckList
+import mtgoracle.core.deck.DeckSize
 import java.sql.Connection
 import java.sql.ResultSet
 
@@ -28,12 +29,15 @@ class Analysis(private val db: MtgDb, private val names: CardNames, private val 
     fun insight(deckId: Int, name: String): DeckInsight {
         val list = deckList(deckId, name)
         val pool = pool(list.cards.keys)
+        val rows = rows(deckId)
+        val played = rows.filter { !it.isSideboard }
         return DeckInsight(
             deckId = deckId,
-            analytics = DeckAnalysis.compute(rows(deckId)),
+            analytics = DeckAnalysis.compute(rows),
             profile = Archetype.profile(list, pool),
             combos = combos.inDeck(deckId, limit = 500).size,
             unsure = Archetype.rank(listOf(list), pool).lowConfidence.sorted(),
+            size = DeckSize(played.filter { !it.isCommander }.sumOf { it.quantity }, played.filter { it.isCommander }.sumOf { it.quantity }),
         )
     }
 

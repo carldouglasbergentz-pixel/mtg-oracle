@@ -26,9 +26,11 @@ sealed interface OutputLink {
 
 data class LinkSpan(val start: Int, val end: Int, val link: OutputLink)
 
-enum class Tone { PLAIN, DIM, BOLD, ERROR, ECHO }
+/** [RULE]: a group heading whose text is a [mtgoracle.ui.kit.ruleText], drawn as the deck pane's headings are. */
+enum class Tone { PLAIN, DIM, BOLD, ERROR, ECHO, RULE }
 
-data class OutLine(val text: String, val tone: Tone = Tone.PLAIN, val spans: List<LinkSpan> = emptyList())
+/** [dimFrom]: where a remark beside the links starts, drawn dim to the end (`no combos in the deck` after `[ full profile ]`). */
+data class OutLine(val text: String, val tone: Tone = Tone.PLAIN, val spans: List<LinkSpan> = emptyList(), val dimFrom: Int? = null)
 
 /** A block of output, rendered for the width it is laid out in; re-rendered when that changes. */
 fun interface Rendering {
@@ -80,7 +82,12 @@ internal fun wrapWords(text: String, width: Int, indent: String = "", hang: Stri
     val lines = mutableListOf<String>()
     var line = StringBuilder(indent)
     var lead = indent.length
-    for (whole in words) {
+    for ((i, whole) in words.withIndex()) {
+        // A ` · ` between parts goes where the line breaks, as in the kit's wrap.
+        if (whole == mtgoracle.ui.kit.SEPARATOR && (line.length <= lead || line.length + 3 + words.getOrNull(i + 1).orEmpty().length > width)) {
+            if (line.length > lead) { lines += line.toString(); line = StringBuilder(hang); lead = hang.length }
+            continue
+        }
         var word = whole
         while (word.isNotEmpty()) {
             val room = width - line.length - (if (line.length > lead) 1 else 0)

@@ -64,7 +64,7 @@ class LookupCommandsTest {
         commands = LookupCommands(lookup, decks = { library.decks() }, faceOf = { null },
             searchSort = mtgoracle.core.lookup.CardSort.DEFAULT, keepSearchSort = { kept += it })
         val out = run("t:creature c:g")
-        assertTrue("sort: [colour] › [type] › [mv]" in out && "── Green (" in out, out)
+        assertTrue("sort: [colour] › [type] › [mv]" in out && "─ Green (" in out, out)
         run("card lightning bolt")
         run("sort type mv")
         assertEquals("sort type mv -", kept.last().command)
@@ -135,7 +135,7 @@ class LookupCommandsTest {
         assertEquals("${deck.name}> ", commands.ui.prompt)
         assertEquals(listOf(deckId), entered, "the deck is selected in the list too")
         val scoped = run("search t:creature order:asc_mv")
-        assertTrue(scoped.lines()[1].startsWith("[deck filter: ci<="), scoped)
+        assertTrue(scoped.lines()[1].startsWith("`cd ..` searches every card"), scoped)
         val total = { text: String -> Regex("(\\d+) card\\(s\\)").find(text)!!.groupValues[1].toInt() }
         run("cd ..")
         assertEquals("> ", commands.ui.prompt)
@@ -158,7 +158,7 @@ class LookupCommandsTest {
     fun `one combo opens at once, a list numbers its rows for combo-info`() {
         val list = run("combo Thassa's Oracle")
         assertTrue("combo(s) featuring Thassa's Oracle:" in list, list)
-        assertTrue("[  1]" in list)
+        assertTrue("[1]" in list)
         val detail = run("combo-info 1")
         assertTrue("Cards:" in detail && "Steps:" in detail, detail)
         assertTrue("(no combo #9999 in last list" in run("combo-info 9999"))
@@ -292,9 +292,20 @@ class LookupCommandsTest {
         val insight = lookup.analysis.insight(deck!!.id, deck.name)
         val wide = mtgoracle.ui.library.insightLines(insight, 120)
         val text = wide.joinToString("\n") { it.text }
-        assertTrue(text.startsWith("${insight.profile.size} cards · ${insight.analytics.landCount} lands"), text)
+        assertTrue(text.startsWith("${insight.size.label} · ${insight.analytics.landCount} lands"), text)
         assertTrue("curve" in text && "roles" in text && "by T2/T4" in text, text)
-        assertEquals(listOf(OutputLink.Run("profile"), OutputLink.Run("combos")), wide.flatMap { it.spans }.map { it.link }.distinct())
+        // One label column: every row's content starts in the same column, headers and values alike.
+        val rows = listOf("curve", "cards", "roles", "by T2/T4").associateWith { label -> wide.first { it.text.startsWith(label) }.text }
+        assertEquals(setOf(10), rows.map { (label, row) -> label.length + row.drop(label.length).indexOfFirst { it != ' ' } }.toSet(), rows.values.joinToString("\n"))
+        // The colours in fixed slots: a colour both rows count stands at the same column in each.
+        val pips = wide.first { "pips" in it.text }.text
+        val sources = wide.first { "sources" in it.text }.text
+        "WUBRGC".filter { "$it:" in pips && "$it:" in sources }.forEach { c -> assertEquals(pips.indexOf("$c:"), sources.indexOf("$c:"), "$pips\n$sources") }
+        val links = wide.flatMap { it.spans }.map { it.link }.distinct()
+        assertEquals(OutputLink.Run("profile"), links.first())
+        assertEquals(insight.combos > 0, OutputLink.Run("combos") in links, "combos link only when there are combos")
+        if (insight.combos == 0) assertTrue(wide.any { it.dimFrom != null && it.text.substring(it.dimFrom!!) == "no combos in the deck" }, text)
+        if (insight.unsure.isNotEmpty()) assertTrue(links.any { it is OutputLink.Cards && it.names == insight.unsure }, "unplaced opens its cards")
         for (width in listOf(40, 60, 90)) {
             val narrow = mtgoracle.ui.library.insightLines(insight, width)
             assertTrue(narrow.all { it.text.length <= width }, "at $width:\n" + narrow.joinToString("\n") { it.text })

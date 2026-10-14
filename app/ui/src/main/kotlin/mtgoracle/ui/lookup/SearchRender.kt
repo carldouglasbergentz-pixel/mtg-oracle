@@ -3,6 +3,7 @@ package mtgoracle.ui.lookup
 import mtgoracle.core.lookup.CardSort
 import mtgoracle.core.deck.DeckSection
 import mtgoracle.core.lookup.SearchPage
+import mtgoracle.ui.kit.ruleText
 
 private const val INDENT = "  "
 private const val NAME_W = 42
@@ -34,13 +35,15 @@ fun renderSearch(page: SearchPage, actions: Boolean = false, points: (String) ->
         // Groups each begin under a heading of their own, counted over the whole search: where each starts, by row.
         val starts = arranged?.groups?.runningFold(0) { at, g -> at + g.second }?.zip(arranged.groups)?.associate { (at, g) -> at to g }.orEmpty()
         val controls = if (actions) ACTIONS.sumOf { it.first.length + 1 } else 0
-        val prefixW = INDENT.length + 6 + controls // "  [  1] " and "+ sb ? "
+        // The row numbers right-aligned, padded outside their brackets: ` [9]`, `[10]`.
+        val numberW = "[${page.rows.size}]".length
+        val prefixW = INDENT.length + numberW + 1 + controls // "  [1] " and "+ sb ? "
         // The name keeps its 42 columns while the pane allows; the type line takes the rest.
         val nameW = (width - prefixW - COST_W - 2 - 12).coerceIn(12, NAME_W)
         val typeW = maxOf(8, width - prefixW - nameW - COST_W - 2)
         page.rows.forEachIndexed { i, row ->
-            starts[i]?.let { (label, n) -> if (label.isNotEmpty()) add(groupHeading(label, arranged!!.total(label, n)), Tone.BOLD) }
-            val text = StringBuilder("$INDENT[${(i + 1).toString().padStart(3)}] ")
+            starts[i]?.let { (label, n) -> if (label.isNotEmpty()) add(groupHeading(label, arranged!!.total(label, n), width), Tone.RULE) }
+            val text = StringBuilder("$INDENT${"[${i + 1}]".padStart(numberW)} ")
             val spans = mutableListOf<LinkSpan>()
             if (actions) for ((label, section) in ACTIONS) {
                 spans += LinkSpan(text.length, text.length + label.length, OutputLink.Edit(EditAction.Add(row.name, section)))
@@ -53,20 +56,21 @@ fun renderSearch(page: SearchPage, actions: Boolean = false, points: (String) ->
             spans += LinkSpan(start, start + minOf(row.name.length, name.trimEnd().length), OutputLink.Card(row.name))
             add(text.toString().trimEnd(), spans = spans)
         }
+        // The paging links first, then the hint for the numbers: the grid draws only the links (it numbers nothing).
         val parts = listOfNotNull("next".takeIf { page.hasNext }, "prev".takeIf { page.hasPrev })
-        val text = StringBuilder("$INDENT| ")
+        val text = StringBuilder(INDENT)
         val spans = mutableListOf<LinkSpan>()
         for (p in parts) {
             spans += LinkSpan(text.length, text.length + p.length, OutputLink.Run(p))
-            text.append(p).append("  |  ")
+            text.append(p).append(" · ")
         }
-        text.append("`card <N>` to expand row")
+        text.append("`card <N>` expands row N")
         add(text.toString(), Tone.DIM, spans)
     }.out
 }
 
-/** A pool group's heading, the same in lines and in the grid. */
-fun groupHeading(label: String, count: Int): String = "$INDENT── $label ($count)"
+/** A group's heading, the same in lines and in the grid, and drawn as the deck pane's are: `─ Black (725) ───`. */
+fun groupHeading(label: String, count: Int, width: Int): String = ruleText(width, "$label ($count)")
 
 /**
  * What a page holds, [what], and how it is laid out: each slot a link that
@@ -86,8 +90,12 @@ private fun Lines.sortHeader(what: String, sort: CardSort, pool: Boolean) {
     add(text.toString(), Tone.BOLD, spans)
 }
 
-/** The filters a deck added to a search — announced, never applied silently. Empty when there are none. */
+/**
+ * Above a search the deck filtered: the way out of its filters. The filters
+ * themselves are named in the search pane's title (and by `cd`), never
+ * applied silently. Nothing without filters.
+ */
 fun renderDeckFilterNotice(filters: List<String>): Rendering = Rendering { width ->
     if (filters.isEmpty()) emptyList()
-    else Lines(width).apply { wrap("[deck filter: ${filters.joinToString("  ")}  (`cd ..` to search the full pool)]", tone = Tone.DIM) }.out
+    else Lines(width).apply { wrap("`cd ..` searches every card, not only what the deck can play", tone = Tone.DIM) }.out
 }

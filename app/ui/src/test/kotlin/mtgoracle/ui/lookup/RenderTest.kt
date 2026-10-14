@@ -67,11 +67,11 @@ class RenderTest {
         val out = text(renderCard(card), 70)
         for (part in listOf("Ashnod's Altar", "Artifact", "Tags:", "type       artifact", "Parsed abilities:", "IS MANA ABILITY",
             "cost:   Sacrifice a creature", "Legality:", "legal        commander, legacy, vintage", "banned       duel",
-            "EDHREC #1,234", "arena/mtgo/paper", "Rulings (1):", "[2004-10-04]", "Top combos featuring this card (2):",
+            "Played:", "EDHREC rank  #1,234", "games        arena/mtgo/paper", "Rulings (1):", "[2004-10-04]", "Top combos featuring this card (2):",
             "(4+ cards)", "NOTE - 1 correction(s)", "-> Ashnod's Altar makes {C}{C}.")) {
             assertTrue(part in out, "missing '$part' in\n$out")
         }
-        assertTrue(out.lines()[1].endsWith("{3}") && out.lines()[1].length == 70, "the cost sits at the right edge")
+        assertEquals("Ashnod's Altar  {3}", out.lines()[1], "the cost two spaces after the name, not at the far edge")
         // From 50: a single card name longer than the line (39 here) is clipped when drawn, never split from its link.
         for (w in listOf(50, 70, 120, 200)) assertWellFormed(renderCard(card), w)
     }
@@ -98,7 +98,7 @@ class RenderTest {
         val page = SearchPage(SearchLanguage.parse("n:bolt"), rows, total = 120, page = 2, pageSize = 50)
         val lines = renderSearch(page).lines(100)
         assertEquals("120 card(s) — showing 51-52 (page 2 of 3)", lines[0].text)
-        assertTrue(lines[1].text.startsWith("  [  1] Lightning Bolt"))
+        assertTrue(lines[1].text.startsWith("  [1] Lightning Bolt"), lines[1].text)
         assertEquals(OutputLink.Card(rows[1].name), lines[2].spans.single().link, "a cut name still opens the whole name")
         assertEquals(listOf(OutputLink.Run("next"), OutputLink.Run("prev")), lines.last().spans.map { it.link })
         for (w in listOf(50, 70, 100, 180)) assertWellFormed(renderSearch(page), w)
@@ -107,8 +107,8 @@ class RenderTest {
     }
 
     @Test
-    fun `the deck filter notice names every filter, and nothing without one`() {
-        assertEquals("[deck filter: ci<=BG  f:commander  (`cd ..` to search the full pool)]", text(renderDeckFilterNotice(listOf("ci<=BG", "f:commander")), 120))
+    fun `the deck filter notice is only the way out of the filters the title names, and nothing without one`() {
+        assertEquals("`cd ..` searches every card, not only what the deck can play", text(renderDeckFilterNotice(listOf("ci<=BG", "f:commander")), 120))
         assertEquals(emptyList(), renderDeckFilterNotice(emptyList()).lines(80))
     }
 
@@ -123,7 +123,7 @@ class RenderTest {
         assertWellFormed(renderCombo(detail), 30)
         val list = renderComboList(listOf(altar, long), "2 combo(s) featuring Ashnod's Altar:").lines(70)
         assertEquals("2 combo(s) featuring Ashnod's Altar:", list[0].text)
-        assertTrue(list[1].text.startsWith("  [  1] C     (2 cards) "))
+        assertTrue(list[1].text.startsWith("  [1] C     (2 cards) "), list[1].text)
         assertEquals(OutputLink.Combo("2028-2034--5"), list[1].spans.first().link)
         assertEquals("(no matching combos)", text(renderComboList(emptyList(), "x"), 70))
     }

@@ -17,8 +17,28 @@ data class DeckSummary(
     /** Null for decks outside any folder ("unsorted"). */
     val folderId: Int?,
     val folderName: String?,
+    /** Every card outside the sideboard, the commanders' included. */
     val cardCount: Int,
-)
+    /** How many of [cardCount] are commanders. */
+    val commanders: Int = 0,
+) {
+    val size: DeckSize get() = DeckSize(cardCount - commanders, commanders)
+}
+
+/**
+ * A deck's size as every view says it: `60 cards`, or `99 + commander`
+ * (`98 + 2 commanders`), since a commander deck's hundred is the library and
+ * the command zone, and 100 beside 99 read as two different decks. [short]
+ * is the form for a narrow column: `60`, `99+1`.
+ */
+data class DeckSize(val main: Int, val commanders: Int) {
+    val label: String get() = when (commanders) {
+        0 -> "$main card${if (main == 1) "" else "s"}"
+        1 -> "$main + commander"
+        else -> "$main + $commanders commanders"
+    }
+    val short: String get() = if (commanders == 0) "$main" else "$main+$commanders"
+}
 
 /** What `cards` knows about a card, for the text-mode view. Null fields are missing upstream. */
 data class CardInfo(
@@ -74,6 +94,7 @@ data class Deck(
         else -> GameType.COMMANDER
     }
     val mainCount: Int get() = cards.filter { it.section == Section.MAIN }.sumOf { it.quantity }
+    val size: DeckSize get() = DeckSize(mainCount, cards.filter { it.isCommander && !it.isSideboard }.sumOf { it.quantity })
 }
 
 enum class GameType(val label: String) { CONSTRUCTED("constructed"), COMMANDER("Commander"), DUEL_COMMANDER("Duel Commander"), LIMITED("limited") }

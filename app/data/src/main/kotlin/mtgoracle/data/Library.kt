@@ -23,7 +23,9 @@ class Library(private val db: MtgDb) {
             """
             SELECT d.id, d.name, d.format, d.folder_id, f.name AS folder_name,
                    COALESCE((SELECT SUM(quantity) FROM deck_cards dc
-                             WHERE dc.deck_id = d.id AND dc.is_sideboard = 0), 0) AS card_count
+                             WHERE dc.deck_id = d.id AND dc.is_sideboard = 0), 0) AS card_count,
+                   COALESCE((SELECT SUM(quantity) FROM deck_cards dc
+                             WHERE dc.deck_id = d.id AND dc.is_sideboard = 0 AND dc.is_commander = 1), 0) AS commanders
             FROM decks d LEFT JOIN deck_folders f ON f.id = d.folder_id
             ORDER BY f.name IS NULL, f.name COLLATE NOCASE, d.name COLLATE NOCASE
             """.trimIndent(),
@@ -33,7 +35,7 @@ class Library(private val db: MtgDb) {
                     DeckSummary(
                         id = getInt("id"), name = getString("name"), format = getString("format"),
                         folderId = getObject("folder_id")?.let { (it as Number).toInt() },
-                        folderName = getString("folder_name"), cardCount = getInt("card_count"),
+                        folderName = getString("folder_name"), cardCount = getInt("card_count"), commanders = getInt("commanders"),
                     )
                 }
             }

@@ -179,12 +179,22 @@ fun BigButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (Cl
  * group box's edge) under the cells they took, so the text stays put.
  */
 @Composable
-fun RuleLine(cols: Int, modifier: Modifier = Modifier, label: String? = null, end: String? = null, heavy: Boolean = false, color: Color = Palette.dim, bold: Boolean = false) {
+fun RuleLine(cols: Int, modifier: Modifier = Modifier, label: String? = null, end: String? = null, heavy: Boolean = false, color: Color = Palette.dim, bold: Boolean = false) =
+    DrawnRule(ruleText(cols, label, end, heavy), modifier, heavy, color, bold)
+
+/** A [RuleLine]'s characters, for a rendering to carry as text: `─ Black (725) ───…`. */
+fun ruleText(cols: Int, label: String? = null, end: String? = null, heavy: Boolean = false): String {
     val h = if (heavy) '═' else '─'
     val lead = h.toString().repeat(if (heavy) 3 else 1)
     val head = label?.let { "$lead $it " }.orEmpty()
     val tail = end?.let { " $it $lead" }.orEmpty()
-    val line = fit(head + h.toString().repeat(maxOf(0, cols - head.length - tail.length)) + tail, cols)
+    return fit(head + h.toString().repeat(maxOf(0, cols - head.length - tail.length)) + tail, cols)
+}
+
+/** [line] (a [ruleText]) drawn as a rule: its characters in the house look, an etched line in a drawn chrome. */
+@Composable
+fun DrawnRule(line: String, modifier: Modifier = Modifier, heavy: Boolean = false, color: Color = Palette.dim, bold: Boolean = false) {
+    val h = if (heavy) '═' else '─'
     val chrome = Palette.chrome
     if (chrome == null) { GridText(line, modifier, color = color, bold = bold); return }
     val cells = LocalCells.current

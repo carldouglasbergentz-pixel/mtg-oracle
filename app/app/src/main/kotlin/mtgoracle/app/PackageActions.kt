@@ -11,6 +11,7 @@ import mtgoracle.data.PackageRefused
 import mtgoracle.data.PackageStore
 import mtgoracle.forge.Log
 import mtgoracle.ui.lookup.Ask
+import mtgoracle.ui.lookup.Toggle
 import mtgoracle.ui.lookup.LookupUi
 import java.io.File
 import java.time.LocalDate
@@ -85,18 +86,20 @@ class PackageActions(
     }
 
     private fun ask(file: File, pkg: LibraryPackage, plan: ImportPlan, choice: ImportChoice, dropped: Boolean) {
-        fun box(on: Boolean) = if (on) "[x]" else "[ ]"
+        // What comes along: check boxes under the question, apart from the buttons that act.
+        val toggles = listOfNotNull(
+            Toggle("history (${plan.revisions})", choice.history) { ask(file, pkg, plan, choice.copy(history = !choice.history), dropped) }.takeIf { plan.revisions > 0 },
+            Toggle("games (${plan.newGames} new)", choice.games) { ask(file, pkg, plan, choice.copy(games = !choice.games), dropped) }.takeIf { pkg.games.isNotEmpty() },
+            Toggle("combos (${plan.newCombos} new)", choice.combos) { ask(file, pkg, plan, choice.copy(combos = !choice.combos), dropped) }.takeIf { pkg.combos.isNotEmpty() },
+        )
         val buttons = buildList<Pair<String, () -> Unit>> {
             add((if (plan.missingCards.isEmpty()) "Import" else "Import now") to { import(file, pkg, choice, dropped) })
-            if (plan.revisions > 0) add("${box(choice.history)} history (${plan.revisions})" to { ask(file, pkg, plan, choice.copy(history = !choice.history), dropped) })
-            if (pkg.games.isNotEmpty()) add("${box(choice.games)} games (${plan.newGames} new)" to { ask(file, pkg, plan, choice.copy(games = !choice.games), dropped) })
-            if (pkg.combos.isNotEmpty()) add("${box(choice.combos)} combos (${plan.newCombos} new)" to { ask(file, pkg, plan, choice.copy(combos = !choice.combos), dropped) })
             if (dropped) {
                 add((if (plan.missingCards.isEmpty()) "Later" else "After the next sync") to { later += file.name; say("${file.name} waits in ${imports?.path}"); lookForDropped() })
                 add("Skip" to { moveTo(file, "skipped"); say("${file.name} skipped: moved to ${File(imports, "skipped")}"); lookForDropped() })
             }
         }
-        ui.ask = Ask.Buttons(title(file, pkg, plan), buttons)
+        ui.ask = Ask.Buttons(title(file, pkg, plan), buttons, toggles)
     }
 
     /** What the package holds and what would become of it, in a sentence or three. */

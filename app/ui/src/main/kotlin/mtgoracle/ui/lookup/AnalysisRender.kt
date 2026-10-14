@@ -80,18 +80,20 @@ private fun fitTurns(turns: List<Int>, width: Int, lead: Int, tail: Int, col: In
 /**
  * The castable-by-turn table: the mean over [profiles] of the chance a role
  * is castable on each turn, then drawn by turn 4 and the gap between the two.
+ * Its headers and numbers are left-aligned in the same columns, as the
+ * analysis block's are: the column starts where its header does.
  */
 private fun whenTable(r: Report, profiles: List<DeckProfile>, roles: List<String>, turns: List<Int>, onPlay: Boolean) {
     val labelWidth = (roles.map { label(it).length } + "castable by turn".length).max() + 2
     val shown = fitTurns(turns, r.width, labelWidth, 9 + 6, 5)
     r.head("=== WHEN CAN IT HAPPEN? ${if (onPlay) "on the play" else "on the draw"} ===")
-    r.add("castable by turn".left(labelWidth) + shown.joinToString("") { "T$it".right(5) } + "drawn T4".right(10) + "gap".right(5))
+    r.add("castable by turn".left(labelWidth) + shown.joinToString("") { "T$it".left(5) } + "drawn T4".left(10) + "gap")
     for (role in roles) {
         val live = profiles.map { it.liveCurve(role, turns, onPlay) }
         val drawn = mean(profiles.map { it.ceiling(role, turns, onPlay).getValue(4) })
         val castable4 = mean(live.map { it.getValue(4) })
-        r.add(label(role).left(labelWidth) + shown.joinToString("") { t -> pct(mean(live.map { it.getValue(t) })).right(5) } +
-            pct(drawn).right(10) + (Py.fixed((drawn - castable4) * 100, 0) + "p").right(5))
+        r.add(label(role).left(labelWidth) + shown.joinToString("") { t -> pct(mean(live.map { it.getValue(t) })).left(5) } +
+            pct(drawn).left(10) + Py.fixed((drawn - castable4) * 100, 0) + "p")
     }
     r.note("Castable: a card of the role is in hand AND the lands and rocks drawn so far pay for it that turn. " +
         "Drawn T4: one is in hand by turn 4 at all, mana ignored: the most castable can ever be. " +
@@ -153,19 +155,19 @@ private fun onCurveTable(r: Report, p: DeckProfile) {
     val spans = mutableListOf<LinkSpan>()
     for (b in 0..top) {
         val text = if (b == top) "$top+" else "$b"
-        val cell = text.right(col)
+        val cell = text.left(col)
         if (names.getValue(b).isNotEmpty()) {
-            val start = head.length + col - text.length
+            val start = head.length
             spans += LinkSpan(start, start + text.length, OutputLink.Cards("${p.name}: ${if (b == top) "$top or more" else "$b"} mana", names.getValue(b)))
         }
         head.append(cell)
     }
     r.out += OutLine(head.toString(), Tone.PLAIN, spans)
-    r.add("cards".left(lead) + (0..top).joinToString("") { cards.getValue(it).toString().right(col) })
-    r.add("  permanents".left(lead) + (0..top).joinToString("") { permanents.getValue(it).toString().right(col) })
+    r.add("cards".left(lead) + (0..top).joinToString("") { cards.getValue(it).toString().left(col) })
+    r.add("  permanents".left(lead) + (0..top).joinToString("") { permanents.getValue(it).toString().left(col) })
     for (onPlay in listOf(true, false)) {
         r.add((if (onPlay) "on the play" else "on the draw").left(lead) +
-            (0..top).joinToString("") { b -> if (cards.getValue(b) == 0) "-".right(col) else pct(p.onCurve(b, onPlay)).right(col) })
+            (0..top).joinToString("") { b -> if (cards.getValue(b) == 0) "-".left(col) else pct(p.onCurve(b, onPlay)).left(col) })
     }
     r.note("On curve: holding a card that costs N, the lands and rocks drawn by turn N pay for it (Moxfield's number, " +
         "with rocks and land backs counted and the cost the effective one). Click a mana value for its cards.")
@@ -291,10 +293,10 @@ fun renderComparison(cmp: Comparison, turns: List<Int> = DeckProfile.TURNS, onPl
     val labelTurns = (turnRoles.map { label(it).length } + "castable, yours minus".length).max() + 2
     val shown = fitTurns(turns, width, labelTurns, 0, 6)
     r.head("=== WHEN CAN IT HAPPEN? ${if (onPlay) "on the play" else "on the draw"} ===")
-    r.add("castable, yours minus".left(labelTurns) + shown.joinToString("") { "T$it".right(6) })
+    r.add("castable, yours minus".left(labelTurns) + shown.joinToString("") { "T$it".left(6) })
     for (role in turnRoles) {
         val d = cmp.curveDelta[role].orEmpty()
-        r.add(label(role).left(labelTurns) + shown.joinToString("") { points(d[it] ?: 0.0).right(6) })
+        r.add(label(role).left(labelTurns) + shown.joinToString("") { points(d[it] ?: 0.0).left(6) })
     }
     r.note("Percentage points: how much more often (+) or less often (-) your deck can cast the role on that turn than ${if (solo) "theirs" else "the reference mean"}.")
 

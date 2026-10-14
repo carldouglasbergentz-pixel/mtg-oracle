@@ -148,7 +148,7 @@ fun CommandLine(
             }
             val line = when {
                 offered != null && ghost == null -> "Tab: $offered"
-                hint == null -> if (state.focused) "Enter runs · Tab takes the grey suggestion · Up/Down history · Esc leaves" else ""
+                hint == null -> "" // the keys are in the status line while the line is focused
                 hint.isSearch -> hint.text + (found?.let { "  →  $it card${if (it == 1) "" else "s"}" } ?: "")
                 else -> hint.text
             }

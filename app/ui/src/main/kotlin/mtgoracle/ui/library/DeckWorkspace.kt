@@ -67,6 +67,9 @@ import mtgoracle.ui.lookup.startFocus
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 
+/** What T (F7, the toolbar) does to the results: the toolbar and the status line say it in the same words. */
+private fun resultsToggle(grid: Boolean) = if (grid) "results as lines" else "results as grid"
+
 /** The deck pane's width until one is kept: one line per card in text mode, three frames across in art mode; and the zoom pane's. */
 fun defaultWorkspaceColumns(mode: CardMode) = SideColumns(if (mode == CardMode.TEXT) 58 else 3 * (FrameSize.cols(CardMode.ART) + 1) + 1, SIDE_COLS)
 
@@ -107,6 +110,8 @@ fun DeckWorkspace(
     aiFlags: Map<String, mtgoracle.core.deck.AiFlag> = emptyMap(),
     /** A limited deck's pool, as its title says it (`pool 84`, `2 beyond the pool!`); null for a deck with none. */
     pool: String? = null,
+    /** The deck's colour identity and points spent, as the library's title says them. */
+    badges: DeckBadges = DeckBadges(),
 ) {
     var kept by remember(deckMode) { mutableStateOf(columns) }
     // The window's width in cells as last laid out: read by the keys, so not state (it is written while composing).
@@ -207,14 +212,11 @@ fun DeckWorkspace(
             Toolbar(listOfNotNull(
                 "library" to "Library", "play" to "Play", "import" to "Import", "export" to "Export", "format" to "Format",
                 ("suggest" to "Suggest a build").takeIf { deck?.poolId != null },
-                "results" to if (lookup.grid) "Results as lines" else "Results as grid",
+                "results" to resultsToggle(lookup.grid).replaceFirstChar { it.uppercase() },
                 "deck-mode" to if (deckMode == CardMode.TEXT) "Deck as frames" else "Deck as lines",
             ), onClick)
             Row(Modifier.weight(1f).fillMaxWidth().endsTyping(lookup, focus)) {
-                val spent = deck?.cards?.filter { !it.isSideboard }?.sumOf { c -> (lookup.pointsOf(c.name) ?: 0) * c.quantity }
-                val right = deck?.let { d ->
-                    listOfNotNull(d.format?.let(mtgoracle.core.lookup.Formats::shortName), "${d.mainCount} cards", lookup.pointsBudget?.let { b -> "$spent/$b pts" + if ((spent ?: 0) > b) "!" else "" }, pool).joinToString(" · ")
-                }
+                val right = deck?.let { deckBadge(it, badges, pool, aiCopy = false) }
                 Box(Modifier.cellWidth(left).fillMaxHeight()) {
                     BoxPane(deck?.name ?: "deck", Modifier.fillMaxSize().region("workspace-deck"), right = right) {
                         Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -227,8 +229,8 @@ fun DeckWorkspace(
                                     else {
                                         val sub = deck.substitutions.firstOrNull { it.cardName.equals(row.card.name, ignoreCase = true) }
                                         listOfNotNull(
-                                            "choose printing..." to { lookup.intent(LibraryIntent.ChoosePrinting(deck.id, row.card.name, row.section)) },
-                                            (if (sub == null) "AI substitute..." else "AI substitute (now ${sub.substitute})...") to { lookup.intent(LibraryIntent.AiSubstitute(deck.id, row.card.name)) },
+                                            "choose printing…" to { lookup.intent(LibraryIntent.ChoosePrinting(deck.id, row.card.name, row.section)) },
+                                            (if (sub == null) "AI substitute…" else "AI substitute (now ${sub.substitute})…") to { lookup.intent(LibraryIntent.AiSubstitute(deck.id, row.card.name)) },
                                             sub?.let { "no AI substitute" to { lookup.intent(LibraryIntent.RemoveAiSubstitute(deck.id, row.card.name)) } },
                                             "find similar" to { lookup.open(mtgoracle.ui.lookup.OutputLink.Like(row.card.name)) },
                                         )
@@ -247,7 +249,7 @@ fun DeckWorkspace(
                 val title = "search" + if (filters.isEmpty()) " · the whole pool" else " · ${filters.joinToString("  ")}"
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                 AnalysisPane(insight, middle, onOpen = lookup.open, Modifier.fillMaxWidth())
-                BoxPane(title, Modifier.fillMaxWidth().weight(1f).region("workspace-search"), right = if (lookup.grid) "T: lines" else "T: grid") {
+                BoxPane(title, Modifier.fillMaxWidth().weight(1f).region("workspace-search")) {
                     if (lookup.output.entries.isEmpty()) {
                         Column(Modifier.fillMaxWidth()) {
                             WrapText("Type what you are looking for (press : first): a name (bolt), a type (goblin), " +
@@ -288,7 +290,7 @@ fun DeckWorkspace(
             )
             val hints = if (lookup.command.focused) TYPING_HINTS
             else if (inDeck) listOf("↑↓" to "card", "+ -" to "copies", "Del" to "remove", "Enter" to "open", "Tab" to "results", "1-4" to "tabs", "right-click" to "menu", "Esc" to "library")
-            else listOf(":" to "search", "←→↑↓" to "select", "+ S C" to "deck / side / consider", "Tab" to "deck", "T" to "grid/lines", "1-4" to "tabs", "P" to "play", "Esc" to "library")
+            else listOf(":" to "search", "←→↑↓" to "select", "+ S C" to "deck / side / consider", "Tab" to "deck", "T/F7" to resultsToggle(lookup.grid), "1-4" to "tabs", "P" to "play", "Esc" to "library")
             StatusLine(hints, notice, cols)
         }
     }

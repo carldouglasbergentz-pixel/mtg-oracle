@@ -106,7 +106,7 @@ fun LibraryScreen(
     /** The selected deck's points per card (a points format), for `Mana Drain (3)`; null for none. */
     pointsOf: (String) -> Int? = { null },
     /** The selected deck's colour identity when it has a commander (`{U}{W}`), and its points spent of its budget (`9/10 pts`). */
-    badges: List<String> = emptyList(),
+    badges: DeckBadges = DeckBadges(),
     /** The deck list's and the zoom pane's widths as last kept (drag their edges, Ctrl+(Shift+)←/→). */
     columns: SideColumns = SideColumns(DECK_LIST_COLS, SIDE_COLS),
     onColumnsChange: (SideColumns) -> Unit = {},
@@ -238,7 +238,8 @@ fun LibraryScreen(
                                 inFolder.forEach { d ->
                                     val selected = d.id == selectedId
                                     GridText(
-                                        fit("  ${d.name}".padEnd(left - 8) + "%4d".format(d.cardCount), left - 2),
+                                        // The short size (`99+1`): `99 + commander` would take the names' room.
+                                        fit("  ${d.name}".padEnd(left - 8) + d.size.short.padStart(4), left - 2),
                                         Modifier.clickTarget(ClickTarget.Control("deck:${d.id}"), onClick).onRightClick { at -> showDeck(d.id); menu = "deck:${d.id}" to at },
                                         color = if (selected) Palette.background else Palette.foreground,
                                         background = if (selected) Palette.foreground else Color.Unspecified,
@@ -251,9 +252,7 @@ fun LibraryScreen(
                     PaneEdge(drag.leftEdge, "left-edge", Modifier.align(Alignment.CenterEnd))
                 }
                 val middle = cols - left - side
-                val right = deck?.let { d ->
-                    (listOfNotNull(d.format?.let(Formats::shortName)) + badges + listOfNotNull("${d.mainCount} cards", d.substitutions.takeIf { it.isNotEmpty() }?.let { "AI copy: ${it.size} substitutions" })).joinToString(" · ")
-                }
+                val right = deck?.let { deckBadge(it, badges) }
                 if (lookup?.showOutput == true) {
                     BoxPane("output", Modifier.weight(1f).fillMaxHeight(), right = "Tab: ${deck?.name ?: "deck"}") {
                         OutputPane(lookup.output, outputScroll, onOpen = lookup.open,
@@ -293,7 +292,7 @@ fun LibraryScreen(
                 )
             }
             val hints = if (lookup?.command?.focused == true) TYPING_HINTS
-            else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter / double-click" to "open", "P" to "play", "T" to "text/art", "I" to "fetch images", "Q" to "quit")
+            else listOfNotNull(":" to "command", ("Tab" to "deck/output").takeIf { lookup != null }, "↑↓" to "deck", "Enter / double-click" to "open", "P" to "play", "T/F7" to "text/art", "I" to "fetch images", "Q" to "quit")
             StatusLine(hints, notice, cols)
         }
         // The tour over everything, pointing at the regions as they were drawn.
@@ -305,20 +304,20 @@ fun LibraryScreen(
         val items: List<Pair<String, () -> Unit>> = if (what.startsWith("deck:")) listOf(
             "open to edit" to { onSelect(id); onEdit() },
             "play" to { onSelect(id); onPlay() },
-            "rename..." to { intent(LibraryIntent.RenameDeck(id)) },
-            "move to folder..." to { intent(LibraryIntent.MoveDeck(id)) },
-            "format..." to { intent(LibraryIntent.DeckFormat(id)) },
+            "rename…" to { intent(LibraryIntent.RenameDeck(id)) },
+            "move to folder…" to { intent(LibraryIntent.MoveDeck(id)) },
+            "format…" to { intent(LibraryIntent.DeckFormat(id)) },
             "export to the clipboard" to { intent(LibraryIntent.Export(id)) },
             "export as a package (.mtgoracle)" to { intent(LibraryIntent.ExportPackage(PackageScope.Deck(id))) },
             "export the whole library as a package" to { intent(LibraryIntent.ExportPackage(PackageScope.Library)) },
-            "delete..." to { intent(LibraryIntent.DeleteDeck(id)) },
+            "delete…" to { intent(LibraryIntent.DeleteDeck(id)) },
         ) else listOf(
-            "new deck here..." to { intent(LibraryIntent.NewDeck(id)) },
-            "import a deck here..." to { intent(LibraryIntent.Import(id)) },
-            "default format..." to { intent(LibraryIntent.FolderFormat(id)) },
+            "new deck here…" to { intent(LibraryIntent.NewDeck(id)) },
+            "import a deck here…" to { intent(LibraryIntent.Import(id)) },
+            "default format…" to { intent(LibraryIntent.FolderFormat(id)) },
             "export the folder as a package (.mtgoracle)" to { intent(LibraryIntent.ExportPackage(PackageScope.Folder(id))) },
             "export the whole library as a package" to { intent(LibraryIntent.ExportPackage(PackageScope.Library)) },
-            "delete folder..." to { intent(LibraryIntent.DeleteFolder(id)) },
+            "delete folder…" to { intent(LibraryIntent.DeleteFolder(id)) },
         )
         val title = if (what.startsWith("deck:")) decks.firstOrNull { it.id == id }?.name.orEmpty() else folders.firstOrNull { it.id == id }?.name.orEmpty()
         ContextMenu(title, items, at) { menu = null }

@@ -12,6 +12,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A badge stands off the border as the title does** (`── EDH · 99 cards ┐`, not `──EDH · 99 cards ┐`), where the edge has room; a card frame the title fills keeps it tight (`Mountain ×3 ┐`).
 - **A cut leaves nothing dangling before its `…`**: `Creature…`, not `Creature —…`; `Bilbo, Thief…`, not `Bilbo, Thief …`.
 - **In the drawn looks a title bar's texts stay a cell from its ends**, so one pane's badge no longer runs into the next pane's title (`EDH · 99 cards analysis` in XP).
+- **`[ N cards unplaced ]` in the analysis block opens those cards**; it ran the full profile, as `[ full profile ]` beside it does.
+- **A long two-faced name no longer pushes its mana cost out of the deck list's cost column**: the name is cut with `…` where the column starts.
+- **The zoom pane reads top down: name and cost, type, rules text, power/toughness.** Without an image the rules text filled the image's place above the name, and with one it was cut after six lines without a `…` and the power/toughness floated below the empty rows. `HintTextTest`.
+- **A hint line that wraps breaks between its parts**, never after a lone `·` (the theme picker, a sideboard's `main 100 (at least 60) · sideboard 15`); and the status line drops whole hints from its end rather than cutting one in half. `HintTextTest`.
+- **The AI copy tab's help wraps** instead of being cut, and its substitutions read `Viscera Seer → Carrion Feeder`.
+
+### Changed
+- **A commander deck's size is `99 + commander`** (`98 + 2 commanders` with partners), everywhere it is shown: the library said 100, the deck's title and tab 99 and the analysis block 100. One `DeckSize` (core) says it; narrow places use its short form, `99+1` (the library's list, the Deck tab, the lobby, `mtg deck list`). Other decks are unchanged (`60 cards`). `DeckBadgeTest`.
+- **The library and the workspace title a deck with one badge**, the same parts in the same order, the most telling first: `EDH · 99 + commander · {B}{G}`, `CHL · 100 cards · 10/10 pts`, then a limited deck's pool and, in the library, `AI copy: 1 substitution` (singular for one; the workspace's AI copy tab counts them). The workspace now shows the commander's colour identity too. A pane's badge leaves its title half the top edge, as the drawn looks already did, and drops whole parts from its end to fit: a long badge had cut the deck's name to nothing. `deckBadge`, `DeckBadgeTest`, `HintTextTest`.
+- **The analysis block lines up**: one label column for curve, cards, roles and `by T2/T4`, headers and values left-aligned in the same columns, and pips and sources each colour in a slot of its own, so U stands over U. `1 rock`, not `1 rocks`; no combos is said in dim text, not as a button; an empty deck shows no empty rows and no `avg MV 0.00`. The full profile's on-curve and castable-by-turn tables (and the comparison's) left-align their numeric headers and values the same way. `LookupCommandsTest`, `AnalysisRenderTest`.
+- **The search pane names a deck's filters once**, in its title; above the results there is only the dim way out, ``cd ..` searches every card…``, and none in a limited deck, whose search is its pool. `RenderTest`, `LookupCommandsTest`.
+- **Search groups are headed as the deck's are**, `─ Black (725) ────`, a rule in every look, in lines and in the grid.
+- **A result's `[+] [sb] [?]` has a blank row under it** in the grid, and a deck frame's `[-] [+]` too, so the buttons read as the card's above and not the one below.
+- **The `card` page puts the cost two spaces after the name**, not at the pane's far edge; games, EDHREC rank and the Reserved List have a section of their own (`Played:`) instead of a row labelled `printings` under `Legality:`; and numbers are padded outside their brackets (` [9]`, `[10]`), in searches and combo lists too. `RenderTest`.
+- **The search footer** has no stray `|` without paging links, and the grid leaves out the `card <N>` hint, since it numbers nothing.
+- **The printing chooser is as wide as its rows** (up to the window), with the labels (`SCH 50`, `PDSK 42p`) padded so the set names start in one column; its Cancel is a button like every ask's.
+- **A package import's history, games and combos are check boxes under the question** (`[x] history (69)`), apart from the Import / Later / Skip buttons, among which they had looked like three more. `AskWrapTest`, `PackageActionsTest`.
+- **Each key hint is said once.** The status line names `T/F7` with the screen's own words (`text/art` in the library, `results as grid` in the workspace, as its toolbar button says) instead of `T` and a global `F7 text/art` beside it; the search pane's `T: lines` badge is gone; and the command line no longer repeats the status line's typing keys in its own words.
+- **Menus end in `…`**, as cuts do (`rename…`, `choose printing…`). A deck's history leaves out a note that only repeats the change lines under it (`Sol Ring: main -> considering`); the recorded notes are unchanged, as Python's answers hold them (`DeckParityTest`).
 
 ## [0.7.3] - 2026-10-14
 

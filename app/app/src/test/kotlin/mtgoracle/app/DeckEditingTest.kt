@@ -134,7 +134,6 @@ class DeckEditingTest {
     fun `a points format prices the deck and marks pointed results`() {
         open("canlander")
         val ui = commands.ui
-        assertEquals(10, ui.pointsBudget)
         assertEquals(1, ui.pointsOf("mana drain"))
         commands.submit("search n=\"Mana Drain\"")
         val row = commands.output.latestSearch!!.rendering.lines(120)[1].text

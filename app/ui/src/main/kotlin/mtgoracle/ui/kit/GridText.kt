@@ -35,14 +35,23 @@ fun fit(text: String, width: Int): String {
 /** What a cut must not end on: the space, dash or separator that pointed at the words cut off. */
 private val DANGLING = charArrayOf(' ', '—', '–', '-', '·', ',', ':', '/', '|')
 
-/** Word-wrapped to [width] cells; a word longer than a line (a file path) is broken across lines, not cut. */
+/**
+ * Word-wrapped to [width] cells; a word longer than a line (a file path) is broken across lines, not cut.
+ * A ` · ` between parts is dropped where the line breaks: the break sets them apart, and a line
+ * ending on a lone `·` read as cut.
+ */
 fun wrap(text: String, width: Int): List<String> {
     if (width <= 0) return emptyList()
     return text.split('\n').flatMap { paragraph ->
         val safe = GlyphGuard.safe(paragraph)
         if (safe.length <= width) listOf(safe) else buildList {
             var line = StringBuilder()
-            for (word in safe.split(' ').flatMap { it.chunked(width).ifEmpty { listOf("") } }) {
+            val words = safe.split(' ').flatMap { it.chunked(width).ifEmpty { listOf("") } }
+            for ((i, word) in words.withIndex()) {
+                if (word == SEPARATOR && (line.isEmpty() || line.length + 3 + words.getOrNull(i + 1).orEmpty().length > width)) {
+                    if (line.isNotEmpty()) { add(line.toString()); line = StringBuilder() }
+                    continue
+                }
                 if (line.isNotEmpty() && line.length + 1 + word.length > width) { add(line.toString()); line = StringBuilder() }
                 if (line.isNotEmpty()) line.append(' ')
                 line.append(word)
@@ -51,6 +60,9 @@ fun wrap(text: String, width: Int): List<String> {
         }
     }
 }
+
+/** What the parts of a hint line are set apart with: `Enter: keep · Esc: back`. */
+const val SEPARATOR = "·"
 
 /**
  * [wrap], keeping [text]'s leading spaces on every line and indenting the
@@ -63,7 +75,8 @@ fun wrapHanging(text: String, width: Int, hang: Int = 0): List<String> {
     // replaced made `removePrefix` miss and the first line come out twice.
     val body = GlyphGuard.safe(text.trimStart())
     val first = wrap(body, maxOf(1, width - lead.length)).firstOrNull() ?: return emptyList()
-    val rest = body.drop(first.length).trimStart()
+    // A separator the break fell on goes with it, as in [wrap].
+    val rest = body.drop(first.length).trimStart().removePrefix(SEPARATOR).trimStart()
     if (rest.isEmpty()) return listOf(lead + first)
     val indent = lead + " ".repeat(hang)
     return listOf(lead + first) + wrap(rest, maxOf(1, width - indent.length)).map { indent + it }

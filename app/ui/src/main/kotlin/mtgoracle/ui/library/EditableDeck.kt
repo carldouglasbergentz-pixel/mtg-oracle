@@ -36,6 +36,7 @@ import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.hoverBackground
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
+import mtgoracle.ui.kit.wrap
 import mtgoracle.ui.lookup.DeckTab
 import mtgoracle.ui.lookup.EditAction
 import mtgoracle.ui.lookup.OutputLink
@@ -147,6 +148,7 @@ internal fun EditableDeck(
                                         Controls(row, onEdit)
                                         flag?.let { f -> AiFlagButton(f, row.card.name, onAiFlag) }
                                     }
+                                    GridText(" ") // a row apart from the next card's frame, so the buttons read as this card's
                                 }
                             }
                         }
@@ -182,10 +184,10 @@ private fun Tabs(deck: Deck, tab: DeckTab, revisions: Int, onTab: (DeckTab) -> U
     Row {
         for (t in DeckTab.entries) {
             val count = when (t) {
-                DeckTab.DECK -> deck.mainCount
-                DeckTab.CONSIDERING -> deck.considering.sumOf { it.quantity }
-                DeckTab.HISTORY -> revisions
-                DeckTab.AI_COPY -> deck.substitutions.size
+                DeckTab.DECK -> deck.size.short // `99+1`: the title says `99 + commander`, and four tabs must fit
+                DeckTab.CONSIDERING -> "${deck.considering.sumOf { it.quantity }}"
+                DeckTab.HISTORY -> "$revisions"
+                DeckTab.AI_COPY -> "${deck.substitutions.size}"
             }
             // One cell either side, the same width chosen or not: four tabs fit the 58-column deck pane.
             val label = if (t == tab) "[${t.label} $count]" else " ${t.label} $count "
@@ -225,8 +227,10 @@ private fun Line(
         Controls(row, onEdit)
         GridText(" %2d ".format(row.card.quantity), color = if (chosen) Palette.accent else Palette.foreground, bold = chosen)
         aiFlag?.let { f -> AiFlagButton(f, row.card.name, onAiFlag); GridText(" ") }
-        // The [!] before the name takes four of its columns, so the costs stay in one column.
-        val text = fit(withLabel("%-${if (aiFlag != null) 26 else 30}s %s".format(name, face.manaCost) + (flag?.let { "  ! $it" } ?: ""), aiFlag, rest), rest)
+        // The [!] before the name takes four of its columns, so the costs stay in one column; a longer name
+        // (a two-faced card's) is cut there rather than push its cost out of it.
+        val nameWidth = (if (aiFlag != null) 26 else 30).coerceAtMost(maxOf(8, rest - 1 - face.manaCost.length))
+        val text = fit(withLabel(fit(name, nameWidth) + " " + face.manaCost + (flag?.let { "  ! $it" } ?: ""), aiFlag, rest), rest)
         val red = flag != null || aiFlag?.open == true
         GridText(text, Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(row.card.name), linkAt(row, 0)), { onOpen(row.card.name) }, { onHover(face) }, mark = false)
             .pointerHoverIcon(PointerIcon.Hand), color = if (red) Palette.tapped else if (chosen) Palette.accent else Palette.foreground, bold = chosen)
@@ -245,16 +249,17 @@ fun localTime(utc: String): String =
  */
 @Composable
 private fun AiCopyTab(deck: Deck, cols: Int, onOpen: (String) -> Unit, onUnsubstitute: (String) -> Unit) {
-    GridText(fit("Forge's AI plays these instead, in games and simulations; the deck keeps its own cards.", cols), color = Palette.dim)
-    GridText(fit("Right-click a card in the Deck tab > AI substitute... to add one.", cols), color = Palette.dim)
-    if (deck.substitutions.isEmpty()) { GridText(fit("No substitutions: the AI plays the deck as built.", cols), color = Palette.dim); return }
+    // Instructions wrap; cut, they lost the half that says what to do.
+    for (help in listOf("Forge's AI plays these instead, in games and simulations; the deck keeps its own cards.",
+        "Right-click a card in the Deck tab > AI substitute… to add one.")) wrap(help, cols).forEach { GridText(fit(it, cols), color = Palette.dim) }
+    if (deck.substitutions.isEmpty()) { wrap("No substitutions: the AI plays the deck as built.", cols).forEach { GridText(fit(it, cols), color = Palette.dim) }; return }
     deck.substitutions.forEachIndexed { i, s ->
         Row {
             LinkButton("[x]", ClickTarget.Control("unsubstitute:$i")) { onUnsubstitute(s.cardName) }
             GridText(" ")
-            val room = maxOf(8, (cols - 8) / 2)
+            val room = maxOf(8, (cols - 7) / 2)
             GridText(fit(s.cardName, room), Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(s.cardName), linkAt(s.cardName, DeckSection.MAIN, 9)), { onOpen(s.cardName) }).pointerHoverIcon(PointerIcon.Hand))
-            GridText(" -> ", color = Palette.dim)
+            GridText(" → ", color = Palette.dim)
             GridText(fit(s.substitute, room), Modifier.clickTarget(ClickTarget.Link(OutputLink.Card(s.substitute), linkAt(s.substitute, DeckSection.MAIN, 10)), { onOpen(s.substitute) }).pointerHoverIcon(PointerIcon.Hand))
         }
     }
@@ -267,7 +272,9 @@ private fun History(history: List<DeckRevision>, cols: Int) {
     GridText(fit("newest first · `undo` reverts the newest", cols), color = Palette.dim)
     for (rev in history) {
         val at = localTime(rev.at)
-        GridText(fit("#${rev.id}  $at  ${rev.action}" + (rev.note?.let { "  $it" } ?: ""), cols), bold = true)
+        // A note that names a card the lines under it name (`Sol Ring: main -> considering`) only says them again.
+        val note = rev.note?.takeIf { n -> rev.changes.none { n.startsWith(it.card) } }?.replace(" -> ", " → ")
+        GridText(fit("#${rev.id}  $at  ${rev.action}" + (note?.let { "  $it" } ?: ""), cols), bold = true)
         for (c in rev.changes) {
             val delta = c.after - c.before
             val what = when {

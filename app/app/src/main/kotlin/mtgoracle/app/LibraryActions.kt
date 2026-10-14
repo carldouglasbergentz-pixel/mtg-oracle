@@ -186,7 +186,7 @@ class LibraryActions(
     private fun inFolder(folderId: Int?, ask: Boolean, title: String, then: (Int?) -> Unit) {
         if (!ask) return then(folderId)
         // The folder it would go in first, then the rest, then a new one made on the spot.
-        val options = folderOptions().sortedBy { if (it.value == (folderId?.toString() ?: "")) 0 else 1 } + Option("+ new folder...", NEW_FOLDER)
+        val options = folderOptions().sortedBy { if (it.value == (folderId?.toString() ?: "")) 0 else 1 } + Option("+ new folder…", NEW_FOLDER)
         ui.ask = Ask.Choose(title, options, { o ->
             if (o.value != NEW_FOLDER) then(o.value.toIntOrNull())
             else ui.ask = Ask.Text("New folder", ok = "Create") { name ->
@@ -301,7 +301,7 @@ class LibraryActions(
                         (if (r.unresolved.isNotEmpty()) "; not found: ${r.unresolved.joinToString(", ")}" else "") + unknownPrintings(rows)
                 }
             },
-            "Replace the deck..." to { previewReplace(deckId, rows) },
+            "Replace the deck…" to { previewReplace(deckId, rows) },
         ))
     }
 

@@ -50,6 +50,8 @@ internal fun SearchGrid(
     /** The deck workspace: `[+] [sb] [?]` under each card. */
     actions: Boolean = false,
     points: (String) -> Int? = { null },
+    /** The pane's width, which the group headings' rules run across. */
+    cols: Int = 80,
 ) {
     val gap = with(LocalDensity.current) { LocalCells.current.width.toDp() }
     Column {
@@ -60,7 +62,7 @@ internal fun SearchGrid(
         for ((label, count) in groups) {
             val first = start
             start += count
-            if (label.isNotEmpty()) OutputLineView(OutLine(groupHeading(label, page.arrangement?.total(label, count) ?: count), Tone.BOLD), at, onOpen, onHover)
+            if (label.isNotEmpty()) OutputLineView(OutLine(groupHeading(label, page.arrangement?.total(label, count) ?: count, cols), Tone.RULE), at, onOpen, onHover)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(gap)) {
                 page.rows.subList(first, first + count).forEachIndexed { offset, row ->
                     val i = first + offset
@@ -77,12 +79,16 @@ internal fun SearchGrid(
                             onHover = { onHover(link) },
                             mark = points(row.name)?.let { "($it)" },
                         )
-                        if (actions) GridActions(row.name, at + GRID_TARGETS + 100 + i * 3, onOpen)
+                        if (actions) {
+                            GridActions(row.name, at + GRID_TARGETS + 100 + i * 3, onOpen)
+                            GridText(" ") // a row apart from the next card's frame, so the buttons read as this card's
+                        }
                     }
                 }
             }
         }
-        if (lines.size > 1) OutputLineView(lines.last(), at + 50, onOpen, onHover)
+        // The paging line's links, without its hint about row numbers: the grid has none.
+        lines.drop(1).lastOrNull()?.let { last -> last.spans.maxOfOrNull { it.end }?.let { end -> OutputLineView(last.copy(text = last.text.take(end)), at + 50, onOpen, onHover) } }
     }
 }
 

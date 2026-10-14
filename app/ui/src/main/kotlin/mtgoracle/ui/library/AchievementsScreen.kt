@@ -128,7 +128,7 @@ fun AchievementsScreen(
                     }
                 }
             }
-            StatusLine(listOf("↑↓" to "choose", "E" to if (earnedOnly) "all" else "earned only", "Esc" to "library"), null, cols)
+            StatusLine(listOf("↑↓" to "choose", "E" to if (earnedOnly) "all" else "earned only", "F7" to "text/art", "Esc" to "library"), null, cols)
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }

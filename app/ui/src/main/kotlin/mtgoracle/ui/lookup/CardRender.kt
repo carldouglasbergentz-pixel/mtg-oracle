@@ -16,7 +16,8 @@ fun renderCard(card: CardProfile): Rendering = Rendering { width ->
     Lines(width).apply {
         rule()
         val cost = card.manaCost.orEmpty().trim()
-        if (cost.isNotEmpty() && card.name.length + 1 + cost.length <= width) add(card.name.padEnd(width - cost.length) + cost, Tone.BOLD)
+        // The cost beside the name, as the zoom pane and the deck have it: at the far edge of a wide pane it read as another column.
+        if (cost.isNotEmpty() && card.name.length + 2 + cost.length <= width) add("${card.name}  $cost", Tone.BOLD)
         else {
             add(card.name, Tone.BOLD)
             if (cost.isNotEmpty()) add(cost, Tone.BOLD)
@@ -42,18 +43,22 @@ fun renderCard(card: CardProfile): Rendering = Rendering { width ->
             }
         }
 
-        val printings = listOfNotNull(
-            "Reserved List".takeIf { card.reserved },
-            card.games?.takeIf { it.isNotBlank() }?.replace(",", "/"),
-            card.edhrecRank?.let { String.format(java.util.Locale.ROOT, "EDHREC #%,d", it) }, // ROOT: sv groups with a no-break space
-        )
-        if (card.legalities.isNotEmpty() || printings.isNotEmpty()) {
+        if (card.legalities.isNotEmpty()) {
             section("Legality:")
             // A format with no row is not legal; these are the facts that change a decision.
             for ((status, label) in listOf("legal" to "legal", "restricted" to "1 copy only", "no_commander" to "not as cmdr", "banned" to "banned")) {
                 card.legalities[status]?.let { wrap(it.joinToString(", "), INDENT + label.padEnd(LABEL_W), INDENT + " ".repeat(LABEL_W)) }
             }
-            if (printings.isNotEmpty()) wrap(printings.joinToString("  ·  "), INDENT + "printings".padEnd(LABEL_W), INDENT + " ".repeat(LABEL_W))
+        }
+        // Where and how much it is played: not legality, so a section of its own, each fact under its own name.
+        val played = listOfNotNull(
+            card.games?.takeIf { it.isNotBlank() }?.let { "games" to it.replace(",", "/") },
+            card.edhrecRank?.let { "EDHREC rank" to String.format(java.util.Locale.ROOT, "#%,d", it) }, // ROOT: sv groups with a no-break space
+            ("reserved" to "on the Reserved List: never reprinted").takeIf { card.reserved },
+        )
+        if (played.isNotEmpty()) {
+            section("Played:")
+            for ((label, value) in played) wrap(value, INDENT + label.padEnd(LABEL_W), INDENT + " ".repeat(LABEL_W))
         }
 
         if (card.rulings.isNotEmpty()) {
@@ -65,8 +70,8 @@ fun renderCard(card: CardProfile): Rendering = Rendering { width ->
         if (card.combos.isNotEmpty()) {
             section("Top combos featuring this card (${card.combos.size}" + (filter?.let { ", filtered to deck CI $it" } ?: "") + "):")
             // Padded to the longest id here, not a fixed 14: four-card ids are longer and broke the column.
-            val idW = card.combos.maxOf { it.id.length }
-            card.combos.forEach { comboRow(it, "[${it.id.padStart(idW)}]") }
+            val idW = card.combos.maxOf { it.id.length } + 2
+            card.combos.forEach { comboRow(it, "[${it.id}]", idW) }
         } else if (filter != null) {
             // Nothing passed the filter: say so rather than show nothing.
             section("Top combos featuring this card: 0 applicable to deck CI $filter (card may be unplayable here)")

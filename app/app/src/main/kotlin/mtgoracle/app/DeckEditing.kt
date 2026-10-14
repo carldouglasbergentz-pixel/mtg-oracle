@@ -87,7 +87,6 @@ class DeckEditing(
         val scope = lookup.deckScope(deckId)
         val format = scope?.format
         ui.points = lookup.points(format?.key?.takeIf { format.pointsBudget != null })
-        ui.pointsBudget = format?.pointsBudget
         // The considering list's `!`: what would stop each card going into the deck.
         ui.flags = lookup.deckConsidering(deckId).mapNotNull { name -> writer.wouldRefuse(deckId, name)?.let { name to (it.message ?: it.kind.name) } }.toMap()
     }

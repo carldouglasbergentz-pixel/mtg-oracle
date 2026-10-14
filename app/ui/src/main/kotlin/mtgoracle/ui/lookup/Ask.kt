@@ -1,6 +1,7 @@
 package mtgoracle.ui.lookup
 
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,9 +64,16 @@ sealed interface Ask {
         val onHover: (Option) -> Unit = {},
     ) : Ask
 
-    /** A few buttons, the first the default (Enter): Delete / Cancel, Add / Replace / Cancel. */
-    data class Buttons(override val title: String, val buttons: List<Pair<String, () -> Unit>>) : Ask
+    /**
+     * A few buttons, the first the default (Enter): Delete / Cancel, Add / Replace / Cancel.
+     * [toggles] are choices the buttons act with (a package's `[x] history`): drawn as
+     * check boxes under the question, never as buttons among the actions.
+     */
+    data class Buttons(override val title: String, val buttons: List<Pair<String, () -> Unit>>, val toggles: List<Toggle> = emptyList()) : Ask
 }
+
+/** A check box of an [Ask.Buttons]: [label] with `[x]` or `[ ]`; [onToggle] asks again with it flipped. */
+data class Toggle(val label: String, val on: Boolean, val onToggle: () -> Unit)
 
 /** One choice of an [Ask.Choose]: what it reads as, and the value behind it. */
 data class Option(val label: String, val value: String, val detail: String = "")
@@ -122,7 +130,16 @@ private fun ButtonsAsk(ask: Ask.Buttons, onClose: () -> Unit) {
             }
         }.focusable(), verticalAlignment = Alignment.CenterVertically) {
             // A question wraps beside its buttons, as instructions do: a package's says what it holds, and cut it said nothing.
-            WrapText(ask.title, Modifier.weight(1f), bold = true)
+            Column(Modifier.weight(1f)) {
+                WrapText(ask.title, bold = true)
+                if (ask.toggles.isNotEmpty()) Row {
+                    ask.toggles.forEachIndexed { i, t ->
+                        if (i > 0) GridText("   ")
+                        GridText("${if (t.on) "[x]" else "[ ]"} ${t.label}",
+                            Modifier.clickTarget(ClickTarget.Control("ask-toggle:$i"), { onClose(); t.onToggle() }).pointerHoverIcon(PointerIcon.Hand))
+                    }
+                }
+            }
             ask.buttons.forEachIndexed { i, (label, act) -> Button(label, "ask:$i") { onClose(); act() } }
             Button("Cancel", "ask:cancel", onClose)
         }
@@ -138,8 +155,14 @@ private fun ChooseAsk(ask: Ask.Choose, onClose: () -> Unit) {
     val filtering = ask.options.size > FILTER_FROM
     var filter by remember(ask) { mutableStateOf("") }
     val shown = ask.options.withIndex().filter { (_, o) -> matches(o, filter) }
-    Popup(alignment = Alignment.Center, onDismissRequest = onClose, properties = PopupProperties(focusable = true)) {
-        val cols = 64
+    // The labels padded to the longest, so the details start in one column (`SCH 50`, `PDSK 42p`).
+    val labelWidth = ask.options.maxOfOrNull { it.label.length } ?: 0
+    fun row(option: Option) = " ${option.label.padEnd(labelWidth)}" + if (option.detail.isEmpty()) "" else "  ${option.detail}"
+    Popup(alignment = Alignment.Center, onDismissRequest = onClose, properties = PopupProperties(focusable = true)) { BoxWithConstraints {
+        // As wide as the widest row and the title, up to what the window has: a fixed 64 cut the details with half the screen free.
+        val room = LocalCells.current.cols(constraints.maxWidth.toFloat()) - 4
+        val wanted = maxOf(ask.options.maxOfOrNull { row(it).length } ?: 0, ask.title.length + 4, MIN_CHOOSE_COLS) + 3
+        val cols = minOf(wanted, maxOf(MIN_CHOOSE_COLS, room))
         BoxPane(ask.title, Modifier.cellWidth(cols).region("ask"), borderColor = Palette.accent) { Column {
             if (filtering) GridText(mtgoracle.ui.kit.fit(" find: ${filter}_  ${shown.size}/${ask.options.size}  (type to narrow, Enter takes the first)", cols - 2), color = Palette.dim)
             Column(Modifier.heightIn(max = with(androidx.compose.ui.platform.LocalDensity.current) { (LocalCells.current.height * 24).toDp() })
@@ -160,17 +183,22 @@ private fun ChooseAsk(ask: Ask.Choose, onClose: () -> Unit) {
                 }.focusable()) {
                 shown.forEach { (i, option) ->
                     GridText(
-                        mtgoracle.ui.kit.fit(" ${option.label}" + if (option.detail.isEmpty()) "" else "  ${option.detail}", cols - 2),
+                        mtgoracle.ui.kit.fit(row(option), cols - 2),
                         Modifier.clickTarget(ClickTarget.Control("choose:$i"), { onClose(); ask.onPick(option) }, { ask.onHover(option) }).pointerHoverIcon(PointerIcon.Hand),
                     )
                 }
                 if (shown.isEmpty()) GridText(" (nothing matches '$filter')", color = Palette.dim)
-                GridText(" Cancel (Esc)", Modifier.clickTarget(ClickTarget.Control("ask:cancel"), { onClose() }).pointerHoverIcon(PointerIcon.Hand), color = Palette.dim)
             }
+            // The one action besides a pick, drawn as every ask's buttons are.
+            Row { Button("Cancel", "ask:cancel", onClose) }
         } }
-    }
-    LaunchedEffect(ask) { focus.requestFocus() }
+        // Asked for in here: the list is composed with the width, after an effect outside it would have run.
+        LaunchedEffect(ask) { focus.requestFocus() }
+    } }
 }
+
+/** The narrowest a list of choices is drawn. */
+private const val MIN_CHOOSE_COLS = 40
 
 /** A list longer than this has a filter. */
 private const val FILTER_FROM = 10

@@ -69,7 +69,7 @@ class Sessions(private val store: GameStore?, private val logDir: File) {
         if (seat.gameType != opp.gameType) notes += "$meName is ${seat.gameType.label} and $opponentName is ${opp.gameType.label}: they can't play each other."
         val mine = ForgeCards.check(seat)
         val theirs = ForgeCards.check(opp)
-        val how = "open the deck, right-click the card, AI substitute..."
+        val how = "open the deck, right-click the card, AI substitute…"
         if (mine.unknown.isNotEmpty()) notes += "Forge lacks ${mine.unknown.joinToString()} in $meName; replace them in the deck, or give its AI copy a substitute ($how)."
         if (theirs.unknown.isNotEmpty()) notes += "Forge lacks ${theirs.unknown.joinToString()} in $opponentName; give its AI copy a substitute ($how)."
         if (theirs.aiUnplayable.isNotEmpty()) notes += "The AI can't play ${theirs.aiUnplayable.joinToString()} in $opponentName; a substitute fixes that ($how)."

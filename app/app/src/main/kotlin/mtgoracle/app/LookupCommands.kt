@@ -164,7 +164,6 @@ class LookupCommands(
         ui.prompt = "> "
         ui.refusal = null
         ui.points = emptyMap()
-        ui.pointsBudget = null
     }
     /** The deck last opened: entering another one empties the output. */
     private var lastDeck: Int? = null
@@ -459,7 +458,8 @@ class LookupCommands(
         val points = ui.points
         val rendering = renderSearch(result, actions = scope != null && editing != null, points = { points[it.lowercase()] })
         if (inPlace) output.replaceSearch(result, rendering)
-        else output.addSearch(result, rendering, notice = renderDeckFilterNotice(filters).takeIf { filters.isNotEmpty() })
+        // A limited deck's search is its pool: leaving the deck is no way to build it, so no way out is offered.
+        else output.addSearch(result, rendering, notice = renderDeckFilterNotice(filters).takeIf { filters.isNotEmpty() && scope?.fromPool != true })
     }
 
     /** The cards most like [card], within the deck's filters as any search is. */

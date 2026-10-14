@@ -1,5 +1,6 @@
 package mtgoracle.app
 
+import mtgoracle.ui.library.DeckBadges
 import kotlin.math.roundToInt
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,14 +80,14 @@ class AppController(private val paths: AppPaths) {
     /** `{U}{W}` for a commander deck, `9/10 pts` in a points format; read with the analysis, not per frame. */
     private fun badges() {
         val lookup = currentLookup ?: return
-        val d = deck ?: run { deckPoints = emptyMap(); deckBadges = emptyList(); return }
+        val d = deck ?: run { deckPoints = emptyMap(); deckBadges = DeckBadges(); return }
         val scope = runCatching { lookup.deckScope(d.id) }.getOrNull()
         val info = scope?.format
         deckPoints = info?.pointsBudget?.let { lookup.points(info.key) } ?: emptyMap()
         val spent = d.cards.filter { !it.isSideboard }.sumOf { (deckPoints[it.name.lowercase()] ?: 0) * it.quantity }
-        deckBadges = listOfNotNull(
-            scope?.commanderCi?.let { ci -> if (ci.isEmpty()) "{C}" else ci.joinToString("") { "{$it}" } },
-            info?.pointsBudget?.let { "$spent/$it pts" + if (spent > it) "!" else "" },
+        deckBadges = DeckBadges(
+            identity = scope?.commanderCi?.let { ci -> if (ci.isEmpty()) "{C}" else ci.joinToString("") { "{$it}" } },
+            points = info?.pointsBudget?.let { "$spent/$it pts" + if (spent > it) "!" else "" },
         )
     }
     private var currentLookup: Lookup? = null
@@ -99,7 +100,7 @@ class AppController(private val paths: AppPaths) {
     /** The selected deck's points list (lower-cased name -> points) and its title's badges: what the library shows. */
     var deckPoints by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
-    var deckBadges by mutableStateOf<List<String>>(emptyList())
+    var deckBadges by mutableStateOf(DeckBadges())
         private set
 
     /** The analysis block's numbers for [deck], computed again whenever it changes. */

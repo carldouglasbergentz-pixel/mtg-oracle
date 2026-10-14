@@ -161,7 +161,7 @@ class LibraryActionsTest {
 
         clipboard = "Commander\n1 Tymna the Weaver\nDeck\n2 Plains\n1 Zzyzx the Unreal"
         val beforePreview = library.deck(made.id)!!.cards
-        press(LibraryIntent.ImportInto(made.id), "Replace the deck...")
+        press(LibraryIntent.ImportInto(made.id), "Replace the deck…")
         assertTrue(said.any { "replace __Imported__ with the clipboard would change:" in it }, "the preview is in the output")
         assertEquals(beforePreview, library.deck(made.id)!!.cards, "the preview changed nothing")
         val ask = assertIs<Ask.Buttons>(ui.ask)

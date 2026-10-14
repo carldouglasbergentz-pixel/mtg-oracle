@@ -54,10 +54,21 @@ fun Modifier.snapToCells(): Modifier {
 private fun titleOf(title: String?, cols: Int, right: String?): String? =
     title?.let { fit(it, maxOf(0, cols - 2 - 2 - 1 - (right?.let { r -> r.length + 1 } ?: 1))).trimEnd() }
 
-private fun badgeOf(right: String?, cols: Int): String? = right?.let { fit(it, maxOf(0, cols - 6)).trimEnd() }
+/**
+ * The badge leaves the title half the edge, or what it needs of half, as the drawn looks do: a long badge hid
+ * a deck's name. A badge of parts (`EDH · 99 + commander · {B}{G}`) that must shrink drops whole parts from its end.
+ */
+internal fun badgeOf(right: String?, cols: Int, title: String?): String? = right?.let {
+    val room = maxOf(0, cols - 6)
+    var parts = it.split(" · ")
+    // Its first part whole, though, where the edge has room: a frame's `(3) AI!`.
+    val width = minOf(room, maxOf(room - minOf(title?.length ?: 0, room / 2), parts.first().length))
+    while (parts.size > 1 && parts.joinToString(" · ").length > width) parts = parts.dropLast(1)
+    fit(parts.joinToString(" · "), width).trimEnd()
+}
 
 private fun topEdge(border: Border, cols: Int, title: String?, right: String?): String = buildString {
-    val badge = badgeOf(right, cols)
+    val badge = badgeOf(right, cols, title)
     val head = titleOf(title, cols, badge)?.let { "${border.h} $it " }.orEmpty()
     // The badge stands off the line as the title does (`── badge ┐`) where a line is left between them;
     // a frame the title fills keeps it tight (`Mountain ×3 ┐`), the title's own space before it.
@@ -88,7 +99,7 @@ fun Modifier.boxBorder(title: String? = null, right: String? = null, border: Bor
         val rows = cells.rows(size.height)
         val top = measurer.measure(topEdge(border, cols, title, right), style)
         // The title is drawn again over the edge in its own (bold) style.
-        val titleLayout = titleOf(title, cols, badgeOf(right, cols))?.let { measurer.measure(it, titleStyle) }
+        val titleLayout = titleOf(title, cols, badgeOf(right, cols, title))?.let { measurer.measure(it, titleStyle) }
         val bottom = measurer.measure(border.bl + border.h.toString().repeat(maxOf(0, cols - 2)) + border.br, style)
         val side = measurer.measure(border.v.toString(), style)
         onDrawWithContent {

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.ClickTarget
+import mtgoracle.ui.kit.DrawnRule
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.theme.GlyphGuard
@@ -69,7 +70,7 @@ fun OutputPane(
                 val lines = remember(entry.id, cols) { entry.rendering.lines(cols) }
                 val page = entry.page
                 if (isGrid(entry) && page != null) {
-                    SearchGrid(page, lines, entry.id * 100_000, selected, faceOf, onOpen, onHover, actions, points)
+                    SearchGrid(page, lines, entry.id * 100_000, selected, faceOf, onOpen, onHover, actions, points, cols)
                 } else Column {
                     lines.forEachIndexed { i, line ->
                         // The selected row of the newest page, when it is drawn as lines: the arrows move it.
@@ -85,31 +86,40 @@ fun OutputPane(
 
 private fun toneColor(tone: Tone): Color = when (tone) {
     Tone.PLAIN, Tone.BOLD -> Palette.foreground
-    Tone.DIM -> Palette.dim
+    Tone.DIM, Tone.RULE -> Palette.dim
     Tone.ECHO -> Palette.accent
     Tone.ERROR -> Palette.tapped
 }
 
-private fun toneBold(tone: Tone) = tone == Tone.BOLD || tone == Tone.ERROR || tone == Tone.ECHO
+private fun toneBold(tone: Tone) = tone == Tone.BOLD || tone == Tone.ERROR || tone == Tone.ECHO || tone == Tone.RULE
 
 /** One line: plain text between its links. [at] makes each link's click target unique on screen. */
 @Composable
 internal fun OutputLineView(line: OutLine, at: Long, onOpen: (OutputLink) -> Unit, onHover: (OutputLink) -> Unit) {
     val color = toneColor(line.tone)
     val bold = toneBold(line.tone)
-    if (line.spans.isEmpty()) {
+    if (line.tone == Tone.RULE) { DrawnRule(line.text, color = color, bold = bold); return }
+    if (line.spans.isEmpty() && line.dimFrom == null) {
         GridText(line.text.ifEmpty { " " }, color = color, bold = bold)
         return
     }
     Row {
         var column = 0
         line.spans.sortedBy { it.start }.forEachIndexed { i, span ->
-            if (span.start > column) GridText(line.text.substring(column, span.start), color = color, bold = bold)
+            if (span.start > column) PlainRun(line, column, span.start, color, bold)
             LinkText(line.text.substring(span.start, span.end), ClickTarget.Link(span.link, at + i), color, bold, onOpen, onHover)
             column = span.end
         }
-        if (column < line.text.length) GridText(line.text.substring(column), color = color, bold = bold)
+        if (column < line.text.length) PlainRun(line, column, line.text.length, color, bold)
     }
+}
+
+/** [line]'s text from [from] to [to] outside its links: in the line's colour, dim from its [OutLine.dimFrom]. */
+@Composable
+private fun PlainRun(line: OutLine, from: Int, to: Int, color: Color, bold: Boolean) {
+    val dim = (line.dimFrom ?: to).coerceIn(from, to)
+    if (from < dim) GridText(line.text.substring(from, dim), color = color, bold = bold)
+    if (dim < to) GridText(line.text.substring(dim, to), color = Palette.dim)
 }
 
 /** A link: the line's own colour, underlined while the mouse is on it, a hand for a pointer. */

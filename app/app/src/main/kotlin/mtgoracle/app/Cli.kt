@@ -217,7 +217,7 @@ object Cli {
             if (asJson) emit(JsonArray(decks.map { d -> buildJsonObject { put("id", d.id); put("name", d.name); put("folder", d.folderName); put("format", d.format); put("cards", d.cardCount) } }))
             else decks.groupBy { it.folderName ?: "(no folder)" }.forEach { (folder, inFolder) ->
                 out.println(folder)
-                inFolder.forEach { out.println("  " + it.name.padEnd(36) + "%4d".format(it.cardCount) + (it.format?.let { f -> "  $f" } ?: "")) }
+                inFolder.forEach { out.println("  " + it.name.padEnd(36) + it.size.short.padStart(5) + (it.format?.let { f -> "  $f" } ?: "")) }
             }
             return 0
         }

@@ -16,7 +16,8 @@ fun renderComboList(combos: List<ComboSummary>, header: String): Rendering = Ren
     Lines(width).apply {
         if (combos.isEmpty()) { add("(no matching combos)", Tone.DIM); return@apply }
         add(header, Tone.BOLD)
-        combos.forEachIndexed { i, c -> comboRow(c, "[${(i + 1).toString().padStart(3)}]") }
+        val labelWidth = "[${combos.size}]".length
+        combos.forEachIndexed { i, c -> comboRow(c, "[${i + 1}]", labelWidth) }
         add("$INDENT(click a row number, or type `combo-info <N>`)", Tone.DIM)
     }.out
 }
@@ -25,18 +26,20 @@ fun renderComboList(combos: List<ComboSummary>, header: String): Rendering = Ren
  * One combo: `  [label] CI    (N cards) A + B + C`, wrapping between cards
  * (never inside a name) onto `    + ` lines. The label opens the combo, each
  * card name its profile. A `+` on the count means the steps name a card slot
- * the list doesn't, so it needs more cards than it shows.
+ * the list doesn't, so it needs more cards than it shows. Labels are
+ * right-aligned in [labelWidth], padded outside their brackets (` [9]`, `[10]`).
  */
-internal fun Lines.comboRow(c: ComboSummary, label: String) {
-    val head = "$INDENT$label ${(c.colorIdentity ?: "-").padEnd(5)} (${c.cardCount}${if (c.hasTemplateVars) "+" else ""} cards) "
+internal fun Lines.comboRow(c: ComboSummary, label: String, labelWidth: Int = label.length) {
+    val at = INDENT.length + maxOf(0, labelWidth - label.length)
+    val head = "$INDENT${label.padStart(labelWidth)} ${(c.colorIdentity ?: "-").padEnd(5)} (${c.cardCount}${if (c.hasTemplateVars) "+" else ""} cards) "
     val cards = c.cards?.takeIf { it.isNotBlank() }?.split(" + ").orEmpty()
     if (cards.isEmpty()) {
         // No card rows: the combo's own name stands in, and it is not a card to open.
-        add(head + (c.name?.takeIf { it.isNotBlank() } ?: "(unnamed)"), spans = listOf(LinkSpan(INDENT.length, INDENT.length + label.length, OutputLink.Combo(c.id))))
+        add(head + (c.name?.takeIf { it.isNotBlank() } ?: "(unnamed)"), spans = listOf(LinkSpan(at, at + label.length, OutputLink.Combo(c.id))))
         return
     }
     var text = StringBuilder(head)
-    var spans = mutableListOf(LinkSpan(INDENT.length, INDENT.length + label.length, OutputLink.Combo(c.id)))
+    var spans = mutableListOf(LinkSpan(at, at + label.length, OutputLink.Combo(c.id)))
     var first = true
     for (card in cards) {
         val sep = if (first) "" else " + "

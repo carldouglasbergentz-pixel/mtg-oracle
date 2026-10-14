@@ -41,9 +41,8 @@ class LookupUi(
     var history by mutableStateOf<List<DeckRevision>>(emptyList())
     /** Considering-list card -> the rule that would stop it in the deck (the `!`). */
     var flags by mutableStateOf<Map<String, String>>(emptyMap())
-    /** The open deck's points list (lower-cased name -> points) and budget; empty and null outside a points format. */
+    /** The open deck's points list (lower-cased name -> points); empty outside a points format. */
     var points by mutableStateOf<Map<String, Int>>(emptyMap())
-    var pointsBudget by mutableStateOf<Int?>(null)
 
     fun pointsOf(card: String): Int? = points[card.lowercase()]
 

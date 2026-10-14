@@ -206,7 +206,7 @@ fun LobbyScreen(
                                 )
                                 decks.groupBy { it.folderName ?: "(no folder)" }.forEach { (folder, inFolder) ->
                                     FitText("  $folder", color = Palette.dim)
-                                    inFolder.forEach { d -> DeckLine("me:${d.id}", "    ${d.name}  (${d.format ?: "-"}, ${d.cardCount})", d.id == meId, onClick) }
+                                    inFolder.forEach { d -> DeckLine("me:${d.id}", "    ${d.name}  (${d.format ?: "-"}, ${d.size.short})", d.id == meId, onClick) }
                                 }
                             }
                             if (limited != null) SetList(inner, limited, list == 1, Modifier.weight(1f).region("lobby-sets"), onClick)
@@ -216,7 +216,7 @@ fun LobbyScreen(
                                 opponents.forEach { o ->
                                     val copy = if (o.substitutions > 0) "  [AI copy: ${o.substitutions}]" else ""
                                     val record = o.record?.let { "  $it" }.orEmpty()
-                                    DeckLine("opponent:${o.deck.id}", "    ${o.deck.name}  (${o.deck.format ?: "-"}, ${o.deck.cardCount})$copy$record", o.deck.id == selectedId, onClick)
+                                    DeckLine("opponent:${o.deck.id}", "    ${o.deck.name}  (${o.deck.format ?: "-"}, ${o.deck.size.short})$copy$record", o.deck.id == selectedId, onClick)
                                 }
                             }
                         }

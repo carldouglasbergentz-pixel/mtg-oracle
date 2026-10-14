@@ -56,11 +56,12 @@ fun AppContent(app: AppController, onQuit: () -> Unit) {
     CompositionLocalProvider(LocalDensity provides Density(base.density * app.textScale, base.fontScale)) {
         HouseTheme {
             CompositionLocalProvider(
-                LocalArt provides art, LocalGlobalHints provides listOf("F7" to "text/art", "F8" to "theme: ${Palette.theme.label}", "Ctrl+=/-" to "size"),
+                LocalArt provides art, LocalGlobalHints provides listOf("F8" to "theme: ${Palette.theme.label}", "Ctrl+=/-" to "size"),
                 LocalThemeMenu provides app::openThemePicker, LocalClickRegistry provides registry,
             ) {
                 // F8 opens the theme picker, F7 switches text/art and Ctrl+= / Ctrl+- / Ctrl+0 size the window on every
-                // screen, typing or not: seen here before any screen's keys.
+                // screen, typing or not: seen here before any screen's keys. F7 is said by each screen beside its own T,
+                // in its own words (text/art, results as grid), so it is not among the global hints.
                 Box(Modifier.fillMaxSize().onPreviewKeyEvent { e ->
                     when {
                         e.type != KeyEventType.KeyDown -> false
@@ -102,6 +103,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 columns = app.settings.workspaceColumns(app.deckPaneMode),
                 onColumnsChange = { app.settings.keepWorkspaceColumns(app.deckPaneMode, it) },
                 pool = app.deckById(open.deckId)?.let { d -> remember(d) { app.poolNote(d) } },
+                badges = app.deckBadges.takeIf { app.selectedId == open.deckId } ?: mtgoracle.ui.library.DeckBadges(),
             )
         } ?: LibraryScreen(
             decks = app.decks, selectedId = app.selectedId, deck = app.deck, keyFor = app::keyFor, mode = app.mode,
@@ -161,7 +163,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 inputGuardMillis = System.getProperty("mtgoracle.inputGuardMillis")?.toLongOrNull() ?: INPUT_GUARD_MILLIS,
                 title = "at ${seat.board.value?.players?.firstOrNull { !it.isSeat }?.name ?: "the host"}'s table" + (match?.let { " vs ${it.deck} · ${it.format.label}" } ?: ""),
                 mode = app.boardMode,
-                extraHints = listOf("T" to "text/art: ${app.boardMode.name.lowercase()}"),
+                extraHints = listOf("T/F7" to "text/art: ${app.boardMode.name.lowercase()}"),
                 notice = app.notice,
                 layout = remember { app.settings.boardLayout },
                 onLayoutChange = { app.settings.boardLayout = it },
@@ -185,7 +187,7 @@ private fun Screens(app: AppController, onQuit: () -> Unit) {
                 inputGuardMillis = System.getProperty("mtgoracle.inputGuardMillis")?.toLongOrNull() ?: INPUT_GUARD_MILLIS,
                 title = "${match.spec.seat.name} vs ${match.spec.opponent.name}" + if (match.spec.format.games > 1) " · ${match.spec.format.label}" else "",
                 mode = app.boardMode,
-                extraHints = listOf("T" to "text/art: ${app.boardMode.name.lowercase()}"),
+                extraHints = listOf("T/F7" to "text/art: ${app.boardMode.name.lowercase()}"),
                 notice = app.notice,
                 layout = remember { app.settings.boardLayout },
                 onLayoutChange = { app.settings.boardLayout = it },

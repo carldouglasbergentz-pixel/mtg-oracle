@@ -52,10 +52,12 @@ class PackageActionsTest {
         val asked = buttons(app)
         assertTrue("0 deck(s) to import" in asked.title && "already here, the same" in asked.title, asked.title)
         assertTrue(asked.buttons.first().first == "Import")
-        // A toggle asks again with it flipped.
-        val historyBefore = asked.buttons.first { "history" in it.first }.first
-        press(app, "history")
-        assertTrue(buttons(app).buttons.first { "history" in it.first }.first != historyBefore, "the history toggled")
+        // A toggle is a check box, not a button, and asks again with it flipped.
+        assertTrue(asked.buttons.none { "history" in it.first }, "toggles are not among the buttons")
+        val historyBefore = asked.toggles.first { "history" in it.label }.on
+        app.lookupUi!!.ask = null
+        asked.toggles.first { "history" in it.label }.onToggle()
+        assertTrue(buttons(app).toggles.first { "history" in it.label }.on != historyBefore, "the history toggled")
         val decks = count(data, "decks")
         press(app, "Import")
         assertEquals(decks, count(data, "decks"), "the same library: nothing twice")
