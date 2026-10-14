@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **A planeswalker is never overlapped**: its loyalty is read and its abilities clicked whole. The lands and artifacts take a row's overlap; when that is not enough, the size steps down, or the planeswalkers go above the lands' right end. Four overlapped planeswalkers were hard to tell apart and to click. `HalfPlanTest`, `AnchoringTest`.
 - **The rows are kept, and the cards shrink.** The creatures and the back row stay a row each: the table takes the largest frames at which both fit on one line (overlapping to two thirds), and steps the cards down before a row takes a second line. When no size keeps them, the largest at which the lands still keep their line, the other zones on the line above at the lands' right end (`layoutScore`); never large cards with the lands split, as eleven lands, a Map token and Teferi had. Nine lands, an artifact and a planeswalker had gone to two lines of large cards. `AnchoringTest`.
 - **Moderate cards, a larger table, as MTGO draws it.** The table's cards go no larger than the large frames (the extra-large are gone) and the hand's no larger than the normal ones: the rows a large hand took go to the table.
 

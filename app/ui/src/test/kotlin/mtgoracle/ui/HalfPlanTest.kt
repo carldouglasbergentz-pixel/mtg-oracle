@@ -130,6 +130,19 @@ class HalfPlanTest {
     }
 
     @Test
+    fun `planeswalkers are never overlapped - the lands overlap instead, or the size steps down`() {
+        // As the user's game: eight lands, Shorikai, four planeswalkers, one line a little too wide.
+        val zones = listOf(ZoneContent(ZoneKind.LANDS, List(8) { land }), ZoneContent(ZoneKind.PERMANENTS, List(1) { land }),
+            ZoneContent(ZoneKind.WALKERS, List(4) { land }))
+        val plan = planHalf(zones, cols = 200, maxBands = 1)
+        assertTrue(plan.slots.filter { it.zone == ZoneKind.WALKERS }.all { it.visible == land }, "every planeswalker whole: $plan")
+        assertTrue(plan.slots.filter { it.zone == ZoneKind.LANDS }.any { it.visible < land }, "the lands take the overlap")
+        // With no room even so, the row doesn't keep itself: the table steps down a size rather than squeeze them.
+        val walkers = listOf(ZoneContent(ZoneKind.WALKERS, List(8) { land }))
+        assertTrue(!mtgoracle.ui.board.keepsRows(walkers, 100), "eight planeswalkers whole are wider than 100 columns")
+    }
+
+    @Test
     fun `tapping changes nothing - the plan depends only on the slots`() {
         assertEquals(planHalf(crowded(), 150, 2), planHalf(crowded(), 150, 2))
     }
@@ -138,7 +151,8 @@ class HalfPlanTest {
     fun `zones sharing a band overlap to fit - every zone's last card is whole, not only the band's`() {
         // One band, three zones that overlap: the step once ignored the whole cards ending the first two zones.
         val zones = listOf(
-            ZoneContent(ZoneKind.PERMANENTS, List(4) { creature }), ZoneContent(ZoneKind.WALKERS, List(3) { creature }),
+            // Planeswalkers are never overlapped (WHOLE_ZONES): the zones that may be.
+            ZoneContent(ZoneKind.PERMANENTS, List(4) { creature }), ZoneContent(ZoneKind.LANDS, List(3) { creature }),
             ZoneContent(ZoneKind.CREATURES, List(4) { creature }),
         )
         val plan = planHalf(zones, cols = 150, maxBands = 1)

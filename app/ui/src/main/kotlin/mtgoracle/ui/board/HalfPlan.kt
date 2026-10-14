@@ -179,6 +179,9 @@ fun bandsNeeded(zones: List<ZoneContent>, cols: Int, most: Int = 6): Int {
 const val VISIBLE_SHARE = 2
 const val VISIBLE_SHARE_OF = 3
 
+/** Zones whose cards are never overlapped: a planeswalker is read (its loyalty) and clicked (its abilities, a target) whole. */
+val WHOLE_ZONES = setOf(ZoneKind.WALKERS)
+
 /** The fewest columns an overlapped card keeps showing: enough for its name's start. */
 const val MIN_VISIBLE_COLS = 7
 /** Columns between slots, and between two zones sharing a band. */
@@ -366,8 +369,9 @@ private fun layBand(items: List<Triple<ZoneKind, Int, Int>>, band: Int, cols: In
     val zonesHere = items.map { it.first }.distinct()
     val full = items.sumOf { it.third + SLOT_GAP } + ZONE_GAP * (zonesHere.size - 1)
     // The step between cards when they must overlap: the same for every card in the band. Each
-    // zone's last card is shown whole, so the step shares out what those cards leave, not just the band's last.
-    val lastOfZone = items.indices.filter { it == items.lastIndex || items[it + 1].first != items[it].first }.toSet()
+    // zone's last card is shown whole, so the step shares out what those cards leave, not just the band's last;
+    // so is every planeswalker and battle (WHOLE_ZONES): their loyalty and their clicks are not squeezed.
+    val lastOfZone = items.indices.filter { it == items.lastIndex || items[it + 1].first != items[it].first || items[it].first in WHOLE_ZONES }.toSet()
     val stepped = items.size - lastOfZone.size
     val whole = lastOfZone.sumOf { items[it].third + SLOT_GAP } - SLOT_GAP
     val step: Int? = if (full <= cols || stepped == 0) null

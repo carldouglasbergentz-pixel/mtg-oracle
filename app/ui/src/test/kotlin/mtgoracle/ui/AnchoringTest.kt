@@ -210,6 +210,31 @@ class AnchoringTest {
     }
 
     @Test
+    fun `four planeswalkers by ten lands - the lands keep their line, the planeswalkers whole`() {
+        // As the user's game on 2026-10-14 (0.7.2 stacked the planeswalkers two high beside overlapped lands).
+        val tokens = listOf(card(1000, "Pilot Token", creature = true), card(1001, "Pilot Token", creature = true), card(1002, "Illusion Token", creature = true))
+            .map { it.copy(isToken = true) }
+        val lands = listOf("Mystic Sanctuary", "Flooded Strand", "Tundra", "Plains", "Island", "Adarkar Wastes", "Kor Haven", "Arch of Orazca",
+            "Field of Ruin", "Theorist's Sanctum").mapIndexed { i, n -> card(1010 + i, n, land = true, tapped = i < 5) }
+        val shorikai = card(1030, "Shorikai, Genesis Engine", type = "Legendary Artifact - Vehicle")
+        val walkers = listOf("The Theorist", "Teferi, Hero of Dominaria", "Chandra, Hope's Beacon", "Jace, the Mind Sculptor")
+            .mapIndexed { i, n -> card(1040 + i, n, type = "Legendary Planeswalker") }
+        val seat = FakeSeat(board(tokens + lands + shorikai + walkers, theirLands), null)
+        OffscreenDriver(2230, 1351, 1.25f) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
+            d.settle(5)
+            // No size keeps all fifteen on a line with the planeswalkers whole: the lands keep theirs, the rest above at its right end.
+            d.savePng(File(pngDir, "anchoring-four-walkers.png"))
+            val landRects = lands.map { d.registry[ClickTarget.Card(it.id)]!! }
+            assertEquals(1, landRects.map { it.bottom.toInt() / 16 }.toSet().size, "the lands on one line: ${landRects.map { it.bottom }}")
+            val w = walkers.map { d.registry[ClickTarget.Card(it.id)]!! }
+            val shorikaiAt = d.registry[ClickTarget.Card(1030)]!!
+            assertTrue(w.all { kotlin.math.abs(it.width - shorikaiAt.width) < 1f }, "every planeswalker whole: $w")
+            assertTrue(w.zipWithNext().all { (a, b) -> a.right <= b.left }, "none over another: $w")
+            d.savePng(File(pngDir, "anchoring-four-walkers.png"))
+        }
+    }
+
+    @Test
     fun `the right column is the zoom pane and the log - the stack lives in its box, with the full text on hover`() {
         val seat = FakeSeat(board(myLands + myCreatures, theirLands + theirCreatures, withStack = true), null)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
