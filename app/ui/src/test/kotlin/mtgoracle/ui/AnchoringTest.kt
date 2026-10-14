@@ -163,6 +163,23 @@ class AnchoringTest {
     }
 
     @Test
+    fun `eleven lands and a planeswalker - one back row, the planeswalker right of the lands`() {
+        // As the user's game on 2026-10-14 (0.7.2 drew large overlapped lands and Teferi alone on a line above them).
+        val lands = listOf("Meticulous Archive", "Undercity Sewers", "Island", "Windswept Heath", "Restless Anchorage", "Library of Alexandria",
+            "Plains", "Tundra", "Field of Ruin", "Kor Haven", "Marsh Flats").mapIndexed { i, n -> card(800 + i, n, land = true) }
+        val teferi = card(820, "Teferi, Hero of Dominaria", type = "Legendary Planeswalker - Teferi")
+        val seat = FakeSeat(board(lands + teferi, theirLands), null)
+        OffscreenDriver(2230, 1351, 1.25f) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
+            d.settle(5)
+            val at = d.registry[ClickTarget.Card(820)]!!
+            val landRects = lands.map { d.registry[ClickTarget.Card(it.id)]!! }
+            assertEquals(setOf(at.top), landRects.map { it.top }.toSet(), "Teferi on the lands' row")
+            assertTrue(at.left >= landRects.maxOf { it.right }, "right of the lands: $at")
+            d.savePng(File(pngDir, "anchoring-eleven-lands.png"))
+        }
+    }
+
+    @Test
     fun `the right column is the zoom pane and the log - the stack lives in its box, with the full text on hover`() {
         val seat = FakeSeat(board(myLands + myCreatures, theirLands + theirCreatures, withStack = true), null)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
