@@ -92,13 +92,18 @@ internal fun logRows(line: LogLine, width: Int): List<LogRow> {
     return rows
 }
 
-/** A line's colour by what it tells: steps and mana recede, what was taken or revealed stands out, damage and life lost in the tapped tone. */
+/**
+ * A line's colour by what it tells: steps and mana recede, what was taken or revealed stands out. Damage and
+ * life lost are bold ([boldLine]): on the board red means tapped and nothing else (docs/app-design.md).
+ */
 private fun colorOf(kind: LogKind): Color = when (kind) {
     LogKind.PHASE, LogKind.MANA, LogKind.DRAW, LogKind.OTHER -> Palette.dim
-    LogKind.CAST, LogKind.RESOLVE, LogKind.LAND, LogKind.COMBAT, LogKind.LIFE_GAINED -> Palette.foreground
+    LogKind.CAST, LogKind.RESOLVE, LogKind.LAND, LogKind.COMBAT, LogKind.LIFE_GAINED, LogKind.DAMAGE, LogKind.LIFE_LOST -> Palette.foreground
     LogKind.REVEAL, LogKind.DISCARD, LogKind.COUNTERED, LogKind.ZONE, LogKind.OUTCOME, LogKind.TURN -> Palette.accent
-    LogKind.DAMAGE, LogKind.LIFE_LOST -> Palette.tapped
 }
+
+/** Lines drawn bold through: what hurt a player. */
+private fun boldLine(kind: LogKind) = kind == LogKind.DAMAGE || kind == LogKind.LIFE_LOST
 
 /**
  * The match's play-by-play, whole, with a scrollbar; without the steps of
@@ -163,7 +168,7 @@ private fun LogRowView(line: LogLine, row: LogRow, onHover: (ClickTarget?) -> Un
     }
     val text: AnnotatedString = buildAnnotatedString {
         pieces.forEach { (piece, span) ->
-            if (span < 0) withStyle(SpanStyle(color = base)) { append(piece) }
+            if (span < 0) withStyle(SpanStyle(color = base, fontWeight = if (boldLine(line.kind)) FontWeight.Bold else null)) { append(piece) }
             else withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Bold, textDecoration = if (span == hovered) TextDecoration.Underline else null)) { append(piece) }
         }
     }

@@ -126,8 +126,11 @@ fun Modifier.boxBorder(title: String? = null, right: String? = null, border: Bor
 
 /**
  * The title bar a drawn chrome gives what the character border says with its
- * lines and colour: a double line or the accent has the user's attention, a
- * dashed line or the tapped tone is a tapped card (or a crash).
+ * lines and colour: a double line or the accent has the user's attention; a
+ * dashed line or the tapped tone gets the red bar, which on the board is a
+ * tapped card and nothing else, and away from it an error (the crash screen,
+ * a card the deck's rules flag). Nothing on the board is coloured that way
+ * for an error, so the bar never says tapped of something that is not.
  */
 private fun titleBar(border: Border, color: Color): TitleBar = when {
     border == Border.DASHED || color == Palette.tapped -> TitleBar.TAPPED

@@ -21,9 +21,15 @@ decisions so implementation choices stay coherent.
   the foreground. The first run takes the TUI's saved theme.
   One exception, a *status* tone rather than a third colour: **tapped**
   has a red of its own in every theme (Rosé Pine's love, VS Code's error
-  red, a Solarized red lightened to read on base03). It is used only for
-  the TAPPED label and a tapped frame's border, at 4.5:1 or better against
-  the background, because a tapped card missed is a game lost.
+  red, a Solarized red lightened to read on base03), at 4.5:1 or better
+  against the background. On the board it means tapped and nothing else:
+  the TAPPED label and a tapped frame's border, because a tapped card
+  missed is a game lost. Whatever else on the board wants attention (a
+  warning, damage in the log) is bold or in the accent with a `!`, never
+  red. Away from the board (the library, the deck workspace, the command
+  line, lookups, the crash screen) the same red marks errors, refusals and
+  cards the deck's rules flag; a drawn look gives such a pane the red
+  title bar a tapped card's frame has.
 - **Looks of other eras** (the theme picker lists them by year, beside the
   themes): Windows 95, XP, Vista, 7 and a modern Linux desktop (KDE
   Breeze Dark), for people

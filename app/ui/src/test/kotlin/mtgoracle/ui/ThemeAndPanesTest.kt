@@ -124,6 +124,20 @@ class ThemeAndPanesTest {
     }
 
     @Test
+    fun `on the board red is the tapped tone and nothing else`() {
+        // The board's own files never name it: its cards' frames (kit/CardFrame.kt) draw TAPPED and a tapped border.
+        val board = File(System.getProperty("mtgoracle.repoRoot"), "app/ui/src/main/kotlin/mtgoracle/ui/board")
+        val found = board.walkTopDown().filter { it.extension == "kt" }
+            .flatMap { f -> f.readLines().mapIndexedNotNull { i, line -> if ("Palette.tapped" in line || "Tone.ERROR" in line) "${f.name}:${i + 1}: ${line.trim()}" else null } }
+            .toList()
+        assertEquals(emptyList(), found)
+        val frame = File(System.getProperty("mtgoracle.repoRoot"), "app/ui/src/main/kotlin/mtgoracle/ui/kit/CardFrame.kt").readLines()
+            .filter { "Palette.tapped" in it }.map { it.trim() }
+        // `alert` is the deck views' flag (a card the deck's rules refuse), never set on the board.
+        assertTrue(frame.all { "tapped" in it.substringBefore("Palette.tapped") || it.startsWith("alert ->") || it.startsWith("GridText(\"TAPPED\"") }, frame.toString())
+    }
+
+    @Test
     fun `pane widths clamp to their bounds and to the window`() {
         assertEquals(BoardLayout(), BoardLayout().clampedTo(257), "the defaults fit a normal window")
         val huge = BoardLayout(zoneCols = 500, sideCols = 500).clampedTo(257)
