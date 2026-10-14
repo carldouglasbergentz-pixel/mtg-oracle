@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
@@ -24,7 +25,6 @@ import mtgoracle.ui.theme.Chrome
 import mtgoracle.ui.theme.ChromeStyle
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
-import kotlin.math.abs
 import kotlin.math.floor
 
 /*
@@ -130,19 +130,29 @@ internal fun DrawScope.paintPaneFrame(chrome: Chrome, bar: Color, kind: TitleBar
     }
 }
 
-/** A title's text at [at]: Luna sets it off with a shadow a line down and right, as XP did; Aero sets dark text on a light glow, as Vista did. */
+/**
+ * A title's text at [at]: Luna sets it off with a shadow a line down and right, as XP did; Aero sets dark text
+ * on a soft light glow, as Vista did. The glow is the text blurred, laid down a few times for strength: copies of the text
+ * offset a pixel or two drew a hard-edged halo that framed each word.
+ */
 internal fun DrawScope.paintTitleText(chrome: Chrome, text: TextLayoutResult, at: Offset, bar: Color) {
     val p = hairline()
     when (chrome.style) {
         is ChromeStyle.Luna -> drawText(text, color = lerp(bar, chrome.darkShadow, 0.6f), topLeft = at + Offset(p, p))
-        is ChromeStyle.Aero -> for (dx in -2..2) for (dy in -2..2) {
-            val ring = maxOf(abs(dx), abs(dy))
-            if (ring > 0) drawText(text, color = chrome.light.copy(alpha = if (ring == 1) 0.7f else 0.25f), topLeft = at + Offset(dx * p, dy * p))
+        is ChromeStyle.Aero -> {
+            val glow = Shadow(chrome.light, Offset.Zero, blurRadius = text.size.height * GLOW_SPREAD)
+            repeat(GLOW_PASSES) { drawText(text, color = Color.Transparent, topLeft = at, shadow = glow) }
         }
         ChromeStyle.Bevel, ChromeStyle.Breeze -> {}
     }
     drawText(text, topLeft = at)
 }
+
+/** How far Aero's title glow spreads, as a share of the text's height. */
+private const val GLOW_SPREAD = 0.35f
+
+/** How many times the glow is laid down: once is a faint haze on the glass. */
+private const val GLOW_PASSES = 3
 
 /** A rule [width] wide at height [y]: etched (a groove of shadow and light) where its era etched them, one quiet line in Breeze. */
 internal fun DrawScope.paintRule(chrome: Chrome, x: Float, y: Float, width: Float) {
