@@ -85,16 +85,31 @@ class ThemeAndPanesTest {
         for (theme in Themes.ALL.filter { it.chrome != null }) assertEquals(house, layout(theme), "${theme.key}: the layout")
     }
 
-    @Test
-    fun `every theme's tapped tone reads against its background - at least four and a half to one`() {
+    /** WCAG's contrast ratio of two colours. */
+    private fun contrast(a: androidx.compose.ui.graphics.Color, b: androidx.compose.ui.graphics.Color): Float {
         fun lum(c: androidx.compose.ui.graphics.Color) = listOf(c.red, c.green, c.blue)
             .map { if (it <= 0.03928f) it / 12.92f else Math.pow(((it + 0.055f) / 1.055f).toDouble(), 2.4).toFloat() }
             .let { (r, g, b) -> 0.2126f * r + 0.7152f * g + 0.0722f * b }
+        val (hi, lo) = listOf(lum(a), lum(b)).sortedDescending()
+        return (hi + 0.05f) / (lo + 0.05f)
+    }
+
+    @Test
+    fun `every theme's tapped tone reads against its background - at least four and a half to one`() {
         for (t in Themes.ALL) {
-            val (hi, lo) = listOf(lum(t.tapped), lum(t.background)).sortedDescending()
-            val ratio = (hi + 0.05f) / (lo + 0.05f)
+            val ratio = contrast(t.tapped, t.background)
             assertTrue(ratio >= 4.5f, "${t.key}: tapped tone ${"%.2f".format(ratio)}:1")
             assertTrue(t.tapped != t.accent && t.tapped != t.dim, "${t.key}: a tone of its own")
+        }
+    }
+
+    @Test
+    fun `every theme's dim tone reads against its background and stays dimmer than the foreground`() {
+        // Help text, hints and folder names are dim: Solarized's base01 (2.8:1) was hard to read at all.
+        for (t in Themes.ALL) {
+            val dim = contrast(t.dim, t.background)
+            assertTrue(dim >= 4.5f, "${t.key}: dim tone ${"%.2f".format(dim)}:1")
+            assertTrue(dim < contrast(t.foreground, t.background), "${t.key}: dim is dimmer than the foreground")
         }
     }
 

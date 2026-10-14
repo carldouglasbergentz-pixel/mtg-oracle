@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The folded stack bar sits just before the header's end title**, not over it.
 - **Graveyard and exile headers are drawn in the foreground**, as the library's line is: dim on the hover's tint could hardly be read.
 - **The stack box says `top first` once**, in its title, not again on the top item; in text mode an item's frame names its card without repeating the text printed beside it; and an item's text takes the rows it needs, up to six, cut with `…` past that, where it was cut after two lines with the box's room unused. The folded bar says what S does: `stack: 2 · S opens`. `StackBoxTest`, `OpponentActionsTest`.
+- **Every theme's dim tone reads against its background**, at 4.5:1 or better, and stays dimmer than the text: help, hints and folder names are dim. Solarized dark's was base01, 2.8:1 on base03, and is now base0; Rosé Pine takes its subtle (muted was 3.4:1); paper's grey is a shade darker and code dark's is VS Code's line-number grey. `ThemeAndPanesTest`.
 
 ### Changed
 - **A commander deck's size is `99 + commander`** (`98 + 2 commanders` with partners), everywhere it is shown: the library said 100, the deck's title and tab 99 and the analysis block 100. One `DeckSize` (core) says it; narrow places use its short form, `99+1` (the library's list, the Deck tab, the lobby, `mtg deck list`). Other decks are unchanged (`60 cards`). `DeckBadgeTest`.

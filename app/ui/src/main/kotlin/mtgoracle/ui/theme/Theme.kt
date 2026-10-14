@@ -95,13 +95,16 @@ sealed interface ChromeStyle {
 
 object Themes {
     val HOUSE = Theme("house", "house", Color(0xFF111315), Color(0xFFD7D7D2), Color(0xFF7C8084), Color(0xFFE2B350), Color(0xFFEF5B53))
-    /** Rosé Pine's published main palette: base, text, muted, gold; love as the tapped tone. */
-    val ROSE_PINE = Theme("rose-pine", "rosé pine", Color(0xFF191724), Color(0xFFE0DEF4), Color(0xFF6E6A86), Color(0xFFF6C177), Color(0xFFEB6F92))
-    val PAPER = Theme("paper", "paper (light)", Color(0xFFF7F5EF), Color(0xFF24262A), Color(0xFF74777C), Color(0xFFA24E12), Color(0xFFB42318))
-    /** The VS Code Dark+ editor tones, its keyword blue as the accent, its error red for tapped. */
-    val CODE_DARK = Theme("code-dark", "code dark", Color(0xFF1E1E1E), Color(0xFFD4D4D4), Color(0xFF808080), Color(0xFF569CD6), Color(0xFFF44747))
-    /** Solarized dark: base03, base1, base01, yellow; its red, lightened to read on base03 (4.8:1, where the published red is 3.3:1). */
-    val SOLARIZED = Theme("solarized-dark", "solarized dark", Color(0xFF002B36), Color(0xFF93A1A1), Color(0xFF586E75), Color(0xFFB58900), Color(0xFFF2645D))
+    /** Rosé Pine's published main palette: base, text, subtle (muted is 3.4:1 on base), gold; love as the tapped tone. */
+    val ROSE_PINE = Theme("rose-pine", "rosé pine", Color(0xFF191724), Color(0xFFE0DEF4), Color(0xFF908CAA), Color(0xFFF6C177), Color(0xFFEB6F92))
+    val PAPER = Theme("paper", "paper (light)", Color(0xFFF7F5EF), Color(0xFF24262A), Color(0xFF686B70), Color(0xFFA24E12), Color(0xFFB42318))
+    /** The VS Code Dark+ editor tones (its line numbers' grey as the dim), its keyword blue as the accent, its error red for tapped. */
+    val CODE_DARK = Theme("code-dark", "code dark", Color(0xFF1E1E1E), Color(0xFFD4D4D4), Color(0xFF858585), Color(0xFF569CD6), Color(0xFFF44747))
+    /**
+     * Solarized dark: base03, base1, base0 (base01 is 2.8:1 on base03), yellow; its red, lightened to read on base03
+     * (4.8:1, where the published red is 3.3:1).
+     */
+    val SOLARIZED = Theme("solarized-dark", "solarized dark", Color(0xFF002B36), Color(0xFF93A1A1), Color(0xFF839496), Color(0xFFB58900), Color(0xFFF2645D))
 
     /**
      * Windows 95's standard scheme: the white of its list views for the panes, its button face around them, navy title bars.

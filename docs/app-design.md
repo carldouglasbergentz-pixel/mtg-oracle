@@ -16,7 +16,9 @@ decisions so implementation choices stay coherent.
   accent for selection / active state. Default is dark-on-light-text.
   Themes (picked with F8 or the toolbar's Theme button, remembered) are each such a pair, a dimmed tone and one
   accent: the house default, Rosé Pine, a light "paper", a code-editor
-  dark and Solarized dark. The first run takes the TUI's saved theme.
+  dark and Solarized dark. The dimmed tone (help, hints, folder names)
+  reads at 4.5:1 or better against the background and stays dimmer than
+  the foreground. The first run takes the TUI's saved theme.
   One exception, a *status* tone rather than a third colour: **tapped**
   has a red of its own in every theme (Rosé Pine's love, VS Code's error
   red, a Solarized red lightened to read on base03). It is used only for
