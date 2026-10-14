@@ -35,10 +35,10 @@ class LogPaneTest {
         assertEquals("Recall", rows[1].text.substring(rows[1].spans.single().start, rows[1].spans.single().end))
         assertEquals(listOf(0), rows[1].spans.map { it.card }, "both pieces are the line's first card")
         assertEquals(listOf("x"), logRows(line(1, LogKind.OTHER, "x"), 20).map { it.text })
-        // Forge's several lines in one (a block per attacker) are rows of their own, nothing lost.
+        // Forge's several lines in one (a block per attacker) are rows of their own at the margin, nothing lost.
         val blocks = line(2, LogKind.COMBAT, "You blocked Bears.\nYou blocked Giant.", LogCard(31, 36, "Giant"))
         val shown = logRows(blocks, 40)
-        assertEquals(listOf("You blocked Bears.", "  You blocked Giant."), shown.map { it.text })
+        assertEquals(listOf("You blocked Bears.", "You blocked Giant."), shown.map { it.text })
         assertEquals("Giant", shown[1].text.substring(shown[1].spans.single().start, shown[1].spans.single().end))
     }
 

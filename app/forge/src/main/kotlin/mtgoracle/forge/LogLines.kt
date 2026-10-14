@@ -31,8 +31,7 @@ internal class LogLines(
     @Synchronized
     fun forge(type: GameLogEntryType, message: String, players: List<String>): LogLine {
         val kind = kindOf(type, message)
-        val body = if (type == GameLogEntryType.LIFE) message.removePrefix("Life: ") else message
-        return line(kind, body, players)
+        return line(kind, readable(type, message, players), players)
     }
 
     /**
@@ -61,11 +60,33 @@ internal class LogLines(
     internal companion object {
         private val ID = Regex(""" \((\d+)\)""")
         private val CAST = Regex("""^.+? (?:cast|activated|triggered) (.+?)(?: targeting \[.*)?$""")
-        private val LIFE = Regex("""(\d+) > (\d+)""")
+        private val LIFE = Regex("""(-?\d+) > (-?\d+)""") // a life total can go below zero
         private val TOKEN = Regex("""\S+""")
         /** Leading and trailing characters a name is written between: `[Hawkeye, Master Marksman]`, `Opt.`, `Chandra's`. */
         private const val OPEN = "[("
         private const val CLOSE = ".,:;)]"
+
+        /**
+         * Forge's line as a person reads it: `Life: You 20 > 17` is `You 20 → 17`; `You has kept a hand` is
+         * `You have kept a hand` (Forge writes `%s has` for every player, and ours is You); a resolved ability
+         * named twice, by its source and by its text (`Arc Trail (39) - Arc Trail (39) deals 2 damage`), is named
+         * once; and a staged board's steps lose the `dev` Forge's dev mode writes before them (`devYour Main phase`).
+         */
+        fun readable(type: GameLogEntryType, message: String, players: List<String>): String {
+            var text = message
+            if (type == GameLogEntryType.LIFE) text = text.removePrefix("Life: ").replace(LIFE, "$1 → $2")
+            if (type == GameLogEntryType.PHASE && text.startsWith(DEV)) text.removePrefix(DEV).let { rest ->
+                if (rest.startsWith("Your ") || players.any { rest.startsWith(it) }) text = rest
+            }
+            if (YOU in players) text = text.replace(YOU_HAS, "$1You have ")
+            if (type == GameLogEntryType.STACK_RESOLVE) text = text.replaceFirst(NAMED_TWICE, "$1")
+            return text
+        }
+
+        private const val DEV = "dev"
+        private const val YOU = "You"
+        private val YOU_HAS = Regex("""(^|[\s.;|])You has """)
+        private val NAMED_TWICE = Regex("""^(.+?) - \1(?=[\s.,']|$)""")
 
         fun kindOf(type: GameLogEntryType, message: String): LogKind = when (type) {
             GameLogEntryType.GAME_OUTCOME, GameLogEntryType.MATCH_RESULTS -> LogKind.OUTCOME

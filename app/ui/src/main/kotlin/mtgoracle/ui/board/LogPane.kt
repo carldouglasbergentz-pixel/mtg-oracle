@@ -61,16 +61,18 @@ private const val HANG = 2
 /**
  * [line] wrapped to [width] at spaces, its continuation rows indented, each
  * card's place carried into the rows it falls in (a name the wrap splits is
- * in both).
+ * in both). Each of the several lines Forge writes as one (a block per
+ * attacker) starts a row of its own at the margin: indented, the second read
+ * as the first one wrapped.
  */
 internal fun logRows(line: LogLine, width: Int): List<LogRow> {
     val text = line.text
     val rows = mutableListOf<LogRow>()
     var pos = 0
+    var fresh = true
     while (pos < text.length || rows.isEmpty()) {
-        val indent = if (rows.isEmpty()) 0 else HANG
+        val indent = if (fresh) 0 else HANG
         val room = maxOf(1, width - indent)
-        // Forge writes some lines as several (a block per attacker): each starts a row, since a row draws one line.
         val newline = text.indexOf('\n', pos).takeIf { it >= 0 && it - pos <= room }
         val cut = when {
             newline != null -> newline
@@ -83,6 +85,7 @@ internal fun logRows(line: LogLine, width: Int): List<LogRow> {
             if (start < end) RowSpan(start - pos + indent, end - pos + indent, i) else null
         }
         rows += LogRow(" ".repeat(indent) + text.substring(pos, cut), spans)
+        fresh = cut == newline
         pos = cut
         while (pos < text.length && (text[pos] == ' ' || text[pos] == '\n')) pos++
     }

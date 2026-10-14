@@ -65,14 +65,30 @@ class LogLinesTest {
     fun `life says which way it went, and a resolution that reveals is a reveal`() {
         val log = lines()
         val lost = log.forge(GameLogEntryType.LIFE, "Life: You 20 > 18", players)
-        assertEquals("You 20 > 18", lost.text)
+        assertEquals("You 20 → 18", lost.text)
         assertEquals(LogKind.LIFE_LOST, lost.kind)
         assertEquals(LogKind.LIFE_GAINED, log.forge(GameLogEntryType.LIFE, "Life: You 18 > 21", players).kind)
+        val dead = log.forge(GameLogEntryType.LIFE, "Life: You 2 > -4", players)
+        assertEquals("You 2 → -4" to LogKind.LIFE_LOST, dead.text to dead.kind, "below zero too")
         val seize = log.forge(GameLogEntryType.STACK_RESOLVE, "Thoughtseize (170) - You reveals their hand. AI (Jori En) chooses a nonland card from it.", players)
         assertEquals(LogKind.REVEAL, seize.kind)
         assertEquals(listOf("Thoughtseize"), mark(seize.text, seize.cards))
         assertEquals(LogKind.DISCARD, log.forge(GameLogEntryType.DISCARD, "You discards Farewell (28).", players).kind)
         assertNull(log.forge(GameLogEntryType.PHASE, "Your Upkeep step", players).cards.firstOrNull())
+    }
+
+    @Test
+    fun `Forge's lines read as a person writes them`() {
+        val log = lines()
+        assertEquals("You have kept a hand of 7 cards", log.forge(GameLogEntryType.MULLIGAN, "You has kept a hand of 7 cards", players).text)
+        assertEquals("AI (Jori En) has kept a hand of 7 cards", log.forge(GameLogEntryType.MULLIGAN, "AI (Jori En) has kept a hand of 7 cards", players).text)
+        val bolt = log.forge(GameLogEntryType.STACK_RESOLVE, "Swamp (159) - Swamp (159) deals 3 damage to AI (Jori En).", players)
+        assertEquals("Swamp deals 3 damage to AI (Jori En).", bolt.text, "named once, its id still marking it")
+        assertEquals(listOf("Swamp"), mark(bolt.text, bolt.cards))
+        assertEquals("Thoughtseize - You reveals their hand.", log.forge(GameLogEntryType.STACK_RESOLVE, "Thoughtseize - You reveals their hand.", players).text)
+        // A staged board's steps, set by Forge's dev mode.
+        assertEquals("Your Main phase, precombat", log.forge(GameLogEntryType.PHASE, "devYour Main phase, precombat", players).text)
+        assertEquals("AI (Jori En)'s Declare Attackers Step", log.forge(GameLogEntryType.PHASE, "devAI (Jori En)'s Declare Attackers Step", players).text)
     }
 
     @Test
