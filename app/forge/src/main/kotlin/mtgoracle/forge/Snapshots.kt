@@ -101,7 +101,8 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
         }.orEmpty()
         val over = gameOver || game.isGameOver
         return BoardState(
-            turn = game.turn,
+            // The live count where there is one: a staged board's view read turn 1 until its first update, while Forge's prompt said 3.
+            turn = game.game?.phaseHandler?.turn ?: game.turn,
             phase = game.phase?.nameForUi ?: "-",
             phaseKey = game.phase?.name ?: "-",
             activePlayerId = game.playerTurn?.id ?: -1,

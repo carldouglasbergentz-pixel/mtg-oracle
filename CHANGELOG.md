@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The zoom pane reads top down: name and cost, type, rules text, power/toughness.** Without an image the rules text filled the image's place above the name, and with one it was cut after six lines without a `…` and the power/toughness floated below the empty rows. `HintTextTest`.
 - **A hint line that wraps breaks between its parts**, never after a lone `·` (the theme picker, a sideboard's `main 100 (at least 60) · sideboard 15`); and the status line drops whole hints from its end rather than cutting one in half. `HintTextTest`.
 - **The AI copy tab's help wraps** instead of being cut, and its substitutions read `Viscera Seer → Carrion Feeder`.
+- **The priority prompt no longer repeats the header.** Forge writes its status into the prompt (`Priority: You`, `Turn: 4 (AI…)`, `Phase: End step`, `Stack: Empty`), all of which the header says; and on a staged board Forge's turn there ran ahead of the header's, which read the view's turn 1. Those lines are left out (day or night and the storm count stay), and the header's turn is Forge's live count. `PromptTextTest`; `SecondSpellTest` and `SoakTest` read the turn from the board.
+- **A card among a choice's options is its name** (`Sylvan Library`), without the id Forge adds (`Sylvan Library (900)`). `PromptTextTest`.
 
 ### Changed
 - **A commander deck's size is `99 + commander`** (`98 + 2 commanders` with partners), everywhere it is shown: the library said 100, the deck's title and tab 99 and the analysis block 100. One `DeckSize` (core) says it; narrow places use its short form, `99+1` (the library's list, the Deck tab, the lobby, `mtg deck list`). Other decks are unchanged (`60 cards`). `DeckBadgeTest`.

@@ -52,9 +52,9 @@ class SoakTest {
             val n = answers.merge(prompt.inputSerial, 1, Int::plus)!!
             if (n > LOOP) return@policy if (prompt.okEnabled) SeatAction.Ok else if (prompt.cancelEnabled) SeatAction.Cancel else SeatAction.Ok
         }
-        val turn = (prompt as? InputPrompt)?.let { Regex("""Turn: (\d+) \(You\)""").find(it.message)?.groupValues?.get(1) }
+        val turn = board.turn.takeIf { board.activePlayerId == me.id }
         when {
-            prompt is InputPrompt && prompt.kind == InputKind.PRIORITY && turn != null && "Main phase" in prompt.message && board.stack.isEmpty() -> {
+            prompt is InputPrompt && prompt.kind == InputKind.PRIORITY && turn != null && board.phaseKey.startsWith("MAIN") && board.stack.isEmpty() -> {
                 val act = prompt.actionableCardIds
                 val candidates = me.hand.filter { it.id in act }.sortedByDescending { it.isLand } +
                     me.command.filter { it.id in act } + me.battlefield.filter { it.id in act && it.isLand }

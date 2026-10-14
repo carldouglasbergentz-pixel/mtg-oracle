@@ -192,6 +192,7 @@ class SeatGui(
     // What the current Input has shown. Written by Forge's Inputs, on the EDT.
     private var shownInput: Input? = null
     private var shownMessage = ""
+    private val statusLabels by lazy { turnStatusLabels() }
     private var okLabel = ""
     private var cancelLabel = ""
     private var okEnabled = false
@@ -421,8 +422,9 @@ class SeatGui(
             controller.concede() // on the EDT, and Forge waits on this very question
             return
         }
+        val kind = kindOf(top)
         val candidate = InputPrompt(
-            id = 0, message = shownMessage, kind = kindOf(top), inputName = top.javaClass.simpleName,
+            id = 0, message = if (kind == InputKind.PRIORITY) withoutTurnStatus(shownMessage, statusLabels) else shownMessage, kind = kind, inputName = top.javaClass.simpleName,
             inputSerial = System.identityHashCode(top),
             okLabel = okLabel, cancelLabel = cancelLabel, okEnabled = okEnabled, cancelEnabled = cancelEnabled,
             selectableCardIds = selectableIds, actionableCardIds = actionableIds, highlightedCardIds = highlightedIds,
@@ -503,7 +505,8 @@ class SeatGui(
 
     /** An option of a dialog; [shown]: Forge is showing this seat the card (a reveal), so the option carries it to be drawn. */
     private fun optionFor(item: Any?, label: String, shown: Boolean = false): ChoiceOption = ChoiceOption(
-        label,
+        // A card as Forge names it, without the id it adds (`Sylvan Library (900)`): the id means nothing to a person.
+        if (item is CardView) withoutCardId(label) else label,
         when (item) {
             is CardView -> BoardRef.Card(item.id).also { cardViews[item.id] = item }
             is PlayerView -> BoardRef.Player(item.id).also { playerViews[item.id] = item }

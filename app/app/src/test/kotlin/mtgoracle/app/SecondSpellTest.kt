@@ -33,8 +33,8 @@ class SecondSpellTest {
         Scenario("second-spell-later", state) { prompt, board, _ ->
             val hand = board.seat!!.hand
             fun inHand(name: String) = hand.firstOrNull { it.name == name }
-            // The turn as the prompt states it: a staged board reads turn 1 until its first update.
-            val turn = Regex("""Turn: (\d+) \(You\)""").find(prompt.message)?.groupValues?.get(1)?.toInt()
+            // Forge's live turn (a staged board's view read turn 1 until its first update), on our own turn only.
+            val turn = board.turn.takeIf { board.activePlayerId == board.seat?.id }
             val next = if (turn == 3) listOf("Opt", "Ponder").firstNotNullOfOrNull(::inHand)
                 else if (turn == 5) listOf("Flow State", "Sleight of Hand").firstNotNullOfOrNull(::inHand) else null
             when {
