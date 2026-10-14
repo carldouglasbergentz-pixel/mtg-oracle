@@ -40,6 +40,10 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.flow.MutableStateFlow
 import mtgoracle.core.model.BoardRef
@@ -159,10 +163,15 @@ fun BoardScreen(
     // The graveyard and exile panels popped out over the table (ZonePanel), opened by their zone column's header.
     var openPanels by remember { mutableStateOf(listOf<ZonePanelKey>()) }
     val panelKeys = listOf(false, true).flatMap { far -> PileZone.entries.map { ZonePanelKey(far, it) } }
+    // A folded stop ladder opened over the table (LadderBox): whose turn it is for, or null when closed.
+    var openLadder by remember { mutableStateOf<Boolean?>(null) }
+    var rootOrigin by remember { mutableStateOf(Offset.Zero) }
     val showResult = match != null && match.betweenGames && prompt !is SideboardPrompt
     val onClick: (ClickTarget) -> Unit = { target ->
         when {
             target is ClickTarget.Stop -> seat?.setStops(stops.toggled(target.seatsTurn, target.step))
+            target == ladderToggle(true) || target == ladderToggle(false) -> (target == ladderToggle(true)).let { mine -> openLadder = if (openLadder == mine) null else mine }
+            target == LADDER_CLOSE -> openLadder = null
             target == ClickTarget.Control("stack-bar") -> openStack()
             // The last opened is drawn on top.
             panelKeys.any { it.toggle == target } -> panelKeys.first { it.toggle == target }.let { k -> openPanels = if (k in openPanels) openPanels - k else openPanels + k }
@@ -206,9 +215,23 @@ fun BoardScreen(
     CompositionLocalProvider(LocalClickRegistry provides registry) {
         BoxWithConstraints(
             Modifier.fillMaxSize().background(Palette.surface)
+                .onGloballyPositioned { val at = it.positionInWindow(); if (at != rootOrigin) rootOrigin = at }
+                .pointerInput(Unit) {
+                    // A press anywhere but on the open ladder box or a ladder's line closes the box; the press goes on to what it is on.
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.type != PointerEventType.Press || openLadder == null) continue
+                            val at = event.changes.first().position + rootOrigin
+                            val keep = listOf(ClickTarget.Control("region:ladder-box"), ladderToggle(true), ladderToggle(false)).mapNotNull { registry[it] }
+                            if (keep.none { it.contains(at) }) openLadder = null
+                        }
+                    }
+                }
                 .focusRequester(focus).focusable()
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    if (event.key == Key.Escape && openLadder != null) { openLadder = null; return@onPreviewKeyEvent true }
                     if (matchKey(event.key, event.isCtrlPressed)) return@onPreviewKeyEvent true
                     // A searchable choice ("choose a card name") takes what is typed before the board's letter keys do.
                     // A key with no character (Shift, the arrows, F2) reports 0xFFFF; Delete is 127.
@@ -377,6 +400,17 @@ fun BoardScreen(
                 for (key in openPanels) {
                     ZonePanelLayer(key, if (key.far) sides.first else sides.second, looks, cells, registry, arrangement, ::arrange, midline, table, panes.zoneCols, leftCols, totalCols, totalRows)
                 }
+            }
+            // A folded stop ladder, opened beside its zone column at its line's height, where it covers no card if it can.
+            val ladderFor = openLadder
+            if (ladderFor != null && b?.seat != null && table != Rect.Zero && !showResult && !menuOpen && prompt !is SideboardPrompt) {
+                val (c, r) = remember(ladderFor, settledAfter(ladderFor)) {
+                    val line = registry[ladderToggle(ladderFor)]
+                    val want = panes.zoneCols + 1 to (line?.let { cells.rows(it.top) } ?: cells.rows(table.top))
+                    placeFloating(LADDER_BOX_COLS, LADDER_BOX_ROWS, cells, listOf(want), tableCols(panes.zoneCols, leftCols, LADDER_BOX_COLS),
+                        tableRows(table, cells, LADDER_BOX_ROWS, totalRows), listOf(stackBoxRects(registry) + tableCards(registry, table)))
+                }
+                LadderBox(ladderFor, stops, b, onClick, Modifier.offset { IntOffset((c * cells.width).roundToInt(), (r * cells.height).roundToInt()) })
             }
             // A first game's tips, at the top of the table, out of the cards' way as far as it can be.
             if (tips.isNotEmpty() && !showResult && !menuOpen) {

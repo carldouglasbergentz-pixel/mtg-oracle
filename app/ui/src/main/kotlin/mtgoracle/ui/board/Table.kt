@@ -484,14 +484,13 @@ private fun TrailStrip(board: BoardState, cols: Int) {
 private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, stops: PhaseStops?, looks: Looks, cols: Int, modifier: Modifier,
                        handLine: Boolean, ladderRoom: Boolean) {
     val inner = cols - 2
-    var ladderOpen by remember { mutableStateOf(true) }
     // Titled with the player's name, said once: "AI" over "AI (Rakdos)" said it twice, and a guest's "player" over "Host".
     BoxPane(player.name, modifier, right = if (stops != null) "stops" else null) {
         BoxWithConstraints {
             val viewport = maxHeight
             // Every section a set number of rows, planned for the height there is (planZoneColumn).
             val plan = planZoneColumn(LocalCells.current.rows(constraints.maxHeight.toFloat()), player.graveyard.size,
-                player.command.size + player.exile.size, ladderWanted = ladderOpen && ladderRoom, handLine = handLine)
+                player.command.size + player.exile.size, ladderWanted = ladderRoom, handLine = handLine)
             // Shorter than even the minimum: it scrolls, anchored at the prompt's side, so life and stops stay in view.
             Column(Modifier.verticalScroll(rememberScrollState(), reverseScrolling = far).heightIn(min = viewport), verticalArrangement = Arrangement.SpaceBetween) {
                 // At the player's edge: library (outermost), graveyard, exile and command zone.
@@ -503,7 +502,7 @@ private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, sto
                 )
                 val self = listOfNotNull<@Composable () -> Unit>(
                     if (handLine) ({ HandCount(player, inner, looks) }) else null,
-                    { StopLadder(!far, stops, board, inner, looks.onClick, plan.ladderRows) { ladderOpen = !ladderOpen } },
+                    { StopLadder(!far, stops, board, inner, looks.onClick, plan.ladderRows) },
                     { LifeBlock(player, board, inner, looks) },
                 )
                 if (far) {
@@ -651,36 +650,48 @@ private val SHORT = mapOf(
  * This player's turn, step by step: where you stop with an empty stack on
  * their turn (your own ladder: your turn; theirs: their turn). Click a step to
  * toggle it; the step being played is lit on the active player's ladder.
- * Watching (no [stops]) it keeps its place, blank.
+ * Watching (no [stops]) it keeps its place, blank. Too short for it, the
+ * column says the stops that are on in one line, and a click on that line
+ * opens the whole ladder in a box over the table ([LadderBox]).
  */
 @Composable
-private fun StopLadder(seatsTurn: Boolean, stops: PhaseStops?, board: BoardState, inner: Int, onClick: (ClickTarget) -> Unit, rows: Int = LADDER_FULL, onToggle: () -> Unit = {}) {
-    val half = (Step.entries.size + 1) / 2
-    if (rows < half) {
-        // Too short for the ladder: one line naming the stops that are on; a click gives the ladder the room.
+private fun StopLadder(seatsTurn: Boolean, stops: PhaseStops?, board: BoardState, inner: Int, onClick: (ClickTarget) -> Unit, rows: Int = LADDER_FULL) {
+    if (rows < LADDER_ROWS) {
         val on = Step.entries.filter { stops?.stopsAt(seatsTurn, it) == true }.joinToString(" ") { SHORT.getValue(it) }
-        GridText(fit(if (stops == null) "" else "stops: ${on.ifEmpty { "none" }} ▾", inner),
-            Modifier.clickTarget(ClickTarget.Control("ladder:${if (seatsTurn) "mine" else "theirs"}"), { onToggle() }), color = Palette.dim)
+        GridText(fit(if (stops == null) "" else "stops: ${on.ifEmpty { "none" }} ▸", inner),
+            if (stops == null) Modifier else Modifier.clickTarget(ladderToggle(seatsTurn), onClick), color = Palette.dim)
         return
     }
-    Box(Modifier.cells(inner, half)) {
-        if (stops == null) return@Box
-        val activeHere = (board.activePlayerId == board.seat?.id) == seatsTurn
-        // Each column exactly its cells, so the right one can never run past the border.
-        val widths = listOf(inner / 2, inner - inner / 2)
-        Column {
-            for (row in 0 until half) {
-                Row {
-                    for ((column, step) in listOfNotNull(Step.entries.getOrNull(row), Step.entries.getOrNull(row + half)).withIndex()) {
-                        val on = stops.stopsAt(seatsTurn, step)
-                        val current = activeHere && board.step == step
-                        GridText(
-                            fit("${if (on) "[x]" else "[ ]"} ${SHORT[step]}", widths[column]),
-                            Modifier.cellWidth(widths[column]).clickTarget(ClickTarget.Stop(seatsTurn, step), onClick),
-                            color = when { current -> Palette.background; on -> Palette.accent; else -> Palette.dim },
-                            background = if (current) Palette.foreground else Color.Unspecified,
-                        )
-                    }
+    Box(Modifier.cells(inner, LADDER_ROWS)) {
+        if (stops != null) LadderGrid(seatsTurn, stops, board, inner, onClick)
+    }
+}
+
+/** The ladder's rows: its steps in two columns. */
+val LADDER_ROWS = (Step.entries.size + 1) / 2
+
+/** The folded ladder's line: a click opens the whole ladder over the table, or closes it. */
+fun ladderToggle(seatsTurn: Boolean) = ClickTarget.Control("ladder:${if (seatsTurn) "mine" else "theirs"}")
+
+/** The ladder's steps in two columns of [inner] cells, each a stop to click; the step being played lit on the active player's ladder. */
+@Composable
+internal fun LadderGrid(seatsTurn: Boolean, stops: PhaseStops, board: BoardState, inner: Int, onClick: (ClickTarget) -> Unit) {
+    val half = LADDER_ROWS
+    val activeHere = (board.activePlayerId == board.seat?.id) == seatsTurn
+    // Each column exactly its cells, so the right one can never run past the border.
+    val widths = listOf(inner / 2, inner - inner / 2)
+    Column {
+        for (row in 0 until half) {
+            Row {
+                for ((column, step) in listOfNotNull(Step.entries.getOrNull(row), Step.entries.getOrNull(row + half)).withIndex()) {
+                    val on = stops.stopsAt(seatsTurn, step)
+                    val current = activeHere && board.step == step
+                    GridText(
+                        fit("${if (on) "[x]" else "[ ]"} ${SHORT[step]}", widths[column]),
+                        Modifier.cellWidth(widths[column]).clickTarget(ClickTarget.Stop(seatsTurn, step), onClick),
+                        color = when { current -> Palette.background; on -> Palette.accent; else -> Palette.dim },
+                        background = if (current) Palette.foreground else Color.Unspecified,
+                    )
                 }
             }
         }
