@@ -54,10 +54,19 @@ fun Modifier.snapToCells(): Modifier {
 private fun titleOf(title: String?, cols: Int, right: String?): String? =
     title?.let { fit(it, maxOf(0, cols - 2 - 2 - 1 - (right?.let { r -> r.length + 1 } ?: 1))).trimEnd() }
 
+private fun badgeOf(right: String?, cols: Int): String? = right?.let { fit(it, maxOf(0, cols - 6)).trimEnd() }
+
 private fun topEdge(border: Border, cols: Int, title: String?, right: String?): String = buildString {
-    val badge = right?.let { fit(it, maxOf(0, cols - 6)).trimEnd() }
+    val badge = badgeOf(right, cols)
     val head = titleOf(title, cols, badge)?.let { "${border.h} $it " }.orEmpty()
-    val tail = badge?.let { "$it " }.orEmpty()
+    // The badge stands off the line as the title does (`── badge ┐`) where a line is left between them;
+    // a frame the title fills keeps it tight (`Mountain ×3 ┐`), the title's own space before it.
+    val spaced = badge?.let { " $it " }
+    val tail = when {
+        spaced == null -> ""
+        cols - 2 - head.length - spaced.length >= 1 -> spaced
+        else -> "$badge "
+    }
     append(border.tl)
     append(head)
     append(border.h.toString().repeat(maxOf(0, cols - 2 - head.length - tail.length)))
@@ -79,7 +88,7 @@ fun Modifier.boxBorder(title: String? = null, right: String? = null, border: Bor
         val rows = cells.rows(size.height)
         val top = measurer.measure(topEdge(border, cols, title, right), style)
         // The title is drawn again over the edge in its own (bold) style.
-        val titleLayout = titleOf(title, cols, right?.let { fit(it, maxOf(0, cols - 6)).trimEnd() })?.let { measurer.measure(it, titleStyle) }
+        val titleLayout = titleOf(title, cols, badgeOf(right, cols))?.let { measurer.measure(it, titleStyle) }
         val bottom = measurer.measure(border.bl + border.h.toString().repeat(maxOf(0, cols - 2)) + border.br, style)
         val side = measurer.measure(border.v.toString(), style)
         onDrawWithContent {

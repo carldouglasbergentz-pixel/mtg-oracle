@@ -261,7 +261,9 @@ fun HouseTheme(content: @Composable () -> Unit) {
     val measurer = rememberTextMeasurer()
     val cells = remember(measurer) {
         val layout = measurer.measure("M".repeat(100), gridStyle)
-        Cells(layout.size.width / 100f, layout.size.height.toFloat())
+        // The line's exact right edge, not its size: the size is rounded up to a whole pixel, and that
+        // hundredth of a pixel per cell put a wide pane's sides a pixel or two right of its top edge's ┐.
+        Cells(layout.getLineRight(0) / 100f, layout.size.height.toFloat())
     }
     CompositionLocalProvider(LocalCells provides cells, content = content)
 }

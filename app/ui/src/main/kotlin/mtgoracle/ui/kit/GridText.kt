@@ -18,15 +18,22 @@ import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 import mtgoracle.ui.theme.gridStyle
 
-/** [text] as exactly [width] cells: guarded, flattened, padded or cut with `…`. */
+/**
+ * [text] as exactly [width] cells: guarded, flattened, padded or cut with `…`.
+ * A cut drops what it leaves dangling (a space, ` —`, ` ·`), so `Creature —…`
+ * reads `Creature…` and `Bilbo, Thief …` reads `Bilbo, Thief…`.
+ */
 fun fit(text: String, width: Int): String {
     val flat = GlyphGuard.safe(text.replace('\n', ' '))
     return when {
         width <= 0 -> ""
         flat.length <= width -> flat.padEnd(width)
-        else -> flat.take(width - 1) + "…"
+        else -> (flat.take(width - 1).trimEnd(*DANGLING).ifEmpty { flat.take(width - 1) } + "…").padEnd(width)
     }
 }
+
+/** What a cut must not end on: the space, dash or separator that pointed at the words cut off. */
+private val DANGLING = charArrayOf(' ', '—', '–', '-', '·', ',', ':', '/', '|')
 
 /** Word-wrapped to [width] cells; a word longer than a line (a file path) is broken across lines, not cut. */
 fun wrap(text: String, width: Int): List<String> {

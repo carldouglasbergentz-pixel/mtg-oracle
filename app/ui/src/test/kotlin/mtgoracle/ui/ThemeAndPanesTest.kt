@@ -127,10 +127,11 @@ class ThemeAndPanesTest {
             val cell = d.registry[zoom]!!.width / SIDE_COLS
             d.key(Key.DirectionLeft, ctrl = true)
             assertEquals(SIDE_COLS + PANE_STEP, saved.sideCols, "Ctrl+← moves the right column's edge left")
-            assertEquals((SIDE_COLS + PANE_STEP) * cell, d.registry[zoom]!!.width, 0.5f)
+            // A pixel either way: each width is rounded to a whole pixel, and the cell is not a whole pixel.
+            assertEquals((SIDE_COLS + PANE_STEP) * cell, d.registry[zoom]!!.width, 1f)
             val zones = d.registry[nearZones]!!.width
             d.key(Key.DirectionRight, ctrl = true, shift = true)
-            assertEquals(zones + PANE_STEP * cell, d.registry[nearZones]!!.width, 0.5f, "Ctrl+Shift+→ widens the zone columns")
+            assertEquals(zones + PANE_STEP * cell, d.registry[nearZones]!!.width, 1f, "Ctrl+Shift+→ widens the zone columns")
             val before = saved.sideCols
             d.drag(ClickTarget.Control("region:side-edge"), Offset(-10 * cell, 0f))
             assertEquals(before + 10, saved.sideCols, "dragging the right column's edge ten cells left")

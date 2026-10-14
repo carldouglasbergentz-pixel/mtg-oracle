@@ -64,7 +64,8 @@ internal fun Modifier.drawnBorder(chrome: Chrome, title: String?, right: String?
     return drawWithCache {
         val cols = cells.cols(size.width)
         val rows = cells.rows(size.height)
-        val pad = 2 * hairline()
+        // A cell in from the bar's ends: two panes' bars meet, and a hairline let one's badge run into the next one's title.
+        val pad = cells.width
         val barRect = titleBarRect(chrome, size.width, cells.height)
         fun line(text: String?, style: TextStyle, maxWidth: Float): TextLayoutResult? = text?.takeIf { it.isNotBlank() && maxWidth > 0 }?.let {
             measurer.measure(chromeSafe(it), style, TextOverflow.Ellipsis, softWrap = false, maxLines = 1, constraints = Constraints(maxWidth = maxWidth.toInt()))
