@@ -27,9 +27,11 @@ fun emblemLabel(name: String): String = name.replace(Regex("^Emblem\\s*[—–-]
  * text in the zoom pane, as any card's.
  */
 @Composable
-fun EmblemRow(player: PlayerState, looks: Looks, side: String) {
+fun EmblemRow(player: PlayerState, looks: Looks, side: String, onMat: Boolean = false) {
     Row(Modifier.fillMaxWidth().cellHeight(1).region("$side-emblems"), horizontalArrangement = Arrangement.End) {
-        GridText("emblem${if (player.emblems.size > 1) "s" else ""} ", color = Palette.dim)
+        // Over a playmat the label is on the background, as the zones' labels are.
+        val label = "emblem${if (player.emblems.size > 1) "s" else ""} "
+        if (onMat) GridText(label, background = Palette.background) else GridText(label, color = Palette.dim)
         player.emblems.forEach { e ->
             CardChip(e.face().let { it.copy(name = emblemLabel(it.name)) }, looks.emphasis(e), ClickTarget.Card(e.id), looks.onClick, looks.onHover)
             GridText(" ")

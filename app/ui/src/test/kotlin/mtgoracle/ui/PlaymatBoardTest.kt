@@ -34,6 +34,11 @@ class PlaymatBoardTest {
             }
             assertTrue(bluish("near-field") > 100, "the mat shows under your half")
             assertTrue(bluish("far-field") == 0, "and not under the opponent's")
+            // A zone's label is drawn on the background, so it reads on any mat: dark cells in the rule's row, where
+            // only the mat showed through behind the dim label.
+            val band = d.registry[ClickTarget.Control("region:near-band-0")]!!
+            val dark = d.pixels(Rect(band.left, band.top + 2, band.right, band.top + 10)).count { c -> maxOf(c shr 16 and 0xFF, c shr 8 and 0xFF, c and 0xFF) < 40 }
+            assertTrue(dark > 100, "the creatures' label sits on the background: $dark dark pixels")
             d.savePng(File(pngDir, "playmat-board.png"))
         }
     }

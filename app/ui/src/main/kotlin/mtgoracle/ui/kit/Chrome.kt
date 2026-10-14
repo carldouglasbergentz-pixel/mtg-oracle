@@ -1,6 +1,7 @@
 package mtgoracle.ui.kit
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -177,10 +178,24 @@ fun BigButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (Cl
  * `─ lands ────`, `═══ turn 7 … ═══` ([heavy]) in the house look. A drawn
  * chrome keeps every character but the rule's own, and etches a line (a
  * group box's edge) under the cells they took, so the text stays put.
+ * [onPicture]: the rule lies over a playmat, and its label is drawn in the
+ * foreground on the background, in the same cells; dim straight on a light
+ * or busy picture, it could hardly be read.
  */
 @Composable
-fun RuleLine(cols: Int, modifier: Modifier = Modifier, label: String? = null, end: String? = null, heavy: Boolean = false, color: Color = Palette.dim, bold: Boolean = false) =
-    DrawnRule(ruleText(cols, label, end, heavy), modifier, heavy, color, bold)
+fun RuleLine(cols: Int, modifier: Modifier = Modifier, label: String? = null, end: String? = null, heavy: Boolean = false, color: Color = Palette.dim, bold: Boolean = false, onPicture: Boolean = false) {
+    val line = ruleText(cols, label, end, heavy)
+    if (!onPicture || label == null) return DrawnRule(line, modifier, heavy, color, bold)
+    val lead = if (heavy) 4 else 2 // `─ ` or `═══ ` before the label
+    val shown = line.drop(lead).substringBefore(" " + (if (heavy) '═' else '─'))
+    Box(modifier) {
+        DrawnRule(line, Modifier, heavy, color, bold)
+        if (shown.isNotBlank() && line.length > lead) Row {
+            GridText(" ".repeat(lead))
+            GridText(shown, color = Palette.foreground, background = Palette.background, bold = bold)
+        }
+    }
+}
 
 /** A [RuleLine]'s characters, for a rendering to carry as text: `─ Black (725) ───…`. */
 fun ruleText(cols: Int, label: String? = null, end: String? = null, heavy: Boolean = false): String {

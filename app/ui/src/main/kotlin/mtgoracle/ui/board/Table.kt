@@ -282,14 +282,14 @@ private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, lo
                 Box(Modifier.fillMaxWidth().cellHeight(contentRows + handRows + emblems)) {
                     if (handRows > 0) HandLane(player, looks)
                     if (emblems > 0) Box(Modifier.offset(y = with(density) { ((if (far) handRows + contentRows else 0) * cells.height).toDp() })) {
-                        EmblemRow(player, looks, if (far) "far" else "near")
+                        EmblemRow(player, looks, if (far) "far" else "near", onMat = mat != null)
                     }
                     for (b in 0 until plan.bands) {
                         // Rows from the midline: nonland bands pack outwards from it (band 0 touches it); the
                         // lands bands pack inwards from the player's edge, so free rows fall between the two.
                         val fromMidline = if (b < plan.landsFrom) b * band else contentRows - (plan.bands - b) * band
                         val y = if (far) handRows + contentRows - fromMidline - band else emblems + fromMidline
-                        BandView(b, plan, lanes, looks, cols, if (far) "far" else "near", Modifier.offset(y = with(density) { (y * cells.height).toDp() }))
+                        BandView(b, plan, lanes, looks, cols, if (far) "far" else "near", Modifier.offset(y = with(density) { (y * cells.height).toDp() }), onMat = mat != null)
                     }
                 }
             }
@@ -297,9 +297,9 @@ private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, lo
     }
 }
 
-/** One band: each zone's label on the rule line, its cards under it, overlapped when the plan says so. */
+/** One band: each zone's label on the rule line ([onMat]: over a playmat), its cards under it, overlapped when the plan says so. */
 @Composable
-private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols: Int, side: String, modifier: Modifier) {
+private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols: Int, side: String, modifier: Modifier, onMat: Boolean = false) {
     val cells = LocalCells.current
     val density = LocalDensity.current
     fun dx(c: Int) = with(density) { (c * cells.width).toDp() }
@@ -317,7 +317,7 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
                     // `artifacts · enchantm…` beside an empty half. No card moves for it.
                     val next = segments.filter { it.x > seg.x }.minOfOrNull { it.x } ?: contentCols
                     val wanted = label.length + 4
-                    RuleLine(maxOf(1, seg.width - 1, minOf(wanted, next - seg.x - 1)), Modifier.offset(x = dx(seg.x)), label = label)
+                    RuleLine(maxOf(1, seg.width - 1, minOf(wanted, next - seg.x - 1)), Modifier.offset(x = dx(seg.x)), label = label, onPicture = onMat)
                 }
                 places.forEachIndexed { order, place ->
                     val slot = lanes.zone(place.zone)[place.index]

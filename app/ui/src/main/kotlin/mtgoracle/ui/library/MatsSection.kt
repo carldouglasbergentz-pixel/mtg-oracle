@@ -152,18 +152,7 @@ private fun Preview(mat: Playmat, modifier: Modifier, onPlace: (Float, Float) ->
         },
     ) {
         PlaymatLayer(live, Modifier.fillMaxSize())
-        Column { MatRule("creatures"); repeat(2) { GridText(" ") }; MatRule("lands") }
+        // The zones' rules as the table draws them over a mat.
+        Column { RuleLine(PREVIEW_COLS, label = "creatures", onPicture = true); repeat(2) { GridText(" ") }; RuleLine(PREVIEW_COLS, label = "lands", onPicture = true) }
     }
-}
-
-/**
- * A zone's rule over the mat, as the table draws it, its label on the
- * background: in the dim tone straight on a picture it could not be read on a
- * light or busy mat.
- */
-@Composable
-private fun MatRule(label: String) = Box {
-    RuleLine(PREVIEW_COLS, label = label)
-    // Over the rule's own label, in its cells: `─ creatures ─`.
-    Row { GridText("  "); GridText(label, color = Palette.foreground, background = Palette.background) }
 }
