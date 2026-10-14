@@ -52,7 +52,14 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
         // Cards this seat may not see get stand-in ids: nothing ties a back to the card behind it.
         var nextStand = 0
         val stand = { --nextStand }
-        val players = game.players.threadSafeIterable().map { player(it, it.id in seatPlayerIds, mayView, mayPeek, stand) }
+        // The view's priority flag is set only after a pass, so while a step begins (attackers or blockers
+        // being declared) it still names the last to pass, though no one holds priority. The live handler
+        // has by then moved on to the active player: the two agree only while someone does hold it.
+        // Before the game's first pass (or a staged board's) the view names no one, and the handler is right.
+        val handed = game.game?.phaseHandler?.priorityPlayer?.id
+        val viewed = game.players.threadSafeIterable().firstOrNull { it.hasPriority }?.id
+        val holder = if (handed == null) viewed else handed.takeIf { viewed == null || viewed == it }
+        val players = game.players.threadSafeIterable().map { player(it, it.id in seatPlayerIds, mayView, mayPeek, stand, holder) }
         val stack = game.stack?.threadSafeIterable()?.map { item ->
             val source = item.sourceCard
             val seen = source == null || mayView(source) || abilityNamesItsSource(item.isAbility || item.isTrigger, source.isFaceDown)
@@ -127,7 +134,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
         return if (outcome.isDraw) "draw" else "${game.winningPlayerName ?: "?"} won"
     }
 
-    private fun player(p: PlayerView, isSeat: Boolean, mayView: (CardView) -> Boolean, mayPeek: (CardView) -> Boolean, stand: () -> Int): PlayerState {
+    private fun player(p: PlayerView, isSeat: Boolean, mayView: (CardView) -> Boolean, mayPeek: (CardView) -> Boolean, stand: () -> Int, holder: Int?): PlayerState {
         playerViews[p.id] = p
         val hand = cards(p, ZoneType.Hand)
         // "May view" is about the card as it is now; a face-down card is seen face-down unless we may peek.
@@ -138,7 +145,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             life = p.life,
             isAi = p.isAI,
             isSeat = isSeat,
-            hasPriority = p.hasPriority,
+            hasPriority = p.id == holder,
             hasLost = p.hasLost,
             handCount = hand.size,
             hand = hand.map { if (sees(it)) card(it) else CardState.back(stand()) },

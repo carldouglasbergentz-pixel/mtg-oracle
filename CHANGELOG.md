@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A narrow lobby leaves out an opponent's format before its AI copy and record** (`Rakdos Midrange  (100)  [AI copy: 2]`, not `…  [AI c…`): your deck's game type is theirs.
 - **The playmat preview's zone labels read on any mat**: in the foreground on the background, where dim straight on a light mat could hardly be seen.
 - **A spell on the stack reads as its card does where Forge would print its script**: Duress said `You chooses a Card.nonCreature+nonLand card from it`, Forge's sentence built from a filter its script gives no words; such a spell now shows its card's text, its targets listed beside it as before. `TriggersTest`.
+- **The header names no one with priority while attackers or blockers are declared**, as no one holds it then. Forge marks the holder only after a pass, so through a step's start it still named the last to pass: `priority: AI` while you declared your attack, `priority: You` while you declared blocks. A snapshot now names the holder only where that mark and Forge's phase handler agree (`Snapshots`); nothing sent over the wire changes. `PriorityHeaderTest`.
 
 ### Changed
 - **A commander deck's size is `99 + commander`** (`98 + 2 commanders` with partners), everywhere it is shown: the library said 100, the deck's title and tab 99 and the analysis block 100. One `DeckSize` (core) says it; narrow places use its short form, `99+1` (the library's list, the Deck tab, the lobby, `mtg deck list`). Other decks are unchanged (`60 cards`). `DeckBadgeTest`.

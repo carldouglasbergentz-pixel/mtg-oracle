@@ -377,13 +377,7 @@ fun MidRule(cols: Int, modifier: Modifier = Modifier) {
  */
 @Composable
 fun Header(title: String, board: BoardState?, cols: Int, modifier: Modifier = Modifier) {
-    val text = if (board == null) "starting" else buildString {
-        append("turn ${board.turn} · ${board.phase} · active: ${board.activePlayerName}")
-        board.players.firstOrNull { it.hasPriority }?.let { append(" · priority: ${it.name}") }
-        if (board.stack.isNotEmpty()) append(" · STACK ${board.stack.size}: ${board.stack.first().sourceName}")
-        if (board.combat.isNotEmpty()) append(" · COMBAT " + combatPhrase(board))
-        if (board.gameOver) append(" · GAME OVER: ${board.result}")
-    }
+    val text = if (board == null) "starting" else headerNews(board)
     // The folded stack's bar sits on this line just before the title (StackBar): the news stops short of it.
     val bar = if (board != null && board.stack.isNotEmpty()) stackBarText(board.stack.size).length + 1 else 0
     val label = fit(text, maxOf(1, cols - headerEndCols(title) - bar - 5)).trimEnd()
@@ -391,6 +385,15 @@ fun Header(title: String, board: BoardState?, cols: Int, modifier: Modifier = Mo
         RuleLine(cols, label = label, end = title, heavy = true, color = Palette.accent, bold = true)
         Column(Modifier.cells(cols, TRAIL_LINES).region("trail")) { if (board != null) TrailStrip(board, cols) }
     }
+}
+
+/** The header's news: turn, phase, whose turn, who holds priority (no one while attackers or blockers are declared), stack, combat. */
+fun headerNews(board: BoardState): String = buildString {
+    append("turn ${board.turn} · ${board.phase} · active: ${board.activePlayerName}")
+    board.players.firstOrNull { it.hasPriority }?.let { append(" · priority: ${it.name}") }
+    if (board.stack.isNotEmpty()) append(" · STACK ${board.stack.size}: ${board.stack.first().sourceName}")
+    if (board.combat.isNotEmpty()) append(" · COMBAT " + combatPhrase(board))
+    if (board.gameOver) append(" · GAME OVER: ${board.result}")
 }
 
 /** The cells the header's end title takes at the line's right end: ` MTG Oracle ═══`. */
