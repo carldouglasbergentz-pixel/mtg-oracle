@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-10-14
+
+A sweep for alignment and readability: box corners meet their sides, the analysis block's curve and colours line up, a commander deck reads `99 + commander`, floating boxes open where they cover nothing, each thing and each key is said once, every theme's dim text reads, and on the board red means tapped. From 0.7.3, `update` installs it. Network play needs this version on both sides.
+
 ### Fixed
 - **A pane's top-right corner meets its side.** The cell's width was a whole pixel's rounding of a hundred cells, a hair too wide; on a wide pane the sides, placed cell by cell, ended a pixel or two right of the top edge's `┐`, drawn at the font's own advance. `ThemeAndPanesTest`.
 - **A badge stands off the border as the title does** (`── EDH · 99 cards ┐`, not `──EDH · 99 cards ┐`), where the edge has room; a card frame the title fills keeps it tight (`Mountain ×3 ┐`).
