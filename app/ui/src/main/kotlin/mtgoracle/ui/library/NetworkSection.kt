@@ -13,9 +13,7 @@ import mtgoracle.ui.kit.BigButton
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.FitText
 import mtgoracle.ui.kit.GridText
-import mtgoracle.ui.kit.LinkButton
 import mtgoracle.ui.kit.RuleLine
-import mtgoracle.ui.kit.WrapText
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.region
 import mtgoracle.ui.theme.LocalCells
@@ -71,11 +69,11 @@ internal fun NetworkSection(net: LobbyNetwork, canPlay: Boolean, onNet: (NetActi
         Column {
             RuleLine(cols, label = "network play")
             GridText("")
-            Row {
-                GridText("  your name  ")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GridText(LOBBY_LABEL.format("your name"))
                 GridText(net.name, color = Palette.accent)
                 GridText("  ")
-                LinkButton("[ change ]", ClickTarget.Control("net:rename")) { onNet(NetAction.Rename) }
+                BigButton("Change", ClickTarget.Control("net:rename"), true) { onNet(NetAction.Rename) }
             }
             GridText("")
             Row {
@@ -84,7 +82,7 @@ internal fun NetworkSection(net: LobbyNetwork, canPlay: Boolean, onNet: (NetActi
                 GridText("   ")
                 Toggle(net.showTheirMat, "show the other's playmat", "net:show-mat") { onNet(NetAction.ToggleShowTheirMat) }
             }
-            WrapText("      A playmat crosses as pixels, never as a file. The other's stays hidden until you show it.", color = Palette.dim)
+            Help("A playmat crosses as pixels, never as a file. The other's stays hidden until you show it.")
             GridText("")
             when (val state = net.state) {
                 NetState.Idle, is NetState.Failed -> {
@@ -95,42 +93,48 @@ internal fun NetworkSection(net: LobbyNetwork, canPlay: Boolean, onNet: (NetActi
                         GridText(" ")
                         BigButton("Join from the clipboard", ClickTarget.Control("net:join"), true) { onNet(NetAction.Join) }
                     } else FitText(if (sealedSet != null) "  choose a set first" else "  choose your deck first", color = Palette.dim)
-                    WrapText("      Host: your router opens a port (UPnP) and you get an invite to send. Join: copy the invite you were sent, then Join. " +
+                    Help("Host: your router opens a port (UPnP) and you get an invite to send. Join: copy the invite you were sent, then Join. " +
                         (if (sealedSet != null) "A sealed table of $sealedSet when you host it: each of you opens six packs in your own app, builds, then Ready; " +
                             "neither sees the other's pool, and each checks the other's deck against it."
-                        else "You play the deck chosen above; the host's match format counts."), color = Palette.dim)
-                    if (state is NetState.Failed) WrapText("  ${state.reason}", color = Palette.accent)
+                        else "You play the deck chosen above; the host's match format counts."))
+                    if (state is NetState.Failed) Help(state.reason, color = Palette.accent)
                 }
                 NetState.Opening -> FitText("  asking your router to open a port…", color = Palette.dim)
                 is NetState.Building -> {
                     FitText("  a sealed table of ${state.set} with ${state.friend}", color = Palette.accent, bold = true)
                     FitText("  your deck: ${state.deck ?: "(your packs are being opened)"}", color = if (state.deck != null) Palette.foreground else Palette.dim)
-                    state.note?.let { WrapText("  $it", color = Palette.accent, hang = 2) }
+                    state.note?.let { Help(it, color = Palette.accent) }
+                    GridText("")
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         GridText(" ")
                         BigButton(if (state.ready) "Ready ✓" else "Ready", ClickTarget.Control("net:ready"), state.deck != null && !state.ready) { onNet(NetAction.Ready) }
                         GridText(" ")
                         BigButton("Leave the table", ClickTarget.Control("net:leave"), true) { onNet(NetAction.LeaveTable) }
                     }
-                    WrapText("      Build in the library (your deck is in the Limited folder): the pool is in the middle, + takes a card. " +
-                        "Ready checks the deck against your pool (forty or more) and holds you to it; the match begins when both are ready.", color = Palette.dim)
+                    Help("Build in the library (your deck is in the Limited folder): the pool is in the middle, + takes a card. " +
+                        "Ready checks the deck against your pool (forty or more) and holds you to it; the match begins when both are ready.")
                 }
-                NetState.Joining -> Row {
-                    GridText("  knocking on your friend's room…  ", color = Palette.dim)
-                    LinkButton("[ Cancel ]", ClickTarget.Control("net:cancel-join")) { onNet(NetAction.CancelJoin) }
+                NetState.Joining -> {
+                    FitText("  knocking on your friend's room…", color = Palette.dim)
+                    GridText("")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        GridText(" ")
+                        BigButton("Cancel", ClickTarget.Control("net:cancel-join"), true) { onNet(NetAction.CancelJoin) }
+                    }
                 }
                 is NetState.Hosting -> {
                     FitText("  invite: ${state.invite}", color = Palette.accent, bold = true)
+                    GridText("")
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         GridText(" ")
                         BigButton("Copy the invite", ClickTarget.Control("net:copy"), true) { onNet(NetAction.CopyInvite) }
                         GridText(" ")
                         BigButton("Close the room", ClickTarget.Control("net:close"), true) { onNet(NetAction.CloseRoom) }
                     }
-                    WrapText("      Send it to your friend, who copies it and joins. Waiting for them" +
+                    Help("Send it to your friend, who copies it and joins. Waiting for them" +
                         (if (state.strangers > 0) "; ${state.strangers} connection${if (state.strangers == 1) "" else "s"} without the invite turned away" else "") + ". " +
-                        "Windows may ask whether the app may accept connections: allow it, or your friend can't reach you.", color = Palette.dim)
-                    state.lastRefused?.let { WrapText("  your friend was turned away: $it", color = Palette.accent) }
+                        "Windows may ask whether the app may accept connections: allow it, or your friend can't reach you.")
+                    state.lastRefused?.let { Help("your friend was turned away: $it", color = Palette.accent) }
                 }
             }
         }

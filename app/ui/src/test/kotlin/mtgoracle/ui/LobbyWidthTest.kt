@@ -3,6 +3,8 @@ package mtgoracle.ui
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.library.OpponentChoice
+import mtgoracle.ui.library.HELP_COLS
+import mtgoracle.ui.library.HELP_INDENT
 import mtgoracle.ui.library.LobbyScreen
 import java.io.File
 import kotlin.test.Test
@@ -20,6 +22,8 @@ import kotlin.test.assertTrue
 class LobbyWidthTest {
     private val me = DeckSummary(1, "UW Draw Go - Control", "canadianhighlander", null, null, 100)
     private val opponent = OpponentChoice(DeckSummary(2, "Rakdos Midrange", "canadianhighlander", null, null, 100), substitutions = 2)
+    private val simHelp = "AI vs AI with no board, both AIs on their AI copies when that is on. N cycles 1 / 5 / 10 / 20 / 50, " +
+        "S starts and stops. Each game is recorded as it ends; one past 150 s is a draw."
     private val watchHelp = "an AI plays UW Draw Go - Control too, and you watch; hands stay hidden unless you press H"
 
     private val chosen = mutableListOf<String>()
@@ -43,6 +47,8 @@ class LobbyWidthTest {
         assertTrue(d.click(ClickTarget.Control("opponent:2")))
         assertTrue(d.click(ClickTarget.Control("library")), "the toolbar's Library, as on the other screens")
         assertEquals(listOf("me 2", "opponent 2", "library"), chosen)
+        // The mouse left on Library lit it in the accent in this picture alone.
+        d.pointerAway()
         d.savePng(File(pngDir, "lobby-1600.png"))
     }
 
@@ -64,6 +70,9 @@ class LobbyWidthTest {
     fun `at 1920 the watch option's help is shown in full on one line`() = render(1920) { d ->
         assertTrue(lines(d).any { watchHelp in it }, lines(d).filter { "watch" in it }.toString())
         assertFalse(lines(d).any { it.endsWith("…") }, "a line was cut: " + lines(d).filter { it.endsWith("…") })
+        // A wide window doesn't make a help line as wide: the simulation's wraps at a hundred columns.
+        val sim = lines(d).filter { it.trim().length > 8 && it.trim() in simHelp }
+        assertTrue(sim.size >= 2 && sim.all { it.length <= HELP_INDENT + HELP_COLS }, sim.toString())
         d.savePng(File(pngDir, "lobby-1920.png"))
     }
 

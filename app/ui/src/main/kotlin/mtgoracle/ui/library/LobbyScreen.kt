@@ -42,7 +42,8 @@ import mtgoracle.ui.kit.RuleLine
 import mtgoracle.ui.kit.StatusLine
 import mtgoracle.ui.kit.TabButton
 import mtgoracle.ui.kit.Toolbar
-import mtgoracle.ui.kit.WrapText
+import mtgoracle.ui.kit.cellHeight
+import mtgoracle.ui.kit.fit
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.region
 import mtgoracle.ui.theme.LocalCells
@@ -54,6 +55,9 @@ import mtgoracle.ui.theme.Palette
  * packs are being opened.
  */
 data class LobbyLimited(val sets: List<LimitedSet>, val chosenSet: String?, val opponent: String?, val opening: Boolean = false)
+
+/** The limited tab's keys for a match against the AI (and for opening a pool), quiet while a sealed table with a friend is built. */
+private val AI_MATCH_KEYS = setOf(Key.O, Key.E, Key.Delete, Key.W, Key.B, Key.N, Key.S, Key.Enter)
 
 /** A simulation as the lobby shows it: its status line, and whether it is still going. */
 data class SimLine(val line: String, val running: Boolean)
@@ -125,6 +129,8 @@ fun LobbyScreen(
     onDelete: (Int) -> Unit = {},
 ) {
     val simRunning = simulation?.running == true
+    // A sealed table with a friend is being built: what is played against the AI has no part in it.
+    val table = (network?.state as? NetState.Building)?.takeIf { limited != null }
     val focus = remember { FocusRequester() }
     // Which list ↑↓ moves in: yours (0) or the opponent's (1).
     var list by remember { mutableStateOf(1) }
@@ -167,6 +173,7 @@ fun LobbyScreen(
     BoxWithConstraints(
         Modifier.fillMaxSize().background(Palette.surface).focusRequester(focus).focusable().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown || ask != null) return@onPreviewKeyEvent false
+            if (table != null && e.key in AI_MATCH_KEYS) return@onPreviewKeyEvent false
             when (e.key) {
                 Key.DirectionUp -> move(-1)
                 Key.DirectionDown -> move(+1)
@@ -198,15 +205,20 @@ fun LobbyScreen(
                 BoxPane("decks", Modifier.weight(1f).fillMaxHeight(), right = "Tab switches the list") {
                     BoxWithConstraints(Modifier.fillMaxSize()) {
                         val inner = LocalCells.current.cols(constraints.maxWidth.toFloat())
+                        val folders = decks.groupBy { it.folderName ?: "(no folder)" }
+                        // Your list takes the rows it needs (its rule, its lines, a blank row) up to half, the other list the rest.
+                        // Only the tab changes your list, never a click in either, so nothing moves on a choice.
+                        val mine = 2 + if (decks.isEmpty()) 1 else folders.size + decks.size
+                        val mineRows = minOf(mine, LocalCells.current.rows(constraints.maxHeight.toFloat()) / 2)
                         Column(Modifier.fillMaxSize()) {
-                            DeckList(inner, "your deck", list == 0, Modifier.weight(1f).region("lobby-me")) {
+                            DeckList(inner, "your deck", list == 0, Modifier.cellHeight(mineRows).region("lobby-me")) {
                                 if (decks.isEmpty()) FitText(
                                     if (limited != null) "  no limited deck yet: choose a set below and open a sealed pool" else "  no decks yet: make or import one in the library",
                                     color = Palette.dim,
                                 )
-                                decks.groupBy { it.folderName ?: "(no folder)" }.forEach { (folder, inFolder) ->
+                                folders.forEach { (folder, inFolder) ->
                                     FitText("  $folder", color = Palette.dim)
-                                    inFolder.forEach { d -> DeckLine("me:${d.id}", "    ${d.name}  (${d.format ?: "-"}, ${d.size.short})", d.id == meId, onClick) }
+                                    inFolder.forEach { d -> DeckLine("me:${d.id}", d.id == meId, onClick, "    ${d.name}  (${d.format ?: "-"}, ${d.size.short})") }
                                 }
                             }
                             if (limited != null) SetList(inner, limited, list == 1, Modifier.weight(1f).region("lobby-sets"), onClick)
@@ -216,7 +228,10 @@ fun LobbyScreen(
                                 opponents.forEach { o ->
                                     val copy = if (o.substitutions > 0) "  [AI copy: ${o.substitutions}]" else ""
                                     val record = o.record?.let { "  $it" }.orEmpty()
-                                    DeckLine("opponent:${o.deck.id}", "    ${o.deck.name}  (${o.deck.format ?: "-"}, ${o.deck.size.short})$copy$record", o.deck.id == selectedId, onClick)
+                                    // Narrow, the format goes before the AI copy and the record: your deck's game type is theirs.
+                                    DeckLine("opponent:${o.deck.id}", o.deck.id == selectedId, onClick,
+                                        "    ${o.deck.name}  (${o.deck.format ?: "-"}, ${o.deck.size.short})$copy$record",
+                                        "    ${o.deck.name}  (${o.deck.size.short})$copy$record")
                                 }
                             }
                         }
@@ -225,14 +240,15 @@ fun LobbyScreen(
                 BoxPane("the match", Modifier.weight(1f).fillMaxHeight()) {
                     // Every line takes the pane's measured width: facts are cut where the pane ends, instructions wrap.
                     if (limited != null) LimitedMatch(me, limited, watch, format, notes, canStart && !startWaiting, forgeReady, forgeStartedAt, forgeExpectedMillis, onClick,
-                        startWaiting = startWaiting, simGames = simGames, simulation = simulation) {
+                        startWaiting = startWaiting, simGames = simGames, simulation = simulation, table = table) {
                         // As under the constructed tab's match: network play, then the playmats.
                         network?.let { GridText(""); NetworkSection(it, canPlay = forgeReady && !simRunning && limited.chosenSet != null, onNet,
                             sealedSet = limited.sets.firstOrNull { s -> s.code == limited.chosenSet }?.name) }
                         mats?.let { GridText(""); MatsSection(it, onMat) }
                     }
                     else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        FitText("  ${me?.name ?: "your deck"}  vs  ${opponent?.deck?.name ?: "-"}", bold = true)
+                        // No opponent chosen yet: the title is your deck alone, not `vs  -`.
+                        FitText("  " + listOfNotNull(me?.name ?: "your deck", opponent?.deck?.name).joinToString("  vs  "), bold = true)
                         GridText("")
                         val subs = opponent?.substitutions ?: 0
                         if (subs == 0) Option(null, "[-] AI copy", "the AI plays the deck as built: it has no substitutions", onClick)
@@ -245,8 +261,8 @@ fun LobbyScreen(
                         Option("sim-games", "simulate: $simGames games  (N, S)",
                             "AI vs AI with no board, both AIs on their AI copies when that is on. N cycles 1 / 5 / 10 / 20 / 50, " +
                                 "S starts and stops. Each game is recorded as it ends; one past 150 s is a draw.", onClick)
-                        simulation?.let { WrapText("  ${it.line}", color = if (it.running) Palette.foreground else Palette.dim, hang = 4) }
-                        notes.forEach { WrapText("  $it", color = Palette.accent, hang = 2) }
+                        simulation?.let { Help(it.line, color = if (it.running) Palette.foreground else Palette.dim) }
+                        notes.forEach { Help(it, color = Palette.accent) }
                         GridText("")
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             val startable = canStart && !simRunning && !startWaiting
@@ -264,7 +280,8 @@ fun LobbyScreen(
             }
             ask?.let { mtgoracle.ui.lookup.AskBar(it) { onAskClosed(); focus.requestFocus() } }
             StatusLine(
-                if (limited != null) listOf("L" to "constructed", "Tab" to "your deck / set", "↑↓" to "choose", "E" to "build", "Del" to "delete", "O" to "open sealed",
+                if (table != null) listOf("L" to "constructed", "Tab" to "your deck / set", "↑↓" to "choose", "Esc" to "library")
+                else if (limited != null) listOf("L" to "constructed", "Tab" to "your deck / set", "↑↓" to "choose", "E" to "build", "Del" to "delete", "O" to "open sealed",
                     "W" to "watch", "B" to "best of", "Enter" to "start", "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library")
                 else listOf("L" to "limited", "Tab" to "your deck / opponent", "↑↓" to "choose", "A" to "AI copy", "W" to "watch", "B" to "best of", "Enter" to "start",
                     "S" to if (simRunning) "stop sim" else "simulate", "N" to "games", "Esc" to "library"),
@@ -312,8 +329,10 @@ private fun SetList(cols: Int, limited: LobbyLimited, active: Boolean, modifier:
         RuleLine(cols, label = "open a sealed pool: the set", heavy = active, color = if (active) Palette.accent else Palette.dim, bold = active)
         WholeLines(scroll) {
             if (limited.sets.isEmpty()) FitText("  the sets come once Forge is up", color = Palette.dim)
+            // The years in one column: after the longest name, not after each.
+            val names = limited.sets.maxOfOrNull { it.name.length } ?: 0
             limited.sets.forEach { set ->
-                DeckLine("set:${set.code}", "    ${set.code.padEnd(5)} ${set.name}  ${set.released.take(4)}", set.code == limited.chosenSet, onClick)
+                DeckLine("set:${set.code}", set.code == limited.chosenSet, onClick, "    ${set.code.padEnd(5)} ${set.name.padEnd(names)}  ${set.released.take(4)}")
             }
         }
     }
@@ -330,22 +349,34 @@ private fun LimitedMatch(
     /** How many games Simulate plays (N cycles it), and the simulation running or the last one. */
     simGames: Int = 10,
     simulation: SimLine? = null,
+    /** A sealed table with a friend being built: the match is theirs, so only the table (in [network]) is shown. */
+    table: NetState.Building? = null,
     /** Under the rest, as under the constructed tab's match: network play (a sealed table hosted or joined) and the playmats. */
     network: @Composable () -> Unit = {},
 ) {
+    if (table != null) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            FitText("  ${table.set} sealed  vs  ${table.friend}", bold = true)
+            network()
+        }
+        return
+    }
     val set = limited.sets.firstOrNull { it.code == limited.chosenSet }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        FitText("  ${me?.name ?: "your limited deck"}  vs  ${limited.opponent ?: "-"}", bold = true)
-        if (me != null) Row(verticalAlignment = Alignment.CenterVertically) {
-            GridText(" ")
-            BigButton("Build  (E)", ClickTarget.Control("limited-build"), true, onClick)
-            GridText(" ")
-            BigButton("Delete", ClickTarget.Control("limited-delete"), true, onClick)
+        // The AI's deck is built as the match starts, so before the first it has no name yet.
+        FitText("  ${me?.name ?: "your limited deck"}  vs  ${limited.opponent ?: "the AI"}", bold = true)
+        if (me != null) {
+            GridText("")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GridText(" ")
+                BigButton("Build", ClickTarget.Control("limited-build"), true, onClick)
+                GridText(" ")
+                BigButton("Delete", ClickTarget.Control("limited-delete"), true, onClick)
+            }
         }
-        WrapText(
-            "  The AI opened its own six packs of the same set when you opened yours, and builds its deck from them as the match starts. " +
+        Help(
+            "The AI opened its own six packs of the same set when you opened yours, and builds its deck from them as the match starts. " +
                 "Build (E) opens your deck with its pool in the middle: + takes a card into the deck, forty or more. Basic lands are free.",
-            color = Palette.dim, hang = 2,
         )
         GridText("")
         Option("watch", "[${if (watch) "x" else " "}] watch  (W)", "an AI plays ${me?.name ?: "your deck"} too, and you watch", onClick)
@@ -355,8 +386,8 @@ private fun LimitedMatch(
             "an AI plays your deck against the AI's, with no board: a build tried out. N cycles 1 / 5 / 10 / 20 / 50, S starts and stops; " +
                 "each game is recorded as it ends.", onClick)
         val simRunning = simulation?.running == true
-        simulation?.let { WrapText("  ${it.line}", color = if (it.running) Palette.foreground else Palette.dim, hang = 4) }
-        notes.forEach { WrapText("  $it", color = Palette.accent, hang = 2) }
+        simulation?.let { Help(it.line, color = if (it.running) Palette.foreground else Palette.dim) }
+        notes.forEach { Help(it, color = Palette.accent) }
         GridText("")
         Row(verticalAlignment = Alignment.CenterVertically) {
             GridText(" ")
@@ -368,7 +399,7 @@ private fun LimitedMatch(
         GridText("")
         GridText("")
         FitText("  a new sealed pool", bold = true)
-        WrapText("  Six packs of ${set?.name ?: "the set chosen on the left"}, as its own booster holds them, and a new deck in the Limited folder.", color = Palette.dim, hang = 2)
+        Help("Six packs of ${set?.name ?: "the set chosen on the left"}, as its own booster holds them, and a new deck in the Limited folder.")
         GridText("")
         Row(verticalAlignment = Alignment.CenterVertically) {
             GridText(" ")
@@ -418,18 +449,23 @@ private fun ColumnScope.WholeLines(scroll: ScrollState, content: @Composable () 
 private fun Option(target: String?, line: String, help: String, onClick: (ClickTarget) -> Unit) {
     Column(Modifier.fillMaxWidth().then(if (target != null) Modifier.clickTarget(ClickTarget.Control(target), onClick) else Modifier)) {
         FitText("  $line", color = if (target != null) Palette.accent else Palette.dim)
-        WrapText("      $help", color = Palette.dim)
+        Help(help)
         GridText("")
     }
 }
 
-/** One deck in a lobby list, inverted when chosen. */
+/**
+ * One deck (or set) in a lobby list, inverted when chosen: the first of [texts]
+ * that fits the list's width, each shorter than the one before; the last is cut with `…`.
+ */
 @Composable
-private fun DeckLine(target: String, text: String, chosen: Boolean, onClick: (ClickTarget) -> Unit) {
-    FitText(
-        text,
-        Modifier.clickTarget(ClickTarget.Control(target), onClick),
-        color = if (chosen) Palette.background else Palette.foreground,
-        background = if (chosen) Palette.foreground else Color.Unspecified,
-    )
+private fun DeckLine(target: String, chosen: Boolean, onClick: (ClickTarget) -> Unit, vararg texts: String) {
+    BoxWithConstraints(Modifier.clickTarget(ClickTarget.Control(target), onClick)) {
+        val cols = LocalCells.current.cols(constraints.maxWidth.toFloat())
+        GridText(
+            fit(texts.firstOrNull { it.length <= cols } ?: texts.last(), cols),
+            color = if (chosen) Palette.background else Palette.foreground,
+            background = if (chosen) Palette.foreground else Color.Unspecified,
+        )
+    }
 }

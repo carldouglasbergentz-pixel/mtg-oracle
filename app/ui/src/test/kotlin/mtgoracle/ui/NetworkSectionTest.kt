@@ -65,7 +65,7 @@ class NetworkSectionTest {
                 val help = indents(d, hostHelp)
                 // Wrapped in the house look at this width, so the column check bites; a look with smaller cells may fit it on one line.
                 if (theme == Themes.HOUSE) assertTrue(help.size >= 2, "the help wraps at this width: $help")
-                assertEquals(setOf(6), help.toSet(), "${theme.key}: every line of the help starts in one column: $help")
+                assertEquals(setOf(mtgoracle.ui.library.HELP_INDENT), help.toSet(), "${theme.key}: every line of the help starts in one column: $help")
             }
         }
     }
@@ -77,7 +77,7 @@ class NetworkSectionTest {
                 val help = indents(d, "Send it to your friend, who copies it and joins. Waiting for them; 2 connections without the invite turned away. " +
                     "Windows may ask whether the app may accept connections: allow it, or your friend can't reach you.")
                 assertTrue(help.size >= 2, "${theme.key}: $help")
-                assertEquals(setOf(6), help.toSet(), "${theme.key}: $help")
+                assertEquals(setOf(mtgoracle.ui.library.HELP_INDENT), help.toSet(), "${theme.key}: $help")
             }
         }
     }

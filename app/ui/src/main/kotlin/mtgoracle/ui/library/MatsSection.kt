@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -27,7 +28,7 @@ import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.kit.GridText
 import mtgoracle.ui.kit.LinkButton
 import mtgoracle.ui.kit.RuleLine
-import mtgoracle.ui.kit.WrapText
+import mtgoracle.ui.kit.BigButton
 import mtgoracle.ui.kit.cells
 import mtgoracle.ui.kit.region
 import mtgoracle.ui.theme.LocalCells
@@ -73,11 +74,11 @@ internal fun MatsSection(mats: LobbyMats, onMat: (MatAction) -> Unit) {
             GridText("")
             Side("yours", true, mats.mine, mats.names.isNotEmpty(), onMat)
             Side("the AI's", false, mats.theirs, mats.names.isNotEmpty(), onMat)
-            Row {
-                GridText("  ")
-                LinkButton("[ Add a playmat from the clipboard ]", ClickTarget.Control("mat:add")) { onMat(MatAction.Add) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GridText(" ")
+                BigButton("Add a playmat from the clipboard", ClickTarget.Control("mat:add"), true) { onMat(MatAction.Add) }
             }
-            WrapText("    Copy a picture (or its file in Explorer), then Add; or put pictures in ${mats.folder}.", color = Palette.dim)
+            Help("Copy a picture (or its file in Explorer), then Add; or put pictures in ${mats.folder}.")
         }
     }
 }
@@ -86,9 +87,11 @@ internal fun MatsSection(mats: LobbyMats, onMat: (MatAction) -> Unit) {
 private fun Side(label: String, mine: Boolean, side: MatSide, any: Boolean, onMat: (MatAction) -> Unit) {
     val key = if (mine) "me" else "ai"
     Row {
-        GridText("  %-11s".format(label))
+        GridText(LOBBY_LABEL.format(label))
         if (any) LinkButton("[<]", ClickTarget.Control("mat:$key:prev")) { onMat(MatAction.Cycle(mine, -1)) }
-        GridText(" ${side.name ?: "none"} ", color = if (side.name != null) Palette.accent else Palette.dim)
+        // Spaced off the arrows only when they are there: without them the value starts where every lobby value does.
+        val name = side.name ?: "none"
+        GridText(if (any) " $name " else name, color = if (side.name != null) Palette.accent else Palette.dim)
         if (any) LinkButton("[>]", ClickTarget.Control("mat:$key:next")) { onMat(MatAction.Cycle(mine, +1)) }
     }
     val mat = side.mat ?: return GridText("")
@@ -106,12 +109,13 @@ private fun Side(label: String, mine: Boolean, side: MatSide, any: Boolean, onMa
         LinkButton("[-]", ClickTarget.Control("mat:$key:zoom-out")) { onMat(zoomed(-ZOOM_STEP)) }
         GridText(" %3d %% ".format((mat.zoom * 100).roundToInt()))
         LinkButton("[+]", ClickTarget.Control("mat:$key:zoom-in")) { onMat(zoomed(+ZOOM_STEP)) }
-        GridText("   ")
-        LinkButton("[ reset ]", ClickTarget.Control("mat:$key:reset")) { onMat(MatAction.Frame(mine, 0.5f, 0.5f, 1f)) }
     }
+    // Reset beside the preview it resets: a button two rows high in the dim row would touch the row above.
     Row {
         GridText("             ")
         Preview(mat, Modifier.region("mat-preview-$key")) { x, y -> onMat(MatAction.Frame(mine, x, y, mat.zoom)) }
+        GridText(" ")
+        BigButton("Reset", ClickTarget.Control("mat:$key:reset"), true) { onMat(MatAction.Frame(mine, 0.5f, 0.5f, 1f)) }
     }
     GridText("             drag the preview to place the picture", color = Palette.dim)
     GridText("")
@@ -148,6 +152,18 @@ private fun Preview(mat: Playmat, modifier: Modifier, onPlace: (Float, Float) ->
         },
     ) {
         PlaymatLayer(live, Modifier.fillMaxSize())
-        Column { RuleLine(PREVIEW_COLS, label = "creatures"); repeat(2) { GridText(" ") }; RuleLine(PREVIEW_COLS, label = "lands") }
+        Column { MatRule("creatures"); repeat(2) { GridText(" ") }; MatRule("lands") }
     }
+}
+
+/**
+ * A zone's rule over the mat, as the table draws it, its label on the
+ * background: in the dim tone straight on a picture it could not be read on a
+ * light or busy mat.
+ */
+@Composable
+private fun MatRule(label: String) = Box {
+    RuleLine(PREVIEW_COLS, label = label)
+    // Over the rule's own label, in its cells: `─ creatures ─`.
+    Row { GridText("  "); GridText(label, color = Palette.foreground, background = Palette.background) }
 }
