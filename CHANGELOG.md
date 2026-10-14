@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-10-14
+
+The rows are kept and the cards shrink, planeswalkers are never overlapped, and Jace, the Mind Sculptor's 0 asks the order of the cards put back. From 0.7.2, `update` installs it. Network play needs this version on both sides.
+
 ### Fixed
 - **Jace, the Mind Sculptor's 0 asks the order of the two cards it puts back**, as Brainstorm does (CR 401.4); so do Cavalier of Gales, Hidetsugu and Kairi and Riverwise Augur. Forge's scripts lacked `Reorder$ True`: fixed in our Forge build (`12fedb4cc9`) and merged into Forge as Card-Forge/forge#12262 (in a Forge release after 2.0.14). `PutBackOrderTest`.
 
