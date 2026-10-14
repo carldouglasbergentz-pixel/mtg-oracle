@@ -375,6 +375,9 @@ class TriggersTest {
             s.playUntil { "cast Duress" in s.logText() }
             assertTrue(paid, "the payment prompt came, and we paid from the pool")
             assertTrue(s.board.me().manaPool.contains("B2"), "two of the three left: ${s.board.me().manaPool}")
+            // Forge's own sentence for Duress prints its script's filter (`a Card.nonCreature+nonLand card`): the card's text stands in.
+            val duress = s.board.stack.single { it.sourceName == "Duress" }.text
+            assertTrue("noncreature, nonland card" in duress && "Card." !in duress, duress)
             s.png("pool-paid")
         }
     }

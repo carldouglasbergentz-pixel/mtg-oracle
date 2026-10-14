@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The set list's years stand in one column**, after the longest name (`Set number 9  2090` and `Set number 10  2089` were a cell apart).
 - **A narrow lobby leaves out an opponent's format before its AI copy and record** (`Rakdos Midrange  (100)  [AI copy: 2]`, not `…  [AI c…`): your deck's game type is theirs.
 - **The playmat preview's zone labels read on any mat**: in the foreground on the background, where dim straight on a light mat could hardly be seen.
+- **A spell on the stack reads as its card does where Forge would print its script**: Duress said `You chooses a Card.nonCreature+nonLand card from it`, Forge's sentence built from a filter its script gives no words; such a spell now shows its card's text, its targets listed beside it as before. `TriggersTest`.
 
 ### Changed
 - **A commander deck's size is `99 + commander`** (`98 + 2 commanders` with partners), everywhere it is shown: the library said 100, the deck's title and tab 99 and the analysis block 100. One `DeckSize` (core) says it; narrow places use its short form, `99+1` (the library's list, the Deck tab, the lobby, `mtg deck list`). Other decks are unchanged (`60 cards`). `DeckBadgeTest`.

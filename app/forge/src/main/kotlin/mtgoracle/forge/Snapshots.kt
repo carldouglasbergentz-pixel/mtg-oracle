@@ -67,7 +67,11 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
                 !seen -> "a $unseen spell"
                 live != null && !live.isSpell -> live.toString()
                 // "Lightning Bolt - Lightning Bolt deals 3 damage to Savannah Lions.": the frame already names it.
-                else -> FORGE_IDS.replace(item.text.orEmpty(), "").removePrefix("${source?.currentState?.name} - ")
+                else -> FORGE_IDS.replace(item.text.orEmpty(), "").removePrefix("${source?.currentState?.name} - ").let { said ->
+                    // Where a script gives a filter no words, Forge writes the filter ("a Card.nonCreature+nonLand card", Duress):
+                    // the card's own text says it as printed, and the targets are listed beside it.
+                    if (SCRIPT_FILTER.containsMatchIn(said)) source?.currentState?.oracleText?.takeIf { it.isNotBlank() }?.replace('\n', ' ') ?: said else said
+                }
             }
             StackEntry(
                 id = item.id,
@@ -227,6 +231,8 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
     private companion object {
         /** Forge suffixes card names with their id in text ("Polluted Delta (144)"); the table shows names. */
         val FORGE_IDS = Regex(" \\(\\d+\\)")
+        /** A card filter in Forge's script language, as a description sometimes prints it: `Card.nonCreature+nonLand`, `Creature.YouCtrl`. */
+        val SCRIPT_FILTER = Regex("""\b(?:Card|Creature|Permanent|Land|Artifact|Enchantment|Planeswalker|Instant|Sorcery|Spell)\.[A-Za-z]""")
         /**
          * PlayerView keys the pool by mana *atom*. MagicColor.COLORLESS is 0,
          * not colourless's atom, and read with it colourless mana never showed.
