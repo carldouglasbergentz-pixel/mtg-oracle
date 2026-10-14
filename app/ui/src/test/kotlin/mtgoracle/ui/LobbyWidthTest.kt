@@ -3,6 +3,7 @@ package mtgoracle.ui
 import mtgoracle.core.deck.DeckSummary
 import mtgoracle.ui.kit.ClickTarget
 import mtgoracle.ui.library.OpponentChoice
+import mtgoracle.ui.library.DECKS_PANE_COLS
 import mtgoracle.ui.library.HELP_COLS
 import mtgoracle.ui.library.HELP_INDENT
 import mtgoracle.ui.library.LobbyScreen
@@ -74,6 +75,25 @@ class LobbyWidthTest {
         val sim = lines(d).filter { it.trim().length > 8 && it.trim() in simHelp }
         assertTrue(sim.size >= 2 && sim.all { it.length <= HELP_INDENT + HELP_COLS }, sim.toString())
         d.savePng(File(pngDir, "lobby-1920.png"))
+    }
+
+    @Test
+    fun `the decks pane is half a narrow window and no wider than its rows in a wide one`() {
+        val share = listOf(800, 1280, 1920).associateWith { width ->
+            var left = 0f
+            render(width) { d ->
+                val mine = assertNotNull(d.registry[ClickTarget.Control("region:lobby-me")])
+                val watch = assertNotNull(d.registry[ClickTarget.Control("watch")])
+                assertTrue(watch.left >= mine.right, "$width: the options are right of the lists: $watch")
+                left = mine.width / width
+            }
+            left
+        }
+        assertTrue(share.getValue(800) > 0.45f, "a narrow window splits in half: $share")
+        assertTrue(share.getValue(1920) < 0.35f, "a wide window's decks take what their rows need: $share")
+        assertTrue(share.getValue(1280) < share.getValue(800), "$share")
+        // Rows of DECKS_PANE_COLS cells are wide enough for the longest line here, the opponent's with its AI copy.
+        assertTrue(DECKS_PANE_COLS > "    Rakdos Midrange  (canadianhighlander, 100)  [AI copy: 2]".length + 4)
     }
 
     @Test

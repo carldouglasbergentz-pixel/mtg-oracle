@@ -43,6 +43,7 @@ import mtgoracle.ui.kit.StatusLine
 import mtgoracle.ui.kit.TabButton
 import mtgoracle.ui.kit.Toolbar
 import mtgoracle.ui.kit.cellHeight
+import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.region
@@ -69,6 +70,9 @@ data class OpponentChoice(
     /** Your deck's record against this one: `you 3–2 · AI 12–7`, or null before a game. */
     val record: String? = null,
 )
+
+/** The decks pane's widest: a deck's row (name, format, size, AI copy, record) fits in it, and a wide window gives the rest to the match. */
+internal const val DECKS_PANE_COLS = 80
 
 /**
  * The lobby: your deck and the AI's in one pane, and how the match goes in
@@ -201,8 +205,9 @@ fun LobbyScreen(
             Toolbar(listOf("library" to "Library"), onClick)
             Tabs(limited != null, onClick)
             // The decks on the left, the match on the right: the right pane is where options are added.
+            // Half each, but the decks no wider than their rows need: the window sizes it, so no choice moves it.
             Row(Modifier.weight(1f).fillMaxWidth()) {
-                BoxPane("decks", Modifier.weight(1f).fillMaxHeight(), right = "Tab switches the list") {
+                BoxPane("decks", Modifier.cellWidth(minOf(cols / 2, DECKS_PANE_COLS)).fillMaxHeight(), right = "Tab switches the list") {
                     BoxWithConstraints(Modifier.fillMaxSize()) {
                         val inner = LocalCells.current.cols(constraints.maxWidth.toFloat())
                         val folders = decks.groupBy { it.folderName ?: "(no folder)" }

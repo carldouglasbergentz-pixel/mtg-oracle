@@ -64,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The lobby's one-off actions are buttons**, as Host a room is, in sentence case: Change (your name), Add a playmat from the clipboard, Reset (beside the preview it resets) and Cancel were bracket links, drawn squat beside the two-row buttons in the drawn looks. The per-row `[<]`, `[-]` and `[+]` stay links. No lobby button carries its key (Build alone said `Build  (E)`): the status line says them, as it does for the prompt box's buttons.
 - **The lobby's lists are sized by what they hold**: your decks take the rows they need, up to half the pane, and the opponents (or the sets) the rest, where a fixed half each left a few decks over a screen of empty rows. Only the tab changes it, never a click.
 - **A move says its arrow as the rest of the app does**: the status line and the revision's note read `Sol Ring: main → considering`, and a replace's preview `2 → 4`, where they said `->`. A deliberate change from Python's recorded answers: `deck-state.txt`'s notes are edited to match (`DeckParityTest`, `DeckEditingTest`). Revisions recorded before keep their `->` in the database and read with `→` in the history.
+- **The lobby's decks pane is no wider than its rows need**: half a narrow window as before, but at most 80 columns, so at 1920 the match's options get the rest instead of a decks pane two thirds empty. The window sizes it, never a choice. `LobbyWidthTest`.
 
 ## [0.7.3] - 2026-10-14
 
