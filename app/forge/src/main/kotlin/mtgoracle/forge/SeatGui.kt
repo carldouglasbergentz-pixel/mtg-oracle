@@ -506,7 +506,7 @@ class SeatGui(
     /** An option of a dialog; [shown]: Forge is showing this seat the card (a reveal), so the option carries it to be drawn. */
     private fun optionFor(item: Any?, label: String, shown: Boolean = false): ChoiceOption = ChoiceOption(
         // A card as Forge names it, without the id it adds (`Sylvan Library (900)`): the id means nothing to a person.
-        if (item is CardView) withoutCardId(label) else label,
+        if (item is CardView) withoutCardId(label) else YouGrammar.said(label),
         when (item) {
             is CardView -> BoardRef.Card(item.id).also { cardViews[item.id] = item }
             is PlayerView -> BoardRef.Player(item.id).also { playerViews[item.id] = item }
@@ -688,7 +688,7 @@ class SeatGui(
     }
 
     override fun showPromptMessage(playerView: PlayerView?, message: String?, card: CardView?) {
-        shownMessage = message.orEmpty()
+        shownMessage = YouGrammar.said(message.orEmpty())
         shownInput = seatController?.inputProxy?.input
     }
 

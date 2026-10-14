@@ -82,7 +82,7 @@ internal class Snapshots(private val cardViews: MutableMap<Int, CardView>, priva
             }
             StackEntry(
                 id = item.id,
-                text = FORGE_IDS.replace(text, ""),
+                text = YouGrammar.said(FORGE_IDS.replace(text, "")),
                 sourceName = if (seen) source?.currentState?.name ?: "?" else unseen,
                 controllerName = item.activatingPlayer?.name ?: "?",
                 sourceCardId = source?.id?.takeIf { seen },

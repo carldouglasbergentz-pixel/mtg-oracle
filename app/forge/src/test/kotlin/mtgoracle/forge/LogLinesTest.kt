@@ -85,7 +85,10 @@ class LogLinesTest {
         val bolt = log.forge(GameLogEntryType.STACK_RESOLVE, "Swamp (159) - Swamp (159) deals 3 damage to AI (Jori En).", players)
         assertEquals("Swamp deals 3 damage to AI (Jori En).", bolt.text, "named once, its id still marking it")
         assertEquals(listOf("Swamp"), mark(bolt.text, bolt.cards))
-        assertEquals("Thoughtseize - You reveals their hand.", log.forge(GameLogEntryType.STACK_RESOLVE, "Thoughtseize - You reveals their hand.", players).text)
+        assertEquals("Thoughtseize - You reveal their hand.", log.forge(GameLogEntryType.STACK_RESOLVE, "Thoughtseize - You reveals their hand.", players).text)
+        val discard = log.forge(GameLogEntryType.DISCARD, "You discards Farewell (28).", players)
+        assertEquals("You discard Farewell.", discard.text)
+        assertEquals(listOf("Farewell"), mark(discard.text, discard.cards), "the card is marked where the shorter sentence has it")
         // A staged board's steps, set by Forge's dev mode.
         assertEquals("Your Main phase, precombat", log.forge(GameLogEntryType.PHASE, "devYour Main phase, precombat", players).text)
         assertEquals("AI (Jori En)'s Declare Attackers Step", log.forge(GameLogEntryType.PHASE, "devAI (Jori En)'s Declare Attackers Step", players).text)

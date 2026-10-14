@@ -68,7 +68,7 @@ internal class LogLines(
 
         /**
          * Forge's line as a person reads it: `Life: You 20 > 17` is `You 20 → 17`; `You has kept a hand` is
-         * `You have kept a hand` (Forge writes `%s has` for every player, and ours is You); a resolved ability
+         * `You have kept a hand` (Forge writes `%s has` for every player, and ours is You: [YouGrammar]); a resolved ability
          * named twice, by its source and by its text (`Arc Trail (39) - Arc Trail (39) deals 2 damage`), is named
          * once; and a staged board's steps lose the `dev` Forge's dev mode writes before them (`devYour Main phase`).
          */
@@ -78,14 +78,13 @@ internal class LogLines(
             if (type == GameLogEntryType.PHASE && text.startsWith(DEV)) text.removePrefix(DEV).let { rest ->
                 if (rest.startsWith("Your ") || players.any { rest.startsWith(it) }) text = rest
             }
-            if (YOU in players) text = text.replace(YOU_HAS, "$1You have ")
+            if (YOU in players) text = YouGrammar.said(text)
             if (type == GameLogEntryType.STACK_RESOLVE) text = text.replaceFirst(NAMED_TWICE, "$1")
             return text
         }
 
         private const val DEV = "dev"
         private const val YOU = "You"
-        private val YOU_HAS = Regex("""(^|[\s.;|])You has """)
         private val NAMED_TWICE = Regex("""^(.+?) - \1(?=[\s.,']|$)""")
 
         fun kindOf(type: GameLogEntryType, message: String): LogKind = when (type) {
