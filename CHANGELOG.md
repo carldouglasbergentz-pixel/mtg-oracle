@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- **A pane's top-right corner meets its side.** The cell was measured a whole pixel wide per hundred cells too wide, so on a wide pane the sides were drawn a pixel or two right of the top edge's `┐`. `ThemeAndPanesTest`.
+- **A pane's top-right corner meets its side.** The cell's width was a whole pixel's rounding of a hundred cells, a hair too wide; on a wide pane the sides, placed cell by cell, ended a pixel or two right of the top edge's `┐`, drawn at the font's own advance. `ThemeAndPanesTest`.
 - **A badge stands off the border as the title does** (`── EDH · 99 cards ┐`, not `──EDH · 99 cards ┐`), where the edge has room; a card frame the title fills keeps it tight (`Mountain ×3 ┐`).
 - **A cut leaves nothing dangling before its `…`**: `Creature…`, not `Creature —…`; `Bilbo, Thief…`, not `Bilbo, Thief …`.
 - **In the drawn looks a title bar's texts stay a cell from its ends**, so one pane's badge no longer runs into the next pane's title (`EDH · 99 cards analysis` in XP).
