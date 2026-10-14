@@ -146,6 +146,23 @@ class AnchoringTest {
     }
 
     @Test
+    fun `a manland, nine land piles, two artifacts and a token planeswalker keep their two rows`() {
+        // As the user's game on 2026-10-14 (snapshot 0.7.2 had Sol Ring alone on a level of its own).
+        val colossus = card(700, "Celestial Colossus", creature = true, type = "Creature Land")
+        val lands = List(3) { card(710 + it, "Island", land = true, tapped = true) } + List(2) { card(713 + it, "Plains", land = true, tapped = true) } +
+            listOf("Theorist's Sanctum", "Karakas", "Tundra", "Floodfarm Verge", "Undercity Sewers", "Arch of Orazca").mapIndexed { i, n -> card(720 + i, n, land = true) }
+        val artifacts = listOf(card(730, "Sol Ring", type = "Artifact", tapped = true), card(731, "Elixir of Immortality", type = "Artifact"))
+        val jace = card(740, "Jace Token", type = "Planeswalker - Jace").copy(isToken = true)
+        val seat = FakeSeat(board(listOf(colossus) + lands + artifacts + jace, theirLands), null)
+        OffscreenDriver(2230, 1351, 1.25f) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
+            d.settle(5)
+            val back = (lands + artifacts + jace).mapNotNull { d.registry[ClickTarget.Card(it.id)] } // a pile is clicked by its first
+            assertEquals(1, back.map { it.top }.toSet().size, "one back row: ${back.map { it.top }.toSet()}")
+            d.savePng(File(pngDir, "anchoring-manland-artifacts.png"))
+        }
+    }
+
+    @Test
     fun `the right column is the zoom pane and the log - the stack lives in its box, with the full text on hover`() {
         val seat = FakeSeat(board(myLands + myCreatures, theirLands + theirCreatures, withStack = true), null)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
