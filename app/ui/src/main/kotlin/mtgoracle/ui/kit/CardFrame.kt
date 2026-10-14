@@ -231,7 +231,23 @@ private fun ArtBox(face: CardFace, cols: Int, rows: Int) {
     }
 }
 
-/** A land (or any card) as a one-line chip: `[Island T]`. */
+/**
+ * A chip's text: `[Island]`, `/Island/` tapped, `«Island»` a legal pick, after
+ * its [mark]; with [maxCols], the name cut with `…` so the whole chip fits.
+ */
+fun chipText(face: CardFace, emphasis: Emphasis, mark: String?, maxCols: Int = Int.MAX_VALUE): String {
+    val (open, close) = when {
+        emphasis == Emphasis.SELECTABLE -> "«" to "»"
+        face.tapped -> "/" to "/"
+        else -> "[" to "]"
+    }
+    val locked = if (face.castLocked) " locked" else ""
+    val room = maxCols - mark.orEmpty().length - open.length - close.length - locked.length
+    val name = if (face.name.length <= room) face.name else fit(face.name, maxOf(1, room)).trimEnd()
+    return "${mark.orEmpty()}$open$name$close$locked"
+}
+
+/** A land (or any card) as a one-line chip: `[Island]`; [maxCols] cuts its name to fit. */
 @Composable
 fun CardChip(
     face: CardFace,
@@ -241,8 +257,8 @@ fun CardChip(
     onHover: ((ClickTarget?) -> Unit)?,
     /** As on a frame, written before the chip. */
     mark: String? = null,
+    maxCols: Int = Int.MAX_VALUE,
 ) {
-    val prefix = mark.orEmpty()
     val color = when {
         emphasis != Emphasis.NONE || mark != null -> Palette.accent
         face.tapped -> Palette.tapped
@@ -250,13 +266,8 @@ fun CardChip(
         else -> Palette.foreground
     }
     // A tapped chip leans: /Island/ rather than [Island]. A legal pick gets «guillemets».
-    val (open, close) = when {
-        emphasis == Emphasis.SELECTABLE -> "«" to "»"
-        face.tapped -> "/" to "/"
-        else -> "[" to "]"
-    }
     GridText(
-        "$prefix$open${face.name}$close" + if (face.castLocked) " locked" else "",
+        chipText(face, emphasis, mark, maxCols),
         modifier = Modifier.clickTarget(target, onClick, onHover),
         color = color,
         bold = emphasis == Emphasis.SELECTABLE || mark != null,

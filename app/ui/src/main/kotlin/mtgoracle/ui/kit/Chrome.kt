@@ -62,8 +62,8 @@ internal fun Modifier.drawnBorder(chrome: Chrome, title: String?, right: String?
     val titleStyle = chromeTextStyle(chrome.titleFont, cells, density, barText, bold = chrome.titleBold)
     val badgeStyle = chromeTextStyle(chrome.titleFont, cells, density, barText)
     return drawWithCache {
-        val cols = cells.cols(size.width)
-        val rows = cells.rows(size.height)
+        val cols = wholeCells(size.width, cells.width)
+        val rows = wholeCells(size.height, cells.height)
         // A cell in from the bar's ends: two panes' bars meet, and a hairline let one's badge run into the next one's title.
         val pad = cells.width
         val barRect = titleBarRect(chrome, size.width, cells.height)
@@ -186,8 +186,9 @@ fun RuleLine(cols: Int, modifier: Modifier = Modifier, label: String? = null, en
 fun ruleText(cols: Int, label: String? = null, end: String? = null, heavy: Boolean = false): String {
     val h = if (heavy) '═' else '─'
     val lead = h.toString().repeat(if (heavy) 3 else 1)
-    val head = label?.let { "$lead $it " }.orEmpty()
     val tail = end?.let { " $it $lead" }.orEmpty()
+    // A long label is cut before the end: cut whole, the line lost its end title ("MTG Oracle") with it.
+    val head = label?.let { "$lead ${fit(it, maxOf(1, cols - tail.length - lead.length - 3)).trimEnd()} " }.orEmpty()
     return fit(head + h.toString().repeat(maxOf(0, cols - head.length - tail.length)) + tail, cols)
 }
 

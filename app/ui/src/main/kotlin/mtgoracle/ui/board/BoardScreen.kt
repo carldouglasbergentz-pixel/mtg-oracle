@@ -309,9 +309,15 @@ fun BoardScreen(
                                             val (far, near) = sides!!
                                             val farZones = plan.farRows.coerceAtMost(rows - PROMPT_ROWS - ZONE_COLUMN_MIN_ROWS).coerceAtLeast(ZONE_COLUMN_MIN_ROWS)
                                             val seatStops = if (b!!.seat != null) stops else null
-                                            PlayerZones(far, b, far = true, stops = seatStops, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().cellHeight(farZones))
+                                            // Your hand's count is the hand pane's title while it shows the hand.
+                                            val nearHandLine = !(b.seat != null || showAllHands)
+                                            // Both ladders fold together: one whole beside one folded read as two different things.
+                                            val ladderRoom = ladderFits(farZones - 2, handLine = true) && ladderFits(rows - PROMPT_ROWS - farZones - 2, nearHandLine)
+                                            PlayerZones(far, b, far = true, stops = seatStops, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().cellHeight(farZones),
+                                                ladderRoom = ladderRoom)
                                             promptBox()
-                                            PlayerZones(near, b, far = false, stops = seatStops, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().weight(1f))
+                                            PlayerZones(near, b, far = false, stops = seatStops, looks = looks, cols = panes.zoneCols, modifier = Modifier.fillMaxWidth().weight(1f),
+                                                handLine = nearHandLine, ladderRoom = ladderRoom)
                                         } else promptBox()
                                     }
                                     // Its right border is the handle.
@@ -338,7 +344,7 @@ fun BoardScreen(
                                                 ownTurn = near.id == b.activePlayerId)
                                         }
                                         val showNearHand = b.seat != null || showAllHands
-                                        BoxPane(if (showNearHand) "hand (${near.handCount})" else "hand ${near.handCount} (hidden: H shows)",
+                                        BoxPane(if (showNearHand) "hand ${near.handCount}" else "hand ${near.handCount} · hidden, H shows",
                                             Modifier.fillMaxWidth().weight(1f).region("hand")) {
                                             if (showNearHand) HandLane(near, nearLooks.sized(plan.handTier, false))
                                         }
@@ -365,7 +371,7 @@ fun BoardScreen(
             val sides = b?.sides
             if (b != null && sides != null && b.stack.isNotEmpty() && midline != Rect.Zero && prompt !is SideboardPrompt) {
                 StackLayer(b, sides.first.id, prompt, mode, cells, registry, arrangement, ::arrange, midline, header, table, leftCols, totalCols, totalRows, onClick, onHover,
-                    forceOpen = stackOpenFor != null && stackOpenFor == prompt?.id, onAutoFolded = { stackAutoFolded = it })
+                    forceOpen = stackOpenFor != null && stackOpenFor == prompt?.id, onAutoFolded = { stackAutoFolded = it }, barEnd = leftCols - headerEndCols(title))
             } else if (stackAutoFolded) SideEffect { stackAutoFolded = false }
             if (b != null && sides != null && table != Rect.Zero && prompt !is SideboardPrompt) {
                 for (key in openPanels) {
@@ -421,6 +427,8 @@ private fun StackLayer(
     leftCols: Int, totalCols: Int, totalRows: Int,
     onClick: (ClickTarget) -> Unit, onHover: (ClickTarget?) -> Unit,
     forceOpen: Boolean, onAutoFolded: (Boolean) -> Unit,
+    /** Where the folded bar ends on the header's line: before its end title. */
+    barEnd: Int,
 ) {
     var drag by remember { mutableStateOf(Offset.Zero) }
     var dragging by remember { mutableStateOf(false) }
@@ -442,9 +450,9 @@ private fun StackLayer(
     val autoFolded = !arrangement.stackCollapsed && placement == StackPlacement.FOLDED
     SideEffect { onAutoFolded(autoFolded) }
     if (arrangement.stackCollapsed || placement == StackPlacement.FOLDED) {
-        // On the header's rule line, at its right end: no card is ever drawn there.
+        // On the header's rule line, just before its end title: no card is ever drawn there, and the title stays.
         val barCols = stackBarText(b.stack.size).length
-        StackBar(b.stack.size, onClick, Modifier.offset { IntOffset(((leftCols - barCols - 1) * cells.width).roundToInt(), header.top.roundToInt()) })
+        StackBar(b.stack.size, onClick, Modifier.offset { IntOffset(((barEnd - barCols - 1) * cells.width).roundToInt(), header.top.roundToInt()) })
         return
     }
     val shownRow = when (placement) {

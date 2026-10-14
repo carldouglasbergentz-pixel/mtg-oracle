@@ -61,19 +61,27 @@ data class HalfPlan(
 data class ZoneColumnPlan(val ladderRows: Int, val graveyardRows: Int, val exileRows: Int, val spare: Int)
 
 const val LADDER_FULL = 7
-/** Library, the graveyard and exile headers, the hand line (revealed cards on it too), the life block with its pool. */
-const val ZONE_FIXED_ROWS = 1 + 1 + 1 + 1 + 4
+/** Library, the graveyard and exile headers, the hand line (revealed cards on it too), the life block (two rows) with its pool. */
+const val ZONE_FIXED_ROWS = 1 + 1 + 1 + 1 + 3
 const val MAX_GRAVEYARD_ROWS = 12
 const val MAX_EXILE_ROWS = 6
 
-fun planZoneColumn(rows: Int, graveyard: Int, exile: Int, ladderWanted: Boolean): ZoneColumnPlan {
-    var left = rows - ZONE_FIXED_ROWS - 1 - 1 - 1 // one line each, at least: ladder, graveyard, exile
+/**
+ * An empty graveyard or exile keeps its one row: a card that enters mid-turn
+ * fills it, and the zones below don't move ([handLine]: whether the column
+ * has the hand's line, which it hasn't where the hand pane shows the hand).
+ */
+fun planZoneColumn(rows: Int, graveyard: Int, exile: Int, ladderWanted: Boolean, handLine: Boolean = true): ZoneColumnPlan {
+    var left = rows - ZONE_FIXED_ROWS + (if (handLine) 0 else 1) - 1 - 1 - 1 // one line each, at least: ladder, graveyard, exile
     var ladder = 1
     if (ladderWanted && left >= LADDER_FULL - 1) { ladder = LADDER_FULL; left -= LADDER_FULL - 1 }
     val g = 1 + maxOf(0, minOf(left, minOf(graveyard, MAX_GRAVEYARD_ROWS) - 1)).also { left -= it }
     val e = 1 + maxOf(0, minOf(left, minOf(exile, MAX_EXILE_ROWS) - 1)).also { left -= it }
     return ZoneColumnPlan(ladder, g, e, maxOf(0, left))
 }
+
+/** Whether a zone column of [rows] inner rows has room for the whole stop ladder. */
+fun ladderFits(rows: Int, handLine: Boolean): Boolean = planZoneColumn(rows, 0, 0, ladderWanted = true, handLine = handLine).ladderRows == LADDER_FULL
 
 /** How the table is sized: each half's frame tier and rows, and the hand pane's tier and rows. */
 data class TablePlan(val nearTier: FrameTier, val farTier: FrameTier, val handTier: FrameTier, val handRows: Int, val farRows: Int, val nearRows: Int)

@@ -4,6 +4,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Rect
 import mtgoracle.core.model.BoardState
 import mtgoracle.ui.board.BoardScreen
+import mtgoracle.ui.board.ladderFits
 import mtgoracle.ui.board.planZoneColumn
 import mtgoracle.ui.kit.ArtImages
 import mtgoracle.ui.kit.CardMode
@@ -85,9 +86,12 @@ class ZonesTest {
         assertEquals(7, roomy.ladderRows)
         assertEquals(12, roomy.graveyardRows, "a long graveyard shows twelve lines; the rest is in its panel")
         assertTrue(roomy.exileRows in 1..5)
-        val tight = planZoneColumn(11, graveyard = 17, exile = 5, ladderWanted = true)
+        val tight = planZoneColumn(10, graveyard = 17, exile = 5, ladderWanted = true)
         assertEquals(listOf(1, 1, 1), listOf(tight.ladderRows, tight.graveyardRows, tight.exileRows), "the ladder folds to its line first")
+        assertEquals(2, planZoneColumn(10, graveyard = 17, exile = 5, ladderWanted = true, handLine = false).graveyardRows, "without the hand's line, a row more")
+        // Kept, so a card that enters it mid-turn moves nothing below it (LayoutStabilityTest).
         assertEquals(1, planZoneColumn(30, 0, 0, ladderWanted = true).graveyardRows, "an empty list keeps its one line")
+        assertEquals(listOf(true, false), listOf(16, 15).map { ladderFits(it, handLine = true) }, "the ladder's room, which both columns must have")
     }
 
     @Test

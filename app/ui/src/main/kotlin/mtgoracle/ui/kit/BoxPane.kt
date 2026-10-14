@@ -31,6 +31,14 @@ enum class Border(val tl: Char, val h: Char, val tr: Char, val v: Char, val bl: 
 }
 
 /**
+ * The whole cells in [px], with a pixel's grace: a pane of 30 cells of 7.32
+ * is laid out in 219 pixels, not 219.6, and counted strictly it lost a
+ * column inside (the stop ladder's right column was clipped: `1st strik`).
+ */
+internal fun wholeCells(px: Int, cell: Float): Int = wholeCells(px.toFloat(), cell)
+internal fun wholeCells(px: Float, cell: Float): Int = ((px + 1f) / cell).toInt()
+
+/**
  * Snaps this element's size down to whole cells, so borders drawn in
  * characters meet exactly at the corners.
  */
@@ -40,8 +48,8 @@ fun Modifier.snapToCells(): Modifier {
     return layout { measurable, constraints ->
         val placeable = measurable.measure(constraints)
         // Fixed constraints (fillMax...) can't be snapped; the border then ends on the last whole cell.
-        val width = maxOf(constraints.minWidth, ((placeable.width / cells.width).toInt() * cells.width).toInt())
-        val height = maxOf(constraints.minHeight, ((placeable.height / cells.height).toInt() * cells.height).toInt())
+        val width = maxOf(constraints.minWidth, (wholeCells(placeable.width, cells.width) * cells.width).toInt())
+        val height = maxOf(constraints.minHeight, (wholeCells(placeable.height, cells.height) * cells.height).toInt())
         layout(minOf(width, placeable.width), minOf(height, placeable.height)) { placeable.place(0, 0) }
     }
 }
@@ -95,8 +103,8 @@ fun Modifier.boxBorder(title: String? = null, right: String? = null, border: Bor
     right?.let { RecordText(it) }
     Palette.chrome?.let { return drawnBorder(it, title, right, titleBar(border, color)) }
     return drawWithCache {
-        val cols = cells.cols(size.width)
-        val rows = cells.rows(size.height)
+        val cols = wholeCells(size.width, cells.width)
+        val rows = wholeCells(size.height, cells.height)
         val top = measurer.measure(topEdge(border, cols, title, right), style)
         // The title is drawn again over the edge in its own (bold) style.
         val titleLayout = titleOf(title, cols, badgeOf(right, cols, title))?.let { measurer.measure(it, titleStyle) }
@@ -151,7 +159,7 @@ fun BoxPane(
  * fraction too, and the last line was drawn under the bottom edge.
  */
 private fun Modifier.insideBorder(cells: Cells): Modifier = layout { measurable, constraints ->
-    fun room(max: Int, cell: Float) = if (max == Constraints.Infinity) Constraints.Infinity else maxOf(0, (((max / cell).toInt() - 2) * cell).toInt())
+    fun room(max: Int, cell: Float) = if (max == Constraints.Infinity) Constraints.Infinity else maxOf(0, ((wholeCells(max, cell) - 2) * cell).roundToInt())
     val maxWidth = room(constraints.maxWidth, cells.width)
     val maxHeight = room(constraints.maxHeight, cells.height)
     // No minimum: what fills the pane asks for the maximum, and the pane keeps its own size either way.

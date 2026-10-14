@@ -55,6 +55,7 @@ import mtgoracle.ui.kit.RecordText
 import mtgoracle.ui.kit.cellHeight
 import mtgoracle.ui.kit.cellWidth
 import mtgoracle.ui.kit.cells
+import mtgoracle.ui.kit.chipText
 import mtgoracle.ui.kit.clickTarget
 import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
@@ -209,10 +210,15 @@ class Lanes(cards: List<CardState>, looks: Looks, ownTurn: Boolean = true) {
     }
 }
 
-/** One player's zones, for the left column: library, graveyard, exile, hand, the stops on their turn and life, mirrored for the far side. */
+/**
+ * One player's zones, for the left column: library, graveyard, exile, hand, the stops on their turn and life,
+ * mirrored for the far side. [handLine]: the hand's count, left out where the hand pane shows the hand.
+ * [ladderRoom]: both columns have room for the whole stop ladder, so both fold or neither does.
+ */
 @Composable
-fun PlayerZones(player: PlayerState, board: BoardState, far: Boolean, stops: PhaseStops?, looks: Looks, cols: Int, modifier: Modifier = Modifier) {
-    ZoneColumn(player, board, far, stops, looks, cols, modifier.region("${if (far) "far" else "near"}-zones"))
+fun PlayerZones(player: PlayerState, board: BoardState, far: Boolean, stops: PhaseStops?, looks: Looks, cols: Int, modifier: Modifier = Modifier,
+                handLine: Boolean = true, ladderRoom: Boolean = true) {
+    ZoneColumn(player, board, far, stops, looks, cols, modifier.region("${if (far) "far" else "near"}-zones"), handLine, ladderRoom)
 }
 
 /** One player's battlefield, the far one mirrored. [mat] is the player's playmat under it; null for the plain table. */
@@ -306,7 +312,12 @@ private fun BandView(band: Int, plan: HalfPlan, lanes: Lanes, looks: Looks, cols
         Box(Modifier.fillMaxSize().then(if (band in plan.scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier)) {
             Box(Modifier.cells(contentCols, bandRows(looks.tier, looks.attach))) {
                 segments.forEach { seg ->
-                    RuleLine(maxOf(1, seg.width - 1), Modifier.offset(x = dx(seg.x)), label = seg.zone.label)
+                    val label = zoneLabel(seg.zone, lanes.zone(seg.zone).map { it.card })
+                    // A label longer than its cards takes the free cells after them, up to the next zone: cut, it read
+                    // `artifacts · enchantm…` beside an empty half. No card moves for it.
+                    val next = segments.filter { it.x > seg.x }.minOfOrNull { it.x } ?: contentCols
+                    val wanted = label.length + 4
+                    RuleLine(maxOf(1, seg.width - 1, minOf(wanted, next - seg.x - 1)), Modifier.offset(x = dx(seg.x)), label = label)
                 }
                 places.forEachIndexed { order, place ->
                     val slot = lanes.zone(place.zone)[place.index]
@@ -341,12 +352,7 @@ private fun SlotView(slot: Slot, looks: Looks, clickable: Boolean = true, onHove
             turnable = true, land = true, stack = slot.cards.size, mark = looks.mark(slot.card), rotate = looks.rotate, tier = looks.tier, hovered = pointed)
         // The attachment line, when this half keeps one (a card of it has something attached): the same
         // under every card, so an aura moving between creatures moves nothing.
-        if (looks.attach) Row(Modifier.cells(cols, 1).horizontalScroll(rememberScrollState())) {
-            slot.attached.forEach { a ->
-                GridText("+", color = Palette.dim)
-                CardChip(a.face(), looks.emphasis(a), ClickTarget.Card(a.id), looks.onClick, looks.onHover, looks.mark(a))
-            }
-        }
+        if (looks.attach) Row(Modifier.cells(cols, 1)) { ChipLine(slot.attached, cols, looks, lead = "+") }
     }
 }
 
@@ -375,16 +381,51 @@ fun Header(title: String, board: BoardState?, cols: Int, modifier: Modifier = Mo
         append("turn ${board.turn} · ${board.phase} · active: ${board.activePlayerName}")
         board.players.firstOrNull { it.hasPriority }?.let { append(" · priority: ${it.name}") }
         if (board.stack.isNotEmpty()) append(" · STACK ${board.stack.size}: ${board.stack.first().sourceName}")
-        // Combat in one phrase: who attacks what, and who blocks.
-        if (board.combat.isNotEmpty()) append(" · COMBAT " + board.combat.joinToString("; ") { line ->
-            val blockers = line.blockerIds.mapNotNull { board.card(it)?.name }
-            "${board.card(line.attackerId)?.name ?: "?"} → ${line.defender}" + if (blockers.isEmpty()) "" else " (blocked: ${blockers.joinToString(", ")})"
-        })
+        if (board.combat.isNotEmpty()) append(" · COMBAT " + combatPhrase(board))
         if (board.gameOver) append(" · GAME OVER: ${board.result}")
     }
+    // The folded stack's bar sits on this line just before the title (StackBar): the news stops short of it.
+    val bar = if (board != null && board.stack.isNotEmpty()) stackBarText(board.stack.size).length + 1 else 0
+    val label = fit(text, maxOf(1, cols - headerEndCols(title) - bar - 5)).trimEnd()
     Column(modifier.cellHeight(HEADER_ROWS)) {
-        RuleLine(cols, label = text, end = title, heavy = true, color = Palette.accent, bold = true)
+        RuleLine(cols, label = label, end = title, heavy = true, color = Palette.accent, bold = true)
         Column(Modifier.cells(cols, TRAIL_LINES).region("trail")) { if (board != null) TrailStrip(board, cols) }
+    }
+}
+
+/** The cells the header's end title takes at the line's right end: ` MTG Oracle ═══`. */
+fun headerEndCols(title: String) = title.length + 5
+
+/**
+ * Combat in one phrase: who attacks what, and who blocks. Attackers alike
+ * are counted, `6× Raging Goblin → Guest`: one by one, six of them ran the
+ * header off its end.
+ */
+fun combatPhrase(board: BoardState): String {
+    val lines = board.combat.map { line ->
+        val blockers = line.blockerIds.mapNotNull { board.card(it)?.name }
+        "${board.card(line.attackerId)?.name ?: "?"} → ${line.defender}" + if (blockers.isEmpty()) "" else " (blocked: ${blockers.joinToString(", ")})"
+    }
+    return lines.distinct().joinToString("; ") { l -> lines.count { it == l }.let { n -> if (n > 1) "$n× $l" else l } }
+}
+
+/**
+ * A type zone's label: the types it holds, `artifacts`, `enchantment`,
+ * `artifacts · enchantments` only when both are there; a creature or a land
+ * row as ever.
+ */
+fun zoneLabel(zone: ZoneKind, cards: List<CardState>): String {
+    fun named(word: String, n: Int) = if (n == 1) word else "${word}s"
+    fun of(vararg types: String): String {
+        val counts = types.map { t -> t to cards.count { t in it.typeLine } }.filter { it.second > 0 }
+        val other = cards.count { c -> types.none { it in c.typeLine } }
+        val words = counts.map { (t, n) -> named(t.lowercase(), n) } + if (other > 0) listOf(named("other", 1)) else emptyList()
+        return words.joinToString(" · ").ifEmpty { zone.label }
+    }
+    return when (zone) {
+        ZoneKind.PERMANENTS -> of("Artifact", "Enchantment")
+        ZoneKind.WALKERS -> of("Planeswalker", "Battle")
+        else -> zone.label
     }
 }
 
@@ -437,16 +478,17 @@ private fun TrailStrip(board: BoardState, cols: Int) {
 
 /** A player's zone column, in playmat order, every section a fixed height; mirrored for the far side. */
 @Composable
-private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, stops: PhaseStops?, looks: Looks, cols: Int, modifier: Modifier) {
+private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, stops: PhaseStops?, looks: Looks, cols: Int, modifier: Modifier,
+                       handLine: Boolean, ladderRoom: Boolean) {
     val inner = cols - 2
-    val role = if (player.isSeat) "you" else if (player.isAi) "AI" else "player"
     var ladderOpen by remember { mutableStateOf(true) }
-    BoxPane(role, modifier, right = if (stops != null) "stops" else null) {
+    // Titled with the player's name, said once: "AI" over "AI (Rakdos)" said it twice, and a guest's "player" over "Host".
+    BoxPane(player.name, modifier, right = if (stops != null) "stops" else null) {
         BoxWithConstraints {
             val viewport = maxHeight
             // Every section a set number of rows, planned for the height there is (planZoneColumn).
             val plan = planZoneColumn(LocalCells.current.rows(constraints.maxHeight.toFloat()), player.graveyard.size,
-                player.command.size + player.exile.size, ladderWanted = ladderOpen)
+                player.command.size + player.exile.size, ladderWanted = ladderOpen && ladderRoom, handLine = handLine)
             // Shorter than even the minimum: it scrolls, anchored at the prompt's side, so life and stops stay in view.
             Column(Modifier.verticalScroll(rememberScrollState(), reverseScrolling = far).heightIn(min = viewport), verticalArrangement = Arrangement.SpaceBetween) {
                 // At the player's edge: library (outermost), graveyard, exile and command zone.
@@ -456,8 +498,8 @@ private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, sto
                     { ZoneList("graveyard ${player.graveyard.size}", panelCards(player, PileZone.GRAVEYARD), inner, plan.graveyardRows, looks, ZonePanelKey(far, PileZone.GRAVEYARD)) }, // top card first
                     { ZoneList(exileTitle(player), panelCards(player, PileZone.EXILE), inner, plan.exileRows, looks, ZonePanelKey(far, PileZone.EXILE)) },
                 )
-                val self = listOf<@Composable () -> Unit>(
-                    { HandCount(player, inner, looks) },
+                val self = listOfNotNull<@Composable () -> Unit>(
+                    if (handLine) ({ HandCount(player, inner, looks) }) else null,
                     { StopLadder(!far, stops, board, inner, looks.onClick, plan.ladderRows) { ladderOpen = !ladderOpen } },
                     { LifeBlock(player, board, inner, looks) },
                 )
@@ -476,25 +518,27 @@ private fun ZoneColumn(player: PlayerState, board: BoardState, far: Boolean, sto
 private fun exileTitle(player: PlayerState) =
     "exile ${player.exile.size}" + if (player.command.isNotEmpty()) " · command ${player.command.size}" else ""
 
+/**
+ * The life total, two rows high, and the player's to click (a target, an
+ * attack) — the name is the column's title. Beside it: `life`, poison, and
+ * `◄ target` while a stack item targets the player, else `> active` on the
+ * active player's turn. Then the mana pool.
+ */
 @Composable
 private fun LifeBlock(player: PlayerState, board: BoardState, inner: Int, looks: Looks) {
     val targeting = BoardRef.Player(player.id) in looks.highlighted || (looks.prompt as? InputPrompt)?.kind == InputKind.TARGET
-    Row(Modifier.cells(inner, 1)) {
-        GridText(if (board.activePlayerId == player.id) "> " else "  ", color = Palette.accent)
-        val targeted = BoardRef.Player(player.id) in looks.targeted
-        val name = fit(player.name, inner - 4 - if (targeted) 9 else 0).trimEnd()
-        GridText(" $name ", Modifier.clickTarget(ClickTarget.Player(player.id), looks.onClick),
-            color = if (targeting) Palette.background else Palette.foreground, background = if (targeting) Palette.accent else Palette.dim.copy(alpha = 0.35f), bold = true)
-        if (targeted) GridText(" $TARGET_MARK target", color = Palette.accent, bold = true)
-    }
-    Row(Modifier.cells(inner, 2)) {
+    val targeted = BoardRef.Player(player.id) in looks.targeted
+    Row(Modifier.cells(inner, 2).clickTarget(ClickTarget.Player(player.id), looks.onClick).background(if (targeting) Palette.accent else Color.Unspecified)) {
         RecordText(player.life.toString())
-        BasicText(player.life.toString(), style = gridStyle.copy(fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold,
-            color = if (player.life <= 5) Palette.accent else Palette.foreground))
+        BasicText(" ${player.life}", style = gridStyle.copy(fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold,
+            color = when { targeting -> Palette.background; player.life <= 5 -> Palette.accent; else -> Palette.foreground }))
         Column {
-            GridText("  life" + (if (player.poison > 0) " · poison ${player.poison}" else ""), color = Palette.dim)
-            // Reserved whether or not there is anything to say.
-            GridText(fit(if (player.hasPriority) "  priority" else "", inner - 6), color = Palette.dim)
+            GridText("  life" + (if (player.poison > 0) " · poison ${player.poison}" else ""), color = if (targeting) Palette.background else Palette.dim)
+            when {
+                targeted -> GridText("  $TARGET_MARK target", color = if (targeting) Palette.background else Palette.accent, bold = true)
+                board.activePlayerId == player.id -> GridText("  > active", color = if (targeting) Palette.background else Palette.accent)
+                else -> GridText("")
+            }
         }
     }
     ManaPoolLine(player, inner, looks)
@@ -533,23 +577,58 @@ private fun HandCount(player: PlayerState, inner: Int, looks: Looks) {
     // The count, and a back per card this seat can't see. ASCII backs: shade blocks draw taller than a line.
     val backs = player.hand.count { it.hidden }
     // One line: the count and backs, then the opponent's cards we know: shown us (Thoughtseize, Telepathy) or seen
-    // going there (a return, a bounce: KnownInHand). On the same line, so they move nothing; it scrolls sideways when long.
+    // going there (a return, a bounce: KnownInHand). On the same line, so they move nothing; cut to the column.
     val revealed = if (player.isSeat) emptyList() else player.hand.filter { !it.hidden }
     val count = "hand ${player.handCount}" + if (backs > 0) " " + "[#]".repeat(minOf(backs, (inner - 8) / 3)) else ""
-    Row(Modifier.cells(inner, 1).horizontalScroll(rememberScrollState())) {
-        GridText(if (revealed.isEmpty()) fit(count, inner) else count, color = if (player.isSeat) Palette.dim else Palette.foreground)
-        if (revealed.isNotEmpty()) {
-            GridText(" known ", color = Palette.accent)
-            revealed.forEach { CardChip(it.face(), looks.emphasis(it), ClickTarget.Card(it.id), looks.onClick, looks.onHover, looks.mark(it)) }
+    Row(Modifier.cells(inner, 1)) {
+        GridText(fit(count, if (revealed.isEmpty()) inner else minOf(count.length, inner)), color = if (player.isSeat) Palette.dim else Palette.foreground)
+        if (revealed.isNotEmpty() && inner - count.length > KNOWN.length + 4) {
+            GridText(KNOWN, color = Palette.accent)
+            ChipLine(revealed, inner - count.length - KNOWN.length, looks)
         }
     }
 }
+
+private const val KNOWN = " known "
+
+/**
+ * [cards] as chips on one line of [cols] cells, after [lead] each: whole
+ * while they fit, the first that doesn't cut with `…`, and `+N` for any
+ * left over. A chip past the edge was clipped mid-name with no sign of it.
+ */
+@Composable
+private fun ChipLine(cards: List<CardState>, cols: Int, looks: Looks, lead: String = "") {
+    var used = 0
+    for ((i, card) in cards.withIndex()) {
+        val face = card.face()
+        val mark = looks.mark(card)
+        val after = cards.size - i - 1
+        val more = if (after > 0) " +$after".length else 0
+        val whole = lead.length + chipText(face, looks.emphasis(card), mark).length
+        val room = cols - used - lead.length - more
+        val width = if (used + whole + more <= cols) whole - lead.length else room.takeIf { it >= MIN_CHIP } ?: run {
+            GridText(fit("+${cards.size - i}", maxOf(0, cols - used)).trimEnd(), color = Palette.dim)
+            return
+        }
+        if (lead.isNotEmpty()) GridText(lead, color = Palette.dim)
+        CardChip(face, looks.emphasis(card), ClickTarget.Card(card.id), looks.onClick, looks.onHover, mark, maxCols = width)
+        used += lead.length + width
+        if (width < whole - lead.length) {
+            if (after > 0) GridText(" +$after", color = Palette.dim)
+            return
+        }
+    }
+}
+
+/** The narrowest a cut chip is drawn: `[Ti…]`; narrower, it is only counted. */
+private const val MIN_CHIP = 5
 
 /** A titled list of [rows] fixed rows; it scrolls inside when longer. */
 @Composable
 private fun ZoneList(title: String, cards: List<CardState>, inner: Int, rows: Int, looks: Looks, panel: ZonePanelKey) {
     // The header opens the zone in a panel of its own, every card in its frame (ZonePanel).
-    GridText(fit("$title ▸", inner), Modifier.clickTarget(panel.toggle, looks.onClick).region("zone-header-${panel.id}"), color = Palette.dim, bold = true)
+    // In the foreground, as the library's line is: dim on the hover's tint (or an open panel's) could hardly be read.
+    GridText(fit("$title ▸", inner), Modifier.clickTarget(panel.toggle, looks.onClick).region("zone-header-${panel.id}"), color = Palette.foreground, bold = true)
     Box(Modifier.cells(inner, rows)) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             cards.forEach { card -> CardChip(card.face(), looks.emphasis(card), ClickTarget.Card(card.id), looks.onClick, looks.onHover, looks.mark(card)) }
@@ -584,16 +663,17 @@ private fun StopLadder(seatsTurn: Boolean, stops: PhaseStops?, board: BoardState
     Box(Modifier.cells(inner, half)) {
         if (stops == null) return@Box
         val activeHere = (board.activePlayerId == board.seat?.id) == seatsTurn
-        val cell = inner / 2
+        // Each column exactly its cells, so the right one can never run past the border.
+        val widths = listOf(inner / 2, inner - inner / 2)
         Column {
             for (row in 0 until half) {
                 Row {
-                    for (step in listOfNotNull(Step.entries.getOrNull(row), Step.entries.getOrNull(row + half))) {
+                    for ((column, step) in listOfNotNull(Step.entries.getOrNull(row), Step.entries.getOrNull(row + half)).withIndex()) {
                         val on = stops.stopsAt(seatsTurn, step)
                         val current = activeHere && board.step == step
                         GridText(
-                            fit("${if (on) "[x]" else "[ ]"} ${SHORT[step]}", cell),
-                            Modifier.clickTarget(ClickTarget.Stop(seatsTurn, step), onClick),
+                            fit("${if (on) "[x]" else "[ ]"} ${SHORT[step]}", widths[column]),
+                            Modifier.cellWidth(widths[column]).clickTarget(ClickTarget.Stop(seatsTurn, step), onClick),
                             color = when { current -> Palette.background; on -> Palette.accent; else -> Palette.dim },
                             background = if (current) Palette.foreground else Color.Unspecified,
                         )
