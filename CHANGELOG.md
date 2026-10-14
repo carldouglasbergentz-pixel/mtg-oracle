@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- **Jace, the Mind Sculptor's 0 asks the order of the two cards it puts back**, as Brainstorm does (CR 401.4); so do Cavalier of Gales, Hidetsugu and Kairi and Riverwise Augur. Forge's scripts lacked `Reorder$ True`: fixed in our Forge build (`12fedb4cc9`) and sent to Forge as Card-Forge/forge#12262. `PutBackOrderTest`.
+- **Jace, the Mind Sculptor's 0 asks the order of the two cards it puts back**, as Brainstorm does (CR 401.4); so do Cavalier of Gales, Hidetsugu and Kairi and Riverwise Augur. Forge's scripts lacked `Reorder$ True`: fixed in our Forge build (`12fedb4cc9`) and merged into Forge as Card-Forge/forge#12262 (in a Forge release after 2.0.14). `PutBackOrderTest`.
 
 ### Changed
 - **A planeswalker is never overlapped**: its loyalty is read and its abilities clicked whole. The lands and artifacts take a row's overlap; when that is not enough, the size steps down, or the planeswalkers go above the lands' right end. Four overlapped planeswalkers were hard to tell apart and to click. `HalfPlanTest`, `AnchoringTest`.
