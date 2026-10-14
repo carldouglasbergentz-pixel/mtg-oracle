@@ -101,6 +101,8 @@ class DeckEditingTest {
         ui.edit(EditAction.Move("Forest", DeckSection.MAIN, DeckSection.CONSIDERING))
         assertEquals(3, main(id)["Forest"])
         assertEquals(1, deck(id).considering.single().quantity)
+        assertEquals("Forest: main → considering", notices.last(), "the notice and the recorded note say the arrow one way")
+        assertEquals("Forest: main → considering", ui.history.first().note)
         ui.edit(EditAction.Remove("Forest", DeckSection.MAIN, all = true))
         assertNull(main(id)["Forest"])
         commands.submit("undo")

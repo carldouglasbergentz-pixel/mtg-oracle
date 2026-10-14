@@ -62,7 +62,7 @@ class DeckEditing(
         is EditAction.Remove -> (if (action.section == DeckSection.MAIN) writer.removeFromMain(deckId, action.card, if (action.all) null else action.quantity)
             else writer.remove(deckId, action.card, if (action.all) null else action.quantity, action.section))
             .let { (card, removed, left) -> "-$removed $card (${action.section.key}; $left left)" }
-        is EditAction.Move -> "${writer.move(deckId, action.card, action.from, action.to, 1, force)}: ${action.from.key} -> ${action.to.key}"
+        is EditAction.Move -> "${writer.move(deckId, action.card, action.from, action.to, 1, force)}: ${action.from.key} → ${action.to.key}"
         is EditAction.Promote -> writer.promote(deckId, action.card, force = force).let { "${it.card}: ${it.action}" + (it.formatSet?.let { f -> "; format set to $f" } ?: "") }
         is EditAction.Demote -> writer.promote(deckId, action.card, unset = true).let { "${it.card}: ${it.action}" }
         EditAction.Force -> error("Force is resolved before apply")

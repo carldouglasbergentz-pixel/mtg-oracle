@@ -322,7 +322,7 @@ class LibraryActions(
             add("replace $deck with $source would change:")
             if (changes.isEmpty()) add("  nothing: the deck is the list already")
             changes.forEach { c ->
-                val what = when { c.before == 0 -> "+${c.after}"; c.after == 0 -> "-${c.before}"; c.before != c.after -> "${c.before} -> ${c.after}"; else -> "printing" }
+                val what = when { c.before == 0 -> "+${c.after}"; c.after == 0 -> "-${c.before}"; c.before != c.after -> "${c.before} → ${c.after}"; else -> "printing" }
                 add("  %-10s %s (%s)".format(what, c.card, c.section.key))
             }
             if (!considering) add("  (the list has no maybeboard, so the considering list stays as it is)")

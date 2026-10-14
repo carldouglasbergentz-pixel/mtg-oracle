@@ -272,7 +272,8 @@ private fun History(history: List<DeckRevision>, cols: Int) {
     GridText(fit("newest first · `undo` reverts the newest", cols), color = Palette.dim)
     for (rev in history) {
         val at = localTime(rev.at)
-        // A note that names a card the lines under it name (`Sol Ring: main -> considering`) only says them again.
+        // A note that names a card the lines under it name (`Sol Ring: main → considering`) only says them again.
+        // Older revisions say `->` (the database keeps them as written).
         val note = rev.note?.takeIf { n -> rev.changes.none { n.startsWith(it.card) } }?.replace(" -> ", " → ")
         GridText(fit("#${rev.id}  $at  ${rev.action}" + (note?.let { "  $it" } ?: ""), cols), bold = true)
         for (c in rev.changes) {

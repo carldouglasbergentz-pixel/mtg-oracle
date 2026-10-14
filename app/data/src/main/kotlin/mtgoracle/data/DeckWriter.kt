@@ -79,7 +79,7 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
             setSectionQuantity(conn, deckId, name, DeckSection.MAIN, main.quantity - take)
             if (back > 0) setSectionQuantity(conn, deckId, name, DeckSection.SIDEBOARD, (side?.quantity ?: 0) + back, printing = side?.printing ?: main.printing, setPrinting = true)
             touch(conn, deckId)
-            recordRevision(conn, deckId, if (back == take) "move" else "remove", before, "$name: main -> " + if (back == take) "sideboard" else "sideboard $back, out ${take - back}")
+            recordRevision(conn, deckId, if (back == take) "move" else "remove", before, "$name: main → " + if (back == take) "sideboard" else "sideboard $back, out ${take - back}")
             Triple(name, take, main.quantity - take)
         }
     }
@@ -169,7 +169,7 @@ class DeckWriter(private val db: MtgDb, private val names: CardNames, private va
             addCard(conn, deckId, canonical, quantity, sideboard = to == DeckSection.SIDEBOARD, force = force, printing = printing)
         }
         touch(conn, deckId)
-        recordRevision(conn, deckId, "move", before, "$canonical: ${from.key} -> ${to.key}")
+        recordRevision(conn, deckId, "move", before, "$canonical: ${from.key} → ${to.key}")
         canonical
     }
 
