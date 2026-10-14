@@ -180,6 +180,23 @@ class AnchoringTest {
     }
 
     @Test
+    fun `a manland animated - the creature row comes, the back row keeps its row`() {
+        // As the user's game on 2026-10-14: Restless Anchorage animated and attacking, ten lands, a Map token, Teferi.
+        val anchorage = card(900, "Restless Anchorage", creature = true, tapped = true, type = "Creature Land - Bird").copy(attacking = true)
+        val lands = listOf("Meticulous Archive", "Undercity Sewers", "Island", "Windswept Heath", "Library of Alexandria", "Plains",
+            "Tundra", "Field of Ruin", "Kor Haven", "Marsh Flats").mapIndexed { i, n -> card(910 + i, n, land = true, tapped = n == "Island" || n == "Plains") }
+        val map = card(930, "Map Token", type = "Artifact - Map").copy(isToken = true)
+        val teferi = card(931, "Teferi, Hero of Dominaria", type = "Legendary Planeswalker - Teferi")
+        val seat = FakeSeat(board(listOf(anchorage) + lands + map + teferi, theirLands), null)
+        OffscreenDriver(2230, 1351, 1.25f) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
+            d.settle(5)
+            val back = (lands + map + teferi).map { d.registry[ClickTarget.Card(it.id)]!! }
+            assertEquals(1, back.map { it.top }.toSet().size, "one back row")
+            d.savePng(File(pngDir, "anchoring-manland-animated.png"))
+        }
+    }
+
+    @Test
     fun `the right column is the zoom pane and the log - the stack lives in its box, with the full text on hover`() {
         val seat = FakeSeat(board(myLands + myCreatures, theirLands + theirCreatures, withStack = true), null)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
