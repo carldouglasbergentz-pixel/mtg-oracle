@@ -267,7 +267,9 @@ private fun Battlefield(player: PlayerState, far: Boolean, showHand: Boolean, lo
             val emblems = emblemRows(player)
             val rows = cells.rows(constraints.maxHeight.toFloat()) - handRows - emblems
             val band = bandRows(looks.tier, looks.attach)
-            val plan = planHalf(zoneContents(lanes, looks.tier), cols, maxOf(1, rows / band), centred = true)
+            // As many bands as the cards need, never more: a row with room above it overlaps rather than spill onto a second band.
+            val contents = zoneContents(lanes, looks.tier)
+            val plan = planHalf(contents, cols, minOf(maxOf(1, rows / band), bandsNeeded(contents, cols)), centred = true)
             // More bands than rows is the last resort: then the half scrolls. Otherwise it fits exactly.
             val contentRows = maxOf(rows, plan.bands * band)
             Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {

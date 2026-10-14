@@ -286,11 +286,19 @@ fun BoardScreen(
                             val plan = if (!onTable) null else {
                                 val (far, near) = sides!!
                                 val attach = { p: mtgoracle.core.model.PlayerState -> p.battlefield.any { it.attachedToId != null } }
-                                fun wants(p: mtgoracle.core.model.PlayerState, t: FrameTier, handLane: Boolean): Int =
-                                    bandsNeeded(zoneContents(Lanes(p.battlefield, looks, ownTurn = p.id == b?.activePlayerId), t), fieldCols) * bandRows(t, attach(p)) + emblemRows(p) +
-                                        if (handLane) FrameSize.rows(t) else 0
-                                val tiers = if (mode == CardMode.ART) FrameTier.entries else listOf(FrameTier.TEXT)
-                                planTable(rows - MIDLINE_ROWS, tiers, handRows = { FrameSize.rows(it) + 2 },
+                                // At most the large frames on the table, as MTGO keeps its cards moderate: the table is the larger part of the view.
+                                val tiers = if (mode == CardMode.ART) FrameTier.entries.filter { it.ordinal >= TABLE_LARGEST.ordinal } else listOf(FrameTier.TEXT)
+                                // A size that would take a row onto a second band is no fit while a smaller one keeps the rows
+                                // (keepsRows): the rows are kept, the cards shrink. When none keeps them, the largest that fits spills.
+                                fun zonesAt(p: mtgoracle.core.model.PlayerState, t: FrameTier) = zoneContents(Lanes(p.battlefield, looks, ownTurn = p.id == b?.activePlayerId), t)
+                                val keepable = sides!!.toList().associate { p -> p.id to tiers.any { keepsRows(zonesAt(p, it), fieldCols) } }
+                                fun wants(p: mtgoracle.core.model.PlayerState, t: FrameTier, handLane: Boolean): Int {
+                                    val zones = zonesAt(p, t)
+                                    if (keepable.getValue(p.id) && !keepsRows(zones, fieldCols)) return Int.MAX_VALUE / 2
+                                    return bandsNeeded(zones, fieldCols) * bandRows(t, attach(p)) + emblemRows(p) + if (handLane) FrameSize.rows(t) else 0
+                                }
+                                // The hand at most the normal frames: the rows a larger hand took go to the table.
+                                planTable(rows - MIDLINE_ROWS, tiers, handRows = { if (it.ordinal < HAND_LARGEST.ordinal) Int.MAX_VALUE / 8 else FrameSize.rows(it) + 2 },
                                     farWants = { wants(far, it, handLane = showAllHands) }, nearWants = { wants(near, it, handLane = false) },
                                     halfFloor = ZONE_COLUMN_MIN_ROWS)
                             }

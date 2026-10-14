@@ -130,6 +130,22 @@ class AnchoringTest {
     }
 
     @Test
+    fun `the back row stays one row, the cards smaller, while a smaller size can keep it`() {
+        // As the user's game on 2026-10-14: nine lands, Elixir of Immortality and Teferi, at 2230 x 1351 and 125 %.
+        val lands = listOf("Island", "Plains", "Theorist's Sanctum", "Karakas", "Tundra", "Floodfarm Verge", "Prismatic Vista", "Undercity Sewers", "Marsh Flats")
+            .mapIndexed { i, n -> card(600 + i, n, land = true) }
+        val elixir = card(610, "Elixir of Immortality", type = "Artifact")
+        val teferi = card(611, "Teferi, Time Raveler", type = "Legendary Planeswalker - Teferi")
+        val seat = FakeSeat(board(lands + elixir + teferi, theirLands), null)
+        OffscreenDriver(2230, 1351, 1.25f) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->
+            d.settle(5)
+            val tops = (lands + elixir + teferi).map { d.registry[ClickTarget.Card(it.id)]!!.top }.toSet()
+            assertEquals(1, tops.size, "one back row: $tops")
+            d.savePng(File(pngDir, "anchoring-one-back-row.png"))
+        }
+    }
+
+    @Test
     fun `the right column is the zoom pane and the log - the stack lives in its box, with the full text on hover`() {
         val seat = FakeSeat(board(myLands + myCreatures, theirLands + theirCreatures, withStack = true), null)
         OffscreenDriver(1800, 1600) { CompositionLocalProvider(LocalArt provides art) { BoardScreen(seat, "MTG Oracle", CardMode.ART) } }.use { d ->

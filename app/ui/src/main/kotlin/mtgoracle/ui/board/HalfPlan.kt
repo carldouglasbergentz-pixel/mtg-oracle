@@ -78,6 +78,12 @@ fun planZoneColumn(rows: Int, graveyard: Int, exile: Int, ladderWanted: Boolean)
 /** How the table is sized: each half's frame tier and rows, and the hand pane's tier and rows. */
 data class TablePlan(val nearTier: FrameTier, val farTier: FrameTier, val handTier: FrameTier, val handRows: Int, val farRows: Int, val nearRows: Int)
 
+/** The largest frames on the table: XL took a sparse half's cards larger than MTGO ever draws them. */
+val TABLE_LARGEST = FrameTier.LARGE
+
+/** The largest frames in the hand: its rows go to the table, the larger part of the view. */
+val HAND_LARGEST = FrameTier.FULL
+
 /** The smallest frames the hand steps down to with a crowded table: the cards you hold stay readable. */
 val HAND_FLOOR = FrameTier.FULL
 
@@ -132,6 +138,18 @@ fun planTable(
  * its own cards, a sparse half got one band's rows, and its creatures and
  * lands shared it. An empty half needs one.
  */
+/**
+ * The rows a half is laid in, as decided with the user: the creatures, and
+ * the back row, a band each. A half keeps them so: its cards get smaller
+ * before either row takes a second band (planTable, keepsRows).
+ */
+fun rowGroups(zones: List<ZoneContent>): Int =
+    listOf(zones.any { it.kind !in BACK_ROW && it.widths.isNotEmpty() }, zones.any { it.kind in BACK_ROW && it.widths.isNotEmpty() })
+        .count { it }.coerceAtLeast(1)
+
+/** Whether [zones] keep their rows at this width: each row on one band, overlapped no further than [VISIBLE_SHARE]. */
+fun keepsRows(zones: List<ZoneContent>, cols: Int): Boolean = bandsNeeded(zones, cols) <= rowGroups(zones)
+
 fun bandsNeeded(zones: List<ZoneContent>, cols: Int, most: Int = 6): Int {
     for (b in 1..most) {
         val plan = planHalf(zones, cols, b)

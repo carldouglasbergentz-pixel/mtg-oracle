@@ -40,7 +40,8 @@ class HandOrderTest {
             fun x(id: Int) = d.registry[ClickTarget.Card(id)]!!.left
             assertTrue(x(20) < x(21) && x(21) < x(22), "Forge's order first: Bolt, Counterspell, Mountain")
             val bolt = d.registry[ClickTarget.Card(20)]!!
-            assertTrue(d.drag(ClickTarget.Card(20), Offset(x(22) - bolt.left + bolt.width * 0.6f, 0f)))
+            // Well past Mountain: the drag takes the touch slop before it moves the card.
+            assertTrue(d.drag(ClickTarget.Card(20), Offset(x(22) - bolt.left + bolt.width * 1.2f, 0f)))
             d.settle(3)
             assertTrue(x(21) < x(22) && x(22) < x(20), "Bolt dropped past Mountain: ${listOf(20, 21, 22).map(::x)}")
             assertEquals(emptyList(), seat.answers, "a drag is no click: nothing was played")
