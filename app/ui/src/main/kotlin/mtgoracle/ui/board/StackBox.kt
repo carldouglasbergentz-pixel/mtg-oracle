@@ -41,18 +41,29 @@ import mtgoracle.ui.kit.face
 import mtgoracle.ui.kit.fit
 import mtgoracle.ui.kit.region
 import mtgoracle.ui.kit.wrap
+import mtgoracle.ui.kit.cutText
 import mtgoracle.ui.theme.LocalCells
 import mtgoracle.ui.theme.Palette
 
 /** The floating stack box's width, in cells. */
 const val STACK_BOX_COLS = 56
 
-/** Rows the expanded box takes for [items] entries, at most [maxRows]: a frame per item, a line between, the border. */
-fun stackBoxRows(items: Int, mode: CardMode, maxRows: Int): Int =
-    minOf(maxRows, 2 + items * FrameSize.rows(mode) + maxOf(0, items - 1)).coerceAtLeast(3)
+/** The most rows one item's text takes before it is cut with `…` (the zoom pane has it whole). */
+private const val ITEM_TEXT_ROWS = 6
+
+/** The columns beside an item's frame. */
+private fun textCols(mode: CardMode) = STACK_BOX_COLS - 2 - FrameSize.cols(mode) - 1
+
+/** Rows one item takes: its frame, or its head, text and targets when they need more. */
+fun stackItemRows(item: StackEntry, mode: CardMode): Int =
+    maxOf(FrameSize.rows(mode), 2 + minOf(ITEM_TEXT_ROWS, wrap(item.text, textCols(mode)).size))
+
+/** Rows the expanded box takes for [items], at most [maxRows]: each item's rows, a line between, the border. */
+fun stackBoxRows(items: List<StackEntry>, mode: CardMode, maxRows: Int): Int =
+    minOf(maxRows, 2 + items.sumOf { stackItemRows(it, mode) } + maxOf(0, items.size - 1)).coerceAtLeast(3)
 
 /** The folded bar's text; its width is the bar's width. */
-fun stackBarText(items: Int) = " stack: $items · S "
+fun stackBarText(items: Int) = " stack: $items · S opens "
 
 /** What the source of a stack item shows: the card as it is now (a sacrificed fetch included), upright. */
 fun StackEntry.face(): CardFace = source?.copy(tapped = false)?.face() ?: CardFace(sourceName, "", "", "", text, imageKey)
@@ -81,8 +92,7 @@ fun StackBox(
     val density = LocalDensity.current
     val inner = STACK_BOX_COLS - 2
     val frameCols = FrameSize.cols(mode)
-    val textCols = inner - frameCols - 1
-    val frameRows = FrameSize.rows(mode)
+    val textCols = textCols(mode)
     Box(
         modifier.cells(STACK_BOX_COLS, rows).chromeShape().background(Palette.background)
             .boxBorder("stack · ${board.stack.size} · top first", right = "drag · S folds", border = Border.DOUBLE, color = Palette.accent)
@@ -103,17 +113,19 @@ fun StackBox(
                     val theirs = item.controllerId == farId
                     val pick = BoardRef.StackItem(item.id) in picks
                     var over by remember { mutableStateOf(false) }
-                    Row(Modifier.cells(inner, frameRows).clickTarget(ClickTarget.StackItem(item.id), onClick, onHover, onHoverChange = { over = it })) {
-                        CardFrame(item.face(), mode, if (pick) Emphasis.SELECTABLE else Emphasis.NONE, hovered = over)
+                    val itemRows = stackItemRows(item, mode)
+                    Row(Modifier.cells(inner, itemRows).clickTarget(ClickTarget.StackItem(item.id), onClick, onHover, onHoverChange = { over = it })) {
+                        // In text mode the frame's own lines would be the text again, beside itself: the frame names the card only.
+                        CardFrame(item.face().let { if (mode == CardMode.TEXT) it.copy(text = "") else it }, mode, if (pick) Emphasis.SELECTABLE else Emphasis.NONE, hovered = over)
                         Spacer(Modifier.width(with(density) { cells.width.toDp() }))
-                        Column(Modifier.cells(textCols, frameRows)) {
+                        Column(Modifier.cells(textCols, itemRows)) {
                             val who = board.players.firstOrNull { it.id == item.controllerId }?.name?.substringBefore(" (") ?: item.controllerName
-                            val head = "${if (theirs) "▲" else "▼"} $who · ${kindLabel(item.kind)}" + if (i == 0) " · top" else ""
+                            // The title says the top comes first; the item doesn't say it again.
+                            val head = "${if (theirs) "▲" else "▼"} $who · ${kindLabel(item.kind)}"
                             GridText(fit(head, textCols), color = if (theirs) Palette.accent else Palette.foreground, bold = true)
-                            val body = wrap(item.text, textCols)
-                            val room = frameRows - 2
-                            body.take(room).forEachIndexed { n, line -> GridText(fit(if (n == room - 1 && body.size > room) line.dropLast(1) + "…" else line, textCols)) }
-                            repeat(maxOf(0, room - body.size)) { GridText("") }
+                            val room = itemRows - 2
+                            cutText(item.text, textCols, room).forEach { GridText(it) }
+                            repeat(maxOf(0, room - wrap(item.text, textCols).size)) { GridText("") }
                             val targets = if (item.targetNames.isEmpty()) "" else "→ " + item.targetNames.joinToString(", ")
                             GridText(fit(targets, textCols), color = Palette.accent, bold = true)
                         }

@@ -436,7 +436,7 @@ private fun StackLayer(
     var settled by remember { mutableIntStateOf(0) }
     LaunchedEffect(prompt?.id, b.stack.size) { withFrameNanos { }; settled++ }
 
-    val rows = stackBoxRows(b.stack.size, mode, maxRows = maxOf(5, cells.rows(table.height)))
+    val rows = stackBoxRows(b.stack, mode, maxRows = maxOf(5, cells.rows(table.height)))
     val midRow = cells.rows(midline.top)
     // By default at the table's right end: lanes fill from the left, so that is where cards are fewest,
     // and the midline's trail, which reads from the left, stays in view.

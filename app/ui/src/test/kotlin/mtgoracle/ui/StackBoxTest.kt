@@ -207,7 +207,9 @@ class StackBoxTest {
         board(seat, mode = CardMode.TEXT).use { d ->
             d.settle(5)
             val text = d.text.all()
-            assertTrue("▼ You · spell · top" in text || "v You · spell · top" in text, text)
+            assertTrue("▼ You · spell" in text || "v You · spell" in text, text)
+            assertTrue("spell · top" !in text, "the title says the top comes first; no item says it again")
+            assertEquals(1, Regex("Counter target spell").findAll(text).count(), "the text once, beside the frame, not in it too")
             assertTrue("AI · spell" in text)
             assertTrue("→ Grizzly Bears" in text)
             assertTrue(text.lines().any { it.trim() == "◄" || it.trim() == "<" }, "Grizzly Bears carries the target mark:\n$text")

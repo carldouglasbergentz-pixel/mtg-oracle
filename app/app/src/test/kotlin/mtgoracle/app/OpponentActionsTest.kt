@@ -43,7 +43,7 @@ class OpponentActionsTest {
             val text = s.screenText() // settles the scene first
             assertTrue(s.registered(stackBox), "the stack box floats over the table")
             assertContains(s.flatText(), "activated Polluted Delta — respond?")
-            assertTrue("▲ AI · activated ability · top" in text || "^ AI · activated ability · top" in text,
+            assertTrue("▲ AI · activated ability" in text || "^ AI · activated ability" in text,
                 "who and what kind, in the box: ${text.lines().filter { "ability" in it || "▲" in it }}")
             assertContains(text, "Pay 1 life")
             s.png("opponent-fetch-on-stack")
