@@ -193,6 +193,19 @@ class AnchoringTest {
             val back = (lands + map + teferi).map { d.registry[ClickTarget.Card(it.id)]!! }
             assertEquals(1, back.map { it.top }.toSet().size, "one back row")
             d.savePng(File(pngDir, "anchoring-manland-animated.png"))
+            // The turn after: the manland a land again, eleven lands, the Map token and Teferi. 0.7.2 split the lands over two lines.
+            seat.board.value = board(listOf(anchorage.copy(isCreature = false, isLand = true, tapped = false, attacking = false, power = null, toughness = null, typeLine = "Land")) + lands + map + teferi, theirLands)
+            d.settle(4)
+            d.savePng(File(pngDir, "anchoring-manland-back.png"))
+            // No size keeps all thirteen on one line here: the lands keep theirs (a turned card sits lower in its slot, so by bottom).
+            val landsAgain = (listOf(anchorage) + lands).map { d.registry[ClickTarget.Card(it.id)]!! }
+            assertEquals(1, landsAgain.map { it.bottom.toInt() / 16 }.toSet().size, "the lands on one line: ${landsAgain.map { it.bottom }}")
+            val near = d.registry[ClickTarget.Control("region:near-field")]!!
+            assertEquals(2, d.text.all().lines().count { it.contains("─ lands") }, "one lands label a side")
+            // Map and Teferi above, ending where the lands end.
+            val above = listOf(map, teferi).map { d.registry[ClickTarget.Card(it.id)]!! }
+            assertTrue(above.all { it.bottom < landsAgain.minOf { l -> l.top } }, "above the lands: $above")
+            assertTrue(kotlin.math.abs(above.maxOf { it.right } - landsAgain.maxOf { it.right }) < 3 * 16f, "at the lands' right end: $above, $near")
         }
     }
 

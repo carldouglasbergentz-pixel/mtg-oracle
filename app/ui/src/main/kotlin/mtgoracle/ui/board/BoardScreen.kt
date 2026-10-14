@@ -288,13 +288,13 @@ fun BoardScreen(
                                 val attach = { p: mtgoracle.core.model.PlayerState -> p.battlefield.any { it.attachedToId != null } }
                                 // At most the large frames on the table, as MTGO keeps its cards moderate: the table is the larger part of the view.
                                 val tiers = if (mode == CardMode.ART) FrameTier.entries.filter { it.ordinal >= TABLE_LARGEST.ordinal } else listOf(FrameTier.TEXT)
-                                // A size that would take a row onto a second band is no fit while a smaller one keeps the rows
-                                // (keepsRows): the rows are kept, the cards shrink. When none keeps them, the largest that fits spills.
+                                // The layout before the size (layoutScore): a size that keeps the layout less well than a smaller
+                                // one is no fit. The rows kept, else the lands' line kept, else whatever fits; the cards shrink first.
                                 fun zonesAt(p: mtgoracle.core.model.PlayerState, t: FrameTier) = zoneContents(Lanes(p.battlefield, looks, ownTurn = p.id == b?.activePlayerId), t)
-                                val keepable = sides!!.toList().associate { p -> p.id to tiers.any { keepsRows(zonesAt(p, it), fieldCols) } }
+                                val best = sides!!.toList().associate { p -> p.id to tiers.minOf { layoutScore(zonesAt(p, it), fieldCols) } }
                                 fun wants(p: mtgoracle.core.model.PlayerState, t: FrameTier, handLane: Boolean): Int {
                                     val zones = zonesAt(p, t)
-                                    if (keepable.getValue(p.id) && !keepsRows(zones, fieldCols)) return Int.MAX_VALUE / 2
+                                    if (layoutScore(zones, fieldCols) > best.getValue(p.id)) return Int.MAX_VALUE / 2
                                     return bandsNeeded(zones, fieldCols) * bandRows(t, attach(p)) + emblemRows(p) + if (handLane) FrameSize.rows(t) else 0
                                 }
                                 // The hand at most the normal frames: the rows a larger hand took go to the table.

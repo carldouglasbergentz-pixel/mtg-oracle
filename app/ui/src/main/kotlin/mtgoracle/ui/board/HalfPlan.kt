@@ -150,6 +150,19 @@ fun rowGroups(zones: List<ZoneContent>): Int =
 /** Whether [zones] keep their rows at this width: each row on one band, overlapped no further than [VISIBLE_SHARE]. */
 fun keepsRows(zones: List<ZoneContent>, cols: Int): Boolean = bandsNeeded(zones, cols) <= rowGroups(zones)
 
+/**
+ * How well [zones] keep the layout at this width, lower better: 0 every row
+ * on its band; 1 the back row spills but its lands keep their line (the
+ * other zones go above, backBlocks); 2 the lands themselves split. The
+ * table takes the largest frames of the best score there is: the layout
+ * before the size (the user, 2026-10-14).
+ */
+fun layoutScore(zones: List<ZoneContent>, cols: Int): Int {
+    if (keepsRows(zones, cols)) return 0
+    val plan = planHalf(zones, cols, bandsNeeded(zones, cols))
+    return if (plan.slots.filter { it.zone == ZoneKind.LANDS }.map { it.band }.toSet().size <= 1) 1 else 2
+}
+
 fun bandsNeeded(zones: List<ZoneContent>, cols: Int, most: Int = 6): Int {
     for (b in 1..most) {
         val plan = planHalf(zones, cols, b)
@@ -299,12 +312,19 @@ private fun backBlocks(group: List<ZoneContent>, lines: Int, edgeBand: Int, cols
     val landsWidth = minOf(landFull, cols - total(0))
     if (lands != null && landsWidth < landLeast || lands == null && total(0) > cols) {
         // No room for the blocks beside the lands: the lands alone on the edge line, the other zones on the line above,
-        // each under its label, each line centred by itself.
+        // each under its label, ending where the lands end (above the lands' right end, where they would have followed).
         if (lands == null || landLeast > cols || others.isEmpty()) return null
-        layLands(lands, 0, minOf(landFull, cols))
+        val landLine = minOf(landFull, cols)
+        layLands(lands, 0, landLine)
         val scrolls = mutableSetOf<Int>()
-        layBand(others.flatMap { zc -> zc.widths.mapIndexed { i, w -> Triple(zc.kind, i, w) } }, edgeBand - 1, cols, slots, segments, scrolls)
-        return BackLayout(slots, segments, scrolls, joined = false)
+        val above = mutableListOf<SlotPlace>()
+        val aboveSegments = mutableListOf<Segment>()
+        layBand(others.flatMap { zc -> zc.widths.mapIndexed { i, w -> Triple(zc.kind, i, w) } }, edgeBand - 1, cols, above, aboveSegments, scrolls)
+        val aboveEnd = above.maxOfOrNull { it.x + it.visible } ?: 0
+        val dx = if (edgeBand - 1 in scrolls) 0 else maxOf(0, landLine - SLOT_GAP - aboveEnd)
+        slots += above.map { it.copy(x = it.x + dx) }
+        segments += aboveSegments.map { it.copy(x = it.x + dx) }
+        return BackLayout(slots, segments, scrolls, joined = true)
     }
     var x = 0
     group.forEach { z ->
