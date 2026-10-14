@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import mtgoracle.core.model.BoardState
 import mtgoracle.core.model.ChoicePrompt
@@ -48,12 +49,15 @@ import mtgoracle.ui.theme.Palette
 
 /**
  * The prompt box's fixed rows, in the left column between the two players'
- * zones (as MTGO puts it): the scrolling content, then two rows of buttons
- * (they wrap when the column is narrow) and one hint row, in its border.
+ * zones (as MTGO puts it): the question with its hint under it, then two
+ * rows of buttons (they wrap when the column is narrow), in its border.
  */
-const val PROMPT_CONTENT_ROWS = 8
+const val PROMPT_CONTENT_ROWS = 9
 const val PROMPT_BUTTON_LINES = 2
-const val PROMPT_ROWS = PROMPT_CONTENT_ROWS + PROMPT_BUTTON_LINES * BUTTON_ROWS + 1 + 2 // + buttons, hint, and the border
+const val PROMPT_ROWS = PROMPT_CONTENT_ROWS + PROMPT_BUTTON_LINES * BUTTON_ROWS + 2 // + buttons and the border
+
+/** The most rows a hint takes under the question; past that it is said without the keys the status line says. */
+private const val HINT_ROWS = 3
 
 /** A prompt's button, a cell apart from the next; disabled ones are drawn dim and can't be clicked. */
 @Composable
@@ -62,18 +66,21 @@ fun GridButton(label: String, target: ClickTarget, enabled: Boolean, onClick: (C
     GridText(" ")
 }
 
+/** Columns a row of [GridButton]s takes. */
+private fun buttonsCols(labels: List<String>) = labels.sumOf { it.length + 4 + 1 }
+
 /**
  * Everything the seat is being asked, in fixed rows: the question and its
- * options scroll inside [contentRows]; the buttons always sit in the same
- * rows (two lines of them, wrapping), and the hint on the one below —
+ * options scroll inside [contentRows], the hint wrapped under them; the
+ * buttons always sit in the same rows (two lines of them, wrapping) —
  * whatever the prompt.
  *
- * Drawn twice for a question the choice box answers (Prompt.boxed): in the
- * box, which [answers] it, and in the left column, which only says it and
- * where to answer, so no option or button is clickable in two places.
- * [regionPrefix] names its regions (`prompt-content`, `choice-content`).
- * [cardOptions]: a choice among cards shows their frames ([cardMode]), and
- * [onCardHover] hears the one under the mouse.
+ * Drawn twice for a question the choice box or the reveal panel answers
+ * (Prompt.answeredElsewhere): there, which [answers] it, and in the left
+ * column, which only says it and where to answer, so no option or button is
+ * clickable in two places. [regionPrefix] names its regions
+ * (`prompt-content`, `choice-content`). [cardOptions]: a choice among cards
+ * shows their frames ([cardMode]), and [onCardHover] hears the one under the mouse.
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -84,8 +91,8 @@ fun PromptBody(
     cols: Int,
     onClick: (ClickTarget) -> Unit,
     onHover: (ClickTarget?) -> Unit,
-    /** Drawn at the right end of the hint row (the board's `[ concede ]`). */
-    trailing: (@Composable () -> Unit)? = null,
+    /** A button of the board's own (Concede): at the right end of the buttons' last line, when the prompt's buttons fit the first. */
+    trailing: Pair<String, ClickTarget>? = null,
     answers: Boolean = true,
     contentRows: Int = PROMPT_CONTENT_ROWS,
     regionPrefix: String = "prompt",
@@ -97,24 +104,36 @@ fun PromptBody(
     Column(Modifier.fillMaxWidth()) {
         // The floating-mana warning takes the prompt's own rows, so nothing around it moves.
         val pending = state.pendingPass
-        Box(Modifier.fillMaxWidth().cellHeight(contentRows).region("$regionPrefix-content")) {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                if (pending != null) wrap(pending.question(), cols).forEach { GridText(fit(it, cols), color = Palette.accent, bold = true) }
-                else if (!answers && prompt != null) {
-                    wrap(prompt.message.trim(), cols).forEach { GridText(fit(it, cols)) }
-                    GridText(fit("answer in the box", cols), color = Palette.accent)
+        // The hint wraps under the question, never cut: the column is narrow. When it runs long, the keys the
+        // status line names too are left to it.
+        val hintLines = when {
+            pending != null -> wrap("Space pass, and the mana is lost · Esc stay, with priority and the mana", cols)
+            !answers -> emptyList()
+            else -> hintLines(prompt, cols)
+        }
+        Column(Modifier.fillMaxWidth().cellHeight(contentRows).region("$regionPrefix-content")) {
+            Box(Modifier.fillMaxWidth().weight(1f)) {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    if (pending != null) wrap(pending.question(), cols).forEach { GridText(fit(it, cols), color = Palette.accent, bold = true) }
+                    else if (!answers && prompt != null) {
+                        wrap(prompt.message.trim(), cols).forEach { GridText(fit(it, cols)) }
+                        GridText(fit(if (prompt.revealPanel()) "shown in the panel" else "answer in the box", cols), color = Palette.accent)
+                    }
+                    else Content(prompt, board, state, cols, contentRows - hintLines.size, onClick, onHover, if (cardOptions) cardMode else null, onCardHover)
                 }
-                else Content(prompt, board, state, cols, contentRows, onClick, onHover, if (cardOptions) cardMode else null, onCardHover)
             }
+            hintLines.forEach { GridText(fit(it, cols), color = Palette.dim) }
         }
-        FlowRow(Modifier.fillMaxWidth().cellHeight(PROMPT_BUTTON_LINES * BUTTON_ROWS).region("$regionPrefix-buttons")) {
-            if (pending != null) { GridButton("Pass", ManaWarningTargets.PASS, true, onClick); GridButton("Stay", ManaWarningTargets.STAY, true, onClick) }
-            else if (answers) Buttons(prompt, state, onClick)
-        }
-        Row(Modifier.fillMaxWidth().cellHeight(1)) {
-            val hintText = if (pending != null) "Space: pass, and the mana is lost · Esc: stay, with priority and the mana" else hint(prompt)
-            GridText(fit(hintText, cols - if (trailing != null) 14 else 0), color = Palette.dim)
-            trailing?.invoke()
+        Box(Modifier.fillMaxWidth().cellHeight(PROMPT_BUTTON_LINES * BUTTON_ROWS).region("$regionPrefix-buttons")) {
+            val labels = if (pending != null) listOf("Pass", "Stay") else if (answers) buttons(prompt, state).map { it.first } else emptyList()
+            FlowRow(Modifier.fillMaxWidth()) {
+                if (pending != null) { GridButton("Pass", ManaWarningTargets.PASS, true, onClick); GridButton("Stay", ManaWarningTargets.STAY, true, onClick) }
+                else if (answers) buttons(prompt, state).forEach { (label, target, enabled) -> GridButton(label, target, enabled, onClick) }
+            }
+            // One place for it whatever the prompt; with the prompt's buttons on both lines it gives way (Ctrl+Q still concedes).
+            if (trailing != null && buttonsCols(labels) <= cols) Box(Modifier.align(Alignment.BottomEnd)) {
+                BigButton(trailing.first, trailing.second, true, onClick)
+            }
         }
     }
 }
@@ -218,25 +237,24 @@ private fun CardOptions(prompt: ChoicePrompt, state: Interaction, mode: CardMode
     }
 }
 
-@Composable
-private fun Buttons(prompt: Prompt?, state: Interaction, onClick: (ClickTarget) -> Unit) {
-    when (prompt) {
-        null -> {}
-        is InputPrompt -> {
-            if (prompt.okLabel.isNotBlank()) GridButton(prompt.okLabel, ClickTarget.Ok, prompt.okEnabled, onClick)
-            if (prompt.cancelLabel.isNotBlank()) GridButton(prompt.cancelLabel, ClickTarget.Cancel, prompt.cancelEnabled, onClick)
-        }
-        is ConfirmPrompt -> { GridButton(prompt.yesLabel, ClickTarget.Ok, true, onClick); GridButton(prompt.noLabel, ClickTarget.Cancel, true, onClick) }
-        is ChoicePrompt -> when {
-            prompt.isReveal -> GridButton("OK", ClickTarget.Done, true, onClick)
-            prompt.max > 1 -> GridButton("Done (${state.picks.size})", ClickTarget.Done, state.picks.size in prompt.min..prompt.max, onClick)
-            prompt.min == 0 -> GridButton("None", ClickTarget.Done, true, onClick)
-        }
-        is OrderPrompt -> GridButton("Done", ClickTarget.Done, true, onClick)
-        is DistributePrompt -> GridButton("Done", ClickTarget.Done, prompt.problem(state.amounts) == null, onClick)
-        is NumberPrompt -> { GridButton("OK", ClickTarget.Done, true, onClick); if (prompt.cancellable) GridButton("Cancel", ClickTarget.Cancel, true, onClick) }
-        is SideboardPrompt -> GridButton("Done", ClickTarget.Done, state.deck.values.sum() >= prompt.minMain, onClick)
+/** The prompt's buttons: label, target, and whether it can be pressed. */
+private fun buttons(prompt: Prompt?, state: Interaction): List<Triple<String, ClickTarget, Boolean>> = when (prompt) {
+    null -> emptyList()
+    is InputPrompt -> listOfNotNull(
+        Triple(prompt.okLabel, ClickTarget.Ok, prompt.okEnabled).takeIf { prompt.okLabel.isNotBlank() },
+        Triple(prompt.cancelLabel, ClickTarget.Cancel, prompt.cancelEnabled).takeIf { prompt.cancelLabel.isNotBlank() },
+    )
+    is ConfirmPrompt -> listOf(Triple(prompt.yesLabel, ClickTarget.Ok, true), Triple(prompt.noLabel, ClickTarget.Cancel, true))
+    is ChoicePrompt -> when {
+        prompt.isReveal -> listOf(Triple("OK", ClickTarget.Done, true))
+        prompt.max > 1 -> listOf(Triple("Done (${state.picks.size})", ClickTarget.Done, state.picks.size in prompt.min..prompt.max))
+        prompt.min == 0 -> listOf(Triple("None", ClickTarget.Done, true))
+        else -> emptyList()
     }
+    is OrderPrompt -> listOf(Triple("Done", ClickTarget.Done, true))
+    is DistributePrompt -> listOf(Triple("Done", ClickTarget.Done, prompt.problem(state.amounts) == null))
+    is NumberPrompt -> listOfNotNull(Triple("OK", ClickTarget.Done, true), Triple("Cancel", ClickTarget.Cancel, true).takeIf { prompt.cancellable })
+    is SideboardPrompt -> listOf(Triple("Done", ClickTarget.Done, state.deck.values.sum() >= prompt.minMain))
 }
 
 /** "main 60 (at least 60) · sideboard 15": whether the deck can be played, before Done is pressed. */
@@ -307,26 +325,55 @@ fun opponentAction(prompt: Prompt?, board: BoardState?): String? {
     return (if (top.kind == StackKind.TRIGGERED) "$who$what" else "$who $what") + "$targets — respond?"
 }
 
-private fun hint(prompt: Prompt?): String = when (prompt) {
-    null -> ""
-    is InputPrompt -> {
-        val what = when (prompt.kind) {
-            InputKind.PRIORITY -> "click a card to play it · F2 pass · F4 end turn · F6 skip turn"
-            InputKind.TARGET -> "click a highlighted card, or a player's name"
-            InputKind.PAY_MANA -> "click a land or source to tap it, or Space for ${prompt.okLabel}"
-            InputKind.ATTACK -> "click your creatures to attack, Space when done"
-            InputKind.BLOCK -> "click an attacker, then your creature to block it; Space when done"
-            InputKind.SELECT_CARDS -> "click cards to pick them, Space when done"
-            else -> "click a card or a player"
-        }
-        "$what · Space ${prompt.okLabel.ifBlank { "-" }} · Esc ${prompt.cancelLabel.ifBlank { "-" }}"
+/**
+ * The keys that answer [prompt] and what each does, in its buttons' words:
+ * the prompt's hint and the status line say them alike, one spelling per
+ * key (Space, Enter, Esc, 1-9, +/-).
+ */
+fun promptKeys(prompt: Prompt?): List<Pair<String, String>> = when (prompt) {
+    null -> emptyList()
+    is InputPrompt -> listOfNotNull(("Space" to prompt.okLabel).takeIf { prompt.okLabel.isNotBlank() }, ("Esc" to prompt.cancelLabel).takeIf { prompt.cancelLabel.isNotBlank() })
+    is ConfirmPrompt -> listOf("Enter" to prompt.yesLabel, "Esc" to prompt.noLabel)
+    is ChoicePrompt -> when {
+        prompt.isReveal -> listOf("Enter" to "OK")
+        prompt.searchable -> listOf("Enter" to if (prompt.max <= 1) "first match" else "Done", "Backspace" to "erase")
+        else -> listOfNotNull("1-9" to "pick", when {
+            prompt.max > 1 -> "Enter" to "Done"
+            prompt.min == 0 -> "Enter" to "None"
+            else -> null
+        }, ("Esc" to "clear").takeIf { prompt.max > 1 })
     }
-    is ConfirmPrompt -> "Enter ${prompt.yesLabel} · Esc ${prompt.noLabel}"
-    is ChoicePrompt -> if (prompt.isReveal) "shown for information · Enter to continue"
-        else if (prompt.searchable) "type part of a name to narrow · Backspace erases · click one${if (prompt.max <= 1) ", or Enter for the first" else " · Enter done"}"
-        else "choose ${if (prompt.min == prompt.max) "${prompt.min}" else "${prompt.min}–${prompt.max}"} · click, or 1–9 · Enter done"
-    is OrderPrompt -> "click in order, ${prompt.firstLabel} first; unpicked keep their order after · Enter done · Esc clear"
-    is DistributePrompt -> "1–9 pick a row · + / - adjust · Enter done"
-    is NumberPrompt -> "type a number · + / - · Enter OK · Esc cancel"
-    is SideboardPrompt -> "click a card to move one copy between deck and sideboard · Enter done"
+    is OrderPrompt -> listOf("1-9" to "pick", "Enter" to "Done", "Esc" to "clear")
+    is DistributePrompt -> listOf("1-9" to "row", "+/-" to "adjust", "Enter" to "Done", "Esc" to "cancel")
+    is NumberPrompt -> listOfNotNull("+/-" to "adjust", "Enter" to "OK", ("Esc" to "Cancel").takeIf { prompt.cancellable })
+    is SideboardPrompt -> listOf("Enter" to "Done")
+}
+
+/** [prompt]'s hint wrapped to [cols]: with its keys while that takes at most [HINT_ROWS] rows, else without them. */
+internal fun hintLines(prompt: Prompt?, cols: Int): List<String> =
+    wrap(promptHint(prompt, withKeys = true), cols).takeIf { it.size <= HINT_ROWS } ?: wrap(promptHint(prompt, withKeys = false), cols)
+
+/** What to do at [prompt], in words; [withKeys] adds its keys ([promptKeys]), which the status line says too. */
+internal fun promptHint(prompt: Prompt?, withKeys: Boolean): String {
+    val what = when (prompt) {
+        null -> ""
+        is InputPrompt -> when (prompt.kind) {
+            InputKind.PRIORITY -> "click a card to play it"
+            InputKind.TARGET -> "click a highlighted card, or a player's life"
+            InputKind.PAY_MANA -> "click a land or source to tap it"
+            InputKind.ATTACK -> "click your creatures to attack"
+            InputKind.BLOCK -> "click an attacker, then your creature to block it"
+            InputKind.SELECT_CARDS -> "click cards to pick them"
+            else -> "click a card, or a player's life"
+        }
+        is ConfirmPrompt -> ""
+        is ChoicePrompt -> if (prompt.isReveal) "shown for information" else if (prompt.searchable) "type part of a name to narrow, then click one"
+            else "choose ${if (prompt.min == prompt.max) "${prompt.min}" else "${prompt.min}-${prompt.max}"}"
+        is OrderPrompt -> "click in order, ${prompt.firstLabel} first; unpicked keep their order after"
+        is DistributePrompt -> "divide it between the rows"
+        is NumberPrompt -> "type a number"
+        is SideboardPrompt -> "click a card to move one copy between deck and sideboard"
+    }
+    val keys = if (withKeys) promptKeys(prompt).joinToString(" · ") { (key, does) -> "$key $does" } else ""
+    return listOf(what, keys).filter { it.isNotBlank() }.joinToString(" · ")
 }

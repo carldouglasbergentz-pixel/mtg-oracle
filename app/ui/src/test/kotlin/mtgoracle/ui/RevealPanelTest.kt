@@ -34,6 +34,10 @@ class RevealPanelTest {
             assertNotNull(d.registry[ClickTarget.Control("region:reveal")], "the panel")
             val text = d.text.all()
             assertTrue("shown to you" in text && "Looking at cards in AI (Rakdos)'s library" in text && "Sylvan Library" in text, text)
+            // One OK, the panel's: the left column only says where the cards are.
+            val ok = assertNotNull(d.registry[ClickTarget.Done])
+            assertTrue(d.registry[ClickTarget.Control("region:reveal")]!!.contains(ok.center), "the OK is the panel's")
+            assertTrue("shown in the panel" in text, text)
             d.savePng(File(pngDir, "reveal-panel.png"))
             assertTrue(d.hover(ClickTarget.Control("reveal:0")))
             d.settle(3)

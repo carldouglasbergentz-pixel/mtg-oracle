@@ -18,8 +18,9 @@ class AchievementsTest {
         OffscreenDriver(900, 400) { ResultPanel(status, {}) }.use { d ->
             d.settle(3)
             val text = d.text.all()
-            assertTrue("achievement: Overkill: Win a game with opponent at -5 life" in text, text)
-            assertTrue("you won the match" in text, text)
+            assertTrue("achievement: Overkill — Win a game with opponent at -5 life" in text, text)
+            // A best of one: the game is the match, said once.
+            assertTrue("you won on turn 9" in text && "match 1" !in text && "won the match" !in text && "best of 1" !in text, text)
             d.savePng(File(pngDir, "result-achievements.png"))
         }
     }

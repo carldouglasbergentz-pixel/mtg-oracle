@@ -46,6 +46,12 @@ fun Prompt.boxed(): Boolean = when (this) {
     else -> false
 }
 
+/** A reveal of cards, drawn in the reveal panel over the table (RevealPanel), which answers it. */
+fun Prompt.revealPanel(): Boolean = this is ChoicePrompt && isReveal && options.any { it.card != null }
+
+/** Answered over the table, in the choice box or the reveal panel: the left column only says it. */
+fun Prompt.answeredElsewhere(): Boolean = boxed() || revealPanel()
+
 /** The box's width when its options are words. */
 const val CHOICE_BOX_COLS = 64
 
@@ -60,7 +66,7 @@ fun choiceBoxCols(prompt: Prompt, mode: CardMode): Int {
     return if (cards == 0) CHOICE_BOX_COLS else maxOf(CHOICE_BOX_COLS, 2 + minOf(cards, CARDS_PER_ROW) * (FrameSize.cols(mode) + 1))
 }
 
-/** The box's height in cells: the question, its options, the buttons, the hint and the border, at most [maxRows] (then the options scroll). */
+/** The box's height in cells: the question, its options, the hint, the buttons and the border, at most [maxRows] (then the options scroll). */
 fun choiceBoxRows(prompt: Prompt, mode: CardMode, maxRows: Int): Int {
     val cols = choiceBoxCols(prompt, mode) - 2
     val question = wrap(prompt.message.trim(), cols).size
@@ -73,8 +79,9 @@ fun choiceBoxRows(prompt: Prompt, mode: CardMode, maxRows: Int): Int {
         prompt is NumberPrompt -> 1
         else -> 0
     }
-    val frame = 2 + PROMPT_BUTTON_LINES * BUTTON_ROWS + 1
-    return (frame + question + options).coerceAtMost(maxRows).coerceAtLeast(frame + 2)
+    val hint = hintLines(prompt, cols).size
+    val frame = 2 + PROMPT_BUTTON_LINES * BUTTON_ROWS
+    return (frame + question + options + hint).coerceAtMost(maxRows).coerceAtLeast(frame + 2 + hint)
 }
 
 /**
@@ -122,7 +129,7 @@ fun ChoiceBox(
         Box(Modifier.padding(with(density) { cells.width.toDp() }, with(density) { cells.height.toDp() }).cells(cols - 2, rows - 2)) {
             PromptBody(
                 prompt, board, interaction, cols - 2, onClick, onHover,
-                contentRows = rows - 2 - PROMPT_BUTTON_LINES * BUTTON_ROWS - 1, regionPrefix = "choice",
+                contentRows = rows - 2 - PROMPT_BUTTON_LINES * BUTTON_ROWS, regionPrefix = "choice",
                 cardOptions = true, cardMode = mode, onCardHover = onCardHover,
             )
         }

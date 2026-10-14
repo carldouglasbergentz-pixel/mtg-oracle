@@ -39,8 +39,11 @@ class ChoiceBoxTest {
             seat.prompt.value = ChoicePrompt(2, "Choose an ability of Sol Ring", listOf(ChoiceOption("{T}: Add {C}{C}."), ChoiceOption("Cancel")), 1, 1)
             d.settle(4)
             val box = assertNotNull(d.registry[ClickTarget.Control("region:choice-box")], "the box is up")
-            assertTrue(kotlin.math.abs(box.center.y - ring.center.y) < box.height, "beside the card: $box by $ring")
-            assertTrue(box.left >= ring.right || box.right <= ring.left, "and not over it: $box, $ring")
+            // Beside it there is no room that covers no other card (the Mountain left of it, the table's edge right of
+            // it), so the nearest free place: it covers no card on the table, and not the stack box.
+            assertTrue(!box.overlaps(ring), "not over the card: $box, $ring")
+            for (card in sampleBoard().players.flatMap { it.battlefield }) d.registry[ClickTarget.Card(card.id)]?.let { assertTrue(!it.overlaps(box), "${card.name} is not under the box: $it, $box") }
+            assertTrue(!box.overlaps(d.registry[ClickTarget.Control("region:stack-box")]!!), "nor the stack box")
             val option = assertNotNull(d.registry[ClickTarget.Option(0)])
             assertTrue(box.contains(option.center), "the options are in the box")
             assertTrue("answer in the box" in d.text.all(), "the left column says where to answer")

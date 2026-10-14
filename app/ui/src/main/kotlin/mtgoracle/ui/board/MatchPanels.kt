@@ -80,51 +80,72 @@ private fun outcome(r: MatchResult) = when (r.winner) {
  * is one Start away. A solid panel over the
  * table, like the stack box; the table under it is the last game's.
  */
-@Composable
-fun ResultPanel(status: MatchStatus, onClick: (ClickTarget) -> Unit, modifier: Modifier = Modifier) {
-    val last = status.games.lastOrNull() ?: return
-    val cols = 64
-    val lines = buildList {
-        add("game ${last.gameNo} of ${status.format}: ${outcome(last)}" + (last.turns?.let { " on turn $it" } ?: ""))
-        add("match ${last.wins}–${last.losses}")
-        if (status.over) add(when {
+/** The result panel's lines: in a best of one the game is the match, so neither the score nor the match result is said again. */
+private fun resultLines(status: MatchStatus): List<String> {
+    val last = status.games.lastOrNull() ?: return emptyList()
+    val single = status.gamesInMatch <= 1
+    return buildList {
+        add((if (single) "" else "game ${last.gameNo} of ${status.format}: ") + outcome(last) + (last.turns?.let { " on turn $it" } ?: ""))
+        if (!single) add("match ${last.wins}–${last.losses}")
+        if (status.over && !single) add(when {
             last.wins > last.losses -> "you won the match"
             last.losses > last.wins -> "you lost the match"
             else -> "the match is drawn"
         })
-        status.achievements.forEach { add("achievement: $it") }
+        // Forge's `Overkill: Win a game …`, its name set off from what it is for without a second colon.
+        status.achievements.forEach { add(ACHIEVEMENT + it.replaceFirst(": ", " — ")) }
     }
-    Box(modifier.cells(cols, lines.size + 4 + BUTTON_ROWS).chromeShape().background(Palette.background)
+}
+
+private const val ACHIEVEMENT = "achievement: "
+
+/** The result panel's size in cells. */
+const val RESULT_PANEL_COLS = 64
+fun resultPanelRows(status: MatchStatus): Int = resultLines(status).size + 3 + BUTTON_ROWS + if (status.over) 0 else 1
+
+/**
+ * Between games: game N's result, the score, Continue. When the match is
+ * over: its result and the way back to the lobby, where the same pairing
+ * is one Start away. A solid panel over the table, like the stack box; the
+ * table under it is the last game's. A button says its key.
+ */
+@Composable
+fun ResultPanel(status: MatchStatus, onClick: (ClickTarget) -> Unit, modifier: Modifier = Modifier) {
+    val last = status.games.lastOrNull() ?: return
+    val cols = RESULT_PANEL_COLS
+    val lines = resultLines(status)
+    Box(modifier.cells(cols, resultPanelRows(status)).chromeShape().background(Palette.background)
         .boxBorder(if (status.over) "match over" else "game over", border = Border.DOUBLE, color = Palette.accent)
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
         .region("match-result")) {
         Column(Modifier.padding(start = with(LocalDensity.current) { LocalCells.current.width.toDp() * 2 }, top = with(LocalDensity.current) { LocalCells.current.height.toDp() })) {
             lines.forEachIndexed { i, line ->
-                val achievement = line.startsWith("achievement: ")
+                val achievement = line.startsWith(ACHIEVEMENT)
                 GridText(fit(line, cols - 4), color = if (i == 0) Palette.foreground else if (achievement) Palette.accent else Palette.dim, bold = i == 0)
             }
             GridText("")
             Row {
-                if (status.over) GridButton("Back to the lobby", MatchTargets.LOBBY, true, onClick)
+                if (status.over) GridButton("Enter  back to the lobby", MatchTargets.LOBBY, true, onClick)
                 else if (status.waitingForHost) { GridButton("Waiting for the host", MatchTargets.CONTINUE, false, onClick); GridText("  "); GridButton("Leave the table", MatchTargets.LOBBY, true, onClick) }
-                else GridButton("Continue to game ${last.gameNo + 1}", MatchTargets.CONTINUE, true, onClick)
+                else GridButton("Enter  continue to game ${last.gameNo + 1}", MatchTargets.CONTINUE, true, onClick)
             }
-            GridText(fit(when {
-                status.over -> "Enter or Esc: the lobby"
-                status.waitingForHost -> "the host starts game ${last.gameNo + 1}; sideboarding and play/draw come next"
-                else -> "Enter: continue · sideboarding and play/draw come next"
-            }, cols - 4), color = Palette.dim)
+            if (!status.over) GridText(fit(if (status.waitingForHost) "the host starts game ${last.gameNo + 1}; sideboarding and play/draw come next"
+                else "sideboarding and play/draw come next", cols - 4), color = Palette.dim)
         }
     }
 }
 
+/** The concede menu's size in cells. */
+const val CONCEDE_MENU_COLS = 68
+fun concedeMenuRows(status: MatchStatus?): Int = (if (status != null && status.gamesInMatch > 1) 3 else 2) * (BUTTON_ROWS + 1) + 4
+
 /** Ctrl+Q (or Esc with nothing to cancel): leave this game, or the whole match. */
 @Composable
 fun ConcedeMenu(status: MatchStatus?, onClick: (ClickTarget) -> Unit, modifier: Modifier = Modifier) {
-    val cols = 68
+    val cols = CONCEDE_MENU_COLS
     // In a match with games still to come, conceding a game is not leaving.
     val gamesLeft = status != null && status.gamesInMatch > 1
-    Box(modifier.cells(cols, (if (gamesLeft) 3 else 2) * (BUTTON_ROWS + 1) + 4).chromeShape().background(Palette.background)
+    Box(modifier.cells(cols, concedeMenuRows(status)).chromeShape().background(Palette.background)
         .boxBorder("leave the game?", border = Border.DOUBLE, color = Palette.accent)
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
         .region("concede-menu")) {

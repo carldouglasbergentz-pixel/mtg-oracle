@@ -55,7 +55,6 @@ import mtgoracle.core.model.SideboardPrompt
 import mtgoracle.core.model.Prompt
 import mtgoracle.ui.kit.Border
 import mtgoracle.ui.kit.BoxPane
-import mtgoracle.ui.kit.ControlButton
 import mtgoracle.ui.kit.CardFace
 import mtgoracle.ui.kit.CardMode
 import mtgoracle.ui.kit.ClickRegistry
@@ -270,13 +269,13 @@ fun BoardScreen(
                         val fieldCols = leftCols - panes.zoneCols
                         // The prompt, in the left column between the two players' zones, as MTGO puts it.
                         val promptBox: @Composable () -> Unit = {
-                            BoxPane("prompt" + ((prompt as? InputPrompt)?.let { " · ${it.kind.name.lowercase()}" } ?: ""),
+                            BoxPane(listOfNotNull("prompt", promptTitle(prompt)).joinToString(" · "),
                                 Modifier.fillMaxWidth().cellHeight(PROMPT_ROWS).region("prompt"),
                                 border = if (prompt != null) Border.DOUBLE else Border.SINGLE,
                                 borderColor = if (prompt != null) Palette.accent else Palette.dim) {
                                 // A question the choice box answers is only said here, with where to answer it.
-                                PromptBody(prompt, board, interaction, panes.zoneCols - 2, onClick, onHover, answers = prompt?.boxed() != true,
-                                    trailing = if (matchControls != null && !showResult) ({ ControlButton("[ concede ]", MatchTargets.OPEN_MENU, true, onClick) }) else null)
+                                PromptBody(prompt, board, interaction, panes.zoneCols - 2, onClick, onHover, answers = prompt?.answeredElsewhere() != true,
+                                    trailing = if (matchControls != null && !showResult) "Concede" to MatchTargets.OPEN_MENU else null)
                             }
                         }
                         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -377,9 +376,22 @@ fun BoardScreen(
             if (tips.isNotEmpty() && !showResult && !menuOpen) {
                 BoardTips(tips, onTipsDone, Modifier.align(Alignment.TopCenter).offset { IntOffset(0, (3 * cells.height).roundToInt()) })
             }
+            // A panel over the table, where it covers no card if it can: at whole cells, so nothing is left peeking
+            // a pixel past its edge; the middle of the window while there is no table.
+            @Composable
+            fun overTable(key: Any?, cols: Int, rows: Int): Modifier {
+                if (table == Rect.Zero) return Modifier.align(Alignment.Center)
+                val (c, r) = remember(key, cols, rows, settledAfter(key)) {
+                    val middle = panes.zoneCols + (leftCols - panes.zoneCols - cols) / 2 to cells.rows(table.top) + (cells.rows(table.height) - rows) / 2
+                    placeFloating(cols, rows, cells, listOf(middle), tableCols(panes.zoneCols, leftCols, cols), tableRows(table, cells, rows, totalRows),
+                        listOf(stackBoxRects(registry) + tableCards(registry, table)))
+                }
+                return Modifier.offset { IntOffset((c * cells.width).roundToInt(), (r * cells.height).roundToInt()) }
+            }
             // Cards shown to you, drawn over the table until you have seen them.
-            (prompt as? ChoicePrompt)?.takeIf { it.isReveal && it.options.any { o -> o.card != null } && !showResult && !menuOpen }?.let { p ->
-                RevealPanel(p, onClick, onHover = { face -> zoom = face }, modifier = Modifier.align(Alignment.Center))
+            prompt?.takeIf { it.revealPanel() && !showResult && !menuOpen }?.let { p ->
+                p as ChoicePrompt
+                RevealPanel(p, onClick, onHover = { face -> zoom = face }, modifier = overTable(p.id, revealPanelCols(p), revealPanelRows(p)))
             }
             // A pick, a division, a number, an order or a yes-or-no: in a box over the table, by what it is about.
             prompt?.takeIf { it.boxed() && b != null && table != Rect.Zero && !showResult && !menuOpen }?.let { p ->
@@ -387,8 +399,8 @@ fun BoardScreen(
                     onClick, onHover, onCardHover = { face -> zoom = face })
             }
             // Over everything: the result between games, and the way out of the game.
-            if (showResult) ResultPanel(match!!, onClick, Modifier.align(Alignment.Center))
-            if (menuOpen && matchControls != null) ConcedeMenu(match, onClick, Modifier.align(Alignment.Center))
+            if (showResult) ResultPanel(match!!, onClick, overTable(match.games.size, RESULT_PANEL_COLS, resultPanelRows(match)))
+            if (menuOpen && matchControls != null) ConcedeMenu(match, onClick, overTable("menu", CONCEDE_MENU_COLS, concedeMenuRows(match)))
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -510,14 +522,15 @@ private fun ChoiceLayer(
 ) {
     val cols = choiceBoxCols(prompt, mode)
     val rows = choiceBoxRows(prompt, mode, maxRows = maxOf(12, cells.rows(table.height)))
-    // Where it opens is settled when the question comes: the card it is about may move while it is asked. Tried in
-    // turn: right of that card, left of it, above, below, mid-table, the table's top and bottom; the first that covers
-    // neither the card nor one the question wants clicked on the table (its options' cards), as the stack box steps aside.
-    val opening = remember(prompt.id) {
+    // Where it opens is settled when the question comes: the card it is about may move while it is asked. Wanted in
+    // turn: right of that card, left of it, above, below, mid-table; else the free place nearest the first of those.
+    // Free of every card on the table and of the stack box where there is room, else of the card it is about and the
+    // ones the question wants clicked (its options' cards), as the stack box steps aside.
+    val opening = remember(prompt.id, settledAfter(prompt.id)) {
         val beside = lastCardClicked?.let { registry[it] }?.takeIf { table.overlaps(it) }
         val legal = legalRects(prompt, registry) + listOfNotNull(beside)
         val middle = zoneCols + (leftCols - zoneCols - cols) / 2
-        val tries = buildList {
+        val preferred = buildList {
             if (beside != null) {
                 val level = cells.rows(beside.center.y) - rows / 2
                 val across = cells.cols(beside.center.x) - cols / 2
@@ -527,11 +540,9 @@ private fun ChoiceLayer(
                 add(across to cells.rows(beside.bottom) + 1)
             }
             add(middle to cells.rows(table.top) + (cells.rows(table.height) - rows) / 2)
-            add(middle to cells.rows(table.top))
-            add(middle to cells.rows(table.bottom) - rows)
         }.map { (c, r) -> clampCells(c, cols, minOf(totalCols, leftCols)) to clampCells(r, rows, totalRows) }
-        fun at(c: Int, r: Int) = Rect(c * cells.width, r * cells.height, (c + cols) * cells.width, (r + rows) * cells.height)
-        tries.firstOrNull { (c, r) -> legal.none { it.overlaps(at(c, r)) } } ?: tries.first()
+        placeFloating(cols, rows, cells, preferred, tableCols(zoneCols, leftCols, cols), tableRows(table, cells, rows, totalRows),
+            listOf(legal + stackBoxRects(registry) + tableCards(registry, table), legal + stackBoxRects(registry), legal))
     }
     var moved by remember(prompt.id) { mutableStateOf(Offset.Zero) }
     var drag by remember(prompt.id) { mutableStateOf(Offset.Zero) }
@@ -544,6 +555,25 @@ private fun ChoiceLayer(
     )
 }
 
+/**
+ * 0, then 1 a frame after [key] changed: a place worked out again once the
+ * frame has laid out what it should avoid. A box up from the start (a test's
+ * first prompt) was placed before the stack box it sat on had a place.
+ */
+@Composable
+private fun settledAfter(key: Any?): Int {
+    var settled by remember(key) { mutableIntStateOf(0) }
+    LaunchedEffect(key) { withFrameNanos { }; settled = 1 }
+    return settled
+}
+
+/** The columns a floating box of [cols] can start at over the table, a cell in from either side. */
+private fun tableCols(zoneCols: Int, leftCols: Int, cols: Int): IntRange = (zoneCols + 1)..(leftCols - cols - 1)
+
+/** The rows a floating box of [rows] can start at over [table], inside the window. */
+private fun tableRows(table: Rect, cells: Cells, rows: Int, totalRows: Int): IntRange =
+    cells.rows(table.top)..minOf(cells.rows(table.bottom) - rows, totalRows - rows)
+
 /** Where the cards and players the current prompt wants clicked are drawn. */
 private fun legalRects(prompt: Prompt?, registry: ClickRegistry): List<Rect> {
     val cards: Set<Int> = when (prompt) {
@@ -555,11 +585,24 @@ private fun legalRects(prompt: Prompt?, registry: ClickRegistry): List<Rect> {
     return cards.mapNotNull { registry[ClickTarget.Card(it)] } + players.mapNotNull { registry[it] }
 }
 
-private fun hints(prompt: Prompt?): List<Pair<String, String>> = buildList {
-    add("F2" to "pass"); add("F4" to "end turn"); add("F6" to "skip turn"); add("F3" to "cancel yields")
-    if (prompt is InputPrompt) { add("Space" to "ok"); add("Esc" to "cancel") }
-    else if (prompt != null) { add("Enter" to "done"); add("Esc" to "cancel") }
-    if (prompt is ChoicePrompt || prompt is OrderPrompt || prompt is DistributePrompt) add("1-9" to "choose")
+/** The status line's keys: the board's own, then the prompt's in its buttons' words (promptKeys). */
+private fun hints(prompt: Prompt?): List<Pair<String, String>> =
+    listOf("F2" to "pass", "F4" to "end turn", "F6" to "skip turn", "F3" to "cancel yields") + promptKeys(prompt)
+
+/** The prompt box's title after `prompt`: what kind of question it is, in words; null where the question says it. */
+private fun promptTitle(prompt: Prompt?): String? = when (prompt) {
+    is InputPrompt -> when (prompt.kind) {
+        InputKind.PRIORITY -> "your priority"
+        InputKind.PAY_MANA -> "pay"
+        InputKind.TARGET -> "targets"
+        InputKind.ATTACK -> "attackers"
+        InputKind.BLOCK -> "blockers"
+        InputKind.MULLIGAN -> "mulligan"
+        InputKind.SELECT_CARDS -> "choose cards"
+        InputKind.CONFIRM, InputKind.OTHER -> null
+    }
+    is SideboardPrompt -> "sideboarding"
+    else -> null
 }
 
 /** Board objects the current dialog's options stand for: they get the selectable look. */
